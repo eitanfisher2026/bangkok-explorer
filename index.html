@@ -102,6 +102,8 @@ const BangkokExplorer = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [showLocationDetailModal, setShowLocationDetailModal] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importedData, setImportedData] = useState(null);
 
   // Toast notification helper
   const showToast = (message, type = 'success') => {
@@ -1153,6 +1155,42 @@ const BangkokExplorer = () => {
     const updated = customLocations.filter(loc => loc.id !== locationId);
     setCustomLocations(updated);
     localStorage.setItem('bangkok_custom_locations', JSON.stringify(updated));
+  };
+  
+  // Import function - add new only, skip existing
+  const handleImportMerge = () => {
+    // Add only new items - skip existing (by ID)
+    const newInterests = [...customInterests];
+    let addedInterests = 0;
+    
+    (importedData.customInterests || []).forEach(interest => {
+      if (!newInterests.find(i => i.id === interest.id)) {
+        newInterests.push(interest);
+        addedInterests++;
+      }
+    });
+    
+    const newLocations = [...customLocations];
+    let addedLocations = 0;
+    
+    (importedData.customLocations || []).forEach(loc => {
+      if (!newLocations.find(l => l.id === loc.id)) {
+        newLocations.push(loc);
+        addedLocations++;
+      }
+    });
+    
+    setCustomInterests(newInterests);
+    setCustomLocations(newLocations);
+    localStorage.setItem('bangkok_custom_interests', JSON.stringify(newInterests));
+    localStorage.setItem('bangkok_custom_locations', JSON.stringify(newLocations));
+    setShowImportDialog(false);
+    setImportedData(null);
+    
+    showToast(
+      `✅ יובא! נוספו ${addedInterests} תחומים חדשים, ${addedLocations} מקומות חדשים`,
+      'success'
+    );
   };
 
   const addCustomLocation = () => {
@@ -2438,6 +2476,110 @@ const BangkokExplorer = () => {
               )}
             </div>
 
+            {/* Import/Export Section */}
+            <div className="mb-6">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-3 border-blue-400 rounded-xl p-4">
+                <h3 className="text-lg font-bold text-gray-800 mb-2">💾 ייבוא וייצוא נתונים</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  שמור את תחומי העניין והמקומות שלך, והעבר אותם בין מכשירים
+                </p>
+                
+                <div className="space-y-3">
+                  {/* Export Button */}
+                  <button
+                    onClick={() => {
+                      try {
+                        const data = {
+                          customInterests: customInterests,
+                          customLocations: customLocations,
+                          exportDate: new Date().toISOString().split('T')[0],
+                          version: '1.2'
+                        };
+                        
+                        const dataStr = JSON.stringify(data, null, 2);
+                        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                        const url = URL.createObjectURL(dataBlob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = `bangkok-data-${data.exportDate}.json`;
+                        link.click();
+                        URL.revokeObjectURL(url);
+                        
+                        showToast(`✅ הקובץ הורד! (${customInterests.length} תחומים, ${customLocations.length} מקומות)`, 'success');
+                      } catch (error) {
+                        console.error('[EXPORT] Error:', error);
+                        showToast('❌ שגיאה בייצוא הנתונים', 'error');
+                      }
+                    }}
+                    className="w-full bg-blue-500 text-white py-3 px-4 rounded-lg font-bold hover:bg-blue-600 transition flex items-center justify-center gap-2"
+                  >
+                    <span>📤</span>
+                    <span>ייצא את הנתונים שלי</span>
+                    <span className="text-xs bg-blue-600 px-2 py-1 rounded">
+                      {customInterests.length} תחומים, {customLocations.length} מקומות
+                    </span>
+                  </button>
+                  
+                  {/* Import Button */}
+                  <div>
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          try {
+                            const data = JSON.parse(event.target.result);
+                            
+                            // Validate data structure
+                            if (!data.customInterests || !data.customLocations) {
+                              showToast('❌ קובץ לא תקין - חסרים שדות נדרשים', 'error');
+                              return;
+                            }
+                            
+                            // Show import dialog with options
+                            setImportedData(data);
+                            setShowImportDialog(true);
+                          } catch (error) {
+                            console.error('[IMPORT] Error:', error);
+                            showToast('❌ שגיאה בקריאת הקובץ - וודא שזה קובץ JSON תקין', 'error');
+                          }
+                        };
+                        reader.readAsText(file);
+                        
+                        // Reset input
+                        e.target.value = '';
+                      }}
+                      id="importData"
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="importData"
+                      className="block w-full bg-green-500 text-white py-3 px-4 rounded-lg font-bold hover:bg-green-600 transition text-center cursor-pointer"
+                    >
+                      📥 ייבא נתונים מקובץ
+                    </label>
+                  </div>
+                  
+                  {/* Info Box */}
+                  <div className="bg-blue-100 border-2 border-blue-300 rounded-lg p-3 text-xs">
+                    <p className="text-blue-900 mb-1">
+                      <strong>💡 טיפ:</strong> השתמש בייבוא/ייצוא כדי:
+                    </p>
+                    <ul className="text-blue-800 space-y-1 mr-4">
+                      <li>• להעביר נתונים בין Claude ל-GitHub</li>
+                      <li>• להעביר בין מחשב לטלפון</li>
+                      <li>• לגבות את הנתונים שלך</li>
+                      <li>• לשתף עם חברים</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Uncovered Interests Section */}
             <div className="mb-6">
               <div className="bg-gradient-to-br from-yellow-50 to-orange-50 border-3 border-orange-400 rounded-xl p-4">
@@ -2939,6 +3081,72 @@ const BangkokExplorer = () => {
         )}
       </div>
       
+      {/* Import Confirmation Dialog */}
+      {showImportDialog && importedData && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
+            {/* Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-blue-500 to-indigo-500 text-white p-4 rounded-t-2xl">
+              <h3 className="text-xl font-bold">📥 ייבוא נתונים</h3>
+            </div>
+            
+            {/* Content */}
+            <div className="p-6 space-y-4">
+              {/* Current State */}
+              <div className="bg-gray-100 border-2 border-gray-300 rounded-lg p-4">
+                <div className="font-bold text-gray-800 mb-2">📊 מצב נוכחי באפליקציה:</div>
+                <div className="text-sm text-gray-700 space-y-1">
+                  <div>• {customInterests.length} תחומי עניין מותאמים</div>
+                  <div>• {customLocations.length} מקומות מותאמים</div>
+                </div>
+              </div>
+              
+              {/* Import File Data */}
+              <div className="bg-blue-100 border-2 border-blue-300 rounded-lg p-4">
+                <div className="font-bold text-blue-800 mb-2">📥 בקובץ לייבוא:</div>
+                <div className="text-sm text-blue-700 space-y-1">
+                  <div>• {importedData.customInterests?.length || 0} תחומי עניין</div>
+                  <div>• {importedData.customLocations?.length || 0} מקומות</div>
+                </div>
+              </div>
+              
+              <div className="border-t-2 border-gray-300 my-3"></div>
+              
+              {/* Info */}
+              <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4">
+                <div className="text-sm text-green-800">
+                  <div className="font-bold mb-2">💡 איך הייבוא עובד:</div>
+                  <ul className="space-y-1 mr-4">
+                    <li>• <strong>פריטים חדשים יתווספו</strong></li>
+                    <li>• פריטים קיימים לא ישתנו (ידלגו)</li>
+                    <li>• <strong>שום דבר לא יימחק</strong></li>
+                  </ul>
+                </div>
+              </div>
+              
+              {/* Buttons */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={handleImportMerge}
+                  className="flex-1 bg-blue-500 text-white py-3 px-4 rounded-lg font-bold hover:bg-blue-600 transition"
+                >
+                  ✓ המשך ייבוא
+                </button>
+                <button
+                  onClick={() => {
+                    setShowImportDialog(false);
+                    setImportedData(null);
+                  }}
+                  className="flex-1 bg-gray-300 text-gray-700 py-3 px-4 rounded-lg font-bold hover:bg-gray-400 transition"
+                >
+                  ✕ בטל
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Location Detail Modal - Full details for custom locations */}
       {showLocationDetailModal && selectedLocation && (
         <div 
@@ -3182,4 +3390,4 @@ ReactDOM.createRoot(document.getElementById('root')).render(<BangkokExplorer />)
     </script>
 </body>
 </html>
-v1.5 - [static vs dynamic]
+v2.0 - [static vs dynamic]
