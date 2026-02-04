@@ -2345,7 +2345,7 @@ const BangkokExplorer = () => {
             <h2 className="text-base font-bold text-center">תכנן את הטיול</h2>
 
             {/* Split Layout: Areas (right) | Interests (left) */}
-            <div className="grid grid-cols-[120px_1fr] gap-3 items-stretch">
+            <div className="grid grid-cols-[95px_1fr] gap-3 items-stretch" style={{ paddingBottom: '60px' }}>
               
               {/* Right Column: Areas */}
               <div className="flex flex-col min-h-0">
@@ -2366,7 +2366,7 @@ const BangkokExplorer = () => {
                         <div className="text-base mb-0.5">{area.icon}</div>
                         <div style={{
                           fontWeight: 'bold',
-                          fontSize: '11px',
+                          fontSize: '10px',
                           color: formData.area === area.id ? '#1e40af' : '#374151'
                         }}>{area.label}</div>
                       </button>
@@ -2450,7 +2450,7 @@ const BangkokExplorer = () => {
                   width: '100%',
                   backgroundColor: '#2563eb',
                   color: 'white',
-                  padding: '12px',
+                  padding: '10px',
                   borderRadius: '12px',
                   fontWeight: 'bold',
                   fontSize: '14px',
