@@ -308,22 +308,30 @@ const BangkokExplorer = () => {
     
     console.log('[ACCESS LOG] User ID:', userId);
     
-    // Admin detection: Read from Firebase (shared across all devices)
+    // Admin detection: support MULTIPLE admin devices
+    // Firebase stores: settings/adminId (primary) + settings/adminDevices/{userId} = true
     database.ref('settings/adminId').once('value')
-      .then((snapshot) => {
+      .then(async (snapshot) => {
         let adminId = snapshot.val();
         
         if (!adminId) {
           // First user ever - this user becomes admin
           adminId = userId;
-          database.ref('settings/adminId').set(adminId)
-            .then(() => {
-              console.log('[ACCESS LOG] You are the FIRST admin! ID:', adminId);
-              showToast('👑 אתה ה-Admin הראשון!', 'success');
-            });
+          await database.ref('settings/adminId').set(adminId);
+          await database.ref(`settings/adminDevices/${userId}`).set(true);
+          console.log('[ACCESS LOG] You are the FIRST admin! ID:', adminId);
+          showToast('👑 אתה ה-Admin הראשון!', 'success');
         }
         
-        const isAdmin = (userId === adminId);
+        // Check if this device is registered as admin
+        let isAdmin = (userId === adminId);
+        
+        if (!isAdmin) {
+          // Check adminDevices list (for additional devices)
+          const deviceSnapshot = await database.ref(`settings/adminDevices/${userId}`).once('value');
+          isAdmin = deviceSnapshot.val() === true;
+        }
+        
         console.log('[ACCESS LOG] Admin:', adminId, 'Is Admin:', isAdmin);
         
         // Update admin state for UI + cache in localStorage
@@ -332,54 +340,64 @@ const BangkokExplorer = () => {
         
         // Log access (skip admin)
         if (!isAdmin) {
-          // Parse user agent for readable info
-          const parseUA = (ua) => {
-            let browser = 'Unknown', os = 'Unknown';
-            if (ua.includes('Chrome') && !ua.includes('Edg')) browser = 'Chrome';
-            else if (ua.includes('Safari') && !ua.includes('Chrome')) browser = 'Safari';
-            else if (ua.includes('Firefox')) browser = 'Firefox';
-            else if (ua.includes('Edg')) browser = 'Edge';
-            else if (ua.includes('SamsungBrowser')) browser = 'Samsung';
-            if (ua.includes('iPhone')) os = 'iPhone';
-            else if (ua.includes('iPad')) os = 'iPad';
-            else if (ua.includes('Android')) os = 'Android';
-            else if (ua.includes('Windows')) os = 'Windows';
-            else if (ua.includes('Mac OS')) os = 'Mac';
-            else if (ua.includes('Linux')) os = 'Linux';
-            return { browser, os };
-          };
+          // THROTTLE: Don't log same userId more than once per hour
+          const lastLogTime = parseInt(localStorage.getItem('bangkok_last_log_time') || '0');
+          const oneHour = 60 * 60 * 1000;
           
-          const { browser, os } = parseUA(navigator.userAgent);
-          
-          const accessEntry = {
-            userId, timestamp: Date.now(), date: new Date().toISOString(),
-            userAgent: navigator.userAgent.substring(0, 100),
-            browser, os,
-            screenSize: `${screen.width}x${screen.height}`,
-            language: navigator.language || 'unknown',
-            country: '', city: '', region: ''
-          };
-          
-          const entryRef = database.ref('accessLog').push();
-          entryRef.set(accessEntry)
-            .then(() => {
-              console.log('[ACCESS LOG] Visit logged');
-              // Fetch geo data async
-              fetch('https://ipapi.co/json/')
-                .then(r => r.json())
-                .then(geo => {
-                  entryRef.update({
-                    country: geo.country_name || '',
-                    countryCode: geo.country_code || '',
-                    city: geo.city || '',
-                    region: geo.region || '',
-                    ip: geo.ip ? geo.ip.substring(0, 12) + '***' : '',
-                    isp: geo.org || ''
-                  });
-                })
-                .catch(err => console.log('[ACCESS LOG] Geo lookup failed:', err));
-            })
-            .catch(err => console.error('[ACCESS LOG] Error:', err));
+          if (Date.now() - lastLogTime < oneHour) {
+            console.log('[ACCESS LOG] Throttled - already logged within last hour');
+          } else {
+            localStorage.setItem('bangkok_last_log_time', Date.now().toString());
+            
+            // Parse user agent for readable info
+            const parseUA = (ua) => {
+              let browser = 'Unknown', os = 'Unknown';
+              if (ua.includes('SamsungBrowser')) browser = 'Samsung';
+              else if (ua.includes('Chrome') && !ua.includes('Edg')) browser = 'Chrome';
+              else if (ua.includes('Safari') && !ua.includes('Chrome')) browser = 'Safari';
+              else if (ua.includes('Firefox')) browser = 'Firefox';
+              else if (ua.includes('Edg')) browser = 'Edge';
+              if (ua.includes('iPhone')) os = 'iPhone';
+              else if (ua.includes('iPad')) os = 'iPad';
+              else if (ua.includes('Android')) os = 'Android';
+              else if (ua.includes('Windows')) os = 'Windows';
+              else if (ua.includes('Mac OS')) os = 'Mac';
+              else if (ua.includes('Linux')) os = 'Linux';
+              return { browser, os };
+            };
+            
+            const { browser, os } = parseUA(navigator.userAgent);
+            
+            const accessEntry = {
+              userId, timestamp: Date.now(), date: new Date().toISOString(),
+              userAgent: navigator.userAgent.substring(0, 100),
+              browser, os,
+              screenSize: `${screen.width}x${screen.height}`,
+              language: navigator.language || 'unknown',
+              country: '', city: '', region: ''
+            };
+            
+            const entryRef = database.ref('accessLog').push();
+            entryRef.set(accessEntry)
+              .then(() => {
+                console.log('[ACCESS LOG] Visit logged');
+                // Fetch geo data async
+                fetch('https://ipapi.co/json/')
+                  .then(r => r.json())
+                  .then(geo => {
+                    entryRef.update({
+                      country: geo.country_name || '',
+                      countryCode: geo.country_code || '',
+                      city: geo.city || '',
+                      region: geo.region || '',
+                      ip: geo.ip ? geo.ip.substring(0, 12) + '***' : '',
+                      isp: geo.org || ''
+                    });
+                  })
+                  .catch(err => console.log('[ACCESS LOG] Geo lookup failed:', err));
+              })
+              .catch(err => console.error('[ACCESS LOG] Error:', err));
+          }
         }
         
         // Listen to access log (admin only)
@@ -3950,6 +3968,66 @@ const BangkokExplorer = () => {
             </div>
             
             {/* Import/Export Section */}
+            
+            {/* Admin Device Management */}
+            <div className="mb-4">
+              <div className="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-400 rounded-xl p-3">
+                <h3 className="text-base font-bold text-gray-800 mb-1">👑 ניהול Admin</h3>
+                <p className="text-xs text-gray-600 mb-2">
+                  רשום מכשירים נוספים כ-Admin (לא ירשמו בלוג)
+                </p>
+                
+                <div className="text-xs bg-white rounded-lg p-2 border border-red-200 mb-2">
+                  <strong>מכשיר נוכחי:</strong> {localStorage.getItem('bangkok_user_id')?.slice(-12) || 'N/A'}
+                  <br />
+                  <strong>סטטוס:</strong> {isCurrentUserAdmin ? 
+                    <span className="text-green-600 font-bold"> ✅ Admin</span> : 
+                    <span className="text-red-600 font-bold"> ❌ לא Admin</span>
+                  }
+                </div>
+                
+                {/* Register this device as admin */}
+                {!isCurrentUserAdmin && isFirebaseAvailable && database && (
+                  <button
+                    onClick={() => {
+                      const code = prompt('הזן קוד Admin (שאלו את ה-Admin):');
+                      if (code === 'bangkok2026') {
+                        const userId = localStorage.getItem('bangkok_user_id');
+                        database.ref(`settings/adminDevices/${userId}`).set(true)
+                          .then(() => {
+                            setIsCurrentUserAdmin(true);
+                            localStorage.setItem('bangkok_is_admin', 'true');
+                            showToast('👑 מכשיר זה נרשם כ-Admin!', 'success');
+                          })
+                          .catch(err => showToast('❌ שגיאה', 'error'));
+                      } else if (code !== null) {
+                        showToast('❌ קוד שגוי', 'error');
+                      }
+                    }}
+                    className="w-full bg-red-500 text-white py-2 rounded-lg font-bold text-sm hover:bg-red-600"
+                  >
+                    🔑 רשום מכשיר זה כ-Admin
+                  </button>
+                )}
+                
+                {isCurrentUserAdmin && (
+                  <div className="space-y-2">
+                    {/* Access Log Button */}
+                    <button
+                      onClick={() => {
+                        markLogsAsSeen();
+                        setShowAccessLog(true);
+                      }}
+                      className="w-full bg-blue-500 text-white py-2 rounded-lg font-bold text-sm hover:bg-blue-600 flex items-center justify-center gap-2"
+                    >
+                      📋 צפה בלוג כניסות
+                      {hasNewEntries && <span className="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full">חדש!</span>}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+            
             <div className="mb-4">
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-400 rounded-xl p-3">
                 <h3 className="text-base font-bold text-gray-800 mb-1">💾 ייבוא וייצוא</h3>
@@ -4140,24 +4218,24 @@ const BangkokExplorer = () => {
                       <span>אין כניסות עדיין</span>
                     )}
                     
-                    {/* Debug: Reset Admin */}
-                    <button
-                      onClick={() => {
-                        showConfirm('לאפס Admin ולמחוק כל הלוג?', () => {
-                          database.ref('settings/adminId').remove();
-                          database.ref('accessLog').remove();
-                          localStorage.removeItem('bangkok_user_id');
-                          localStorage.removeItem('bangkok_last_seen');
-                          setAccessLogs([]);
-                          setHasNewEntries(false);
-                          showToast('🔄 Admin אופס! רענן את הדף', 'success');
-                        });
-                      }}
-                      className="text-[8px] text-red-400 hover:text-red-600"
-                      title="איפוס מלא של Admin והלוג"
-                    >
-                      🔄
-                    </button>
+                    {/* Clear Log Button */}
+                    {accessLogs.length > 0 && (
+                      <button
+                        onClick={() => {
+                          showConfirm('למחוק את כל לוג הכניסות? פעולה זו בלתי הפיכה.', () => {
+                            database.ref('accessLog').remove();
+                            localStorage.setItem('bangkok_last_seen', Date.now().toString());
+                            setAccessLogs([]);
+                            setHasNewEntries(false);
+                            showToast('✅ הלוג נוקה', 'success');
+                          });
+                        }}
+                        className="text-red-500 hover:text-red-700 text-lg p-1"
+                        title="מחק לוג כניסות"
+                      >
+                        🗑️
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
@@ -5049,16 +5127,7 @@ const BangkokExplorer = () => {
             <p className="text-sm text-gray-700 text-center mb-5">
               {confirmConfig.message}
             </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  setShowConfirmDialog(false);
-                  setConfirmConfig({ message: '', onConfirm: null });
-                }}
-                className="flex-1 px-4 py-2 rounded-lg bg-gray-300 text-gray-700 text-sm font-bold hover:bg-gray-400"
-              >
-                ביטול
-              </button>
+            <div className="flex gap-2" style={{ direction: 'rtl' }}>
               <button
                 onClick={() => {
                   if (confirmConfig.onConfirm) {
@@ -5070,6 +5139,15 @@ const BangkokExplorer = () => {
                 className="flex-1 px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-bold hover:bg-red-600"
               >
                 מחק
+              </button>
+              <button
+                onClick={() => {
+                  setShowConfirmDialog(false);
+                  setConfirmConfig({ message: '', onConfirm: null });
+                }}
+                className="flex-1 px-4 py-2 rounded-lg bg-gray-300 text-gray-700 text-sm font-bold hover:bg-gray-400"
+              >
+                ביטול
               </button>
             </div>
           </div>
