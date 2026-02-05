@@ -162,6 +162,7 @@ const BangkokExplorer = () => {
   }); // 'circular' or 'linear'
   const [savedRoutes, setSavedRoutes] = useState([]);
   const [routeName, setRouteName] = useState('');
+  const [routeNotes, setRouteNotes] = useState('');
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [customLocations, setCustomLocations] = useState([]);
   const [showAddLocationDialog, setShowAddLocationDialog] = useState(false);
@@ -242,15 +243,15 @@ const BangkokExplorer = () => {
 • ⏸️ **צהוב** - החזר למסלול (לחיצה מבטלת השהיה)
 • 🚫 **אדום** - דלג לצמיתות (לא יופיע יותר)
 • ✅ **ירוק** - בטל דילוג קבוע
-• + **סגול** - הוסף לרשימה שלי (מקום מ-Google יהפוך למקום שלך)
+• + **סגול** - הוסף לרשימה שלי
 • ✏️ **כחול** - ערוך (רק למקומות שלי)
 
-**"+ עוד" ליד כל תחום:**
-מוסיף מקומות נוספים מאותו סוג (הכמות מוגדרת בהגדרות).
+**כפתורים למטה:**
+• 💾 **סגול** - שמור מסלול (שם + הערות)
+• 🗺️ **ירוק** - פתח את המסלול ב-Google Maps
 
-**סימונים:**
-• ❗ - חסרות קואורדינטות
-• רקע אפור + שקיפות - מקום מושהה זמנית
+**"+ עוד" ליד כל תחום:**
+מוסיף מקומות נוספים מאותו סוג.
 
 **לחיצה על שם המקום** פותחת אותו ב-Google Maps.`
     },
@@ -304,12 +305,17 @@ const BangkokExplorer = () => {
       content: `**מה יש כאן:**
 כל המסלולים ששמרת לשימוש עתידי.
 
+**שמירת מסלול:**
+• לחץ "💾 שמור מסלול" במסך המסלול
+• תן שם ייחודי (חובה)
+• הוסף הערות אם רוצה
+
 **פעולות:**
 • לחץ על מסלול לטעינה מחדש
 • 🗑️ למחיקת מסלול
 
 **טיפ:**
-שמור מסלולים מוצלחים כדי לחזור אליהם או לשתף עם חברים.`
+מסלולים נכללים בייצוא/ייבוא בהגדרות!`
     },
     settings: {
       title: 'הגדרות',
@@ -320,8 +326,13 @@ const BangkokExplorer = () => {
 • **סטטי** - נתונים מקומיים בלבד (לפיתוח)
 
 **ייבוא/ייצוא:**
-• שמור את הנתונים שלך כקובץ
-• העבר בין מכשירים
+• **ייצוא** - שומר את כל המקומות והתחומים שלך לקובץ JSON
+• **ייבוא** - מוסיף מקומות ותחומים מקובץ
+
+**איך עובד הייבוא:**
+• כפילויות (לפי שם) ידולגו אוטומטית
+• תחומים חסרים ייווצרו אוטומטית
+• שום דבר לא יימחק - רק הוספה
 
 **Admin (למנהלים):**
 • צפייה בלוג כניסות
@@ -400,7 +411,9 @@ const BangkokExplorer = () => {
   // Toast notification helper
   const showToast = (message, type = 'success') => {
     setToastMessage({ message, type });
-    setTimeout(() => setToastMessage(null), 1500); // Hide after 1.5 seconds
+    // Longer messages get more time (min 1.5s, max 4s)
+    const duration = Math.min(4000, Math.max(1500, message.length * 50));
+    setTimeout(() => setToastMessage(null), duration);
   };
 
   // Load saved routes from localStorage (still local)
@@ -1765,12 +1778,21 @@ const BangkokExplorer = () => {
 
   const saveRoute = () => {
     if (!routeName.trim()) {
-      return; // Just don't save if no name
+      showToast('נא להזין שם למסלול', 'warning');
+      return;
+    }
+    
+    // Check for duplicate name
+    const nameExists = savedRoutes.find(r => r.name.toLowerCase() === routeName.trim().toLowerCase());
+    if (nameExists) {
+      showToast('מסלול עם שם זה כבר קיים', 'error');
+      return;
     }
 
     const routeToSave = {
       ...route,
       name: routeName.trim(),
+      notes: routeNotes.trim() || '',
       savedAt: new Date().toISOString()
     };
 
@@ -1780,7 +1802,9 @@ const BangkokExplorer = () => {
     
     setShowSaveDialog(false);
     setRouteName('');
+    setRouteNotes('');
     setRoute(routeToSave); // Update route to show it's saved
+    showToast('המסלול נשמר!', 'success');
   };
 
   const deleteRoute = (routeId) => {
@@ -2136,65 +2160,246 @@ const BangkokExplorer = () => {
   // Import function - add new only, skip existing
   const handleImportMerge = async () => {
     let addedInterests = 0;
+    let skippedInterests = 0;
     let addedLocations = 0;
+    let skippedLocations = 0;
+    let addedRoutes = 0;
+    let skippedRoutes = 0;
+    
+    // Helper to check if interest exists by label (not id)
+    const interestExistsByLabel = (label) => {
+      return customInterests.find(i => i.label.toLowerCase() === label.toLowerCase());
+    };
+    
+    // Helper to check if location exists by name (not id)
+    const locationExistsByName = (name) => {
+      return customLocations.find(l => l.name.toLowerCase() === name.toLowerCase());
+    };
     
     // CONDITIONAL: Import based on dataSource
     if (formData.dataSource === 'dynamic' && isFirebaseAvailable && database) {
       // DYNAMIC MODE: Firebase (shared)
+      
+      // Import interests first
       for (const interest of (importedData.customInterests || [])) {
-        const exists = customInterests.find(i => i.id === interest.id);
-        if (!exists) {
-          try {
-            await database.ref('customInterests').push(interest);
-            addedInterests++;
-          } catch (error) {
-            console.error('[FIREBASE] Error importing interest:', error);
-          }
+        if (!interest.label) continue;
+        
+        const exists = interestExistsByLabel(interest.label);
+        if (exists) {
+          skippedInterests++;
+          continue;
+        }
+        
+        try {
+          const newInterest = {
+            id: `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            label: interest.label,
+            icon: interest.icon || '📍',
+            baseCategory: interest.baseCategory || 'other'
+          };
+          await database.ref('customInterests').push(newInterest);
+          addedInterests++;
+        } catch (error) {
+          console.error('[FIREBASE] Error importing interest:', error);
         }
       }
       
+      // Import locations
       for (const loc of (importedData.customLocations || [])) {
-        const exists = customLocations.find(l => l.id === loc.id);
-        if (!exists) {
-          try {
-            await database.ref('customLocations').push(loc);
-            addedLocations++;
-          } catch (error) {
-            console.error('[FIREBASE] Error importing location:', error);
+        if (!loc.name) continue;
+        
+        const exists = locationExistsByName(loc.name);
+        if (exists) {
+          skippedLocations++;
+          continue;
+        }
+        
+        try {
+          // Create location with proper structure
+          const newLocation = {
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            name: loc.name.trim(),
+            description: loc.description || loc.notes || 'מקום מיובא',
+            notes: loc.notes || '',
+            area: loc.area || 'sukhumvit',
+            interests: Array.isArray(loc.interests) ? loc.interests : ['other'],
+            lat: loc.lat || null,
+            lng: loc.lng || null,
+            mapsUrl: loc.mapsUrl || '',
+            address: loc.address || '',
+            uploadedImage: loc.uploadedImage || null,
+            imageUrls: Array.isArray(loc.imageUrls) ? loc.imageUrls : [],
+            outsideArea: loc.outsideArea || false,
+            missingCoordinates: !loc.lat || !loc.lng,
+            duration: loc.duration || 45,
+            custom: true,
+            status: loc.status || 'active',
+            inProgress: false,
+            addedAt: new Date().toISOString()
+          };
+          
+          // Check if location has interests that don't exist - create them
+          for (const interestId of newLocation.interests) {
+            const baseInterests = ['temples', 'food', 'shopping', 'entertainment', 'nature', 'markets', 'massage', 'art', 'cafes', 'nightlife', 'historic', 'other'];
+            if (!baseInterests.includes(interestId) && !interestExistsByLabel(interestId)) {
+              // Create the interest
+              const newInterest = {
+                id: interestId,
+                label: interestId,
+                icon: '📍',
+                baseCategory: 'other'
+              };
+              await database.ref('customInterests').push(newInterest);
+            }
           }
+          
+          await database.ref('customLocations').push(newLocation);
+          addedLocations++;
+        } catch (error) {
+          console.error('[FIREBASE] Error importing location:', error);
         }
       }
+      
+      // Import saved routes (always localStorage, not Firebase)
+      const newRoutes = [...savedRoutes];
+      (importedData.savedRoutes || []).forEach(route => {
+        if (!route.name) return;
+        
+        const exists = newRoutes.find(r => r.name.toLowerCase() === route.name.toLowerCase());
+        if (exists) {
+          skippedRoutes++;
+          return;
+        }
+        
+        newRoutes.push({
+          ...route,
+          id: route.id || Date.now() + Math.floor(Math.random() * 1000),
+          importedAt: new Date().toISOString()
+        });
+        addedRoutes++;
+      });
+      
+      setSavedRoutes(newRoutes);
+      localStorage.setItem('bangkok_saved_routes', JSON.stringify(newRoutes));
     } else {
       // STATIC MODE: localStorage (local)
       const newInterests = [...customInterests];
+      const newLocations = [...customLocations];
+      
+      // Import interests first
       (importedData.customInterests || []).forEach(interest => {
-        if (!newInterests.find(i => i.id === interest.id)) {
-          newInterests.push(interest);
-          addedInterests++;
+        if (!interest.label) return;
+        
+        const exists = newInterests.find(i => i.label.toLowerCase() === interest.label.toLowerCase());
+        if (exists) {
+          skippedInterests++;
+          return;
         }
+        
+        newInterests.push({
+          id: `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          label: interest.label,
+          icon: interest.icon || '📍',
+          baseCategory: interest.baseCategory || 'other'
+        });
+        addedInterests++;
       });
       
-      const newLocations = [...customLocations];
+      // Import locations
       (importedData.customLocations || []).forEach(loc => {
-        if (!newLocations.find(l => l.id === loc.id)) {
-          newLocations.push(loc);
-          addedLocations++;
+        if (!loc.name) return;
+        
+        const exists = newLocations.find(l => l.name.toLowerCase() === loc.name.toLowerCase());
+        if (exists) {
+          skippedLocations++;
+          return;
         }
+        
+        // Create location with proper structure
+        const newLocation = {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          name: loc.name.trim(),
+          description: loc.description || loc.notes || 'מקום מיובא',
+          notes: loc.notes || '',
+          area: loc.area || 'sukhumvit',
+          interests: Array.isArray(loc.interests) ? loc.interests : ['other'],
+          lat: loc.lat || null,
+          lng: loc.lng || null,
+          mapsUrl: loc.mapsUrl || '',
+          address: loc.address || '',
+          uploadedImage: loc.uploadedImage || null,
+          imageUrls: Array.isArray(loc.imageUrls) ? loc.imageUrls : [],
+          outsideArea: loc.outsideArea || false,
+          missingCoordinates: !loc.lat || !loc.lng,
+          duration: loc.duration || 45,
+          custom: true,
+          status: loc.status || 'active',
+          inProgress: false,
+          addedAt: new Date().toISOString()
+        };
+        
+        // Check if location has interests that don't exist - create them
+        const baseInterests = ['temples', 'food', 'shopping', 'entertainment', 'nature', 'markets', 'massage', 'art', 'cafes', 'nightlife', 'historic', 'other'];
+        for (const interestId of newLocation.interests) {
+          if (!baseInterests.includes(interestId) && !newInterests.find(i => i.id === interestId || i.label.toLowerCase() === interestId.toLowerCase())) {
+            newInterests.push({
+              id: interestId,
+              label: interestId,
+              icon: '📍',
+              baseCategory: 'other'
+            });
+            addedInterests++;
+          }
+        }
+        
+        newLocations.push(newLocation);
+        addedLocations++;
+      });
+      
+      // Import saved routes
+      const newRoutes = [...savedRoutes];
+      (importedData.savedRoutes || []).forEach(route => {
+        if (!route.name) return;
+        
+        const exists = newRoutes.find(r => r.name.toLowerCase() === route.name.toLowerCase());
+        if (exists) {
+          skippedRoutes++;
+          return;
+        }
+        
+        newRoutes.push({
+          ...route,
+          id: route.id || Date.now() + Math.floor(Math.random() * 1000),
+          importedAt: new Date().toISOString()
+        });
+        addedRoutes++;
       });
       
       setCustomInterests(newInterests);
       setCustomLocations(newLocations);
+      setSavedRoutes(newRoutes);
       localStorage.setItem('bangkok_custom_interests', JSON.stringify(newInterests));
       localStorage.setItem('bangkok_custom_locations', JSON.stringify(newLocations));
+      localStorage.setItem('bangkok_saved_routes', JSON.stringify(newRoutes));
     }
     
     setShowImportDialog(false);
     setImportedData(null);
     
-    showToast(
-      `יובא! נוספו ${addedInterests} תחומים חדשים, ${addedLocations} מקומות חדשים`,
-      'success'
-    );
+    // Build detailed report
+    const report = [];
+    if (addedInterests > 0 || skippedInterests > 0) {
+      report.push(`תחומים: ${addedInterests}+, ${skippedInterests} דולגו`);
+    }
+    if (addedLocations > 0 || skippedLocations > 0) {
+      report.push(`מקומות: ${addedLocations}+, ${skippedLocations} דולגו`);
+    }
+    if (addedRoutes > 0 || skippedRoutes > 0) {
+      report.push(`מסלולים: ${addedRoutes}+, ${skippedRoutes} דולגו`);
+    }
+    
+    const totalAdded = addedInterests + addedLocations + addedRoutes;
+    showToast(report.join(' | ') || 'לא נמצאו פריטים לייבוא', totalAdded > 0 ? 'success' : 'warning');
   };
 
   const addCustomLocation = (closeAfter = true) => {
@@ -3233,64 +3438,98 @@ const BangkokExplorer = () => {
                       </p>
                     </div>
                     
-                    {/* Calculate Route Button */}
-                    <button
-                      onClick={() => {
-                        // Build Google Maps URL based on routeType
-                        const activeStops = route.stops.filter((stop, i) => {
-                          const isActive = !disabledStops.includes(stop.id || i);
-                          const hasValidCoords = stop.lat && stop.lng && stop.lat !== 0 && stop.lng !== 0;
-                          return isActive && hasValidCoords;
-                        });
-                        
-                        if (activeStops.length === 0) {
-                          showToast('אין מקומות עם קואורדינטות תקינות', 'warning');
-                          return;
-                        }
-
-                        const origin = `${activeStops[0].lat},${activeStops[0].lng}`;
-                        let destination, waypointsStr, mapUrl;
-
-                        if (activeStops.length === 1) {
-                          // Single stop - just show location
-                          mapUrl = `https://www.google.com/maps/search/?api=1&query=${activeStops[0].lat},${activeStops[0].lng}`;
-                        } else {
-                          // Multiple stops - create route
-                          destination = routeType === 'circular' ? origin : `${activeStops[activeStops.length - 1].lat},${activeStops[activeStops.length - 1].lng}`;
+                    {/* Buttons row: Open in Google + Save */}
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+                      {/* Open in Google Maps Button */}
+                      <button
+                        onClick={() => {
+                          // Build Google Maps URL based on routeType
+                          const activeStops = route.stops.filter((stop, i) => {
+                            const isActive = !disabledStops.includes(stop.id || i);
+                            const hasValidCoords = stop.lat && stop.lng && stop.lat !== 0 && stop.lng !== 0;
+                            return isActive && hasValidCoords;
+                          });
                           
-                          if (routeType === 'circular' && activeStops.length > 1) {
-                            // Circular: all stops are waypoints
-                            waypointsStr = activeStops.slice(1).map(s => `${s.lat},${s.lng}`).join('|');
-                            mapUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypointsStr}&travelmode=walking`;
-                          } else if (routeType === 'linear' && activeStops.length > 2) {
-                            // Linear with middle stops
-                            waypointsStr = activeStops.slice(1, -1).map(s => `${s.lat},${s.lng}`).join('|');
-                            mapUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypointsStr}&travelmode=walking`;
-                          } else {
-                            // Linear with only 2 stops
-                            mapUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=walking`;
+                          if (activeStops.length === 0) {
+                            showToast('אין מקומות עם קואורדינטות תקינות', 'warning');
+                            return;
                           }
-                        }
 
-                        // Open in new tab
-                        window.open(mapUrl, '_blank');
-                      }}
-                      style={{
-                        width: '100%',
-                        backgroundColor: '#22c55e',
-                        color: 'white',
-                        textAlign: 'center',
-                        padding: '10px',
-                        borderRadius: '12px',
-                        fontWeight: 'bold',
-                        fontSize: '14px',
-                        border: 'none',
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      🗺️ חשב מסלול
-                    </button>
+                          const origin = `${activeStops[0].lat},${activeStops[0].lng}`;
+                          let destination, waypointsStr, mapUrl;
+
+                          if (activeStops.length === 1) {
+                            // Single stop - just show location
+                            mapUrl = `https://www.google.com/maps/search/?api=1&query=${activeStops[0].lat},${activeStops[0].lng}`;
+                          } else {
+                            // Multiple stops - create route
+                            destination = routeType === 'circular' ? origin : `${activeStops[activeStops.length - 1].lat},${activeStops[activeStops.length - 1].lng}`;
+                            
+                            if (routeType === 'circular' && activeStops.length > 1) {
+                              // Circular: all stops are waypoints
+                              waypointsStr = activeStops.slice(1).map(s => `${s.lat},${s.lng}`).join('|');
+                              mapUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypointsStr}&travelmode=walking`;
+                            } else if (routeType === 'linear' && activeStops.length > 2) {
+                              // Linear with middle stops
+                              waypointsStr = activeStops.slice(1, -1).map(s => `${s.lat},${s.lng}`).join('|');
+                              mapUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypointsStr}&travelmode=walking`;
+                            } else {
+                              // Linear with only 2 stops
+                              mapUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=walking`;
+                            }
+                          }
+
+                          // Open in new tab
+                          window.open(mapUrl, '_blank');
+                        }}
+                        style={{
+                          flex: 1,
+                          backgroundColor: '#22c55e',
+                          color: 'white',
+                          textAlign: 'center',
+                          padding: '10px',
+                          borderRadius: '12px',
+                          fontWeight: 'bold',
+                          fontSize: '14px',
+                          border: 'none',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        🗺️ פתח מסלול בגוגל
+                      </button>
+                      
+                      {/* Save Route Button - no background */}
+                      {route.name ? (
+                        <span
+                          style={{
+                            padding: '10px',
+                            fontSize: '18px',
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}
+                          title={`נשמר: ${route.name}`}
+                        >
+                          ✅
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => setShowSaveDialog(true)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: '10px',
+                            fontSize: '18px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}
+                          title="שמור מסלול"
+                        >
+                          💾
+                        </button>
+                      )}
+                    </div>
                     
                     {/* Waypoints limit note */}
                     <p style={{
@@ -3332,6 +3571,9 @@ const BangkokExplorer = () => {
             {route.name && (
               <div className="bg-green-50 border-2 border-green-500 p-3 rounded-lg mb-4">
                 <p className="text-green-800 font-medium">📌 {route.name}</p>
+                {route.notes && (
+                  <p className="text-xs text-green-700 mt-1">📝 {route.notes}</p>
+                )}
                 <p className="text-xs text-green-600">נשמר ב-{new Date(route.savedAt).toLocaleDateString('he-IL')}</p>
               </div>
             )}
@@ -3749,7 +3991,7 @@ const BangkokExplorer = () => {
                     marginBottom: '4px'
                   }}
                 >
-                  🗺️ חשב מסלול
+                  🗺️ פתח מסלול בגוגל
                 </a>
                 
                 {/* Waypoints limit note */}
@@ -3918,6 +4160,9 @@ const BangkokExplorer = () => {
                       <div className="flex-1">
                         <h3 className="text-lg font-bold text-gray-800">{savedRoute.name}</h3>
                         <p className="text-sm text-gray-600">{savedRoute.areaName} • {savedRoute.interestsText || 'כללי'}</p>
+                        {savedRoute.notes && (
+                          <p className="text-xs text-gray-500 mt-1 italic">📝 {savedRoute.notes}</p>
+                        )}
                         <p className="text-xs text-gray-500 mt-1">
                           {savedRoute.stops.length} תחנות • 
                           נשמר: {new Date(savedRoute.savedAt).toLocaleDateString('he-IL')}
@@ -4432,8 +4677,9 @@ const BangkokExplorer = () => {
                         const data = {
                           customInterests: customInterests,
                           customLocations: customLocations,
-                          exportDate: new Date().toISOString().split('T')[0],
-                          version: '1.3'
+                          savedRoutes: savedRoutes,
+                          exportDate: new Date().toISOString(),
+                          version: '2.0'
                         };
                         
                         const dataStr = JSON.stringify(data, null, 2);
@@ -4441,11 +4687,12 @@ const BangkokExplorer = () => {
                         const url = URL.createObjectURL(dataBlob);
                         const link = document.createElement('a');
                         link.href = url;
-                        link.download = `bangkok-data-${data.exportDate}.json`;
+                        const dateStr = new Date().toISOString().split('T')[0];
+                        link.download = `bangkok-data-${dateStr}.json`;
                         link.click();
                         URL.revokeObjectURL(url);
                         
-                        showToast(`הקובץ הורד! (${customInterests.length} תחומים, ${customLocations.length} מקומות)`, 'success');
+                        showToast(`הקובץ הורד! (${customInterests.length} תחומים, ${customLocations.length} מקומות, ${savedRoutes.length} מסלולים)`, 'success');
                       } catch (error) {
                         console.error('[EXPORT] Error:', error);
                         showToast('שגיאה בייצוא', 'error');
@@ -4455,7 +4702,7 @@ const BangkokExplorer = () => {
                   >
                     <span>📤 ייצא</span>
                     <span className="text-xs bg-blue-600 px-2 py-0.5 rounded">
-                      {customInterests.length + customLocations.length}
+                      {customInterests.length + customLocations.length + savedRoutes.length}
                     </span>
                   </button>
                   
@@ -4633,23 +4880,67 @@ const BangkokExplorer = () => {
         )}
         {/* Save Dialog */}
         {showSaveDialog && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50" style={{ paddingBottom: '0' }}>
-            <div className="bg-white rounded-t-xl p-6 w-full max-w-md mb-0">
-              <h3 className="text-xl font-bold mb-4">שמור מסלול</h3>
-              <label className="block text-sm font-medium mb-2">שם המסלול:</label>
-              <input
-                type="text"
-                value={routeName}
-                onChange={(e) => setRouteName(e.target.value)}
-                placeholder="לדוגמה: טיול ראשון בבנקוק"
-                className="w-full p-3 border-2 border-gray-300 rounded-lg mb-4"
-                style={{ textAlign: 'right', direction: 'rtl' }}
-                autoFocus
-              />
-              <div className="flex gap-3">
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2">
+            <div className="bg-white rounded-xl w-full max-w-md shadow-2xl">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2.5 rounded-t-xl flex items-center justify-between">
+                <h3 className="text-base font-bold">💾 שמור מסלול</h3>
+                <button
+                  onClick={() => {
+                    setShowSaveDialog(false);
+                    setRouteName('');
+                    setRouteNotes('');
+                  }}
+                  className="text-xl hover:bg-white hover:bg-opacity-20 rounded-full w-7 h-7 flex items-center justify-center"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              {/* Content */}
+              <div className="p-4 space-y-3">
+                <div>
+                  <label className="block text-xs font-bold mb-1">שם המסלול <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={routeName}
+                    onChange={(e) => setRouteName(e.target.value)}
+                    placeholder="לדוגמה: טיול ראשון בבנקוק"
+                    className="w-full p-2 text-sm border-2 border-green-300 rounded-lg focus:border-green-500"
+                    style={{ direction: 'rtl' }}
+                    autoFocus
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-bold mb-1">הערות (אופציונלי)</label>
+                  <textarea
+                    value={routeNotes}
+                    onChange={(e) => setRouteNotes(e.target.value)}
+                    placeholder="תיאור קצר, טיפים, או הערות לעצמך..."
+                    className="w-full p-2 text-sm border-2 border-gray-300 rounded-lg focus:border-green-500 resize-none"
+                    style={{ direction: 'rtl' }}
+                    rows={2}
+                  />
+                </div>
+                
+                {/* Route summary */}
+                <div className="bg-gray-100 rounded-lg p-2 text-xs text-gray-600">
+                  <div>📍 {route?.stops?.length || 0} תחנות</div>
+                  <div>🗺️ {route?.areaName || ''}</div>
+                </div>
+              </div>
+              
+              {/* Footer */}
+              <div className="px-4 py-2.5 border-t border-gray-200 flex gap-2" style={{ direction: 'rtl' }}>
                 <button
                   onClick={saveRoute}
-                  className="flex-1 bg-green-500 text-white py-3 rounded-lg font-bold hover:bg-green-600"
+                  disabled={!routeName.trim()}
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                    routeName.trim()
+                      ? 'bg-green-500 text-white hover:bg-green-600'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
                 >
                   💾 שמור
                 </button>
@@ -4657,8 +4948,9 @@ const BangkokExplorer = () => {
                   onClick={() => {
                     setShowSaveDialog(false);
                     setRouteName('');
+                    setRouteNotes('');
                   }}
-                  className="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg font-bold hover:bg-gray-400"
+                  className="px-5 py-2.5 rounded-lg bg-gray-300 text-gray-700 text-sm font-bold hover:bg-gray-400"
                 >
                   ביטול
                 </button>
@@ -5176,56 +5468,58 @@ const BangkokExplorer = () => {
             {/* Header */}
             <div className="sticky top-0 bg-gradient-to-r from-blue-500 to-indigo-500 text-white p-4 rounded-t-2xl">
               <h3 className="text-xl font-bold">📥 ייבוא נתונים</h3>
+              <p className="text-xs text-blue-100 mt-1">גרסה: {importedData.version || '1.0'}</p>
             </div>
             
             {/* Content */}
-            <div className="p-6 space-y-4">
+            <div className="p-4 space-y-3">
               {/* Current State */}
-              <div className="bg-gray-100 border-2 border-gray-300 rounded-lg p-4">
-                <div className="font-bold text-gray-800 mb-2">📊 מצב נוכחי באפליקציה:</div>
-                <div className="text-sm text-gray-700 space-y-1">
-                  <div>• {customInterests.length} תחומי עניין מותאמים</div>
-                  <div>• {customLocations.length} מקומות מותאמים</div>
+              <div className="bg-gray-100 border border-gray-300 rounded-lg p-3">
+                <div className="font-bold text-gray-800 text-sm mb-1">📊 מצב נוכחי:</div>
+                <div className="text-xs text-gray-700 space-y-0.5">
+                  <div>• {customInterests.length} תחומי עניין</div>
+                  <div>• {customLocations.length} מקומות</div>
+                  <div>• {savedRoutes.length} מסלולים שמורים</div>
                 </div>
               </div>
               
               {/* Import File Data */}
-              <div className="bg-blue-100 border-2 border-blue-300 rounded-lg p-4">
-                <div className="font-bold text-blue-800 mb-2">📥 בקובץ לייבוא:</div>
-                <div className="text-sm text-blue-700 space-y-1">
+              <div className="bg-blue-100 border border-blue-300 rounded-lg p-3">
+                <div className="font-bold text-blue-800 text-sm mb-1">📥 בקובץ:</div>
+                <div className="text-xs text-blue-700 space-y-0.5">
                   <div>• {importedData.customInterests?.length || 0} תחומי עניין</div>
                   <div>• {importedData.customLocations?.length || 0} מקומות</div>
+                  <div>• {importedData.savedRoutes?.length || 0} מסלולים שמורים</div>
                 </div>
               </div>
               
-              <div className="border-t-2 border-gray-300 my-3"></div>
-              
               {/* Info */}
-              <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4">
-                <div className="text-sm text-green-800">
-                  <div className="font-bold mb-2">💡 איך הייבוא עובד:</div>
-                  <ul className="space-y-1 mr-4">
-                    <li>• <strong>פריטים חדשים יתווספו</strong></li>
-                    <li>• פריטים קיימים לא ישתנו (ידלגו)</li>
+              <div className="bg-green-50 border border-green-300 rounded-lg p-3">
+                <div className="text-xs text-green-800">
+                  <div className="font-bold mb-1">💡 איך הייבוא עובד:</div>
+                  <ul className="space-y-0.5 mr-3">
+                    <li>• פריטים חדשים <strong>יתווספו</strong></li>
+                    <li>• כפילויות (לפי שם) <strong>ידולגו</strong></li>
+                    <li>• תחומים חסרים <strong>ייווצרו אוטומטית</strong></li>
                     <li>• <strong>שום דבר לא יימחק</strong></li>
                   </ul>
                 </div>
               </div>
               
               {/* Buttons */}
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-2 pt-1">
                 <button
                   onClick={handleImportMerge}
-                  className="flex-1 bg-blue-500 text-white py-3 px-4 rounded-lg font-bold hover:bg-blue-600 transition"
+                  className="flex-1 bg-blue-500 text-white py-2.5 px-3 rounded-lg font-bold hover:bg-blue-600 transition text-sm"
                 >
-                  ✓ המשך ייבוא
+                  ✓ ייבא
                 </button>
                 <button
                   onClick={() => {
                     setShowImportDialog(false);
                     setImportedData(null);
                   }}
-                  className="flex-1 bg-gray-300 text-gray-700 py-3 px-4 rounded-lg font-bold hover:bg-gray-400 transition"
+                  className="flex-1 bg-gray-300 text-gray-700 py-2.5 px-3 rounded-lg font-bold hover:bg-gray-400 transition text-sm"
                 >
                   ✕ בטל
                 </button>
@@ -5682,7 +5976,7 @@ const BangkokExplorer = () => {
             top: '10px',
             right: '10px',
             left: '10px',
-            maxWidth: '280px',
+            maxWidth: '350px',
             margin: '0 auto',
             padding: '6px 12px',
             borderRadius: '6px',
