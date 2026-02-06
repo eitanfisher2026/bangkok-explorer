@@ -1,3 +1,359 @@
+  // Load saved preferences
+  const loadPreferences = () => {
+    try {
+      const saved = localStorage.getItem('bangkok_preferences');
+      if (saved) {
+        const prefs = JSON.parse(saved);
+        // Add maxStops if not present (for backward compatibility)
+        if (!prefs.maxStops) prefs.maxStops = 10;
+        // Add fetchMoreCount if not present
+        if (!prefs.fetchMoreCount) prefs.fetchMoreCount = 5;
+        return prefs;
+      }
+    } catch (e) {}
+    return {
+      hours: 3,
+      area: 'sukhumvit',
+      interests: [],
+      circular: true,
+      startPoint: '',
+      maxStops: 10,
+      fetchMoreCount: 5
+    };
+  };
+
+  const [currentView, setCurrentView] = useState('form');
+  const [formData, setFormData] = useState(loadPreferences());
+  const [route, setRoute] = useState(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [disabledStops, setDisabledStops] = useState([]); // Track disabled stop IDs
+  const [routeType, setRouteType] = useState(() => {
+    // Load from localStorage or default to 'circular'
+    const saved = localStorage.getItem('bangkok_route_type');
+    return saved || 'circular';
+  }); // 'circular' or 'linear'
+  const [savedRoutes, setSavedRoutes] = useState([]);
+  const [routeName, setRouteName] = useState('');
+  const [routeNotes, setRouteNotes] = useState('');
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [customLocations, setCustomLocations] = useState([]);
+  const [showAddLocationDialog, setShowAddLocationDialog] = useState(false);
+  const [showBlacklistLocations, setShowBlacklistLocations] = useState(false); // NEW: collapsed by default
+  const [newLocation, setNewLocation] = useState({
+    name: '',
+    description: '',
+    notes: '',
+    area: formData.area,
+    interests: [],
+    lat: null,
+    lng: null,
+    mapsUrl: '',
+    address: '',  // Address for geocoding
+    uploadedImage: null,  // Base64 image data
+    imageUrls: []  // Array of URL strings
+  });
+  const [customInterests, setCustomInterests] = useState([]);
+  const [showAddInterestDialog, setShowAddInterestDialog] = useState(false);
+  const [newInterest, setNewInterest] = useState({ label: '', icon: '📍', baseCategory: '' });
+  const [showEditLocationDialog, setShowEditLocationDialog] = useState(false);
+  const [editingLocation, setEditingLocation] = useState(null);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [modalImage, setModalImage] = useState(null);
+  const [toastMessage, setToastMessage] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [addingPlaceIds, setAddingPlaceIds] = useState([]); // Track places being added
+  const [showLocationDetailModal, setShowLocationDetailModal] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importedData, setImportedData] = useState(null);
+  
+  // Access Log System (Admin Only)
+  const [accessLogs, setAccessLogs] = useState([]);
+  const [hasNewEntries, setHasNewEntries] = useState(false);
+  const [isCurrentUserAdmin, setIsCurrentUserAdmin] = useState(() => {
+    return localStorage.getItem('bangkok_is_admin') === 'true';
+  });
+  const [showAccessLog, setShowAccessLog] = useState(false);
+
+  // Confirm Dialog (replaces browser confirm)
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [confirmConfig, setConfirmConfig] = useState({ message: '', onConfirm: null });
+
+  // Help System
+  const [showHelp, setShowHelp] = useState(false);
+  const [helpContext, setHelpContext] = useState('main');
+  
+  // Debug Mode System
+  const [debugMode, setDebugMode] = useState(() => {
+    return localStorage.getItem('bangkok_debug_mode') === 'true';
+  });
+  const [debugLogs, setDebugLogs] = useState([]);
+  const [debugPanelOpen, setDebugPanelOpen] = useState(true);
+  
+  // Add debug log entry
+  const addDebugLog = (category, message, data = null) => {
+    if (!debugMode) return;
+    const timestamp = new Date().toLocaleTimeString('he-IL');
+    const entry = { timestamp, category, message, data };
+    setDebugLogs(prev => [...prev.slice(-100), entry]); // Keep last 100 entries
+    console.log(`[${category}] ${message}`, data || '');
+  };
+  
+  // Save debug mode preference
+  useEffect(() => {
+    localStorage.setItem('bangkok_debug_mode', debugMode.toString());
+  }, [debugMode]);
+  
+  // Help content - loaded from js/config.js
+  const helpContent = window.BKK.helpContent;
+
+  const showHelpFor = (context) => {
+    setHelpContext(context);
+    setShowHelp(true);
+  };
+
+  const showConfirm = (message, onConfirm) => {
+    setConfirmConfig({ message, onConfirm });
+    setShowConfirmDialog(true);
+  };
+
+  // Toast notification helper
+  const showToast = (message, type = 'success') => {
+    setToastMessage({ message, type });
+    // Longer messages get more time (min 1.5s, max 4s)
+    const duration = Math.min(4000, Math.max(1500, message.length * 50));
+    setTimeout(() => setToastMessage(null), duration);
+  };
+
+  // Load saved routes from localStorage (still local)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('bangkok_saved_routes');
+      if (saved) {
+        setSavedRoutes(JSON.parse(saved));
+      }
+    } catch (e) {
+      // Silent fail
+    }
+  }, []);
+
+  // Load custom locations from Firebase
+  // Load custom locations from Firebase
+  useEffect(() => {
+    if (isFirebaseAvailable && database) {
+      console.log('[DATA] Using Firebase');
+      const locationsRef = database.ref('customLocations');
+      
+      const unsubscribe = locationsRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          const locationsArray = Object.keys(data).map(key => ({
+            ...data[key],
+            firebaseId: key
+          }));
+          setCustomLocations(locationsArray);
+          console.log('[FIREBASE] Loaded', locationsArray.length, 'locations');
+        } else {
+          setCustomLocations([]);
+        }
+      });
+      
+      return () => locationsRef.off('value', unsubscribe);
+    } else {
+      console.log('[DATA] Firebase not available - using localStorage fallback');
+      try {
+        const customLocs = localStorage.getItem('bangkok_custom_locations');
+        if (customLocs) {
+          setCustomLocations(JSON.parse(customLocs));
+        }
+      } catch (e) {
+        console.error('[LOCALSTORAGE] Error loading locations:', e);
+      }
+    }
+  }, []);
+
+  // Load custom interests from Firebase
+  useEffect(() => {
+    if (isFirebaseAvailable && database) {
+      const interestsRef = database.ref('customInterests');
+      
+      const unsubscribe = interestsRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          const interestsArray = Object.keys(data).map(key => ({
+            ...data[key],
+            firebaseId: key
+          }));
+          setCustomInterests(interestsArray);
+          console.log('[FIREBASE] Loaded', interestsArray.length, 'interests');
+        } else {
+          setCustomInterests([]);
+        }
+      });
+      
+      return () => interestsRef.off('value', unsubscribe);
+    } else {
+      try {
+        const customInts = localStorage.getItem('bangkok_custom_interests');
+        if (customInts) {
+          setCustomInterests(JSON.parse(customInts));
+        }
+      } catch (e) {
+        console.error('[LOCALSTORAGE] Error loading interests:', e);
+      }
+    }
+  }, []);
+
+  // Save routeType to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('bangkok_route_type', routeType);
+  }, [routeType]);
+
+  // Access Log System - Track visits
+  useEffect(() => {
+    if (!isFirebaseAvailable || !database) return;
+    
+    // Generate or retrieve user ID
+    let userId = localStorage.getItem('bangkok_user_id');
+    if (!userId) {
+      userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem('bangkok_user_id', userId);
+    }
+    
+    console.log('[ACCESS LOG] User ID:', userId);
+    
+    // Admin detection: support MULTIPLE admin devices
+    // Firebase stores: settings/adminId (primary) + settings/adminDevices/{userId} = true
+    database.ref('settings/adminId').once('value')
+      .then(async (snapshot) => {
+        let adminId = snapshot.val();
+        
+        if (!adminId) {
+          // First user ever - this user becomes admin
+          adminId = userId;
+          await database.ref('settings/adminId').set(adminId);
+          await database.ref(`settings/adminDevices/${userId}`).set(true);
+          console.log('[ACCESS LOG] You are the FIRST admin! ID:', adminId);
+          showToast('אתה ה-Admin הראשון!', 'success');
+        }
+        
+        // Check if this device is registered as admin
+        let isAdmin = (userId === adminId);
+        
+        if (!isAdmin) {
+          // Check adminDevices list (for additional devices)
+          const deviceSnapshot = await database.ref(`settings/adminDevices/${userId}`).once('value');
+          isAdmin = deviceSnapshot.val() === true;
+        }
+        
+        console.log('[ACCESS LOG] Admin:', adminId, 'Is Admin:', isAdmin);
+        
+        // Update admin state for UI + cache in localStorage
+        setIsCurrentUserAdmin(isAdmin);
+        localStorage.setItem('bangkok_is_admin', isAdmin ? 'true' : 'false');
+        
+        // Log access (skip admin)
+        if (!isAdmin) {
+          // THROTTLE: Don't log same userId more than once per hour
+          const lastLogTime = parseInt(localStorage.getItem('bangkok_last_log_time') || '0');
+          const oneHour = 60 * 60 * 1000;
+          
+          if (Date.now() - lastLogTime < oneHour) {
+            console.log('[ACCESS LOG] Throttled - already logged within last hour');
+          } else {
+            localStorage.setItem('bangkok_last_log_time', Date.now().toString());
+            
+            const { browser, os } = window.BKK.parseUserAgent(navigator.userAgent);
+            
+            const accessEntry = {
+              userId, timestamp: Date.now(), date: new Date().toISOString(),
+              userAgent: navigator.userAgent.substring(0, 100),
+              browser, os,
+              screenSize: `${screen.width}x${screen.height}`,
+              language: navigator.language || 'unknown',
+              country: '', city: '', region: ''
+            };
+            
+            const entryRef = database.ref('accessLog').push();
+            entryRef.set(accessEntry)
+              .then(() => {
+                console.log('[ACCESS LOG] Visit logged');
+                // Fetch geo data async
+                fetch('https://ipapi.co/json/')
+                  .then(r => r.json())
+                  .then(geo => {
+                    entryRef.update({
+                      country: geo.country_name || '',
+                      countryCode: geo.country_code || '',
+                      city: geo.city || '',
+                      region: geo.region || '',
+                      ip: geo.ip ? geo.ip.substring(0, 12) + '***' : '',
+                      isp: geo.org || ''
+                    });
+                  })
+                  .catch(err => console.log('[ACCESS LOG] Geo lookup failed:', err));
+              })
+              .catch(err => console.error('[ACCESS LOG] Error:', err));
+          }
+        }
+        
+        // Listen to access log (admin only)
+        if (isAdmin) {
+          const logRef = database.ref('accessLog').orderByChild('timestamp').limitToLast(50);
+          const lastSeen = parseInt(localStorage.getItem('bangkok_last_seen') || '0');
+          
+          const unsubscribe = logRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            console.log('[ACCESS LOG] Snapshot:', data ? Object.keys(data).length + ' entries' : 'EMPTY');
+            if (data) {
+              const logsArray = Object.keys(data).map(key => ({
+                ...data[key], id: key
+              })).sort((a, b) => b.timestamp - a.timestamp);
+              
+              setAccessLogs(logsArray);
+              
+              const hasNew = logsArray.some(log => log.timestamp > lastSeen);
+              if (hasNew && lastSeen > 0) {
+                setHasNewEntries(true);
+                showToast('יש כניסות חדשות!', 'info');
+              }
+            } else {
+              setAccessLogs([]);
+            }
+          });
+          
+          return () => logRef.off('value', unsubscribe);
+        }
+      })
+      .catch(err => console.error('[ACCESS LOG] Error reading admin:', err));
+  }, []);
+  
+  // Mark logs as seen
+  const markLogsAsSeen = () => {
+    const latest = accessLogs.length > 0 ? accessLogs[0].timestamp : Date.now();
+    localStorage.setItem('bangkok_last_seen', latest.toString());
+    setHasNewEntries(false);
+  };
+
+  // Config - loaded from js/config.js
+  const interestOptions = window.BKK.interestOptions;
+
+  const interestToGooglePlaces = window.BKK.interestToGooglePlaces;
+
+  const uncoveredInterests = window.BKK.uncoveredInterests;
+
+  const interestTooltips = window.BKK.interestTooltips;
+
+  const areaCoordinates = window.BKK.areaCoordinates;
+  
+  // Utility functions - loaded from js/utils.js
+  const checkLocationInArea = window.BKK.checkLocationInArea;
+  const getButtonStyle = window.BKK.getButtonStyle;
+
+  // Fetch places from Google Places API
+
+  // === APP LOGIC (from app-logic.js) ===
   const fetchGooglePlaces = async (area, interests) => {
     const center = areaCoordinates[area];
     if (!center) {
@@ -1763,3 +2119,5 @@
     
     setRoute({...route, mapUrl});
   };
+
+

@@ -1,3 +1,57 @@
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-pink-50" dir="rtl">
+      <div className="bg-gradient-to-r from-orange-500 to-pink-500 text-white p-4 shadow-lg">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold">Bangkok Explorer 🇹🇭</h1>
+          <div className="text-left">
+            <span className="text-xs opacity-70 block">v{window.BKK.VERSION}</span>
+            <span className="text-[8px] opacity-50">© 2026 Eitan Fisher</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto p-4 pb-32">
+        {/* Navigation Tabs */}
+        <div className={`grid ${isCurrentUserAdmin ? 'grid-cols-4' : 'grid-cols-3'} gap-2 mb-4 bg-white rounded-lg p-2 shadow`}>
+          <button
+            onClick={() => setCurrentView('form')}
+            className={`py-3 px-2 rounded-lg font-medium transition text-sm ${
+              currentView === 'form' || currentView === 'route' ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            🗺️ מסלול
+          </button>
+          <button
+            onClick={() => setCurrentView('saved')}
+            className={`py-3 px-2 rounded-lg font-medium transition text-sm ${
+              currentView === 'saved' ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            💾 שמורים {savedRoutes.length > 0 && `(${savedRoutes.length})`}
+          </button>
+          <button
+            onClick={() => setCurrentView('myContent')}
+            className={`py-3 px-2 rounded-lg font-medium transition text-sm ${
+              currentView === 'myContent' || currentView === 'search' ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            התוכן שלי {customLocations.length > 0 && `(${customLocations.length})`}
+          </button>
+          {isCurrentUserAdmin && (
+            <button
+              onClick={() => setCurrentView('settings')}
+              className={`py-3 px-2 rounded-lg font-medium transition text-sm ${
+                currentView === 'settings' ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              הגדרות
+            </button>
+          )}
+        </div>
+
+        {/* Form View */}
+
+        {/* === VIEWS (from views.js) === */}
         {currentView === 'form' && (
           <div className="bg-white rounded-xl shadow-lg p-3 space-y-3">
             <div className="flex items-center justify-center gap-2">
@@ -1077,7 +1131,8 @@
                 </p>
               </div>
             </div>
-            )}
+          </div>
+        )}
 
         {/* Saved Routes View */}
         {/* Search View */}
@@ -1948,3 +2003,6 @@
           </div>
         )}
         {/* Save Dialog */}
+
+
+        {/* === DIALOGS (from dialogs.js) === */}
