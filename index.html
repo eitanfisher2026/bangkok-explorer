@@ -89,7 +89,7 @@
 window.BKK = window.BKK || {};
 
 // App Version
-window.BKK.VERSION = '2.2.1';
+window.BKK.VERSION = '2.4.0';
 
 // Firebase Configuration
 window.BKK.firebaseConfig = {
@@ -830,6 +830,13 @@ const BangkokExplorer = () => {
     imageUrls: []  // Array of URL strings
   });
   const [customInterests, setCustomInterests] = useState([]);
+  
+  // Interest search configuration (editable)
+  const [interestConfig, setInterestConfig] = useState({});
+  const [showInterestConfigDialog, setShowInterestConfigDialog] = useState(false);
+  const [editingInterestConfig, setEditingInterestConfig] = useState(null);
+  const [googlePlaceInfo, setGooglePlaceInfo] = useState(null);
+  const [loadingGoogleInfo, setLoadingGoogleInfo] = useState(false);
   const [showAddInterestDialog, setShowAddInterestDialog] = useState(false);
   const [newInterest, setNewInterest] = useState({ label: '', icon: '📍', baseCategory: '' });
   const [showEditLocationDialog, setShowEditLocationDialog] = useState(false);
@@ -986,6 +993,55 @@ const BangkokExplorer = () => {
       } catch (e) {
         console.error('[LOCALSTORAGE] Error loading interests:', e);
       }
+    }
+  }, []);
+
+  // Load interest search configurations from Firebase
+  useEffect(() => {
+    // Default configurations
+    const defaultConfig = {
+      temples: { types: ['hindu_temple', 'buddhist_temple', 'church', 'mosque'], blacklist: [] },
+      food: { types: ['restaurant', 'meal_takeaway'], blacklist: ['bar', 'pub', 'club'] },
+      graffiti: { textSearch: 'street art', blacklist: [] },
+      artisans: { types: ['store', 'art_gallery'], blacklist: ['cannabis', 'weed', 'kratom', 'massage', 'spa'] },
+      galleries: { types: ['art_gallery', 'museum'], blacklist: ['cannabis', 'weed', 'kratom', 'massage', 'spa', 'cafe', 'coffee'] },
+      architecture: { types: ['historical_landmark'], blacklist: [] },
+      canals: { types: ['boat_tour_agency', 'marina'], blacklist: [] },
+      cafes: { types: ['cafe', 'coffee_shop'], blacklist: ['cannabis', 'weed', 'kratom'] },
+      markets: { types: ['market', 'shopping_mall'], blacklist: [] },
+      nightlife: { types: ['bar', 'night_club'], blacklist: [] },
+      parks: { types: ['park', 'national_park'], blacklist: [] },
+      rooftop: { types: ['bar', 'restaurant'], blacklist: [] },
+      entertainment: { types: ['movie_theater', 'amusement_park', 'performing_arts_theater'], blacklist: [] },
+      other: { types: ['tourist_attraction'], blacklist: [] }
+    };
+    
+    if (isFirebaseAvailable && database) {
+      const configRef = database.ref('settings/interestConfig');
+      
+      configRef.once('value').then((snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          // Merge with defaults
+          setInterestConfig({ ...defaultConfig, ...data });
+          console.log('[FIREBASE] Loaded interest config');
+        } else {
+          // Save defaults to Firebase
+          configRef.set(defaultConfig);
+          setInterestConfig(defaultConfig);
+          console.log('[FIREBASE] Saved default interest config');
+        }
+      });
+      
+      // Listen for changes
+      configRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          setInterestConfig({ ...defaultConfig, ...data });
+        }
+      });
+    } else {
+      setInterestConfig(defaultConfig);
     }
   }, []);
 
@@ -1164,8 +1220,7 @@ const BangkokExplorer = () => {
   // Fetch places from Google Places API
 
   // === APP LOGIC (from app-logic.js) ===
-  // Text search interests and URL
-  const textSearchInterests = window.BKK.textSearchInterests || {};
+  // Text Search URL
   const GOOGLE_PLACES_TEXT_SEARCH_URL = window.BKK.GOOGLE_PLACES_TEXT_SEARCH_URL || 'https://places.googleapis.com/v1/places:searchText';
 
   const fetchGooglePlaces = async (area, interests) => {
@@ -1177,10 +1232,17 @@ const BangkokExplorer = () => {
     }
 
     try {
-      // Check if any interest needs text search
-      const textSearchQuery = interests
-        .map(interest => textSearchInterests[interest])
-        .find(query => query);
+      // Get config for the first interest (primary)
+      const primaryInterest = interests[0];
+      const config = interestConfig[primaryInterest] || {};
+      
+      // Check if this interest uses text search
+      const textSearchQuery = config.textSearch;
+      
+      // Collect blacklist words from all interests
+      const blacklistWords = interests
+        .flatMap(interest => interestConfig[interest]?.blacklist || [])
+        .map(word => word.toLowerCase());
       
       let response;
       let placeTypes = [];
@@ -1215,12 +1277,14 @@ const BangkokExplorer = () => {
           })
         });
       } else {
-        // Use Nearby Search API with types
+        // Use Nearby Search API with types from interestConfig
         placeTypes = [...new Set(
           interests.flatMap(interest => {
             const customInterest = customInterests.find(ci => ci.id === interest);
             const baseInterest = customInterest?.baseCategory || interest;
-            return interestToGooglePlaces[baseInterest] || ['point_of_interest'];
+            // Use interestConfig if available, fallback to interestToGooglePlaces
+            const configTypes = interestConfig[baseInterest]?.types;
+            return configTypes || interestToGooglePlaces[baseInterest] || ['point_of_interest'];
           })
         )];
 
@@ -1285,23 +1349,38 @@ const BangkokExplorer = () => {
       }
 
       // Check if this was a text search
-      const isTextSearch = interests.some(interest => textSearchInterests[interest]);
+      const isTextSearch = !!textSearchQuery;
       
       // Filter and transform Google Places data
-      let filteredCount = 0;
       let ratingFilteredCount = 0;
       let typeFilteredCount = 0;
+      let blacklistFilteredCount = 0;
       
       const transformed = data.places
         .filter(place => {
-          // Filter 1: Rating check (lower threshold for text search as results are more specific)
-          const minRating = isTextSearch ? 0 : 4.0; // No rating filter for text search
+          const placeName = (place.displayName?.text || '').toLowerCase();
+          
+          // Filter 1: Blacklist check - filter out places with blacklisted words in name
+          if (blacklistWords.length > 0) {
+            const isBlacklisted = blacklistWords.some(word => placeName.includes(word));
+            if (isBlacklisted) {
+              blacklistFilteredCount++;
+              console.log('[DYNAMIC] ❌ Filtered out (blacklist):', {
+                name: place.displayName?.text,
+                matchedWord: blacklistWords.find(word => placeName.includes(word))
+              });
+              return false;
+            }
+          }
+          
+          // Filter 2: Rating check (no filter for text search)
+          const minRating = isTextSearch ? 0 : 4.0;
           if (place.rating && place.rating < minRating) {
             ratingFilteredCount++;
             return false;
           }
           
-          // Filter 2: Type validation - skip for text search (text search is already specific)
+          // Filter 3: Type validation - skip for text search
           if (!isTextSearch && placeTypes.length > 0) {
             const placeTypesFromGoogle = place.types || [];
             const hasValidType = placeTypesFromGoogle.some(type => placeTypes.includes(type));
@@ -1343,7 +1422,7 @@ const BangkokExplorer = () => {
         final: transformed.length
       });
       
-      addDebugLog('API', `Got ${transformed.length} results (filtered ${ratingFilteredCount} by rating, ${typeFilteredCount} by type)`, {
+      addDebugLog('API', `Got ${transformed.length} results (filtered ${blacklistFilteredCount} blacklist, ${ratingFilteredCount} rating, ${typeFilteredCount} type)`, {
         names: transformed.slice(0, 5).map(p => p.name)
       });
       
@@ -1362,6 +1441,94 @@ const BangkokExplorer = () => {
         message: error.message,
         details: { area, interests, stack: error.stack }
       };
+    }
+  };
+
+  // Function to fetch Google Place info for a location
+  const fetchGooglePlaceInfo = async (location) => {
+    if (!location || (!location.lat && !location.name)) {
+      showToast('אין מספיק מידע על המקום', 'error');
+      return null;
+    }
+    
+    setLoadingGoogleInfo(true);
+    
+    try {
+      // Use Text Search to find the place
+      const searchQuery = location.name + ' Bangkok';
+      
+      const response = await fetch(GOOGLE_PLACES_TEXT_SEARCH_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
+          'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.types,places.primaryType,places.primaryTypeDisplayName'
+        },
+        body: JSON.stringify({
+          textQuery: searchQuery,
+          maxResultCount: 5,
+          locationBias: location.lat && location.lng ? {
+            circle: {
+              center: { latitude: location.lat, longitude: location.lng },
+              radius: 1000.0
+            }
+          } : undefined
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Google API error');
+      }
+      
+      const data = await response.json();
+      
+      if (!data.places || data.places.length === 0) {
+        setGooglePlaceInfo({ notFound: true, searchQuery });
+        showToast('המקום לא נמצא ב-Google', 'warning');
+        return null;
+      }
+      
+      // Find best match (closest to our coordinates if available)
+      let bestMatch = data.places[0];
+      
+      if (location.lat && location.lng && data.places.length > 1) {
+        const getDistance = (place) => {
+          const lat = place.location?.latitude || 0;
+          const lng = place.location?.longitude || 0;
+          return Math.sqrt(Math.pow(lat - location.lat, 2) + Math.pow(lng - location.lng, 2));
+        };
+        
+        bestMatch = data.places.reduce((best, place) => 
+          getDistance(place) < getDistance(best) ? place : best
+        );
+      }
+      
+      const placeInfo = {
+        name: bestMatch.displayName?.text,
+        address: bestMatch.formattedAddress,
+        types: bestMatch.types || [],
+        primaryType: bestMatch.primaryType,
+        primaryTypeDisplayName: bestMatch.primaryTypeDisplayName?.text,
+        rating: bestMatch.rating,
+        ratingCount: bestMatch.userRatingCount,
+        location: bestMatch.location,
+        allResults: data.places.map(p => ({
+          name: p.displayName?.text,
+          types: p.types,
+          primaryType: p.primaryType
+        }))
+      };
+      
+      setGooglePlaceInfo(placeInfo);
+      addDebugLog('API', 'Fetched Google Place Info', { name: placeInfo.name, types: placeInfo.types });
+      
+      return placeInfo;
+    } catch (error) {
+      console.error('Error fetching Google place info:', error);
+      showToast('שגיאה בשליפת מידע מ-Google', 'error');
+      return null;
+    } finally {
+      setLoadingGoogleInfo(false);
     }
   };
 
@@ -3110,16 +3277,30 @@ const BangkokExplorer = () => {
                         fontSize: '11px',
                         color: formData.interests.includes(option.id) ? '#c2410c' : '#374151'
                       }}>{option.label}</div>
-                      {/* Info icon - purple and larger for custom interests */}
-                      <div style={{
-                        position: 'absolute',
-                        top: '2px',
-                        left: '2px',
-                        fontSize: isCustom ? '11px' : '9px',
-                        color: isCustom ? '#a855f7' : '#9ca3af',
-                        opacity: isCustom ? '1' : '0.7',
-                        fontWeight: isCustom ? 'bold' : 'normal'
-                      }}>ⓘ</div>
+                      {/* Info icon - clickable to show/edit search config */}
+                      <div 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingInterestConfig({
+                            id: option.id,
+                            label: option.label,
+                            icon: option.icon,
+                            isCustom: isCustom,
+                            config: interestConfig[option.id] || {}
+                          });
+                          setShowInterestConfigDialog(true);
+                        }}
+                        style={{
+                          position: 'absolute',
+                          top: '2px',
+                          left: '2px',
+                          fontSize: '10px',
+                          color: '#3b82f6',
+                          cursor: 'pointer',
+                          padding: '2px'
+                        }}
+                        title="הגדרות חיפוש"
+                      >ⓘ</div>
                     </button>
                   );
                 })}
@@ -3347,7 +3528,7 @@ const BangkokExplorer = () => {
                                   </div>
                                   
                                   <a
-                                    href={hasValidCoords ? `https://www.google.com/maps?q=${stop.lat},${stop.lng}` : '#'}
+                                    href={hasValidCoords ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stop.name + ' Bangkok')}` : '#'}
                                     target={hasValidCoords ? "_blank" : undefined}
                                     rel={hasValidCoords ? "noopener noreferrer" : undefined}
                                     className="block hover:bg-gray-100 transition pr-2"
@@ -3811,7 +3992,7 @@ const BangkokExplorer = () => {
                               </span>
                             )}
                             <a
-                              href={hasValidCoords ? `https://www.google.com/maps?q=${stop.lat},${stop.lng}` : '#'}
+                              href={hasValidCoords ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stop.name + ' Bangkok')}` : '#'}
                               target={hasValidCoords ? "_blank" : undefined}
                               rel={hasValidCoords ? "noopener noreferrer" : undefined}
                               className={`font-bold text-sm ${isDisabled ? 'line-through text-gray-500' : hasValidCoords ? 'text-blue-600 hover:text-blue-800' : 'text-red-600'}`}
@@ -3854,6 +4035,7 @@ const BangkokExplorer = () => {
                                 <button
                                   onClick={() => {
                                     setSelectedLocation(stop);
+                                    setGooglePlaceInfo(null);
                                     setShowLocationDetailModal(true);
                                   }}
                                   className={`${sourceBadge.color} text-white text-[10px] px-2 py-0.5 rounded-full font-bold cursor-pointer hover:opacity-80 transition`}
@@ -4436,6 +4618,17 @@ const BangkokExplorer = () => {
                               
                               {/* Action buttons */}
                               <div className="flex gap-0.5">
+                                <button
+                                  onClick={() => {
+                                    setSelectedLocation(loc);
+                                    setGooglePlaceInfo(null);
+                                    setShowLocationDetailModal(true);
+                                  }}
+                                  className="text-xs px-1 py-0.5 rounded bg-indigo-500 text-white hover:bg-indigo-600"
+                                  title="פרטים + בדיקת Google"
+                                >
+                                  🔍
+                                </button>
                                 <button
                                   onClick={() => toggleLocationStatus(loc.id)}
                                   className="text-xs px-1 py-0.5 rounded bg-red-500 text-white hover:bg-red-600"
@@ -5821,6 +6014,72 @@ const BangkokExplorer = () => {
                   </a>
                 </div>
               )}
+              {/* Google Place Info Section */}
+              <div className="bg-indigo-50 border-2 border-indigo-200 rounded-lg p-3">
+                <div className="flex justify-between items-center mb-2">
+                  <div className="text-xs font-bold text-indigo-900">🔍 מידע מ-Google</div>
+                  <button
+                    onClick={() => {
+                      setGooglePlaceInfo(null);
+                      fetchGooglePlaceInfo(selectedLocation);
+                    }}
+                    disabled={loadingGoogleInfo}
+                    className="bg-indigo-500 text-white text-xs px-3 py-1 rounded-full font-bold hover:bg-indigo-600 disabled:opacity-50"
+                  >
+                    {loadingGoogleInfo ? '⏳ טוען...' : '🔎 בדוק ב-Google'}
+                  </button>
+                </div>
+                
+                {googlePlaceInfo && !googlePlaceInfo.notFound && (
+                  <div className="text-xs space-y-2" style={{ direction: 'ltr' }}>
+                    <div>
+                      <span className="font-bold text-indigo-700">Found:</span>
+                      <span className="ml-1">{googlePlaceInfo.name}</span>
+                    </div>
+                    <div>
+                      <span className="font-bold text-indigo-700">Primary Type:</span>
+                      <span className="ml-1 bg-indigo-200 px-2 py-0.5 rounded">
+                        {googlePlaceInfo.primaryTypeDisplayName || googlePlaceInfo.primaryType || 'N/A'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="font-bold text-indigo-700">All Types:</span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {googlePlaceInfo.types.map((type, idx) => (
+                          <span key={idx} className="bg-gray-200 px-2 py-0.5 rounded text-[10px]">
+                            {type}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="font-bold text-indigo-700">Rating:</span>
+                      <span className="ml-1">⭐ {googlePlaceInfo.rating?.toFixed(1) || 'N/A'} ({googlePlaceInfo.ratingCount || 0})</span>
+                    </div>
+                    
+                    {/* Explanation */}
+                    <div className="mt-2 p-2 bg-white rounded border border-indigo-200 text-[10px]">
+                      <div className="font-bold text-indigo-800 mb-1">💡 למה זה חשוב?</div>
+                      <div className="text-gray-600">
+                        כדי שמקום יופיע בחיפוש, ה-Types שלו צריכים להתאים להגדרות החיפוש של תחום העניין.
+                        לחץ על ⓘ ליד תחום עניין בטופס כדי לראות ולערוך את הגדרות החיפוש.
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {googlePlaceInfo && googlePlaceInfo.notFound && (
+                  <div className="text-xs text-red-600">
+                    ❌ המקום לא נמצא ב-Google עבור החיפוש: "{googlePlaceInfo.searchQuery}"
+                  </div>
+                )}
+                
+                {!googlePlaceInfo && !loadingGoogleInfo && (
+                  <div className="text-xs text-gray-500">
+                    לחץ על "בדוק ב-Google" כדי לראות איך המקום מוגדר
+                  </div>
+                )}
+              </div>
             </div>
             
             {/* Footer Actions */}
@@ -6128,6 +6387,204 @@ const BangkokExplorer = () => {
         </div>
       )}
       
+      {/* Interest Config Dialog */}
+      {showInterestConfigDialog && editingInterestConfig && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-3 rounded-t-xl sticky top-0">
+              <div className="flex justify-between items-center">
+                <h3 className="text-base font-bold">
+                  {editingInterestConfig.icon} {editingInterestConfig.label} - הגדרות חיפוש
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowInterestConfigDialog(false);
+                    setEditingInterestConfig(null);
+                  }}
+                  className="text-white hover:text-gray-200"
+                >✕</button>
+              </div>
+            </div>
+            <div className="p-4 space-y-4" style={{ direction: 'ltr' }}>
+              {/* Current Config Display */}
+              <div className="bg-gray-50 rounded-lg p-3 text-sm">
+                <div className="font-bold text-gray-700 mb-2">Current Configuration:</div>
+                {editingInterestConfig.config.textSearch ? (
+                  <div className="mb-2">
+                    <span className="text-blue-600 font-medium">Text Search:</span>
+                    <span className="ml-2">"{editingInterestConfig.config.textSearch}"</span>
+                  </div>
+                ) : (
+                  <div className="mb-2">
+                    <span className="text-green-600 font-medium">Place Types:</span>
+                    <div className="ml-2 text-xs text-gray-600">
+                      {(editingInterestConfig.config.types || []).join(', ') || 'None defined'}
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <span className="text-red-600 font-medium">Blacklist Words:</span>
+                  <div className="ml-2 text-xs text-gray-600">
+                    {(editingInterestConfig.config.blacklist || []).join(', ') || 'None'}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Edit Section */}
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">
+                    Search Mode:
+                  </label>
+                  <select
+                    value={editingInterestConfig.config.textSearch ? 'text' : 'types'}
+                    onChange={(e) => {
+                      const newConfig = { ...editingInterestConfig.config };
+                      if (e.target.value === 'text') {
+                        newConfig.textSearch = newConfig.textSearch || '';
+                        delete newConfig.types;
+                      } else {
+                        delete newConfig.textSearch;
+                        newConfig.types = newConfig.types || [];
+                      }
+                      setEditingInterestConfig({
+                        ...editingInterestConfig,
+                        config: newConfig
+                      });
+                    }}
+                    className="w-full p-2 border rounded text-sm"
+                  >
+                    <option value="types">Category Search (types)</option>
+                    <option value="text">Text Search (query)</option>
+                  </select>
+                </div>
+                
+                {editingInterestConfig.config.textSearch !== undefined ? (
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">
+                      Text Search Query:
+                    </label>
+                    <input
+                      type="text"
+                      value={editingInterestConfig.config.textSearch || ''}
+                      onChange={(e) => {
+                        setEditingInterestConfig({
+                          ...editingInterestConfig,
+                          config: {
+                            ...editingInterestConfig.config,
+                            textSearch: e.target.value
+                          }
+                        });
+                      }}
+                      placeholder="e.g., street art"
+                      className="w-full p-2 border rounded text-sm"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Will search: "[query] [area] Bangkok"
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">
+                      Place Types (comma separated):
+                    </label>
+                    <input
+                      type="text"
+                      value={(editingInterestConfig.config.types || []).join(', ')}
+                      onChange={(e) => {
+                        const types = e.target.value.split(',').map(t => t.trim()).filter(t => t);
+                        setEditingInterestConfig({
+                          ...editingInterestConfig,
+                          config: {
+                            ...editingInterestConfig.config,
+                            types
+                          }
+                        });
+                      }}
+                      placeholder="e.g., art_gallery, museum"
+                      className="w-full p-2 border rounded text-sm"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      <a href="https://developers.google.com/maps/documentation/places/web-service/place-types" target="_blank" className="text-blue-500 underline">
+                        See available types
+                      </a>
+                    </p>
+                  </div>
+                )}
+                
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">
+                    Blacklist Words (comma separated):
+                  </label>
+                  <input
+                    type="text"
+                    value={(editingInterestConfig.config.blacklist || []).join(', ')}
+                    onChange={(e) => {
+                      const blacklist = e.target.value.split(',').map(t => t.trim().toLowerCase()).filter(t => t);
+                      setEditingInterestConfig({
+                        ...editingInterestConfig,
+                        config: {
+                          ...editingInterestConfig.config,
+                          blacklist
+                        }
+                      });
+                    }}
+                    placeholder="e.g., cannabis, weed, massage"
+                    className="w-full p-2 border rounded text-sm"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Places with these words in name will be filtered out
+                  </p>
+                </div>
+              </div>
+              
+              {/* Buttons */}
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => {
+                    // Save to Firebase
+                    if (isFirebaseAvailable && database) {
+                      const configToSave = { ...editingInterestConfig.config };
+                      database.ref(`settings/interestConfig/${editingInterestConfig.id}`).set(configToSave)
+                        .then(() => {
+                          showToast('Configuration saved!', 'success');
+                          setShowInterestConfigDialog(false);
+                          setEditingInterestConfig(null);
+                        })
+                        .catch(err => {
+                          console.error('Error saving config:', err);
+                          showToast('Error saving', 'error');
+                        });
+                    } else {
+                      // Update local state only
+                      setInterestConfig(prev => ({
+                        ...prev,
+                        [editingInterestConfig.id]: editingInterestConfig.config
+                      }));
+                      showToast('Configuration updated (local only)', 'success');
+                      setShowInterestConfigDialog(false);
+                      setEditingInterestConfig(null);
+                    }
+                  }}
+                  className="flex-1 py-2 bg-green-500 text-white rounded-lg font-bold text-sm hover:bg-green-600"
+                >
+                  💾 Save
+                </button>
+                <button
+                  onClick={() => {
+                    setShowInterestConfigDialog(false);
+                    setEditingInterestConfig(null);
+                  }}
+                  className="flex-1 py-2 bg-gray-300 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-400"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Toast Notification - Subtle */}
       {/* Password Dialog */}
       {showPasswordDialog && (
