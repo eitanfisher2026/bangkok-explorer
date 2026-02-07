@@ -5,7 +5,7 @@
 window.BKK = window.BKK || {};
 
 // App Version
-window.BKK.VERSION = '2.4.2';
+window.BKK.VERSION = '2.7.0';
 
 // Firebase Configuration
 window.BKK.firebaseConfig = {
@@ -44,7 +44,6 @@ window.BKK.interestOptions = [
   { id: 'parks', label: 'פארקים', icon: '🌳' },
   { id: 'rooftop', label: 'גגות', icon: '🌆' },
   { id: 'entertainment', label: 'בידור', icon: '🎭' },
-  { id: 'other', label: 'אחר', icon: '📍' }
 ];
 
 // Map interests to Google Places API categories
@@ -62,19 +61,18 @@ window.BKK.interestToGooglePlaces = {
   parks: ['park', 'national_park'],
   rooftop: ['bar', 'restaurant'],
   entertainment: ['movie_theater', 'amusement_park', 'performing_arts_theater'],
-  other: ['tourist_attraction']
 };
 
 // Interests NOT covered by the system
 window.BKK.uncoveredInterests = [
-  { icon: '💆', name: 'עיסוי וספא', examples: 'Thai massage, wellness centers, spa' },
-  { icon: '🏋️', name: 'כושר וספורט', examples: 'Gyms, yoga studios, Muay Thai, fitness' },
-  { icon: '🛍️', name: 'קניות מיוחדות', examples: 'Boutiques, jewelry, fashion stores' },
-  { icon: '🎓', name: 'לימוד וחוויות', examples: 'Cooking classes, meditation, workshops' },
-  { icon: '🏥', name: 'בריאות ורפואה', examples: 'Clinics, pharmacies, health services' },
-  { icon: '🏨', name: 'אירוח', examples: 'Hotels, hostels, guesthouses' },
-  { icon: '🚗', name: 'תחבורה', examples: 'Car rental, bike rental, transportation' },
-  { icon: '💼', name: 'עסקים', examples: 'Coworking, offices, business centers' }
+  { id: 'massage_spa', icon: '💆', label: 'עיסוי וספא', name: 'עיסוי וספא', examples: 'Thai massage, wellness centers, spa' },
+  { id: 'fitness', icon: '🏋️', label: 'כושר וספורט', name: 'כושר וספורט', examples: 'Gyms, yoga studios, Muay Thai, fitness' },
+  { id: 'shopping_special', icon: '🛍️', label: 'קניות מיוחדות', name: 'קניות מיוחדות', examples: 'Boutiques, jewelry, fashion stores' },
+  { id: 'learning', icon: '🎓', label: 'לימוד וחוויות', name: 'לימוד וחוויות', examples: 'Cooking classes, meditation, workshops' },
+  { id: 'health', icon: '🏥', label: 'בריאות ורפואה', name: 'בריאות ורפואה', examples: 'Clinics, pharmacies, health services' },
+  { id: 'accommodation', icon: '🏨', label: 'אירוח', name: 'אירוח', examples: 'Hotels, hostels, guesthouses' },
+  { id: 'transport', icon: '🚗', label: 'תחבורה', name: 'תחבורה', examples: 'Car rental, bike rental, transportation' },
+  { id: 'business', icon: '💼', label: 'עסקים', name: 'עסקים', examples: 'Coworking, offices, business centers' }
 ];
 
 // Tooltip content for each interest
@@ -92,7 +90,6 @@ window.BKK.interestTooltips = {
   parks: 'גנים ופארקים',
   rooftop: 'ברים ומסעדות על גגות',
   entertainment: 'קולנוע, תיאטרון, מופעים',
-  other: 'מקומות נוספים'
 };
 
 // Area options

@@ -89,7 +89,7 @@
 window.BKK = window.BKK || {};
 
 // App Version
-window.BKK.VERSION = '2.4.2';
+window.BKK.VERSION = '2.7.0';
 
 // Firebase Configuration
 window.BKK.firebaseConfig = {
@@ -128,7 +128,6 @@ window.BKK.interestOptions = [
   { id: 'parks', label: 'פארקים', icon: '🌳' },
   { id: 'rooftop', label: 'גגות', icon: '🌆' },
   { id: 'entertainment', label: 'בידור', icon: '🎭' },
-  { id: 'other', label: 'אחר', icon: '📍' }
 ];
 
 // Map interests to Google Places API categories
@@ -146,19 +145,18 @@ window.BKK.interestToGooglePlaces = {
   parks: ['park', 'national_park'],
   rooftop: ['bar', 'restaurant'],
   entertainment: ['movie_theater', 'amusement_park', 'performing_arts_theater'],
-  other: ['tourist_attraction']
 };
 
 // Interests NOT covered by the system
 window.BKK.uncoveredInterests = [
-  { icon: '💆', name: 'עיסוי וספא', examples: 'Thai massage, wellness centers, spa' },
-  { icon: '🏋️', name: 'כושר וספורט', examples: 'Gyms, yoga studios, Muay Thai, fitness' },
-  { icon: '🛍️', name: 'קניות מיוחדות', examples: 'Boutiques, jewelry, fashion stores' },
-  { icon: '🎓', name: 'לימוד וחוויות', examples: 'Cooking classes, meditation, workshops' },
-  { icon: '🏥', name: 'בריאות ורפואה', examples: 'Clinics, pharmacies, health services' },
-  { icon: '🏨', name: 'אירוח', examples: 'Hotels, hostels, guesthouses' },
-  { icon: '🚗', name: 'תחבורה', examples: 'Car rental, bike rental, transportation' },
-  { icon: '💼', name: 'עסקים', examples: 'Coworking, offices, business centers' }
+  { id: 'massage_spa', icon: '💆', label: 'עיסוי וספא', name: 'עיסוי וספא', examples: 'Thai massage, wellness centers, spa' },
+  { id: 'fitness', icon: '🏋️', label: 'כושר וספורט', name: 'כושר וספורט', examples: 'Gyms, yoga studios, Muay Thai, fitness' },
+  { id: 'shopping_special', icon: '🛍️', label: 'קניות מיוחדות', name: 'קניות מיוחדות', examples: 'Boutiques, jewelry, fashion stores' },
+  { id: 'learning', icon: '🎓', label: 'לימוד וחוויות', name: 'לימוד וחוויות', examples: 'Cooking classes, meditation, workshops' },
+  { id: 'health', icon: '🏥', label: 'בריאות ורפואה', name: 'בריאות ורפואה', examples: 'Clinics, pharmacies, health services' },
+  { id: 'accommodation', icon: '🏨', label: 'אירוח', name: 'אירוח', examples: 'Hotels, hostels, guesthouses' },
+  { id: 'transport', icon: '🚗', label: 'תחבורה', name: 'תחבורה', examples: 'Car rental, bike rental, transportation' },
+  { id: 'business', icon: '💼', label: 'עסקים', name: 'עסקים', examples: 'Coworking, offices, business centers' }
 ];
 
 // Tooltip content for each interest
@@ -176,7 +174,6 @@ window.BKK.interestTooltips = {
   parks: 'גנים ופארקים',
   rooftop: 'ברים ומסעדות על גגות',
   entertainment: 'קולנוע, תיאטרון, מופעים',
-  other: 'מקומות נוספים'
 };
 
 // Area options
@@ -270,24 +267,69 @@ window.BKK.helpContent = {
   },
   myContent: {
     title: 'התוכן שלי',
-    content: `**מה יש כאן:**
-ניהול המקומות ותחומי העניין שהוספת בעצמך.
+    content: `**מבנה חדש - שני מסכים:**
 
-**מקומות מותאמים אישית:**
-• לחץ **"+ הוסף מקום"** להוספת מקום חדש
-• לחץ על מקום קיים לצפייה בפרטים
-• ✏️ לעריכה, 🗑️ למחיקה
+**📍 המקומות שלי:**
+• ניהול מקומות מותאמים אישית
+• הוספה, עריכה, מחיקה
+• סטטוס: פעיל / רשימה שחורה
+• מקומות שלך מקבלים עדיפות!
 
-**תחומי עניין:**
-• לחץ **"+ הוסף תחום"** ליצירת קטגוריה חדשה
-• בחר אייקון ושם
-• תחומים מותאמים יופיעו בבחירת תחומי עניין
+**🏷️ התחומים שלי:**
+• כל תחומי העניין במערכת
+• ✅ **פעילים** - מופיעים בחיפוש
+• ⏸️ **לא פעילים** - מוסתרים מהחיפוש
+• ⚙️ הגדרות חיפוש לכל תחום
+• ➕ הוספת תחומים חדשים
+
+**סוגי תחומים:**
+• **מובנים** - תחומים קבועים (ניתן להשבית)
+• **לא נכללים** - לא פעילים כברירת מחדל
+• **מותאמים** - תחומים שיצרת (ניתן למחוק)
+
+**טיפ:** תחום ללא הגדרות חיפוש מסומן באדום ולא יעבוד!`
+  },
+  myPlaces: {
+    title: 'המקומות שלי',
+    content: `**ניהול מקומות מותאמים אישית**
+
+**הוספת מקום:**
+• לחץ **"+ הוסף מקום"**
+• הזן שם ותחום עניין (חובה)
+• הוסף קואורדינטות, תמונה, הערות
+
+**פעולות:**
+• ✏️ **עריכה** - שינוי פרטי המקום
+• 🗑️ **מחיקה** - הסרה מהמערכת
+• 🔍 **בדיקה** - מידע מ-Google על המקום
 
 **סטטוס מקום:**
 • ✅ **פעיל** - יופיע במסלולים
 • 🚫 **רשימה שחורה** - לא יופיע לעולם
 
-**טיפ:** מקומות שלך מקבלים עדיפות על פני מקומות מ-Google!`
+**מקומות שלך מקבלים עדיפות** על פני מקומות מ-Google!`
+  },
+  myInterests: {
+    title: 'התחומים שלי',
+    content: `**ניהול כל תחומי העניין**
+
+**תחומים פעילים (✅):**
+• מופיעים בטופס החיפוש
+• ⚙️ לשינוי הגדרות חיפוש
+• ❌ להשבתה
+
+**תחומים לא פעילים (⏸️):**
+• מוסתרים מהחיפוש
+• ✅ הפעל - להוספה לחיפוש
+
+**סוגי תחומים:**
+• **מובנים** - מקדשים, אוכל, גרפיטי... (לא ניתן למחוק)
+• **לא נכללים** - עיסוי, כושר... (כבויים כברירת מחדל)
+• **מותאמים (חדש)** - תחומים שיצרת (ניתן למחוק)
+
+**⚠️ תחום לא תקין:**
+• מסגרת אדומה = חסר הגדרות חיפוש
+• לא יעבוד עד שתגדיר Place Types`
   },
   saved: {
     title: 'מסלולים שמורים',
@@ -314,18 +356,23 @@ window.BKK.helpContent = {
 • **דינמי** - נתונים משותפים (Firebase) - מומלץ
 • **סטטי** - נתונים מקומיים בלבד (לפיתוח)
 
-**ייבוא/ייצוא:**
-• **ייצוא** - שומר את כל המקומות והתחומים שלך לקובץ JSON
-• **ייבוא** - מוסיף מקומות ותחומים מקובץ
+**ייבוא/ייצוא (v2.6):**
+• **ייצוא** - שומר הכל לקובץ JSON:
+  - מקומות מותאמים
+  - תחומים מותאמים
+  - הגדרות חיפוש
+  - סטטוס תחומים (פעיל/לא)
+  - מסלולים שמורים
 
-**איך עובד הייבוא:**
-• כפילויות (לפי שם) ידולגו אוטומטית
-• תחומים חסרים ייווצרו אוטומטית
-• שום דבר לא יימחק - רק הוספה
+• **ייבוא** - מוסיף מקובץ:
+  - כפילויות ידולגו
+  - הגדרות יתמזגו
+  - שום דבר לא יימחק
 
 **Admin (למנהלים):**
 • צפייה בלוג כניסות
-• ניהול מכשירים מורשים`
+• ניהול מכשירים מורשים
+• סיסמת Admin`
   },
   addLocation: {
     title: 'הוספת/עריכת מקום',
@@ -363,27 +410,39 @@ window.BKK.helpContent = {
 • **X** - סוגר בלי לשמור`
   },
   addInterest: {
-    title: 'הוספת תחום עניין',
+    title: 'הוספת/עריכת תחום עניין',
     content: `**מה זה תחום עניין מותאם?**
-תת-תחום חדש שאתה יוצר, מבוסס על תחום קיים במערכת.
+קטגוריה חדשה שאתה יוצר עם הגדרות חיפוש משלך.
 
-**שדות:**
+**שדות בסיס:**
 • **שם התחום** - השם שיוצג (לדוגמה: "בתי קולנוע")
 • **אייקון** - אימוג'י שייצג את התחום
-• **תחום בסיס** - התחום הקיים שאליו יתווסף התחום החדש כתת-תחום
 
-**איך זה עובד?**
-ב"מצא מקומות", כשתבחר את התחום החדש, המערכת תחפש בגוגל מקומות מתחום הבסיס שכוללים את התחום החדש.
+**הגדרות חיפוש (חובה!):**
+• **Search Mode:**
+  - **Category** - חיפוש לפי סוגי מקומות
+  - **Text** - חיפוש טקסט חופשי
 
-**דוגמה:**
-תחום חדש: "בתי קולנוע" 🎬
-תחום בסיס: "בידור" 🎭
-→ המערכת תחפש מקומות בידור שהם בתי קולנוע
+• **Place Types** (למצב Category):
+  - רשימה מופרדת בפסיקים
+  - לדוגמה: movie_theater, cinema
+  - [קישור לרשימת הסוגים]
+
+• **Text Query** (למצב Text):
+  - לדוגמה: street art
+  - יחפש: "[query] [area] Bangkok"
+
+• **Blacklist:**
+  - מילים לסינון (cannabis, massage...)
+
+**⚠️ חשוב:**
+תחום ללא Place Types או Text Query לא יעבוד!
+יסומן באדום עד שתגדיר.
 
 **כפתורים:**
-• **הוסף** - שומר ונשאר פתוח להוספה נוספת
-• **סגור** - שומר וסוגר
-• **X** - סוגר בלי לשמור`
+• **הוסף** - שומר ונשאר פתוח
+• **שמור** - עדכון תחום קיים
+• **סגור** - שומר וסוגר`
   }
 };
 
@@ -830,6 +889,7 @@ const BangkokExplorer = () => {
     imageUrls: []  // Array of URL strings
   });
   const [customInterests, setCustomInterests] = useState([]);
+  const [interestStatus, setInterestStatus] = useState({}); // { interestId: true/false }
   
   // Interest search configuration (editable)
   const [interestConfig, setInterestConfig] = useState({});
@@ -841,7 +901,7 @@ const BangkokExplorer = () => {
   const [selectedStopInfo, setSelectedStopInfo] = useState(null);
   const [editingCustomInterest, setEditingCustomInterest] = useState(null);
   const [showAddInterestDialog, setShowAddInterestDialog] = useState(false);
-  const [newInterest, setNewInterest] = useState({ label: '', icon: '📍', baseCategory: '' });
+  const [newInterest, setNewInterest] = useState({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '' });
   const [showEditLocationDialog, setShowEditLocationDialog] = useState(false);
   const [editingLocation, setEditingLocation] = useState(null);
   const [showImageModal, setShowImageModal] = useState(false);
@@ -1016,7 +1076,15 @@ const BangkokExplorer = () => {
       parks: { types: ['park', 'national_park'], blacklist: [] },
       rooftop: { types: ['bar', 'restaurant'], blacklist: [] },
       entertainment: { types: ['movie_theater', 'amusement_park', 'performing_arts_theater'], blacklist: [] },
-      other: { types: ['tourist_attraction'], blacklist: [] }
+      // Uncovered interests (inactive by default)
+      massage_spa: { types: ['spa', 'massage'], blacklist: [] },
+      fitness: { types: ['gym', 'fitness_center', 'sports_club'], blacklist: [] },
+      shopping_special: { types: ['clothing_store', 'jewelry_store', 'shoe_store'], blacklist: [] },
+      learning: { types: ['school', 'university'], blacklist: [] },
+      health: { types: ['pharmacy', 'hospital', 'doctor'], blacklist: [] },
+      accommodation: { types: ['hotel', 'lodging'], blacklist: [] },
+      transport: { types: ['car_rental', 'transit_station'], blacklist: [] },
+      business: { types: ['coworking_space'], blacklist: [] },
     };
     
     if (isFirebaseAvailable && database) {
@@ -1045,6 +1113,52 @@ const BangkokExplorer = () => {
       });
     } else {
       setInterestConfig(defaultConfig);
+    }
+  }, []);
+
+  // Load interest active/inactive status
+  useEffect(() => {
+    // Default status: built-in = active, uncovered = inactive
+    const builtInIds = interestOptions.map(i => i.id);
+    const uncoveredIds = uncoveredInterests.map(i => i.id || i.name.replace(/\s+/g, '_').toLowerCase());
+    
+    const defaultStatus = {};
+    builtInIds.forEach(id => { defaultStatus[id] = true; });
+    uncoveredIds.forEach(id => { defaultStatus[id] = false; });
+    
+    if (isFirebaseAvailable && database) {
+      const statusRef = database.ref('settings/interestStatus');
+      
+      statusRef.once('value').then((snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          setInterestStatus({ ...defaultStatus, ...data });
+          console.log('[FIREBASE] Loaded interest status');
+        } else {
+          statusRef.set(defaultStatus);
+          setInterestStatus(defaultStatus);
+          console.log('[FIREBASE] Saved default interest status');
+        }
+      });
+      
+      // Listen for changes
+      statusRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          setInterestStatus(prev => ({ ...defaultStatus, ...data }));
+        }
+      });
+    } else {
+      try {
+        const saved = localStorage.getItem('bangkok_interest_status');
+        if (saved) {
+          setInterestStatus({ ...defaultStatus, ...JSON.parse(saved) });
+        } else {
+          setInterestStatus(defaultStatus);
+        }
+      } catch (e) {
+        setInterestStatus(defaultStatus);
+      }
     }
   }, []);
 
@@ -1234,17 +1348,47 @@ const BangkokExplorer = () => {
       return [];
     }
 
+    // Filter out invalid interests (those without search config)
+    const validInterests = interests.filter(id => isInterestValid(id));
+    if (validInterests.length === 0) {
+      addDebugLog('API', 'No valid interests to search for (all missing config)');
+      console.warn('[DYNAMIC] No valid interests - all are missing search config');
+      return [];
+    }
+    
+    if (validInterests.length < interests.length) {
+      const skipped = interests.filter(id => !isInterestValid(id));
+      addDebugLog('API', `Skipped ${skipped.length} invalid interests: ${skipped.join(', ')}`);
+      console.warn('[DYNAMIC] Skipped invalid interests:', skipped);
+    }
+
     try {
-      // Get config for the first interest (primary)
-      const primaryInterest = interests[0];
-      const config = interestConfig[primaryInterest] || {};
+      // Get config for the first valid interest (primary)
+      const primaryInterest = validInterests[0];
+      
+      // Check if this interest has direct config or through baseCategory
+      let config = interestConfig[primaryInterest];
+      if (!config) {
+        const customInterest = customInterests.find(ci => ci.id === primaryInterest);
+        if (customInterest?.baseCategory) {
+          config = interestConfig[customInterest.baseCategory] || {};
+        } else {
+          config = {};
+        }
+      }
       
       // Check if this interest uses text search
       const textSearchQuery = config.textSearch;
       
-      // Collect blacklist words from all interests
-      const blacklistWords = interests
-        .flatMap(interest => interestConfig[interest]?.blacklist || [])
+      // Collect blacklist words from all valid interests
+      const blacklistWords = validInterests
+        .flatMap(interest => {
+          const directConfig = interestConfig[interest];
+          if (directConfig?.blacklist) return directConfig.blacklist;
+          const ci = customInterests.find(c => c.id === interest);
+          if (ci?.baseCategory) return interestConfig[ci.baseCategory]?.blacklist || [];
+          return [];
+        })
         .map(word => word.toLowerCase());
       
       let response;
@@ -1282,17 +1426,23 @@ const BangkokExplorer = () => {
       } else {
         // Use Nearby Search API with types from interestConfig
         placeTypes = [...new Set(
-          interests.flatMap(interest => {
+          validInterests.flatMap(interest => {
+            // First check if this interest has direct config
+            if (interestConfig[interest]?.types) {
+              return interestConfig[interest].types;
+            }
+            // Fallback to baseCategory if it's a custom interest
             const customInterest = customInterests.find(ci => ci.id === interest);
-            const baseInterest = customInterest?.baseCategory || interest;
-            // Use interestConfig if available, fallback to interestToGooglePlaces
-            const configTypes = interestConfig[baseInterest]?.types;
-            return configTypes || interestToGooglePlaces[baseInterest] || ['point_of_interest'];
+            if (customInterest?.baseCategory && interestConfig[customInterest.baseCategory]?.types) {
+              return interestConfig[customInterest.baseCategory].types;
+            }
+            // Fallback to interestToGooglePlaces
+            return interestToGooglePlaces[interest] || interestToGooglePlaces[customInterest?.baseCategory] || ['point_of_interest'];
           })
         )];
 
-        addDebugLog('API', `Fetching Google Places`, { area, interests, placeTypes: placeTypes.slice(0, 10), center });
-        console.log('[DYNAMIC] Fetching from Google Places API:', { area, interests });
+        addDebugLog('API', `Fetching Google Places`, { area, validInterests, placeTypes: placeTypes.slice(0, 10), center });
+        console.log('[DYNAMIC] Fetching from Google Places API:', { area, validInterests });
 
         response = await fetch(GOOGLE_PLACES_API_URL, {
           method: 'POST',
@@ -1536,7 +1686,8 @@ const BangkokExplorer = () => {
   };
 
   // Combine default and custom interests - with safety check
-  const allInterestOptions = [...interestOptions, ...(customInterests || [])];
+  // Combine all interests: built-in + uncovered + custom
+  const allInterestOptions = [...interestOptions, ...uncoveredInterests, ...(customInterests || [])];
 
   // Save preferences whenever they change
   useEffect(() => {
@@ -2042,43 +2193,8 @@ const BangkokExplorer = () => {
     setCurrentView('form'); // Go to form view to show places list
   };
 
-  const addCustomInterest = () => {
-    if (!newInterest.label.trim() || !newInterest.baseCategory) {
-      return; // Require both label and baseCategory
-    }
-    
-    const interestToAdd = {
-      id: `custom_${Date.now()}`,
-      label: newInterest.label.trim(),
-      icon: newInterest.icon || '📍',
-      baseCategory: newInterest.baseCategory, // Store the base category
-      custom: true
-    };
-    
-    // Save to Firebase (or localStorage fallback)
-    if (isFirebaseAvailable && database) {
-      // DYNAMIC MODE: Firebase (shared)
-      database.ref('customInterests').push(interestToAdd)
-        .then(() => {
-          console.log('[FIREBASE] Interest added to shared database');
-          showToast('תחום העניין נוסף!', 'success');
-        })
-        .catch((error) => {
-          console.error('[FIREBASE] Error adding interest:', error);
-          showToast('שגיאה בשמירה', 'error');
-        });
-    } else {
-      // STATIC MODE: localStorage (local)
-      const updated = [...customInterests, interestToAdd];
-      setCustomInterests(updated);
-      localStorage.setItem('bangkok_custom_interests', JSON.stringify(updated));
-      showToast('תחום העניין נוסף!', 'success');
-    }
-    
-    // Reset and close dialog
-    setNewInterest({ label: '', icon: '📍', baseCategory: '' });
-    setShowAddInterestDialog(false);
-  };
+  // NOTE: addCustomInterest logic is now inline in the dialog footer (see Add Interest Dialog)
+  // This allows direct configuration of search settings when creating an interest
 
   const deleteCustomInterest = (interestId) => {
     const interestToDelete = customInterests.find(i => i.id === interestId);
@@ -2118,6 +2234,37 @@ const BangkokExplorer = () => {
         showToast('תחום נמחק!', 'success');
       }
     }
+  };
+
+  // Toggle interest active/inactive status
+  const toggleInterestStatus = (interestId) => {
+    const newStatus = !interestStatus[interestId];
+    const updatedStatus = { ...interestStatus, [interestId]: newStatus };
+    setInterestStatus(updatedStatus);
+    
+    if (isFirebaseAvailable && database) {
+      database.ref(`settings/interestStatus/${interestId}`).set(newStatus)
+        .then(() => {
+          console.log('[FIREBASE] Interest status updated:', interestId, newStatus);
+        })
+        .catch(err => {
+          console.error('Error updating interest status:', err);
+        });
+    } else {
+      localStorage.setItem('bangkok_interest_status', JSON.stringify(updatedStatus));
+    }
+  };
+
+  // Check if interest has valid search config
+  const isInterestValid = (interestId) => {
+    const config = interestConfig[interestId];
+    if (!config) return false;
+    
+    // Valid if has textSearch OR has types array with items
+    if (config.textSearch && config.textSearch.trim()) return true;
+    if (config.types && Array.isArray(config.types) && config.types.length > 0) return true;
+    
+    return false;
   };
 
   const deleteCustomLocation = (locationId) => {
@@ -2395,10 +2542,12 @@ const BangkokExplorer = () => {
     let skippedLocations = 0;
     let addedRoutes = 0;
     let skippedRoutes = 0;
+    let updatedConfigs = 0;
+    let updatedStatuses = 0;
     
     // Helper to check if interest exists by label (not id)
     const interestExistsByLabel = (label) => {
-      return customInterests.find(i => i.label.toLowerCase() === label.toLowerCase());
+      return customInterests.find(i => (i.label || i.name || '').toLowerCase() === label.toLowerCase());
     };
     
     // Helper to check if location exists by name (not id)
@@ -2410,31 +2559,57 @@ const BangkokExplorer = () => {
     if (isFirebaseAvailable && database) {
       // DYNAMIC MODE: Firebase (shared)
       
-      // Import interests first
+      // 1. Import custom interests
       for (const interest of (importedData.customInterests || [])) {
-        if (!interest.label) continue;
+        const label = interest.label || interest.name;
+        if (!label) continue;
         
-        const exists = interestExistsByLabel(interest.label);
+        const exists = interestExistsByLabel(label);
         if (exists) {
           skippedInterests++;
           continue;
         }
         
         try {
+          const interestId = interest.id || `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           const newInterest = {
-            id: `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            label: interest.label,
-            icon: interest.icon || '📍',
-            baseCategory: interest.baseCategory || 'other'
+            id: interestId,
+            label: label,
+            name: label,
+            icon: interest.icon || '📍'
           };
-          await database.ref('customInterests').push(newInterest);
+          await database.ref(`customInterests/${interestId}`).set(newInterest);
           addedInterests++;
         } catch (error) {
           console.error('[FIREBASE] Error importing interest:', error);
         }
       }
       
-      // Import locations
+      // 2. Import interest configurations (search settings)
+      if (importedData.interestConfig) {
+        for (const [interestId, config] of Object.entries(importedData.interestConfig)) {
+          try {
+            await database.ref(`settings/interestConfig/${interestId}`).set(config);
+            updatedConfigs++;
+          } catch (error) {
+            console.error('[FIREBASE] Error importing config:', error);
+          }
+        }
+      }
+      
+      // 3. Import interest statuses (active/inactive)
+      if (importedData.interestStatus) {
+        for (const [interestId, status] of Object.entries(importedData.interestStatus)) {
+          try {
+            await database.ref(`settings/interestStatus/${interestId}`).set(status);
+            updatedStatuses++;
+          } catch (error) {
+            console.error('[FIREBASE] Error importing status:', error);
+          }
+        }
+      }
+      
+      // 4. Import locations
       for (const loc of (importedData.customLocations || [])) {
         if (!loc.name) continue;
         
@@ -2445,14 +2620,13 @@ const BangkokExplorer = () => {
         }
         
         try {
-          // Create location with proper structure
           const newLocation = {
-            id: Date.now() + Math.floor(Math.random() * 1000),
+            id: loc.id || Date.now() + Math.floor(Math.random() * 1000),
             name: loc.name.trim(),
-            description: loc.description || loc.notes || 'מקום מיובא',
+            description: loc.description || loc.notes || '',
             notes: loc.notes || '',
             area: loc.area || 'sukhumvit',
-            interests: Array.isArray(loc.interests) ? loc.interests : ['other'],
+            interests: Array.isArray(loc.interests) ? loc.interests : [],
             lat: loc.lat || null,
             lng: loc.lng || null,
             mapsUrl: loc.mapsUrl || '',
@@ -2464,24 +2638,9 @@ const BangkokExplorer = () => {
             duration: loc.duration || 45,
             custom: true,
             status: loc.status || 'active',
-            inProgress: false,
-            addedAt: new Date().toISOString()
+            inProgress: loc.inProgress || false,
+            addedAt: loc.addedAt || new Date().toISOString()
           };
-          
-          // Check if location has interests that don't exist - create them
-          for (const interestId of newLocation.interests) {
-            const baseInterests = ['temples', 'food', 'shopping', 'entertainment', 'nature', 'markets', 'massage', 'art', 'cafes', 'nightlife', 'historic', 'other'];
-            if (!baseInterests.includes(interestId) && !interestExistsByLabel(interestId)) {
-              // Create the interest
-              const newInterest = {
-                id: interestId,
-                label: interestId,
-                icon: '📍',
-                baseCategory: 'other'
-              };
-              await database.ref('customInterests').push(newInterest);
-            }
-          }
           
           await database.ref('customLocations').push(newLocation);
           addedLocations++;
@@ -2490,7 +2649,7 @@ const BangkokExplorer = () => {
         }
       }
       
-      // Import saved routes (always localStorage, not Firebase)
+      // 5. Import saved routes
       const newRoutes = [...savedRoutes];
       (importedData.savedRoutes || []).forEach(route => {
         if (!route.name) return;
@@ -2511,31 +2670,52 @@ const BangkokExplorer = () => {
       
       setSavedRoutes(newRoutes);
       localStorage.setItem('bangkok_saved_routes', JSON.stringify(newRoutes));
+      
     } else {
       // STATIC MODE: localStorage (local)
       const newInterests = [...customInterests];
       const newLocations = [...customLocations];
+      const newConfig = { ...interestConfig };
+      const newStatus = { ...interestStatus };
       
-      // Import interests first
+      // 1. Import custom interests
       (importedData.customInterests || []).forEach(interest => {
-        if (!interest.label) return;
+        const label = interest.label || interest.name;
+        if (!label) return;
         
-        const exists = newInterests.find(i => i.label.toLowerCase() === interest.label.toLowerCase());
+        const exists = newInterests.find(i => (i.label || i.name || '').toLowerCase() === label.toLowerCase());
         if (exists) {
           skippedInterests++;
           return;
         }
         
+        const interestId = interest.id || `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         newInterests.push({
-          id: `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          label: interest.label,
-          icon: interest.icon || '📍',
-          baseCategory: interest.baseCategory || 'other'
+          id: interestId,
+          label: label,
+          name: label,
+          icon: interest.icon || '📍'
         });
         addedInterests++;
       });
       
-      // Import locations
+      // 2. Import interest configurations
+      if (importedData.interestConfig) {
+        Object.entries(importedData.interestConfig).forEach(([id, config]) => {
+          newConfig[id] = config;
+          updatedConfigs++;
+        });
+      }
+      
+      // 3. Import interest statuses
+      if (importedData.interestStatus) {
+        Object.entries(importedData.interestStatus).forEach(([id, status]) => {
+          newStatus[id] = status;
+          updatedStatuses++;
+        });
+      }
+      
+      // 4. Import locations
       (importedData.customLocations || []).forEach(loc => {
         if (!loc.name) return;
         
@@ -2545,14 +2725,13 @@ const BangkokExplorer = () => {
           return;
         }
         
-        // Create location with proper structure
         const newLocation = {
-          id: Date.now() + Math.floor(Math.random() * 1000),
+          id: loc.id || Date.now() + Math.floor(Math.random() * 1000),
           name: loc.name.trim(),
-          description: loc.description || loc.notes || 'מקום מיובא',
+          description: loc.description || loc.notes || '',
           notes: loc.notes || '',
           area: loc.area || 'sukhumvit',
-          interests: Array.isArray(loc.interests) ? loc.interests : ['other'],
+          interests: Array.isArray(loc.interests) ? loc.interests : [],
           lat: loc.lat || null,
           lng: loc.lng || null,
           mapsUrl: loc.mapsUrl || '',
@@ -2564,29 +2743,15 @@ const BangkokExplorer = () => {
           duration: loc.duration || 45,
           custom: true,
           status: loc.status || 'active',
-          inProgress: false,
-          addedAt: new Date().toISOString()
+          inProgress: loc.inProgress || false,
+          addedAt: loc.addedAt || new Date().toISOString()
         };
-        
-        // Check if location has interests that don't exist - create them
-        const baseInterests = ['temples', 'food', 'shopping', 'entertainment', 'nature', 'markets', 'massage', 'art', 'cafes', 'nightlife', 'historic', 'other'];
-        for (const interestId of newLocation.interests) {
-          if (!baseInterests.includes(interestId) && !newInterests.find(i => i.id === interestId || i.label.toLowerCase() === interestId.toLowerCase())) {
-            newInterests.push({
-              id: interestId,
-              label: interestId,
-              icon: '📍',
-              baseCategory: 'other'
-            });
-            addedInterests++;
-          }
-        }
         
         newLocations.push(newLocation);
         addedLocations++;
       });
       
-      // Import saved routes
+      // 5. Import saved routes
       const newRoutes = [...savedRoutes];
       (importedData.savedRoutes || []).forEach(route => {
         if (!route.name) return;
@@ -2608,9 +2773,13 @@ const BangkokExplorer = () => {
       setCustomInterests(newInterests);
       setCustomLocations(newLocations);
       setSavedRoutes(newRoutes);
+      setInterestConfig(newConfig);
+      setInterestStatus(newStatus);
+      
       localStorage.setItem('bangkok_custom_interests', JSON.stringify(newInterests));
       localStorage.setItem('bangkok_custom_locations', JSON.stringify(newLocations));
       localStorage.setItem('bangkok_saved_routes', JSON.stringify(newRoutes));
+      localStorage.setItem('bangkok_interest_status', JSON.stringify(newStatus));
     }
     
     setShowImportDialog(false);
@@ -2619,16 +2788,19 @@ const BangkokExplorer = () => {
     // Build detailed report
     const report = [];
     if (addedInterests > 0 || skippedInterests > 0) {
-      report.push(`תחומים: ${addedInterests}+, ${skippedInterests} דולגו`);
+      report.push(`תחומים: +${addedInterests}`);
+    }
+    if (updatedConfigs > 0) {
+      report.push(`הגדרות: +${updatedConfigs}`);
     }
     if (addedLocations > 0 || skippedLocations > 0) {
-      report.push(`מקומות: ${addedLocations}+, ${skippedLocations} דולגו`);
+      report.push(`מקומות: +${addedLocations}`);
     }
     if (addedRoutes > 0 || skippedRoutes > 0) {
-      report.push(`מסלולים: ${addedRoutes}+, ${skippedRoutes} דולגו`);
+      report.push(`מסלולים: +${addedRoutes}`);
     }
     
-    const totalAdded = addedInterests + addedLocations + addedRoutes;
+    const totalAdded = addedInterests + addedLocations + addedRoutes + updatedConfigs;
     showToast(report.join(' | ') || 'לא נמצאו פריטים לייבוא', totalAdded > 0 ? 'success' : 'warning');
   };
 
@@ -3181,12 +3353,20 @@ const BangkokExplorer = () => {
             <div className="truncate">💾 {savedRoutes.length > 0 ? `(${savedRoutes.length})` : 'שמורים'}</div>
           </button>
           <button
-            onClick={() => setCurrentView('myContent')}
+            onClick={() => setCurrentView('myPlaces')}
             className={`py-2.5 px-1.5 rounded-lg font-medium transition text-xs leading-tight ${
-              currentView === 'myContent' || currentView === 'search' ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-100'
+              currentView === 'myPlaces' || currentView === 'search' ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            <div className="truncate">📍 {customLocations.length > 0 ? `(${customLocations.length})` : 'שלי'}</div>
+            <div className="truncate">📍 מקומות {customLocations.length > 0 ? `(${customLocations.length})` : ''}</div>
+          </button>
+          <button
+            onClick={() => setCurrentView('myInterests')}
+            className={`py-2.5 px-1.5 rounded-lg font-medium transition text-xs leading-tight ${
+              currentView === 'myInterests' ? 'bg-purple-500 text-white' : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <div className="truncate">🏷️ תחומים {Object.values(interestStatus).filter(Boolean).length > 0 ? `(${Object.values(interestStatus).filter(Boolean).length})` : ''}</div>
           </button>
           <button
             onClick={() => {
@@ -3256,7 +3436,16 @@ const BangkokExplorer = () => {
               <div className="flex flex-col min-h-0">
                 <label className="font-medium text-xs mb-1.5 block">⭐ מה מעניין?</label>
                 <div className="grid grid-cols-3 gap-2 overflow-y-auto border border-gray-200 rounded-lg p-2 flex-1 min-h-0">
-                {allInterestOptions.filter(option => option && option.id).map(option => {
+                {allInterestOptions.filter(option => {
+                  if (!option || !option.id) return false;
+                  // Must be valid (have search config)
+                  if (!isInterestValid(option.id)) return false;
+                  // Custom interests always shown (if valid)
+                  const isCustom = customInterests.some(ci => ci.id === option.id);
+                  if (isCustom) return true;
+                  // Built-in/uncovered shown only if active
+                  return interestStatus[option.id] !== false;
+                }).map(option => {
                   const tooltip = interestTooltips[option.id] || option.label;
                   const customInterest = customInterests.find(ci => ci.id === option.id);
                   const isCustom = !!customInterest;
@@ -3378,7 +3567,7 @@ const BangkokExplorer = () => {
                     let stopCounter = 0;
                     
                     route.stops.forEach((stop, i) => {
-                      const interests = stop.interests || ['other'];
+                      const interests = stop.interests || [];
                       interests.forEach(interest => {
                         if (!groupedStops[interest]) {
                           groupedStops[interest] = [];
@@ -4547,12 +4736,12 @@ const BangkokExplorer = () => {
 
         {/* My Content View */}
         {/* My Content View - Compact Design */}
-        {currentView === 'myContent' && (
+        {currentView === 'myPlaces' && (
           <div className="bg-white rounded-xl shadow-lg p-3">
             <div className="flex items-center gap-2 mb-3">
-              <h2 className="text-lg font-bold">התוכן שלי</h2>
+              <h2 className="text-lg font-bold">📍 המקומות שלי</h2>
               <button
-                onClick={() => showHelpFor('myContent')}
+                onClick={() => showHelpFor('myPlaces')}
                 className="text-gray-400 hover:text-blue-500 text-sm"
                 title="עזרה"
               >
@@ -4563,7 +4752,7 @@ const BangkokExplorer = () => {
             {/* Custom Locations Section - Split by status */}
             <div className="mb-4">
               <div className="flex justify-between items-center mb-2">
-                <h3 className="text-base font-bold">המקומות שלי ({customLocations.length})</h3>
+                <h3 className="text-base font-bold">מקומות ({customLocations.length})</h3>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setCurrentView('search')}
@@ -4782,62 +4971,169 @@ const BangkokExplorer = () => {
               )}
             </div>
 
-            {/* Custom Interests Section */}
-            <div className="mb-4">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-base font-bold">תחומי עניין מותאמים ({customInterests.length})</h3>
-                <button
-                  onClick={() => {
-                    setEditingCustomInterest(null);
-                    setNewInterest({ label: '', icon: '📍', baseCategory: '' });
-                    setShowAddInterestDialog(true);
-                  }}
-                  className="bg-purple-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-purple-600"
-                >
-                  ➕ הוסף תחום
-                </button>
+          </div>
+        )}
+
+        {/* My Interests View */}
+        {currentView === 'myInterests' && (
+          <div className="bg-white rounded-xl shadow-lg p-3">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold">🏷️ התחומים שלי</h2>
+                <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                  {Object.values(interestStatus).filter(Boolean).length} פעילים
+                </span>
               </div>
-              
-              {customInterests.length === 0 ? (
-                <div className="text-center py-6 bg-gray-50 rounded-lg">
-                  <div className="text-3xl mb-2">🎯</div>
-                  <p className="text-gray-600 text-sm">עדיין אין תחומי עניין מותאמים</p>
-                  <p className="text-xs text-gray-500 mt-1">לחץ "הוסף תחום" כדי ליצור</p>
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  {customInterests.map(interest => (
+              <button
+                onClick={() => {
+                  setEditingCustomInterest(null);
+                  setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '' });
+                  setShowAddInterestDialog(true);
+                }}
+                className="bg-purple-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-purple-600"
+              >
+                ➕ הוסף תחום
+              </button>
+            </div>
+            
+            {/* Active Interests */}
+            <div className="mb-4">
+              <h3 className="text-sm font-bold text-green-700 mb-2">✅ תחומים פעילים</h3>
+              <div className="space-y-1">
+                {/* Built-in interests that are active */}
+                {interestOptions.filter(i => interestStatus[i.id] !== false).map(interest => {
+                  const isValid = isInterestValid(interest.id);
+                  return (
                     <div
                       key={interest.id}
-                      className="flex items-center justify-between gap-2 border-2 border-purple-400 rounded-lg p-2 bg-purple-50 hover:bg-purple-100"
+                      className={`flex items-center justify-between gap-2 rounded-lg p-2 ${
+                        isValid 
+                          ? 'border border-green-300 bg-green-50' 
+                          : 'border-2 border-red-400 bg-red-50'
+                      }`}
                     >
-                      {/* Interest info */}
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <span className="text-xl">{interest.icon}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-bold text-sm truncate">{interest.label || interest.name}</div>
-                          <div className="text-xs text-gray-600">
-                            מבוסס: {interestOptions.find(i => i.id === interest.baseCategory)?.label || interest.baseCategory}
-                          </div>
+                      <div className="flex items-center gap-2 flex-1">
+                        <span className="text-lg">{interest.icon}</span>
+                        <span className="font-medium text-sm">{interest.label}</span>
+                        {!isValid && (
+                          <span className="text-red-500 text-xs" title="חסר הגדרות חיפוש - לא יופיע בתוצאות">⚠️</span>
+                        )}
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => {
+                            setEditingInterestConfig({
+                              id: interest.id,
+                              label: interest.label,
+                              icon: interest.icon,
+                              config: interestConfig[interest.id] || {}
+                            });
+                            setShowInterestConfigDialog(true);
+                          }}
+                          className={`text-xs px-1.5 py-0.5 rounded text-white ${isValid ? 'bg-blue-500' : 'bg-red-500 animate-pulse'}`}
+                          title={isValid ? "הגדרות חיפוש" : "⚠️ חובה להגדיר Place Types!"}
+                        >
+                          ⚙️
+                        </button>
+                        <button
+                          onClick={() => toggleInterestStatus(interest.id)}
+                          className="text-xs px-1.5 py-0.5 rounded bg-red-500 text-white"
+                          title="השבת"
+                        >
+                          ❌
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+                
+                {/* Uncovered interests that are active */}
+                {uncoveredInterests.filter(i => interestStatus[i.id] === true).map(interest => {
+                  const isValid = isInterestValid(interest.id);
+                  return (
+                    <div
+                      key={interest.id}
+                      className={`flex items-center justify-between gap-2 rounded-lg p-2 ${
+                        isValid 
+                          ? 'border border-green-300 bg-green-50' 
+                          : 'border-2 border-red-400 bg-red-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 flex-1">
+                        <span className="text-lg">{interest.icon}</span>
+                        <span className="font-medium text-sm">{interest.label}</span>
+                        {!isValid && (
+                          <span className="text-red-500 text-xs" title="חסר הגדרות חיפוש - לא יופיע בתוצאות">⚠️</span>
+                        )}
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => {
+                            setEditingInterestConfig({
+                              id: interest.id,
+                              label: interest.label,
+                              icon: interest.icon,
+                              config: interestConfig[interest.id] || {}
+                            });
+                            setShowInterestConfigDialog(true);
+                          }}
+                          className={`text-xs px-1.5 py-0.5 rounded text-white ${isValid ? 'bg-blue-500' : 'bg-red-500 animate-pulse'}`}
+                          title={isValid ? "הגדרות חיפוש" : "⚠️ חובה להגדיר Place Types!"}
+                        >
+                          ⚙️
+                        </button>
+                        <button
+                          onClick={() => toggleInterestStatus(interest.id)}
+                          className="text-xs px-1.5 py-0.5 rounded bg-red-500 text-white"
+                          title="השבת"
+                        >
+                          ❌
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+                
+                {/* Custom interests - always shown, always "active" */}
+                {customInterests.map(interest => {
+                  const isValid = isInterestValid(interest.id);
+                  return (
+                    <div
+                      key={interest.id}
+                      className={`flex items-center justify-between gap-2 rounded-lg p-2 ${
+                        isValid 
+                          ? 'border-2 border-purple-400 bg-purple-50' 
+                          : 'border-2 border-red-400 bg-red-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 flex-1">
+                        <span className="text-lg">{interest.icon}</span>
+                        <div>
+                          <span className="font-medium text-sm">{interest.label || interest.name}</span>
+                          <span className="ml-2 text-[10px] bg-purple-200 text-purple-800 px-1.5 py-0.5 rounded">חדש</span>
+                          {!isValid && (
+                            <span className="ml-1 text-[10px] bg-red-200 text-red-800 px-1.5 py-0.5 rounded">⚠️ חסר הגדרות</span>
+                          )}
                         </div>
                       </div>
-                      
-                      {/* Action buttons */}
                       <div className="flex gap-1">
                         <button
                           onClick={() => {
                             setEditingCustomInterest(interest);
+                            const config = interestConfig[interest.id] || {};
                             setNewInterest({
                               id: interest.id,
-                              name: interest.name || interest.label,
                               label: interest.label || interest.name,
                               icon: interest.icon,
-                              baseCategory: interest.baseCategory
+                              searchMode: config.textSearch ? 'text' : 'types',
+                              types: (config.types || []).join(', '),
+                              textSearch: config.textSearch || '',
+                              blacklist: (config.blacklist || []).join(', ')
                             });
                             setShowAddInterestDialog(true);
                           }}
-                          className="text-xs px-1.5 py-0.5 rounded bg-blue-500 text-white hover:bg-blue-600"
-                          title="ערוך תחום"
+                          className={`text-xs px-1.5 py-0.5 rounded text-white ${isValid ? 'bg-blue-500' : 'bg-red-500 animate-pulse'}`}
+                          title={isValid ? "ערוך" : "⚠️ חובה להגדיר Place Types!"}
                         >
                           ✏️
                         </button>
@@ -4847,36 +5143,64 @@ const BangkokExplorer = () => {
                               deleteCustomInterest(interest.id);
                             });
                           }}
-                          className="text-xs px-1.5 py-0.5 rounded bg-red-500 text-white hover:bg-red-600"
-                          title="מחק תחום"
+                          className="text-xs px-1.5 py-0.5 rounded bg-red-500 text-white"
+                          title="מחק"
                         >
                           🗑️
                         </button>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                  );
+                })}
+              </div>
             </div>
             
-            {/* Uncovered Interests Section */}
-            <div className="mb-4">
-              <div className="bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-orange-400 rounded-xl p-3">
-                <h3 className="text-base font-bold text-gray-800 mb-1">ℹ️ תחומי עניין שלא נכללים</h3>
-                <p className="text-xs text-gray-600 mb-2">
-                  המערכת ממוקדת בתיירות וטיולים. התחומים הבאים <strong>לא נכללים</strong>:
-                </p>
+            {/* Inactive Interests */}
+            <div className="mb-2">
+              <h3 className="text-sm font-bold text-gray-500 mb-2">⏸️ תחומים לא פעילים</h3>
+              <div className="space-y-1">
+                {/* Built-in interests that are inactive */}
+                {interestOptions.filter(i => interestStatus[i.id] === false).map(interest => (
+                  <div
+                    key={interest.id}
+                    className="flex items-center justify-between gap-2 border border-gray-300 rounded-lg p-2 bg-gray-50 opacity-60"
+                  >
+                    <div className="flex items-center gap-2 flex-1">
+                      <span className="text-lg">{interest.icon}</span>
+                      <span className="font-medium text-sm text-gray-500">{interest.label}</span>
+                    </div>
+                    <button
+                      onClick={() => toggleInterestStatus(interest.id)}
+                      className="text-xs px-2 py-1 rounded bg-green-500 text-white"
+                      title="הפעל"
+                    >
+                      ✅ הפעל
+                    </button>
+                  </div>
+                ))}
                 
-                <div className="grid grid-cols-2 gap-1.5">
-                  {uncoveredInterests.map((interest, i) => (
-                    <div key={i} className="bg-white rounded-lg p-2 border border-orange-200">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-lg">{interest.icon}</span>
-                        <span className="text-xs font-medium text-gray-700">{interest.name}</span>
+                {/* Uncovered interests that are inactive (default) */}
+                {uncoveredInterests.filter(i => interestStatus[i.id] !== true).map(interest => (
+                  <div
+                    key={interest.id}
+                    className="flex items-center justify-between gap-2 border border-gray-300 rounded-lg p-2 bg-gray-50 opacity-60"
+                  >
+                    <div className="flex items-center gap-2 flex-1">
+                      <span className="text-lg">{interest.icon}</span>
+                      <div>
+                        <span className="font-medium text-sm text-gray-500">{interest.label}</span>
+                        <div className="text-[10px] text-gray-400">{interest.examples}</div>
                       </div>
                     </div>
-                  ))}
-                </div>
+                    <button
+                      onClick={() => toggleInterestStatus(interest.id)}
+                      className="text-xs px-2 py-1 rounded bg-green-500 text-white"
+                      title="הפעל"
+                    >
+                      ✅ הפעל
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -5072,12 +5396,23 @@ const BangkokExplorer = () => {
                   <button
                     onClick={() => {
                       try {
+                        // Count active interests
+                        const activeCount = Object.values(interestStatus).filter(Boolean).length;
+                        
                         const data = {
+                          // Custom interests created by user
                           customInterests: customInterests,
+                          // Custom locations
                           customLocations: customLocations,
+                          // Saved routes
                           savedRoutes: savedRoutes,
+                          // Interest search configurations (types, textSearch, blacklist)
+                          interestConfig: interestConfig,
+                          // Interest active/inactive status
+                          interestStatus: interestStatus,
+                          // Metadata
                           exportDate: new Date().toISOString(),
-                          version: '2.0'
+                          version: '2.6'
                         };
                         
                         const dataStr = JSON.stringify(data, null, 2);
@@ -5090,7 +5425,7 @@ const BangkokExplorer = () => {
                         link.click();
                         URL.revokeObjectURL(url);
                         
-                        showToast(`הקובץ הורד! (${customInterests.length} תחומים, ${customLocations.length} מקומות, ${savedRoutes.length} מסלולים)`, 'success');
+                        showToast(`הקובץ הורד! (${customInterests.length} תחומים מותאמים, ${activeCount} פעילים, ${customLocations.length} מקומות, ${savedRoutes.length} מסלולים)`, 'success');
                       } catch (error) {
                         console.error('[EXPORT] Error:', error);
                         showToast('שגיאה בייצוא', 'error');
@@ -5098,7 +5433,7 @@ const BangkokExplorer = () => {
                     }}
                     className="w-full bg-blue-500 text-white py-2 px-3 rounded-lg font-bold hover:bg-blue-600 transition text-sm flex items-center justify-center gap-2"
                   >
-                    <span>📤 ייצא</span>
+                    <span>📤 ייצא הכל</span>
                     <span className="text-xs bg-blue-600 px-2 py-0.5 rounded">
                       {customInterests.length + customLocations.length + savedRoutes.length}
                     </span>
@@ -5774,7 +6109,7 @@ const BangkokExplorer = () => {
                 <button
                   onClick={() => {
                     setShowAddInterestDialog(false);
-                    setNewInterest({ label: '', icon: '📍', baseCategory: '' });
+                    setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '' });
                     setEditingCustomInterest(null);
                   }}
                   className="text-xl hover:bg-white hover:bg-opacity-20 rounded-full w-7 h-7 flex items-center justify-center"
@@ -5785,6 +6120,7 @@ const BangkokExplorer = () => {
               
               {/* Content */}
               <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+                {/* Name */}
                 <div>
                   <label className="block text-xs font-bold mb-1">שם התחום <span className="text-red-500">*</span></label>
                   <input
@@ -5798,15 +6134,14 @@ const BangkokExplorer = () => {
                   />
                 </div>
 
+                {/* Icon */}
                 <div>
-                  <label className="block text-xs font-bold mb-1">אייקון (אימוג'י)</label>
+                  <label className="block text-xs font-bold mb-1">אייקון</label>
                   <input
                     type="text"
                     value={newInterest.icon}
                     onChange={(e) => {
-                      // Take only the first emoji/character sequence
                       const value = e.target.value;
-                      // Get first grapheme (emoji can be multiple code points)
                       const firstEmoji = [...value][0] || '';
                       setNewInterest({...newInterest, icon: firstEmoji});
                     }}
@@ -5814,88 +6149,138 @@ const BangkokExplorer = () => {
                     className="w-full p-2 text-xl border-2 border-gray-300 rounded-lg focus:border-purple-500 text-center"
                   />
                   <p className="text-[10px] text-gray-500 mt-1 text-center" style={{ direction: 'ltr' }}>
-                    Supported: Emoji (🎨 🏛️ 🎭), Unicode symbols, single characters
+                    Emoji (🎨 🏛️), Unicode, single char
                   </p>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold mb-1">תחום בסיס <span className="text-red-500">*</span></label>
-                  <select
-                    value={newInterest.baseCategory || ''}
-                    onChange={(e) => setNewInterest({...newInterest, baseCategory: e.target.value})}
-                    className="w-full p-2 text-sm border-2 border-purple-300 rounded-lg focus:border-purple-500"
-                    style={{ direction: 'rtl' }}
-                  >
-                    <option value="">-- בחר תחום בסיס --</option>
-                    {interestOptions.map(option => (
-                      <option key={option.id} value={option.id}>
-                        {option.icon} {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="bg-gray-100 border border-gray-300 rounded-lg p-2 text-center">
-                  <span className="text-xs text-gray-600">לחץ על <strong>?</strong> בכותרת להסבר מפורט</span>
+                {/* Search Configuration */}
+                <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
+                  <label className="block text-xs font-bold mb-2 text-blue-800">🔍 הגדרות חיפוש</label>
+                  
+                  {/* Search Mode */}
+                  <div className="mb-2">
+                    <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>Search Mode:</label>
+                    <select
+                      value={newInterest.searchMode || 'types'}
+                      onChange={(e) => setNewInterest({...newInterest, searchMode: e.target.value})}
+                      className="w-full p-1.5 text-sm border rounded"
+                      style={{ direction: 'ltr' }}
+                    >
+                      <option value="types">Category Search (types)</option>
+                      <option value="text">Text Search (query)</option>
+                    </select>
+                  </div>
+                  
+                  {/* Types or Text Query */}
+                  {newInterest.searchMode === 'text' ? (
+                    <div className="mb-2">
+                      <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>Text Query:</label>
+                      <input
+                        type="text"
+                        value={newInterest.textSearch || ''}
+                        onChange={(e) => setNewInterest({...newInterest, textSearch: e.target.value})}
+                        placeholder="e.g., street art"
+                        className="w-full p-1.5 text-sm border rounded"
+                        style={{ direction: 'ltr' }}
+                      />
+                      <p className="text-[9px] text-gray-500 mt-0.5" style={{ direction: 'ltr' }}>
+                        Searches: "[query] [area] Bangkok"
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mb-2">
+                      <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>Place Types (comma separated):</label>
+                      <input
+                        type="text"
+                        value={newInterest.types || ''}
+                        onChange={(e) => setNewInterest({...newInterest, types: e.target.value})}
+                        placeholder="e.g., movie_theater, museum"
+                        className="w-full p-1.5 text-sm border rounded"
+                        style={{ direction: 'ltr' }}
+                      />
+                      <p className="text-[9px] text-gray-500 mt-0.5" style={{ direction: 'ltr' }}>
+                        <a href="https://developers.google.com/maps/documentation/places/web-service/place-types" target="_blank" className="text-blue-500 underline">See types list</a>
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Blacklist */}
+                  <div>
+                    <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>Blacklist Words (comma separated):</label>
+                    <input
+                      type="text"
+                      value={newInterest.blacklist || ''}
+                      onChange={(e) => setNewInterest({...newInterest, blacklist: e.target.value})}
+                      placeholder="e.g., cannabis, massage"
+                      className="w-full p-1.5 text-sm border rounded"
+                      style={{ direction: 'ltr' }}
+                    />
+                  </div>
                 </div>
               </div>
               
               {/* Footer */}
               <div className="px-4 py-2.5 border-t border-gray-200 flex gap-2" style={{ direction: 'rtl' }}>
                 {editingCustomInterest ? (
-                  /* Edit mode - Save button */
+                  /* Edit mode */
                   <>
                     <button
                       onClick={() => {
-                        if (newInterest.label.trim() && newInterest.baseCategory) {
-                          // Update existing interest
+                        if (newInterest.label.trim()) {
+                          const interestId = editingCustomInterest.id || editingCustomInterest.firebaseId;
+                          
+                          // Prepare interest data
                           const updatedInterest = {
                             ...editingCustomInterest,
                             label: newInterest.label.trim(),
                             name: newInterest.label.trim(),
-                            icon: newInterest.icon || '📍',
-                            baseCategory: newInterest.baseCategory
+                            icon: newInterest.icon || '📍'
                           };
                           
+                          // Prepare search config
+                          const searchConfig = {};
+                          if (newInterest.searchMode === 'text' && newInterest.textSearch) {
+                            searchConfig.textSearch = newInterest.textSearch.trim();
+                          } else if (newInterest.types) {
+                            searchConfig.types = newInterest.types.split(',').map(t => t.trim()).filter(t => t);
+                          }
+                          if (newInterest.blacklist) {
+                            searchConfig.blacklist = newInterest.blacklist.split(',').map(t => t.trim().toLowerCase()).filter(t => t);
+                          }
+                          
                           if (isFirebaseAvailable && database) {
-                            database.ref(`customInterests/${editingCustomInterest.firebaseId || editingCustomInterest.id}`).update(updatedInterest)
-                              .then(() => {
-                                showToast('התחום עודכן בהצלחה!', 'success');
-                                setShowAddInterestDialog(false);
-                                setNewInterest({ label: '', icon: '📍', baseCategory: '' });
-                                setEditingCustomInterest(null);
-                              })
-                              .catch(err => {
-                                console.error('Error updating interest:', err);
-                                showToast('שגיאה בעדכון', 'error');
-                              });
+                            // Save interest
+                            database.ref(`customInterests/${editingCustomInterest.firebaseId || interestId}`).update(updatedInterest);
+                            // Save search config
+                            if (Object.keys(searchConfig).length > 0) {
+                              database.ref(`settings/interestConfig/${interestId}`).set(searchConfig);
+                            }
+                            showToast('התחום עודכן!', 'success');
                           } else {
-                            // Update in localStorage
-                            const updated = customInterests.map(ci => 
-                              ci.id === editingCustomInterest.id ? updatedInterest : ci
-                            );
+                            const updated = customInterests.map(ci => ci.id === interestId ? updatedInterest : ci);
                             setCustomInterests(updated);
                             localStorage.setItem('bangkok_custom_interests', JSON.stringify(updated));
-                            showToast('התחום עודכן בהצלחה!', 'success');
-                            setShowAddInterestDialog(false);
-                            setNewInterest({ label: '', icon: '📍', baseCategory: '' });
-                            setEditingCustomInterest(null);
+                            showToast('התחום עודכן!', 'success');
                           }
+                          
+                          setShowAddInterestDialog(false);
+                          setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '' });
+                          setEditingCustomInterest(null);
                         }
                       }}
-                      disabled={!newInterest.label.trim() || !newInterest.baseCategory}
+                      disabled={!newInterest.label.trim()}
                       className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                        newInterest.label.trim() && newInterest.baseCategory
+                        newInterest.label.trim()
                           ? 'bg-green-500 text-white hover:bg-green-600'
                           : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       }`}
                     >
-                      💾 שמור שינויים
+                      💾 שמור
                     </button>
                     <button
                       onClick={() => {
                         setShowAddInterestDialog(false);
-                        setNewInterest({ label: '', icon: '📍', baseCategory: '' });
+                        setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '' });
                         setEditingCustomInterest(null);
                       }}
                       className="px-5 py-2.5 rounded-lg bg-gray-400 text-white text-sm font-bold hover:bg-gray-500"
@@ -5908,15 +6293,45 @@ const BangkokExplorer = () => {
                   <>
                     <button
                       onClick={() => {
-                        if (newInterest.label.trim() && newInterest.baseCategory) {
-                          addCustomInterest();
-                          // Reset for another entry but stay open
-                          setNewInterest({ label: '', icon: '📍', baseCategory: '' });
+                        if (newInterest.label.trim()) {
+                          // Create new interest with search config
+                          const interestId = 'custom_' + Date.now();
+                          const newInterestData = {
+                            id: interestId,
+                            label: newInterest.label.trim(),
+                            name: newInterest.label.trim(),
+                            icon: newInterest.icon || '📍'
+                          };
+                          
+                          // Prepare search config
+                          const searchConfig = {};
+                          if (newInterest.searchMode === 'text' && newInterest.textSearch) {
+                            searchConfig.textSearch = newInterest.textSearch.trim();
+                          } else if (newInterest.types) {
+                            searchConfig.types = newInterest.types.split(',').map(t => t.trim()).filter(t => t);
+                          }
+                          if (newInterest.blacklist) {
+                            searchConfig.blacklist = newInterest.blacklist.split(',').map(t => t.trim().toLowerCase()).filter(t => t);
+                          }
+                          
+                          if (isFirebaseAvailable && database) {
+                            database.ref(`customInterests/${interestId}`).set(newInterestData);
+                            if (Object.keys(searchConfig).length > 0) {
+                              database.ref(`settings/interestConfig/${interestId}`).set(searchConfig);
+                            }
+                          } else {
+                            const updated = [...customInterests, newInterestData];
+                            setCustomInterests(updated);
+                            localStorage.setItem('bangkok_custom_interests', JSON.stringify(updated));
+                          }
+                          
+                          showToast('התחום נוסף!', 'success');
+                          setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '' });
                         }
                       }}
-                      disabled={!newInterest.label.trim() || !newInterest.baseCategory}
+                      disabled={!newInterest.label.trim()}
                       className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                        newInterest.label.trim() && newInterest.baseCategory
+                        newInterest.label.trim()
                           ? 'bg-purple-500 text-white hover:bg-purple-600'
                           : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       }`}
@@ -5925,11 +6340,8 @@ const BangkokExplorer = () => {
                     </button>
                     <button
                       onClick={() => {
-                        if (newInterest.label.trim() && newInterest.baseCategory) {
-                          addCustomInterest();
-                        }
                         setShowAddInterestDialog(false);
-                        setNewInterest({ label: '', icon: '📍', baseCategory: '' });
+                        setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '' });
                       }}
                       className="px-5 py-2.5 rounded-lg bg-green-500 text-white text-sm font-bold hover:bg-green-600"
                     >
@@ -5969,7 +6381,9 @@ const BangkokExplorer = () => {
               <div className="bg-blue-100 border border-blue-300 rounded-lg p-3">
                 <div className="font-bold text-blue-800 text-sm mb-1">📥 בקובץ:</div>
                 <div className="text-xs text-blue-700 space-y-0.5">
-                  <div>• {importedData.customInterests?.length || 0} תחומי עניין</div>
+                  <div>• {importedData.customInterests?.length || 0} תחומים מותאמים</div>
+                  <div>• {importedData.interestConfig ? Object.keys(importedData.interestConfig).length : 0} הגדרות חיפוש</div>
+                  <div>• {importedData.interestStatus ? Object.values(importedData.interestStatus).filter(Boolean).length : 0} תחומים פעילים</div>
                   <div>• {importedData.customLocations?.length || 0} מקומות</div>
                   <div>• {importedData.savedRoutes?.length || 0} מסלולים שמורים</div>
                 </div>
