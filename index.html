@@ -89,7 +89,7 @@
 window.BKK = window.BKK || {};
 
 // App Version
-window.BKK.VERSION = '2.7.0';
+window.BKK.VERSION = '2.7.1';
 
 // Firebase Configuration
 window.BKK.firebaseConfig = {
@@ -352,16 +352,16 @@ window.BKK.helpContent = {
     title: 'הגדרות',
     content: `**הגדרות המערכת:**
 
-**מקור נתונים:**
-• **דינמי** - נתונים משותפים (Firebase) - מומלץ
-• **סטטי** - נתונים מקומיים בלבד (לפיתוח)
+**מספר מקומות:**
+• כמות המקומות המקסימלית במסלול
+• כמות מקומות נוספים ב"מצא עוד"
 
-**ייבוא/ייצוא (v2.6):**
+**ייבוא/ייצוא:**
 • **ייצוא** - שומר הכל לקובץ JSON:
   - מקומות מותאמים
   - תחומים מותאמים
   - הגדרות חיפוש
-  - סטטוס תחומים (פעיל/לא)
+  - סטטוס תחומים
   - מסלולים שמורים
 
 • **ייבוא** - מוסיף מקובץ:
@@ -3335,53 +3335,52 @@ const BangkokExplorer = () => {
 
       <div className="max-w-4xl mx-auto p-4 pb-32">
         {/* Navigation Tabs */}
-        <div className="grid grid-cols-4 gap-1.5 mb-4 bg-white rounded-lg p-2 shadow">
+        <div className="flex flex-wrap gap-1 mb-4 bg-white rounded-lg p-1.5 shadow">
           <button
             onClick={() => setCurrentView('form')}
-            className={`py-2.5 px-1.5 rounded-lg font-medium transition text-xs leading-tight ${
+            className={`flex-1 min-w-0 py-2 px-1 rounded-lg font-medium transition text-[10px] sm:text-xs leading-tight ${
               currentView === 'form' || currentView === 'route' ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            <div className="truncate">🗺️ מסלול</div>
+            <div className="truncate text-center">🗺️ מסלול</div>
           </button>
           <button
             onClick={() => setCurrentView('saved')}
-            className={`py-2.5 px-1.5 rounded-lg font-medium transition text-xs leading-tight ${
+            className={`flex-1 min-w-0 py-2 px-1 rounded-lg font-medium transition text-[10px] sm:text-xs leading-tight ${
               currentView === 'saved' ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            <div className="truncate">💾 {savedRoutes.length > 0 ? `(${savedRoutes.length})` : 'שמורים'}</div>
+            <div className="truncate text-center">💾 {savedRoutes.length > 0 ? `(${savedRoutes.length})` : ''}</div>
           </button>
           <button
             onClick={() => setCurrentView('myPlaces')}
-            className={`py-2.5 px-1.5 rounded-lg font-medium transition text-xs leading-tight ${
+            className={`flex-1 min-w-0 py-2 px-1 rounded-lg font-medium transition text-[10px] sm:text-xs leading-tight ${
               currentView === 'myPlaces' || currentView === 'search' ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            <div className="truncate">📍 מקומות {customLocations.length > 0 ? `(${customLocations.length})` : ''}</div>
+            <div className="truncate text-center">📍 {customLocations.length > 0 ? `(${customLocations.length})` : ''}</div>
           </button>
           <button
             onClick={() => setCurrentView('myInterests')}
-            className={`py-2.5 px-1.5 rounded-lg font-medium transition text-xs leading-tight ${
+            className={`flex-1 min-w-0 py-2 px-1 rounded-lg font-medium transition text-[10px] sm:text-xs leading-tight ${
               currentView === 'myInterests' ? 'bg-purple-500 text-white' : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            <div className="truncate">🏷️ תחומים {Object.values(interestStatus).filter(Boolean).length > 0 ? `(${Object.values(interestStatus).filter(Boolean).length})` : ''}</div>
+            <div className="truncate text-center">🏷️ {Object.values(interestStatus).filter(Boolean).length > 0 ? `(${Object.values(interestStatus).filter(Boolean).length})` : ''}</div>
           </button>
           <button
             onClick={() => {
-              // If no password set OR already unlocked, go to settings
               if (isUnlocked || !adminPassword) {
                 setCurrentView('settings');
               } else {
                 setShowPasswordDialog(true);
               }
             }}
-            className={`py-2.5 px-1.5 rounded-lg font-medium transition text-xs leading-tight ${
+            className={`flex-1 min-w-0 py-2 px-1 rounded-lg font-medium transition text-[10px] sm:text-xs leading-tight ${
               currentView === 'settings' ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            <div className="truncate">{(isUnlocked || !adminPassword) ? '🔓' : '🔒'} הגדרות</div>
+            <div className="truncate text-center">{(isUnlocked || !adminPassword) ? '🔓' : '🔒'}</div>
           </button>
         </div>
 
@@ -4787,7 +4786,7 @@ const BangkokExplorer = () => {
                         <h4 className="text-sm font-bold text-green-700 mb-2 flex items-center gap-1">
                           <span>✅ מקומות כלולים ({activeLocations.length})</span>
                         </h4>
-                        <div className="space-y-1 max-h-60 overflow-y-auto">
+                        <div className="space-y-1 max-h-[50vh] overflow-y-auto">
                           {activeLocations.map(loc => (
                             <div
                               key={loc.id}
@@ -4898,7 +4897,7 @@ const BangkokExplorer = () => {
                         </button>
                         
                         {showBlacklistLocations && (
-                          <div className="space-y-1 mt-2 max-h-60 overflow-y-auto">
+                          <div className="space-y-1 mt-2 max-h-40 overflow-y-auto">
                             {blacklistedLocations.map(loc => (
                               <div
                                 key={loc.id}
@@ -6871,7 +6870,7 @@ const BangkokExplorer = () => {
       
       {/* Help Modal */}
       {showHelp && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
           <div className="bg-white rounded-xl max-w-md w-full max-h-[80vh] overflow-hidden flex flex-col shadow-2xl">
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-3 flex items-center justify-between">
