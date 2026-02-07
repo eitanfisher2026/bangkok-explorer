@@ -5,7 +5,7 @@
 window.BKK = window.BKK || {};
 
 // App Version
-window.BKK.VERSION = '2.2.0';
+window.BKK.VERSION = '2.2.1';
 
 // Firebase Configuration
 window.BKK.firebaseConfig = {
@@ -22,6 +22,12 @@ window.BKK.firebaseConfig = {
 // Google Places API Configuration
 window.BKK.GOOGLE_PLACES_API_KEY = 'AIzaSyD0F0TYKuWXVqibhj-sH-DaElDtLL8hMwM';
 window.BKK.GOOGLE_PLACES_API_URL = 'https://places.googleapis.com/v1/places:searchNearby';
+window.BKK.GOOGLE_PLACES_TEXT_SEARCH_URL = 'https://places.googleapis.com/v1/places:searchText';
+
+// Interests that use text search instead of category search
+window.BKK.textSearchInterests = {
+  graffiti: 'street art'
+};
 
 // Interest Options (base categories)
 window.BKK.interestOptions = [

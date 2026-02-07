@@ -89,7 +89,7 @@
 window.BKK = window.BKK || {};
 
 // App Version
-window.BKK.VERSION = '2.2.0';
+window.BKK.VERSION = '2.2.1';
 
 // Firebase Configuration
 window.BKK.firebaseConfig = {
@@ -106,6 +106,12 @@ window.BKK.firebaseConfig = {
 // Google Places API Configuration
 window.BKK.GOOGLE_PLACES_API_KEY = 'AIzaSyD0F0TYKuWXVqibhj-sH-DaElDtLL8hMwM';
 window.BKK.GOOGLE_PLACES_API_URL = 'https://places.googleapis.com/v1/places:searchNearby';
+window.BKK.GOOGLE_PLACES_TEXT_SEARCH_URL = 'https://places.googleapis.com/v1/places:searchText';
+
+// Interests that use text search instead of category search
+window.BKK.textSearchInterests = {
+  graffiti: 'street art'
+};
 
 // Interest Options (base categories)
 window.BKK.interestOptions = [
@@ -1158,6 +1164,10 @@ const BangkokExplorer = () => {
   // Fetch places from Google Places API
 
   // === APP LOGIC (from app-logic.js) ===
+  // Text search interests and URL
+  const textSearchInterests = window.BKK.textSearchInterests || {};
+  const GOOGLE_PLACES_TEXT_SEARCH_URL = window.BKK.GOOGLE_PLACES_TEXT_SEARCH_URL || 'https://places.googleapis.com/v1/places:searchText';
+
   const fetchGooglePlaces = async (area, interests) => {
     const center = areaCoordinates[area];
     if (!center) {
@@ -1167,40 +1177,79 @@ const BangkokExplorer = () => {
     }
 
     try {
-      // Get all relevant place types
-      const placeTypes = [...new Set(
-        interests.flatMap(interest => {
-          const customInterest = customInterests.find(ci => ci.id === interest);
-          const baseInterest = customInterest?.baseCategory || interest;
-          return interestToGooglePlaces[baseInterest] || ['point_of_interest'];
-        })
-      )];
-
-      addDebugLog('API', `Fetching Google Places`, { area, interests, placeTypes: placeTypes.slice(0, 10), center });
-      console.log('[DYNAMIC] Fetching from Google Places API:', { area, interests });
-
-      const response = await fetch(GOOGLE_PLACES_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
-          'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.types'
-        },
-        body: JSON.stringify({
-          includedTypes: placeTypes.slice(0, 10), // API limit
-          maxResultCount: 20,
-          locationRestriction: {
-            circle: {
-              center: {
-                latitude: center.lat,
-                longitude: center.lng
-              },
-              radius: 2000 // 2km radius
-            }
+      // Check if any interest needs text search
+      const textSearchQuery = interests
+        .map(interest => textSearchInterests[interest])
+        .find(query => query);
+      
+      let response;
+      let placeTypes = [];
+      
+      if (textSearchQuery) {
+        // Use Text Search API for interests like "graffiti" -> "street art"
+        const areaName = areaOptions.find(a => a.id === area)?.labelEn || area;
+        const searchQuery = `${textSearchQuery} ${areaName} Bangkok`;
+        
+        addDebugLog('API', `Text Search`, { query: searchQuery, area });
+        console.log('[DYNAMIC] Using Text Search:', searchQuery);
+        
+        response = await fetch(GOOGLE_PLACES_TEXT_SEARCH_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
+            'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.types'
           },
-          rankPreference: 'POPULARITY'
-        })
-      });
+          body: JSON.stringify({
+            textQuery: searchQuery,
+            maxResultCount: 20,
+            locationBias: {
+              circle: {
+                center: {
+                  latitude: center.lat,
+                  longitude: center.lng
+                },
+                radius: 3000.0
+              }
+            }
+          })
+        });
+      } else {
+        // Use Nearby Search API with types
+        placeTypes = [...new Set(
+          interests.flatMap(interest => {
+            const customInterest = customInterests.find(ci => ci.id === interest);
+            const baseInterest = customInterest?.baseCategory || interest;
+            return interestToGooglePlaces[baseInterest] || ['point_of_interest'];
+          })
+        )];
+
+        addDebugLog('API', `Fetching Google Places`, { area, interests, placeTypes: placeTypes.slice(0, 10), center });
+        console.log('[DYNAMIC] Fetching from Google Places API:', { area, interests });
+
+        response = await fetch(GOOGLE_PLACES_API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
+            'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.types'
+          },
+          body: JSON.stringify({
+            includedTypes: placeTypes.slice(0, 10),
+            maxResultCount: 20,
+            locationRestriction: {
+              circle: {
+                center: {
+                  latitude: center.lat,
+                  longitude: center.lng
+                },
+                radius: 2000
+              }
+            },
+            rankPreference: 'POPULARITY'
+          })
+        });
+      }
 
       console.log('[DYNAMIC] Google Places Response:', { 
         status: response.status, 
@@ -1235,6 +1284,9 @@ const BangkokExplorer = () => {
         return [];
       }
 
+      // Check if this was a text search
+      const isTextSearch = interests.some(interest => textSearchInterests[interest]);
+      
       // Filter and transform Google Places data
       let filteredCount = 0;
       let ratingFilteredCount = 0;
@@ -1242,30 +1294,32 @@ const BangkokExplorer = () => {
       
       const transformed = data.places
         .filter(place => {
-          // Filter 1: Rating check
-          if (place.rating < 4.0) {
+          // Filter 1: Rating check (lower threshold for text search as results are more specific)
+          const minRating = isTextSearch ? 3.5 : 4.0;
+          if (place.rating && place.rating < minRating) {
             ratingFilteredCount++;
             return false;
           }
           
-          // Filter 2: Type validation - CRITICAL!
-          // Only include places that have at least one of the types we requested
-          const placeTypesFromGoogle = place.types || [];
-          const hasValidType = placeTypesFromGoogle.some(type => placeTypes.includes(type));
-          
-          if (!hasValidType) {
-            typeFilteredCount++;
-            console.log('[DYNAMIC] ❌ Filtered out (invalid type):', {
-              name: place.displayName?.text,
-              googleTypes: placeTypesFromGoogle,
-              expectedTypes: placeTypes
-            });
-            return false;
+          // Filter 2: Type validation - skip for text search (text search is already specific)
+          if (!isTextSearch && placeTypes.length > 0) {
+            const placeTypesFromGoogle = place.types || [];
+            const hasValidType = placeTypesFromGoogle.some(type => placeTypes.includes(type));
+            
+            if (!hasValidType) {
+              typeFilteredCount++;
+              console.log('[DYNAMIC] ❌ Filtered out (invalid type):', {
+                name: place.displayName?.text,
+                googleTypes: placeTypesFromGoogle,
+                expectedTypes: placeTypes
+              });
+              return false;
+            }
           }
           
           console.log('[DYNAMIC] ✅ Kept:', {
             name: place.displayName?.text,
-            matchingTypes: placeTypesFromGoogle.filter(t => placeTypes.includes(t))
+            isTextSearch
           });
           
           return true;
