@@ -89,7 +89,7 @@
 window.BKK = window.BKK || {};
 
 // App Version
-window.BKK.VERSION = '2.4.1';
+window.BKK.VERSION = '2.4.2';
 
 // Firebase Configuration
 window.BKK.firebaseConfig = {
@@ -839,6 +839,7 @@ const BangkokExplorer = () => {
   const [loadingGoogleInfo, setLoadingGoogleInfo] = useState(false);
   const [showStopInfoDialog, setShowStopInfoDialog] = useState(false);
   const [selectedStopInfo, setSelectedStopInfo] = useState(null);
+  const [editingCustomInterest, setEditingCustomInterest] = useState(null);
   const [showAddInterestDialog, setShowAddInterestDialog] = useState(false);
   const [newInterest, setNewInterest] = useState({ label: '', icon: '📍', baseCategory: '' });
   const [showEditLocationDialog, setShowEditLocationDialog] = useState(false);
@@ -4786,7 +4787,11 @@ const BangkokExplorer = () => {
               <div className="flex justify-between items-center mb-2">
                 <h3 className="text-base font-bold">תחומי עניין מותאמים ({customInterests.length})</h3>
                 <button
-                  onClick={() => setShowAddInterestDialog(true)}
+                  onClick={() => {
+                    setEditingCustomInterest(null);
+                    setNewInterest({ label: '', icon: '📍', baseCategory: '' });
+                    setShowAddInterestDialog(true);
+                  }}
                   className="bg-purple-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-purple-600"
                 >
                   ➕ הוסף תחום
@@ -4800,29 +4805,52 @@ const BangkokExplorer = () => {
                   <p className="text-xs text-gray-500 mt-1">לחץ "הוסף תחום" כדי ליצור</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
                   {customInterests.map(interest => (
                     <div
                       key={interest.id}
-                      className="border-2 border-purple-400 rounded-lg p-2 bg-purple-50"
+                      className="flex items-center justify-between gap-2 border-2 border-purple-400 rounded-lg p-2 bg-purple-50 hover:bg-purple-100"
                     >
-                      <div className="flex items-start justify-between gap-1">
+                      {/* Interest info */}
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <span className="text-xl">{interest.icon}</span>
                         <div className="flex-1 min-w-0">
-                          <div className="text-lg">{interest.icon}</div>
-                          <div className="font-bold text-sm truncate">{interest.name}</div>
+                          <div className="font-bold text-sm truncate">{interest.label || interest.name}</div>
                           <div className="text-xs text-gray-600">
-                            מבוסס: {interestOptions.find(i => i.id === interest.baseCategory)?.label}
+                            מבוסס: {interestOptions.find(i => i.id === interest.baseCategory)?.label || interest.baseCategory}
                           </div>
                         </div>
+                      </div>
+                      
+                      {/* Action buttons */}
+                      <div className="flex gap-1">
                         <button
                           onClick={() => {
-                            showConfirm(`למחוק את "${interest.label}"?`, () => {
+                            setEditingCustomInterest(interest);
+                            setNewInterest({
+                              id: interest.id,
+                              name: interest.name || interest.label,
+                              label: interest.label || interest.name,
+                              icon: interest.icon,
+                              baseCategory: interest.baseCategory
+                            });
+                            setShowAddInterestDialog(true);
+                          }}
+                          className="text-xs px-1.5 py-0.5 rounded bg-blue-500 text-white hover:bg-blue-600"
+                          title="ערוך תחום"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={() => {
+                            showConfirm(`למחוק את "${interest.label || interest.name}"?`, () => {
                               deleteCustomInterest(interest.id);
                             });
                           }}
-                          className="text-red-600 text-xs px-1 hover:bg-red-50 rounded"
+                          className="text-xs px-1.5 py-0.5 rounded bg-red-500 text-white hover:bg-red-600"
+                          title="מחק תחום"
                         >
-                          ✕
+                          🗑️
                         </button>
                       </div>
                     </div>
@@ -5734,7 +5762,7 @@ const BangkokExplorer = () => {
               {/* Header */}
               <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2.5 rounded-t-xl flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold">הוסף תחום עניין</h3>
+                  <h3 className="text-base font-bold">{editingCustomInterest ? '✏️ ערוך תחום עניין' : 'הוסף תחום עניין'}</h3>
                   <button
                     onClick={() => showHelpFor('addInterest')}
                     className="bg-white text-purple-600 hover:bg-purple-100 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shadow"
@@ -5747,6 +5775,7 @@ const BangkokExplorer = () => {
                   onClick={() => {
                     setShowAddInterestDialog(false);
                     setNewInterest({ label: '', icon: '📍', baseCategory: '' });
+                    setEditingCustomInterest(null);
                   }}
                   className="text-xl hover:bg-white hover:bg-opacity-20 rounded-full w-7 h-7 flex items-center justify-center"
                 >
@@ -5813,35 +5842,101 @@ const BangkokExplorer = () => {
               
               {/* Footer */}
               <div className="px-4 py-2.5 border-t border-gray-200 flex gap-2" style={{ direction: 'rtl' }}>
-                <button
-                  onClick={() => {
-                    if (newInterest.label.trim() && newInterest.baseCategory) {
-                      addCustomInterest();
-                      // Reset for another entry but stay open
-                      setNewInterest({ label: '', icon: '📍', baseCategory: '' });
-                    }
-                  }}
-                  disabled={!newInterest.label.trim() || !newInterest.baseCategory}
-                  className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                    newInterest.label.trim() && newInterest.baseCategory
-                      ? 'bg-purple-500 text-white hover:bg-purple-600'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                >
-                  ➕ הוסף
-                </button>
-                <button
-                  onClick={() => {
-                    if (newInterest.label.trim() && newInterest.baseCategory) {
-                      addCustomInterest();
-                    }
-                    setShowAddInterestDialog(false);
-                    setNewInterest({ label: '', icon: '📍', baseCategory: '' });
-                  }}
-                  className="px-5 py-2.5 rounded-lg bg-green-500 text-white text-sm font-bold hover:bg-green-600"
-                >
-                  ✓ סגור
-                </button>
+                {editingCustomInterest ? (
+                  /* Edit mode - Save button */
+                  <>
+                    <button
+                      onClick={() => {
+                        if (newInterest.label.trim() && newInterest.baseCategory) {
+                          // Update existing interest
+                          const updatedInterest = {
+                            ...editingCustomInterest,
+                            label: newInterest.label.trim(),
+                            name: newInterest.label.trim(),
+                            icon: newInterest.icon || '📍',
+                            baseCategory: newInterest.baseCategory
+                          };
+                          
+                          if (isFirebaseAvailable && database) {
+                            database.ref(`customInterests/${editingCustomInterest.firebaseId || editingCustomInterest.id}`).update(updatedInterest)
+                              .then(() => {
+                                showToast('התחום עודכן בהצלחה!', 'success');
+                                setShowAddInterestDialog(false);
+                                setNewInterest({ label: '', icon: '📍', baseCategory: '' });
+                                setEditingCustomInterest(null);
+                              })
+                              .catch(err => {
+                                console.error('Error updating interest:', err);
+                                showToast('שגיאה בעדכון', 'error');
+                              });
+                          } else {
+                            // Update in localStorage
+                            const updated = customInterests.map(ci => 
+                              ci.id === editingCustomInterest.id ? updatedInterest : ci
+                            );
+                            setCustomInterests(updated);
+                            localStorage.setItem('bangkok_custom_interests', JSON.stringify(updated));
+                            showToast('התחום עודכן בהצלחה!', 'success');
+                            setShowAddInterestDialog(false);
+                            setNewInterest({ label: '', icon: '📍', baseCategory: '' });
+                            setEditingCustomInterest(null);
+                          }
+                        }
+                      }}
+                      disabled={!newInterest.label.trim() || !newInterest.baseCategory}
+                      className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                        newInterest.label.trim() && newInterest.baseCategory
+                          ? 'bg-green-500 text-white hover:bg-green-600'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      💾 שמור שינויים
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowAddInterestDialog(false);
+                        setNewInterest({ label: '', icon: '📍', baseCategory: '' });
+                        setEditingCustomInterest(null);
+                      }}
+                      className="px-5 py-2.5 rounded-lg bg-gray-400 text-white text-sm font-bold hover:bg-gray-500"
+                    >
+                      ביטול
+                    </button>
+                  </>
+                ) : (
+                  /* Add mode */
+                  <>
+                    <button
+                      onClick={() => {
+                        if (newInterest.label.trim() && newInterest.baseCategory) {
+                          addCustomInterest();
+                          // Reset for another entry but stay open
+                          setNewInterest({ label: '', icon: '📍', baseCategory: '' });
+                        }
+                      }}
+                      disabled={!newInterest.label.trim() || !newInterest.baseCategory}
+                      className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                        newInterest.label.trim() && newInterest.baseCategory
+                          ? 'bg-purple-500 text-white hover:bg-purple-600'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      ➕ הוסף
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (newInterest.label.trim() && newInterest.baseCategory) {
+                          addCustomInterest();
+                        }
+                        setShowAddInterestDialog(false);
+                        setNewInterest({ label: '', icon: '📍', baseCategory: '' });
+                      }}
+                      className="px-5 py-2.5 rounded-lg bg-green-500 text-white text-sm font-bold hover:bg-green-600"
+                    >
+                      ✓ סגור
+                    </button>
+                  </>
+                )}
               </div>
               
             </div>
