@@ -6750,16 +6750,16 @@ const BangkokExplorer = () => {
 
                 {/* Actions: Skip permanently + Delete (edit mode only) */}
                 {showEditLocationDialog && editingLocation && (
-                  <div className="border-t border-red-200 bg-red-50 px-4 py-2 space-y-1.5">
+                  <div className="border-t border-red-200 bg-red-50 px-4 py-2">
                     {!(editingLocation.locked && !isUnlocked) && (
-                      <>
+                      <div className="flex gap-2">
                         <button
                           onClick={() => {
                             toggleLocationStatus(editingLocation.id);
                             setShowEditLocationDialog(false);
                             setEditingLocation(null);
                           }}
-                          className="w-full py-1.5 bg-orange-500 text-white rounded-lg text-xs font-bold hover:bg-orange-600"
+                          className="flex-1 py-2 bg-orange-500 text-white rounded-lg text-sm font-bold hover:bg-orange-600"
                         >
                           🚫 דלג לצמיתות
                         </button>
@@ -6771,11 +6771,11 @@ const BangkokExplorer = () => {
                               setEditingLocation(null);
                             });
                           }}
-                          className="w-full py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700"
+                          className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700"
                         >
                           🗑️ מחק מקום
                         </button>
-                      </>
+                      </div>
                     )}
                     {editingLocation.locked && !isUnlocked && (
                       <div className="text-center text-xs text-yellow-700">🔒 מקום נעול - פעולות חסומות</div>
