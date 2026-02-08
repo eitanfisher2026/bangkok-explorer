@@ -855,12 +855,85 @@
         const errorText = await response.text();
         console.error('[DYNAMIC] Error fetching Google Places:', {
           status: response.status,
-          statusText: response.statusText,
           error: errorText,
           area,
-          interests,
           placeTypes
         });
+        
+        // Handle 400 Unsupported types - retry without bad types
+        if (response.status === 400 && errorText.includes('Unsupported types') && !isTextSearch && placeTypes.length > 1) {
+          console.warn('[DYNAMIC] Unsupported types detected, retrying one type at a time...');
+          let allRetryPlaces = [];
+          for (const singleType of placeTypes) {
+            try {
+              const retryResponse = await fetch(GOOGLE_PLACES_API_URL, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
+                  'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.types,places.primaryType'
+                },
+                body: JSON.stringify({
+                  includedTypes: [singleType],
+                  maxResultCount: 20,
+                  locationRestriction: {
+                    circle: {
+                      center: { latitude: center.lat, longitude: center.lng },
+                      radius: 2000
+                    }
+                  }
+                })
+              });
+              if (retryResponse.ok) {
+                const retryData = await retryResponse.json();
+                if (retryData.places) {
+                  allRetryPlaces.push(...retryData.places);
+                  console.log(`[DYNAMIC] Retry success for type: ${singleType}, got ${retryData.places.length} places`);
+                }
+              } else {
+                const interestNames = validInterests.map(id => allInterestOptions.find(o => o.id === id)?.label || id).join(', ');
+                addDebugLog('API', `Type "${singleType}" not supported by Google (${interestNames})`);
+                console.warn(`[DYNAMIC] Type "${singleType}" not supported, skipping`);
+              }
+            } catch (retryErr) {
+              console.warn(`[DYNAMIC] Retry failed for type: ${singleType}`, retryErr);
+            }
+          }
+          if (allRetryPlaces.length > 0) {
+            // Process retry results - jump to processing section
+            const data = { places: allRetryPlaces };
+            response = { ok: true }; // Fake ok response
+            // Continue with processing below using data
+            const isTextSearchRetry = false;
+            const textSearchPhraseRetry = '';
+            let typeFilteredCountRetry = 0;
+            let blacklistFilteredCountRetry = 0;
+            let relevanceFilteredCountRetry = 0;
+            
+            const places = data.places.map(place => {
+              const name = place.displayName?.text || 'Unknown';
+              const placeTypesFromGoogle = place.types || [];
+              return {
+                name,
+                description: place.formattedAddress || '',
+                lat: place.location?.latitude || 0,
+                lng: place.location?.longitude || 0,
+                rating: place.rating || 0,
+                ratingCount: place.userRatingCount || 0,
+                duration: 45,
+                interests: validInterests,
+                googleTypes: placeTypesFromGoogle,
+                primaryType: place.primaryType || null,
+                custom: false
+              };
+            }).filter(place => place.lat !== 0 && place.lng !== 0);
+            
+            addDebugLog('API', `Got ${places.length} results from retry`, { names: places.slice(0, 5).map(p => p.name) });
+            return places;
+          }
+          return []; // No results from any type
+        }
+        
         throw new Error(`Google API Error ${response.status}: ${errorText}`);
       }
 
