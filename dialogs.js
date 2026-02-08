@@ -426,6 +426,10 @@
                     <span className="text-xs">🔒 נעול</span>
                   </label>
                 </div>
+
+              </div>
+              
+              {/* Footer - Compact */}
               <div className="px-4 py-2.5 border-t border-gray-200 flex gap-2" style={{ direction: 'rtl' }}>
                 <button
                   onClick={() => {
