@@ -1877,6 +1877,7 @@ const BangkokExplorer = () => {
               return {
                 name,
                 description: place.formattedAddress || '',
+                address: place.formattedAddress || '',
                 lat: place.location?.latitude || 0,
                 lng: place.location?.longitude || 0,
                 rating: place.rating || 0,
@@ -3883,10 +3884,10 @@ const BangkokExplorer = () => {
             </div>
 
             {/* Split Layout: Areas (right) | Interests (left) */}
-            <div className="grid grid-cols-[95px_1fr] gap-3 items-stretch" style={{ paddingBottom: '60px' }}>
+            <div className="grid grid-cols-[95px_1fr] gap-3 items-start" style={{ paddingBottom: '60px' }}>
               
               {/* Right Column: Areas */}
-              <div className="flex flex-col min-h-0">
+              <div className="flex flex-col" style={{ maxHeight: '340px' }}>
                 <div className="flex items-center justify-center gap-1 mb-1.5">
                   <label className="font-medium text-xs block text-center">🗺️ איזור</label>
                   <button
@@ -3924,9 +3925,9 @@ const BangkokExplorer = () => {
               </div>
 
               {/* Left Column: Interests */}
-              <div className="flex flex-col min-h-0">
+              <div className="flex flex-col" style={{ maxHeight: '340px' }}>
                 <label className="font-medium text-xs mb-1.5 block">⭐ מה מעניין?</label>
-                <div className="grid grid-cols-3 gap-2 overflow-y-auto border border-gray-200 rounded-lg p-2 flex-1 min-h-0" style={{ maxHeight: '280px' }}>
+                <div className="grid grid-cols-3 gap-2 overflow-y-auto border border-gray-200 rounded-lg p-2 flex-1 min-h-0">
                 {allInterestOptions.filter(option => {
                   if (!option || !option.id) return false;
                   // Must be valid (have search config)
@@ -4197,7 +4198,7 @@ const BangkokExplorer = () => {
                                   </div>
                                   
                                   <a
-                                    href={hasValidCoords ? `https://www.google.com/maps/search/?api=1&query=${(stop.address?.trim() || stop.description?.trim()) ? encodeURIComponent(stop.address?.trim() || stop.description?.trim()) : `${stop.lat},${stop.lng}`}` : '#'}
+                                    href={hasValidCoords ? `https://www.google.com/maps/search/?api=1&query=${stop.address?.trim() ? encodeURIComponent(stop.address.trim()) : `${stop.lat},${stop.lng}`}` : '#'}
                                     target={hasValidCoords ? "_blank" : undefined}
                                     rel={hasValidCoords ? "noopener noreferrer" : undefined}
                                     className="block hover:bg-gray-100 transition pr-2"
@@ -4710,7 +4711,7 @@ const BangkokExplorer = () => {
                               </span>
                             )}
                             <a
-                              href={hasValidCoords ? `https://www.google.com/maps/search/?api=1&query=${(stop.address?.trim() || stop.description?.trim()) ? encodeURIComponent(stop.address?.trim() || stop.description?.trim()) : `${stop.lat},${stop.lng}`}` : '#'}
+                              href={hasValidCoords ? `https://www.google.com/maps/search/?api=1&query=${stop.address?.trim() ? encodeURIComponent(stop.address.trim()) : `${stop.lat},${stop.lng}`}` : '#'}
                               target={hasValidCoords ? "_blank" : undefined}
                               rel={hasValidCoords ? "noopener noreferrer" : undefined}
                               className={`font-bold text-sm ${isDisabled ? 'line-through text-gray-500' : hasValidCoords ? 'text-blue-600 hover:text-blue-800' : 'text-red-600'}`}

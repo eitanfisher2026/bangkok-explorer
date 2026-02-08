@@ -964,6 +964,7 @@
               return {
                 name,
                 description: place.formattedAddress || '',
+                address: place.formattedAddress || '',
                 lat: place.location?.latitude || 0,
                 lng: place.location?.longitude || 0,
                 rating: place.rating || 0,
