@@ -217,6 +217,54 @@
     }
     setIsLocating(false);
   };
+
+  // Detect which area the user is currently in based on GPS
+  const detectArea = () => {
+    if (!navigator.geolocation) {
+      showToast('הדפדפן לא תומך במיקום', 'error');
+      return;
+    }
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude: lat, longitude: lng } = position.coords;
+        const coords = window.BKK.areaCoordinates;
+        
+        // Calculate distance to each area center
+        let closest = null;
+        let closestDist = Infinity;
+        
+        for (const [areaId, center] of Object.entries(coords)) {
+          const dlat = (lat - center.lat) * 111320;
+          const dlng = (lng - center.lng) * 111320 * Math.cos(lat * Math.PI / 180);
+          const dist = Math.sqrt(dlat * dlat + dlng * dlng);
+          
+          if (dist <= center.radius && dist < closestDist) {
+            closest = areaId;
+            closestDist = dist;
+          }
+        }
+        
+        if (closest) {
+          const areaName = areaOptions.find(a => a.id === closest)?.label || closest;
+          setFormData(prev => ({ ...prev, area: closest }));
+          showToast(`📍 נמצאת באזור: ${areaName}`, 'success');
+        } else {
+          showToast('המיקום הנוכחי שלך נמצא מחוץ לאזורי הבחירה', 'warning');
+        }
+        setIsLocating(false);
+      },
+      (error) => {
+        setIsLocating(false);
+        if (error.code === 1) {
+          showToast('אין הרשאת מיקום - אנא אשר גישה למיקום', 'error');
+        } else {
+          showToast('לא ניתן לאתר מיקום', 'error');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  };
   useEffect(() => {
     try {
       const saved = localStorage.getItem('bangkok_saved_routes');

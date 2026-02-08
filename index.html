@@ -1130,6 +1130,54 @@ const BangkokExplorer = () => {
     }
     setIsLocating(false);
   };
+
+  // Detect which area the user is currently in based on GPS
+  const detectArea = () => {
+    if (!navigator.geolocation) {
+      showToast('הדפדפן לא תומך במיקום', 'error');
+      return;
+    }
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude: lat, longitude: lng } = position.coords;
+        const coords = window.BKK.areaCoordinates;
+        
+        // Calculate distance to each area center
+        let closest = null;
+        let closestDist = Infinity;
+        
+        for (const [areaId, center] of Object.entries(coords)) {
+          const dlat = (lat - center.lat) * 111320;
+          const dlng = (lng - center.lng) * 111320 * Math.cos(lat * Math.PI / 180);
+          const dist = Math.sqrt(dlat * dlat + dlng * dlng);
+          
+          if (dist <= center.radius && dist < closestDist) {
+            closest = areaId;
+            closestDist = dist;
+          }
+        }
+        
+        if (closest) {
+          const areaName = areaOptions.find(a => a.id === closest)?.label || closest;
+          setFormData(prev => ({ ...prev, area: closest }));
+          showToast(`📍 נמצאת באזור: ${areaName}`, 'success');
+        } else {
+          showToast('המיקום הנוכחי שלך נמצא מחוץ לאזורי הבחירה', 'warning');
+        }
+        setIsLocating(false);
+      },
+      (error) => {
+        setIsLocating(false);
+        if (error.code === 1) {
+          showToast('אין הרשאת מיקום - אנא אשר גישה למיקום', 'error');
+        } else {
+          showToast('לא ניתן לאתר מיקום', 'error');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  };
   useEffect(() => {
     try {
       const saved = localStorage.getItem('bangkok_saved_routes');
@@ -3839,7 +3887,17 @@ const BangkokExplorer = () => {
               
               {/* Right Column: Areas */}
               <div className="flex flex-col min-h-0">
-                <label className="font-medium text-xs mb-1.5 block text-center">🗺️ איזור</label>
+                <div className="flex items-center justify-center gap-1 mb-1.5">
+                  <label className="font-medium text-xs block text-center">🗺️ איזור</label>
+                  <button
+                    onClick={detectArea}
+                    disabled={isLocating}
+                    className={`px-1 py-0.5 rounded text-[10px] ${isLocating ? 'bg-gray-200 text-gray-400' : 'bg-blue-100 text-blue-600 hover:bg-blue-200'}`}
+                    title="זהה איזור לפי מיקום נוכחי"
+                  >
+                    {isLocating ? '⏳' : '📍'}
+                  </button>
+                </div>
                 <div className="border border-gray-200 rounded-lg p-1.5 flex-1 overflow-y-auto min-h-0">
                   <div className="space-y-1.5">
                     {areaOptions.map(area => (
@@ -3868,7 +3926,7 @@ const BangkokExplorer = () => {
               {/* Left Column: Interests */}
               <div className="flex flex-col min-h-0">
                 <label className="font-medium text-xs mb-1.5 block">⭐ מה מעניין?</label>
-                <div className="grid grid-cols-3 gap-2 overflow-y-auto border border-gray-200 rounded-lg p-2 flex-1 min-h-0">
+                <div className="grid grid-cols-3 gap-2 overflow-y-auto border border-gray-200 rounded-lg p-2 flex-1 min-h-0" style={{ maxHeight: '280px' }}>
                 {allInterestOptions.filter(option => {
                   if (!option || !option.id) return false;
                   // Must be valid (have search config)
@@ -4139,7 +4197,7 @@ const BangkokExplorer = () => {
                                   </div>
                                   
                                   <a
-                                    href={hasValidCoords ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stop.name + ' Bangkok')}` : '#'}
+                                    href={hasValidCoords ? `https://www.google.com/maps/search/?api=1&query=${(stop.address?.trim() || stop.description?.trim()) ? encodeURIComponent(stop.address?.trim() || stop.description?.trim()) : `${stop.lat},${stop.lng}`}` : '#'}
                                     target={hasValidCoords ? "_blank" : undefined}
                                     rel={hasValidCoords ? "noopener noreferrer" : undefined}
                                     className="block hover:bg-gray-100 transition pr-2"
@@ -4652,7 +4710,7 @@ const BangkokExplorer = () => {
                               </span>
                             )}
                             <a
-                              href={hasValidCoords ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stop.name + ' Bangkok')}` : '#'}
+                              href={hasValidCoords ? `https://www.google.com/maps/search/?api=1&query=${(stop.address?.trim() || stop.description?.trim()) ? encodeURIComponent(stop.address?.trim() || stop.description?.trim()) : `${stop.lat},${stop.lng}`}` : '#'}
                               target={hasValidCoords ? "_blank" : undefined}
                               rel={hasValidCoords ? "noopener noreferrer" : undefined}
                               className={`font-bold text-sm ${isDisabled ? 'line-through text-gray-500' : hasValidCoords ? 'text-blue-600 hover:text-blue-800' : 'text-red-600'}`}

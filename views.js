@@ -83,7 +83,17 @@
               
               {/* Right Column: Areas */}
               <div className="flex flex-col min-h-0">
-                <label className="font-medium text-xs mb-1.5 block text-center">🗺️ איזור</label>
+                <div className="flex items-center justify-center gap-1 mb-1.5">
+                  <label className="font-medium text-xs block text-center">🗺️ איזור</label>
+                  <button
+                    onClick={detectArea}
+                    disabled={isLocating}
+                    className={`px-1 py-0.5 rounded text-[10px] ${isLocating ? 'bg-gray-200 text-gray-400' : 'bg-blue-100 text-blue-600 hover:bg-blue-200'}`}
+                    title="זהה איזור לפי מיקום נוכחי"
+                  >
+                    {isLocating ? '⏳' : '📍'}
+                  </button>
+                </div>
                 <div className="border border-gray-200 rounded-lg p-1.5 flex-1 overflow-y-auto min-h-0">
                   <div className="space-y-1.5">
                     {areaOptions.map(area => (
@@ -112,7 +122,7 @@
               {/* Left Column: Interests */}
               <div className="flex flex-col min-h-0">
                 <label className="font-medium text-xs mb-1.5 block">⭐ מה מעניין?</label>
-                <div className="grid grid-cols-3 gap-2 overflow-y-auto border border-gray-200 rounded-lg p-2 flex-1 min-h-0">
+                <div className="grid grid-cols-3 gap-2 overflow-y-auto border border-gray-200 rounded-lg p-2 flex-1 min-h-0" style={{ maxHeight: '280px' }}>
                 {allInterestOptions.filter(option => {
                   if (!option || !option.id) return false;
                   // Must be valid (have search config)
@@ -383,7 +393,7 @@
                                   </div>
                                   
                                   <a
-                                    href={hasValidCoords ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stop.name + ' Bangkok')}` : '#'}
+                                    href={hasValidCoords ? `https://www.google.com/maps/search/?api=1&query=${(stop.address?.trim() || stop.description?.trim()) ? encodeURIComponent(stop.address?.trim() || stop.description?.trim()) : `${stop.lat},${stop.lng}`}` : '#'}
                                     target={hasValidCoords ? "_blank" : undefined}
                                     rel={hasValidCoords ? "noopener noreferrer" : undefined}
                                     className="block hover:bg-gray-100 transition pr-2"
@@ -896,7 +906,7 @@
                               </span>
                             )}
                             <a
-                              href={hasValidCoords ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stop.name + ' Bangkok')}` : '#'}
+                              href={hasValidCoords ? `https://www.google.com/maps/search/?api=1&query=${(stop.address?.trim() || stop.description?.trim()) ? encodeURIComponent(stop.address?.trim() || stop.description?.trim()) : `${stop.lat},${stop.lng}`}` : '#'}
                               target={hasValidCoords ? "_blank" : undefined}
                               rel={hasValidCoords ? "noopener noreferrer" : undefined}
                               className={`font-bold text-sm ${isDisabled ? 'line-through text-gray-500' : hasValidCoords ? 'text-blue-600 hover:text-blue-800' : 'text-red-600'}`}
