@@ -1139,6 +1139,21 @@
     }));
   };
 
+  // Auto-clean: remove selected interests that are no longer valid/visible
+  useEffect(() => {
+    if (formData.interests.length === 0) return;
+    const visibleIds = allInterestOptions
+      .filter(opt => opt && opt.id && isInterestValid(opt.id))
+      .map(opt => opt.id);
+    const cleaned = formData.interests.filter(id => visibleIds.includes(id));
+    if (cleaned.length !== formData.interests.length) {
+      const removed = formData.interests.filter(id => !visibleIds.includes(id));
+      const removedNames = removed.map(id => allInterestOptions.find(o => o.id === id)?.label || id).join(', ');
+      console.log('[CLEANUP] Removed invalid interests from selection:', removedNames);
+      setFormData(prev => ({ ...prev, interests: cleaned }));
+    }
+  }, [interestConfig, customInterests]);
+
   // Button styles - loaded from utils.js
 
   const getStopsForInterests = () => {
