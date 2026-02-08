@@ -965,9 +965,10 @@
                               <div className="relative group">
                                 <button
                                   onClick={() => {
-                                    setSelectedLocation(stop);
-                                    setGooglePlaceInfo(null);
-                                    setShowLocationDetailModal(true);
+                                    const customLoc = customLocations.find(loc => loc.name === stop.name);
+                                    if (customLoc) {
+                                      handleEditLocation(customLoc);
+                                    }
                                   }}
                                   className={`${sourceBadge.color} text-white text-[10px] px-2 py-0.5 rounded-full font-bold cursor-pointer hover:opacity-80 transition`}
                                   title="לחץ לפרטים מלאים"
@@ -1582,14 +1583,34 @@
                     };
                     
                     // Render a single location row
-                    const renderLocationRow = (loc) => (
+                    const renderLocationRow = (loc) => {
+                      const mapUrl = loc.address?.trim() 
+                        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc.address.trim())}`
+                        : (loc.lat && loc.lng) 
+                          ? `https://www.google.com/maps/search/?api=1&query=${loc.lat},${loc.lng}`
+                          : null;
+                      const canEdit = !loc.locked || isUnlocked;
+                      return (
                       <div
                         key={loc.id}
-                        className="flex items-center justify-between gap-2 border border-emerald-300 rounded p-1.5 bg-emerald-50 hover:bg-emerald-100"
+                        className="flex items-center justify-between gap-2 border border-emerald-300 rounded p-1.5 bg-emerald-50 hover:bg-emerald-100 cursor-pointer"
+                        onClick={(e) => {
+                          // Don't trigger if clicking on a button or link
+                          if (e.target.closest('a') || e.target.closest('button')) return;
+                          if (!canEdit) { showToast('מקום נעול - דרוש סיסמה אדמין', 'warning'); return; }
+                          handleEditLocation(loc);
+                        }}
                       >
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1 flex-wrap">
-                            <span className="font-medium text-sm truncate">{loc.name}</span>
+                            {mapUrl ? (
+                              <a href={mapUrl} target="_blank" rel="noopener noreferrer"
+                                className="font-medium text-sm text-blue-600 hover:text-blue-800 hover:underline truncate"
+                                onClick={(e) => e.stopPropagation()}
+                              >{loc.name}</a>
+                            ) : (
+                              <span className="font-medium text-sm truncate">{loc.name}</span>
+                            )}
                             {loc.locked && <span title="נעול" style={{ fontSize: '12px' }}>🔒</span>}
                             {loc.inProgress && <span className="text-orange-600" title="בעבודה" style={{ fontSize: '14px' }}>🛠️</span>}
                             {loc.outsideArea && <span className="text-orange-500 text-xs" title="מחוץ לגבולות">🔺</span>}
@@ -1604,20 +1625,15 @@
                           </div>
                         </div>
                         <div className="flex gap-0.5">
-                          <button onClick={() => { setSelectedLocation(loc); setGooglePlaceInfo(null); setShowLocationDetailModal(true); }}
-                            className="text-xs px-1 py-0.5 rounded bg-indigo-500 text-white hover:bg-indigo-600" title="פרטים">🔍</button>
                           <button onClick={() => toggleLocationStatus(loc.id)}
                             className="text-xs px-1 py-0.5 rounded bg-red-500 text-white hover:bg-red-600" title="דלג תמיד">🚫</button>
-                          <button onClick={() => handleEditLocation(loc)}
-                            className={`text-xs px-1 py-0.5 rounded hover:bg-blue-100 ${loc.locked && !isUnlocked ? 'opacity-30 cursor-not-allowed' : ''}`}
-                            title={loc.locked && !isUnlocked ? 'נעול - דרוש סיסמה' : 'ערוך'}
-                            disabled={loc.locked && !isUnlocked}>✏️</button>
                           <button onClick={() => { if (loc.locked && !isUnlocked) { showToast('מקום נעול - דרוש סיסמה אדמין', 'warning'); return; } showConfirm(`למחוק את "${loc.name}"?`, () => deleteCustomLocation(loc.id)); }}
                             className={`text-xs px-1 py-0.5 rounded hover:bg-red-100 ${loc.locked && !isUnlocked ? 'opacity-30' : ''}`}
                             title={loc.locked && !isUnlocked ? 'נעול' : 'מחק'}>🗑️</button>
                         </div>
                       </div>
                     );
+                    };
                     
                     return (
                       <div className="mb-3">

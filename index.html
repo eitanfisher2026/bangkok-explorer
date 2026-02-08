@@ -2880,6 +2880,7 @@ const BangkokExplorer = () => {
     console.log('[EDIT] Form data prepared:', JSON.stringify(editFormData, null, 2));
     setNewLocation(editFormData);
     console.log('[EDIT] newLocation state updated');
+    setGooglePlaceInfo(null);
     setShowEditLocationDialog(true);
     console.log('[EDIT] Dialog opened');
   };
@@ -4789,9 +4790,10 @@ const BangkokExplorer = () => {
                               <div className="relative group">
                                 <button
                                   onClick={() => {
-                                    setSelectedLocation(stop);
-                                    setGooglePlaceInfo(null);
-                                    setShowLocationDetailModal(true);
+                                    const customLoc = customLocations.find(loc => loc.name === stop.name);
+                                    if (customLoc) {
+                                      handleEditLocation(customLoc);
+                                    }
                                   }}
                                   className={`${sourceBadge.color} text-white text-[10px] px-2 py-0.5 rounded-full font-bold cursor-pointer hover:opacity-80 transition`}
                                   title="לחץ לפרטים מלאים"
@@ -5406,14 +5408,34 @@ const BangkokExplorer = () => {
                     };
                     
                     // Render a single location row
-                    const renderLocationRow = (loc) => (
+                    const renderLocationRow = (loc) => {
+                      const mapUrl = loc.address?.trim() 
+                        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc.address.trim())}`
+                        : (loc.lat && loc.lng) 
+                          ? `https://www.google.com/maps/search/?api=1&query=${loc.lat},${loc.lng}`
+                          : null;
+                      const canEdit = !loc.locked || isUnlocked;
+                      return (
                       <div
                         key={loc.id}
-                        className="flex items-center justify-between gap-2 border border-emerald-300 rounded p-1.5 bg-emerald-50 hover:bg-emerald-100"
+                        className="flex items-center justify-between gap-2 border border-emerald-300 rounded p-1.5 bg-emerald-50 hover:bg-emerald-100 cursor-pointer"
+                        onClick={(e) => {
+                          // Don't trigger if clicking on a button or link
+                          if (e.target.closest('a') || e.target.closest('button')) return;
+                          if (!canEdit) { showToast('מקום נעול - דרוש סיסמה אדמין', 'warning'); return; }
+                          handleEditLocation(loc);
+                        }}
                       >
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1 flex-wrap">
-                            <span className="font-medium text-sm truncate">{loc.name}</span>
+                            {mapUrl ? (
+                              <a href={mapUrl} target="_blank" rel="noopener noreferrer"
+                                className="font-medium text-sm text-blue-600 hover:text-blue-800 hover:underline truncate"
+                                onClick={(e) => e.stopPropagation()}
+                              >{loc.name}</a>
+                            ) : (
+                              <span className="font-medium text-sm truncate">{loc.name}</span>
+                            )}
                             {loc.locked && <span title="נעול" style={{ fontSize: '12px' }}>🔒</span>}
                             {loc.inProgress && <span className="text-orange-600" title="בעבודה" style={{ fontSize: '14px' }}>🛠️</span>}
                             {loc.outsideArea && <span className="text-orange-500 text-xs" title="מחוץ לגבולות">🔺</span>}
@@ -5428,20 +5450,15 @@ const BangkokExplorer = () => {
                           </div>
                         </div>
                         <div className="flex gap-0.5">
-                          <button onClick={() => { setSelectedLocation(loc); setGooglePlaceInfo(null); setShowLocationDetailModal(true); }}
-                            className="text-xs px-1 py-0.5 rounded bg-indigo-500 text-white hover:bg-indigo-600" title="פרטים">🔍</button>
                           <button onClick={() => toggleLocationStatus(loc.id)}
                             className="text-xs px-1 py-0.5 rounded bg-red-500 text-white hover:bg-red-600" title="דלג תמיד">🚫</button>
-                          <button onClick={() => handleEditLocation(loc)}
-                            className={`text-xs px-1 py-0.5 rounded hover:bg-blue-100 ${loc.locked && !isUnlocked ? 'opacity-30 cursor-not-allowed' : ''}`}
-                            title={loc.locked && !isUnlocked ? 'נעול - דרוש סיסמה' : 'ערוך'}
-                            disabled={loc.locked && !isUnlocked}>✏️</button>
                           <button onClick={() => { if (loc.locked && !isUnlocked) { showToast('מקום נעול - דרוש סיסמה אדמין', 'warning'); return; } showConfirm(`למחוק את "${loc.name}"?`, () => deleteCustomLocation(loc.id)); }}
                             className={`text-xs px-1 py-0.5 rounded hover:bg-red-100 ${loc.locked && !isUnlocked ? 'opacity-30' : ''}`}
                             title={loc.locked && !isUnlocked ? 'נעול' : 'מחק'}>🗑️</button>
                         </div>
                       </div>
                     );
+                    };
                     
                     return (
                       <div className="mb-3">
@@ -6460,7 +6477,11 @@ const BangkokExplorer = () => {
                       <img 
                         src={newLocation.uploadedImage} 
                         alt="Preview"
-                        className="w-full h-24 object-cover rounded-lg border-2 border-purple-300"
+                        className="w-full h-48 object-cover rounded-lg border-2 border-purple-300 cursor-pointer hover:opacity-90"
+                        onClick={() => {
+                          setModalImage(newLocation.uploadedImage);
+                          setShowImageModal(true);
+                        }}
                       />
                       <button
                         onClick={() => setNewLocation({...newLocation, uploadedImage: null})}
@@ -6643,6 +6664,76 @@ const BangkokExplorer = () => {
                   </div>
                 </div>
 
+                {/* Open in Google + Google Info */}
+                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-2">
+                  <div className="flex gap-2">
+                    {newLocation.lat && newLocation.lng ? (
+                      <a
+                        href={newLocation.address?.trim() 
+                          ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(newLocation.address.trim())}`
+                          : `https://www.google.com/maps/search/?api=1&query=${newLocation.lat},${newLocation.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 py-2 bg-green-500 text-white rounded-lg text-sm font-bold hover:bg-green-600 text-center"
+                      >
+                        🗺️ פתח בגוגל
+                      </a>
+                    ) : (
+                      <button disabled className="flex-1 py-2 bg-gray-300 text-gray-500 rounded-lg text-sm font-bold cursor-not-allowed">
+                        🗺️ פתח בגוגל (אין קואורדינטות)
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        setGooglePlaceInfo(null);
+                        fetchGooglePlaceInfo(newLocation);
+                      }}
+                      disabled={!newLocation.name?.trim() || loadingGoogleInfo}
+                      className={`flex-1 py-2 rounded-lg text-sm font-bold ${
+                        newLocation.name?.trim() && !loadingGoogleInfo
+                          ? 'bg-indigo-500 text-white hover:bg-indigo-600'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      {loadingGoogleInfo ? '⏳ טוען...' : '🔎 מידע מגוגל'}
+                    </button>
+                  </div>
+                  
+                  {/* Google Place Info Results */}
+                  {googlePlaceInfo && !googlePlaceInfo.notFound && (
+                    <div className="mt-2 text-xs space-y-1 bg-white rounded p-2 border border-indigo-200" style={{ direction: 'ltr' }}>
+                      <div>
+                        <span className="font-bold text-indigo-700">Found:</span>
+                        <span className="ml-1">{googlePlaceInfo.name}</span>
+                      </div>
+                      <div>
+                        <span className="font-bold text-indigo-700">Primary Type:</span>
+                        <span className="ml-1 bg-indigo-200 px-2 py-0.5 rounded">
+                          {googlePlaceInfo.primaryTypeDisplayName || googlePlaceInfo.primaryType || 'N/A'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="font-bold text-indigo-700">All Types:</span>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {googlePlaceInfo.types.map((type, idx) => (
+                            <span key={idx} className="bg-gray-200 px-2 py-0.5 rounded text-[10px]">{type}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="font-bold text-indigo-700">Rating:</span>
+                        <span className="ml-1">⭐ {googlePlaceInfo.rating?.toFixed(1) || 'N/A'} ({googlePlaceInfo.ratingCount || 0})</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {googlePlaceInfo && googlePlaceInfo.notFound && (
+                    <div className="mt-2 text-xs text-red-600 bg-white rounded p-2 border border-red-200">
+                      ❌ המקום לא נמצא ב-Google עבור: "{googlePlaceInfo.searchQuery}"
+                    </div>
+                  )}
+                </div>
+
                 {/* Notes - Compact */}
                 <div>
                   <label className="block text-xs font-bold mb-1">💭 הערות</label>
@@ -6681,7 +6772,15 @@ const BangkokExplorer = () => {
               </div>
               
               {/* Footer - Compact */}
+              {(() => {
+                const isLockedPlace = showEditLocationDialog && editingLocation?.locked && !isUnlocked;
+                return (
               <div className="px-4 py-2.5 border-t border-gray-200 flex gap-2" style={{ direction: 'rtl' }}>
+                {isLockedPlace ? (
+                  <div className="flex-1 py-2.5 bg-yellow-100 text-yellow-800 rounded-lg text-sm font-bold text-center">
+                    🔒 מקום נעול - צפייה בלבד
+                  </div>
+                ) : (
                 <button
                   onClick={() => {
                     if (!newLocation.name || !newLocation.name.trim()) {
@@ -6701,9 +6800,9 @@ const BangkokExplorer = () => {
                       return;
                     }
                     if (showEditLocationDialog) {
-                      updateCustomLocation(false); // Save but don't close
+                      updateCustomLocation(false);
                     } else {
-                      addCustomLocation(false); // Save but don't close (resets form for new entry)
+                      addCustomLocation(false);
                     }
                   }}
                   disabled={!newLocation.name?.trim()}
@@ -6715,6 +6814,7 @@ const BangkokExplorer = () => {
                 >
                   {showEditLocationDialog ? '💾 עדכן' : '➕ הוסף'}
                 </button>
+                )}
                 <button
                   onClick={() => {
                     // Save if there's valid content, then close
@@ -6746,6 +6846,8 @@ const BangkokExplorer = () => {
                   ✓ סגור
                 </button>
               </div>
+                );
+              })()}
 
             </div>
           </div>
@@ -7087,510 +7189,6 @@ const BangkokExplorer = () => {
         </div>
       )}
       
-      {/* Location Detail Modal - Full details for custom locations */}
-      {showLocationDetailModal && selectedLocation && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4"
-          onClick={() => {
-            setShowLocationDetailModal(false);
-            setSelectedLocation(null);
-          }}
-        >
-          <div 
-            className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="sticky top-0 bg-gradient-to-r from-purple-500 to-pink-500 text-white p-4 rounded-t-2xl flex justify-between items-center">
-              <h3 className="text-xl font-bold">📍 פרטי המקום</h3>
-              <button
-                onClick={() => {
-                  setShowLocationDetailModal(false);
-                  setSelectedLocation(null);
-                }}
-                className="bg-white text-purple-600 rounded-full w-8 h-8 font-bold hover:bg-gray-100"
-              >
-                ✕
-              </button>
-            </div>
-            
-            {/* Content */}
-            <div className="p-4 space-y-4">
-              {/* Image */}
-              {selectedLocation.uploadedImage && (
-                <div className="relative">
-                  <img 
-                    src={selectedLocation.uploadedImage} 
-                    alt={selectedLocation.name}
-                    className="w-full h-64 object-cover rounded-xl cursor-pointer hover:opacity-90 transition"
-                    onClick={() => {
-                      setModalImage(selectedLocation.uploadedImage);
-                      setShowImageModal(true);
-                    }}
-                  />
-                  <div className="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
-                    👆 לחץ להגדלה
-                  </div>
-                </div>
-              )}
-              
-              {/* Image URLs */}
-              {selectedLocation.imageUrls && selectedLocation.imageUrls.length > 0 && (
-                <div className="grid grid-cols-2 gap-2">
-                  {selectedLocation.imageUrls.filter(url => url).map((url, idx) => (
-                    <a 
-                      key={idx}
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-500 text-xs hover:underline truncate"
-                    >
-                      🔗 תמונה {idx + 1}
-                    </a>
-                  ))}
-                </div>
-              )}
-              
-              {/* Name */}
-              <div>
-                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                  {selectedLocation.name}
-                  {selectedLocation.outsideArea && (
-                    <span className="text-orange-500 text-lg" title="מחוץ לגבולות האזור">🔺</span>
-                  )}
-                </h2>
-              </div>
-              
-              {/* Description */}
-              {selectedLocation.description && (
-                <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
-                  <div className="text-xs font-bold text-blue-900 mb-1">📝 תיאור:</div>
-                  <div className="text-sm text-gray-700">{selectedLocation.description}</div>
-                </div>
-              )}
-              
-              {/* Notes */}
-              {selectedLocation.notes && (
-                <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-3">
-                  <div className="text-xs font-bold text-yellow-900 mb-1">💭 הערות פרטיות:</div>
-                  <div className="text-sm text-gray-700 italic">{selectedLocation.notes}</div>
-                </div>
-              )}
-              
-              {/* Area */}
-              <div className="flex items-center gap-2 text-sm">
-                <span className="font-bold text-gray-700">🗺️ איזור:</span>
-                <span className="bg-gray-200 px-3 py-1 rounded-full">
-                  {areaOptions.find(a => a.id === selectedLocation.area)?.label || selectedLocation.area}
-                </span>
-              </div>
-              
-              {/* Interests Tags */}
-              {selectedLocation.interests && selectedLocation.interests.length > 0 && (
-                <div>
-                  <div className="text-xs font-bold text-gray-700 mb-2">🏷️ תחומי עניין:</div>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedLocation.interests.map(intId => {
-                      const interest = allInterestOptions.find(opt => opt.id === intId);
-                      return interest ? (
-                        <span key={intId} className="bg-purple-100 text-purple-800 text-xs px-3 py-1 rounded-full font-bold">
-                          {interest.icon} {interest.label}
-                        </span>
-                      ) : null;
-                    })}
-                  </div>
-                </div>
-              )}
-              
-              {/* Location */}
-              {selectedLocation.lat && selectedLocation.lng && (
-                <div className="bg-green-50 border-2 border-green-200 rounded-lg p-3">
-                  <div className="text-xs font-bold text-green-900 mb-2">📍 מיקום:</div>
-                  <div className="text-xs text-gray-600 mb-2 font-mono">
-                    {selectedLocation.lat.toFixed(6)}, {selectedLocation.lng.toFixed(6)}
-                  </div>
-                  <a
-                    href={`https://www.google.com/maps?q=${selectedLocation.lat},${selectedLocation.lng}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block w-full bg-green-500 text-white text-center py-2 rounded-lg font-bold hover:bg-green-600 transition"
-                  >
-                    🗺️ פתח ב-Google Maps
-                  </a>
-                </div>
-              )}
-              {/* Google Place Info Section */}
-              <div className="bg-indigo-50 border-2 border-indigo-200 rounded-lg p-3">
-                <div className="flex justify-between items-center mb-2">
-                  <div className="text-xs font-bold text-indigo-900">🔍 מידע מ-Google</div>
-                  <button
-                    onClick={() => {
-                      setGooglePlaceInfo(null);
-                      fetchGooglePlaceInfo(selectedLocation);
-                    }}
-                    disabled={loadingGoogleInfo}
-                    className="bg-indigo-500 text-white text-xs px-3 py-1 rounded-full font-bold hover:bg-indigo-600 disabled:opacity-50"
-                  >
-                    {loadingGoogleInfo ? '⏳ טוען...' : '🔎 בדוק ב-Google'}
-                  </button>
-                </div>
-                
-                {googlePlaceInfo && !googlePlaceInfo.notFound && (
-                  <div className="text-xs space-y-2" style={{ direction: 'ltr' }}>
-                    <div>
-                      <span className="font-bold text-indigo-700">Found:</span>
-                      <span className="ml-1">{googlePlaceInfo.name}</span>
-                    </div>
-                    <div>
-                      <span className="font-bold text-indigo-700">Primary Type:</span>
-                      <span className="ml-1 bg-indigo-200 px-2 py-0.5 rounded">
-                        {googlePlaceInfo.primaryTypeDisplayName || googlePlaceInfo.primaryType || 'N/A'}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="font-bold text-indigo-700">All Types:</span>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {googlePlaceInfo.types.map((type, idx) => (
-                          <span key={idx} className="bg-gray-200 px-2 py-0.5 rounded text-[10px]">
-                            {type}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="font-bold text-indigo-700">Rating:</span>
-                      <span className="ml-1">⭐ {googlePlaceInfo.rating?.toFixed(1) || 'N/A'} ({googlePlaceInfo.ratingCount || 0})</span>
-                    </div>
-                    
-                    {/* Explanation */}
-                    <div className="mt-2 p-2 bg-white rounded border border-indigo-200 text-[10px]">
-                      <div className="font-bold text-indigo-800 mb-1">💡 למה זה חשוב?</div>
-                      <div className="text-gray-600">
-                        כדי שמקום יופיע בחיפוש, ה-Types שלו צריכים להתאים להגדרות החיפוש של תחום העניין.
-                        לחץ על ⓘ ליד תחום עניין בטופס כדי לראות ולערוך את הגדרות החיפוש.
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                {googlePlaceInfo && googlePlaceInfo.notFound && (
-                  <div className="text-xs text-red-600">
-                    ❌ המקום לא נמצא ב-Google עבור החיפוש: "{googlePlaceInfo.searchQuery}"
-                  </div>
-                )}
-                
-                {!googlePlaceInfo && !loadingGoogleInfo && (
-                  <div className="text-xs text-gray-500">
-                    לחץ על "בדוק ב-Google" כדי לראות איך המקום מוגדר
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            {/* Footer Actions */}
-            <div className="sticky bottom-0 bg-gray-50 p-4 rounded-b-2xl border-t-2 border-gray-200">
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    setEditingLocation(selectedLocation);
-                    setNewLocation(selectedLocation);
-                    setShowEditLocationDialog(true);
-                    setShowLocationDetailModal(false);
-                  }}
-                  className="flex-1 bg-blue-500 text-white py-3 rounded-lg font-bold hover:bg-blue-600 transition"
-                >
-                  ✏️ ערוך מקום
-                </button>
-                <button
-                  onClick={() => {
-                    setShowLocationDetailModal(false);
-                    setSelectedLocation(null);
-                  }}
-                  className="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg font-bold hover:bg-gray-400 transition"
-                >
-                  ✕ סגור
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Image Modal - Full screen image view */}
-      {showImageModal && modalImage && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50"
-          onClick={() => {
-            setShowImageModal(false);
-            setModalImage(null);
-          }}
-        >
-          <div className="relative max-w-4xl max-h-screen p-4">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowImageModal(false);
-                setModalImage(null);
-              }}
-              className="absolute top-6 right-6 bg-white text-black rounded-full w-12 h-12 text-2xl font-bold z-10 shadow-lg hover:bg-gray-200"
-            >
-              ✕
-            </button>
-            <img 
-              src={modalImage} 
-              alt="Full view"
-              className="max-w-full max-h-screen object-contain rounded-lg"
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
-        </div>
-      )}
-      
-      {/* Access Log Modal (Admin Only) */}
-      {showAccessLog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-            {/* Header */}
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50">
-              <h2 className="text-xl font-bold text-gray-800">🔒 לוג כניסות</h2>
-              <button
-                onClick={() => setShowAccessLog(false)}
-                className="text-2xl font-bold text-gray-600 hover:text-gray-800"
-              >
-                ✕
-              </button>
-            </div>
-            
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-4">
-              {accessLogs.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <p className="text-4xl mb-2">📭</p>
-                  <p>אין כניסות עדיין</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {accessLogs.map((log, index) => {
-                    const date = new Date(log.timestamp);
-                    const isNew = log.timestamp > parseInt(localStorage.getItem('bangkok_last_seen') || '0');
-                    
-                    return (
-                      <div
-                        key={log.id}
-                        className={`p-3 rounded-lg border-2 ${
-                          isNew ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {isNew && <span className="text-red-500 font-bold">🆕</span>}
-                              <span className="font-bold text-sm">
-                                משתמש #{log.userId.slice(-8)}
-                              </span>
-                              {log.country && (
-                                <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-bold">
-                                  {log.countryCode === 'IL' ? '🇮🇱' : log.countryCode === 'TH' ? '🇹🇭' : '🌍'} {log.country}
-                                </span>
-                              )}
-                            </div>
-                            {(log.city || log.region) && (
-                              <div className="text-xs text-indigo-600 mt-1 font-medium">
-                                📍 {[log.city, log.region].filter(Boolean).join(', ')}
-                              </div>
-                            )}
-                            <div className="text-xs text-gray-600 mt-1">
-                              📅 {date.toLocaleDateString('he-IL', { 
-                                day: '2-digit', 
-                                month: '2-digit', 
-                                year: 'numeric' 
-                              })}
-                              {' '}
-                              🕐 {date.toLocaleTimeString('he-IL', { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                              })}
-                            </div>
-                            <div className="flex items-center gap-2 mt-1 flex-wrap">
-                              {log.browser && (
-                                <span className="text-[10px] bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded">
-                                  🌐 {log.browser}
-                                </span>
-                              )}
-                              {log.os && (
-                                <span className="text-[10px] bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded">
-                                  {log.os === 'iPhone' || log.os === 'iPad' || log.os === 'Android' ? '📱' : '💻'} {log.os}
-                                </span>
-                              )}
-                              {log.screenSize && (
-                                <span className="text-[10px] bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded">
-                                  📐 {log.screenSize}
-                                </span>
-                              )}
-                              {log.language && (
-                                <span className="text-[10px] bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded">
-                                  🗣️ {log.language}
-                                </span>
-                              )}
-                            </div>
-                            {(log.isp || log.ip) && (
-                              <div className="text-[10px] text-gray-400 mt-1">
-                                {log.isp && <span>🏢 {log.isp}</span>}
-                                {log.ip && <span className="mr-2">  IP: {log.ip}</span>}
-                              </div>
-                            )}
-                            {!log.country && log.userAgent && (
-                              <div className="text-[10px] text-gray-400 mt-1 truncate">
-                                {log.userAgent}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-            
-            {/* Footer with clear button */}
-            <div className="p-4 border-t border-gray-200 bg-gray-50">
-              <div className="flex items-center justify-between">
-                <div className="text-xs text-gray-600">
-                  סה"כ {accessLogs.length} כניסות
-                  {hasNewEntries && (
-                    <span className="text-red-600 font-bold mr-2">
-                      • יש כניסות חדשות שלא נצפו
-                    </span>
-                  )}
-                </div>
-                {accessLogs.length > 0 && (
-                  <button
-                    onClick={() => {
-                      showConfirm('למחוק את כל לוג הכניסות? פעולה זו בלתי הפיכה.', () => {
-                        if (isFirebaseAvailable && database) {
-                          database.ref('accessLog').remove()
-                            .then(() => {
-                              setAccessLogs([]);
-                              setHasNewEntries(false);
-                              localStorage.setItem('bangkok_last_seen', Date.now().toString());
-                              showToast('הלוג נוקה', 'success');
-                            })
-                            .catch(err => {
-                              console.error('[ACCESS LOG] Clear error:', err);
-                              showToast('שגיאה בניקוי הלוג', 'error');
-                            });
-                        }
-                      });
-                    }}
-                    className="text-xs px-3 py-1.5 rounded-lg bg-red-500 text-white font-bold hover:bg-red-600 transition"
-                  >
-                    🗑️ נקה לוג
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Confirm Dialog (replaces browser confirm) */}
-      {showConfirmDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-sm w-full p-5 shadow-2xl">
-            <h3 className="text-base font-bold text-gray-800 mb-3 text-center">
-              אישור מחיקה
-            </h3>
-            <p className="text-sm text-gray-700 text-center mb-5">
-              {confirmConfig.message}
-            </p>
-            <div className="flex gap-2" style={{ direction: 'rtl' }}>
-              <button
-                onClick={() => {
-                  if (confirmConfig.onConfirm) {
-                    confirmConfig.onConfirm();
-                  }
-                  setShowConfirmDialog(false);
-                  setConfirmConfig({ message: '', onConfirm: null });
-                }}
-                className="flex-1 px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-bold hover:bg-red-600"
-              >
-                מחק
-              </button>
-              <button
-                onClick={() => {
-                  setShowConfirmDialog(false);
-                  setConfirmConfig({ message: '', onConfirm: null });
-                }}
-                className="flex-1 px-4 py-2 rounded-lg bg-gray-300 text-gray-700 text-sm font-bold hover:bg-gray-400"
-              >
-                ביטול
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Help Modal */}
-      {showHelp && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
-          <div className="bg-white rounded-xl max-w-md w-full max-h-[80vh] overflow-hidden flex flex-col shadow-2xl">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-3 flex items-center justify-between">
-              <h3 className="text-base font-bold flex items-center gap-2">
-                <span>❓</span>
-                {helpContent[helpContext]?.title || 'עזרה'}
-              </h3>
-              <button
-                onClick={() => setShowHelp(false)}
-                className="text-xl hover:bg-white hover:bg-opacity-20 rounded-full w-7 h-7 flex items-center justify-center"
-              >
-                ✕
-              </button>
-            </div>
-            
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-4 text-sm text-gray-700" style={{ direction: 'rtl' }}>
-              {helpContent[helpContext]?.content.split('\n').map((line, i) => {
-                if (line.startsWith('**') && line.endsWith('**')) {
-                  return <h4 key={i} className="font-bold text-gray-900 mt-3 mb-1">{line.replace(/\*\*/g, '')}</h4>;
-                } else if (line.startsWith('**')) {
-                  const parts = line.split('**');
-                  return (
-                    <p key={i} className="mb-1">
-                      <strong>{parts[1]}</strong>{parts[2]}
-                    </p>
-                  );
-                } else if (line.startsWith('• ')) {
-                  const text = line.substring(2);
-                  if (text.includes('**')) {
-                    const parts = text.split('**');
-                    return (
-                      <p key={i} className="mr-3 mb-0.5">
-                        • <strong>{parts[1]}</strong>{parts[2] || ''}
-                      </p>
-                    );
-                  }
-                  return <p key={i} className="mr-3 mb-0.5">• {text}</p>;
-                } else if (line.trim() === '') {
-                  return <div key={i} className="h-2" />;
-                }
-                return <p key={i} className="mb-1">{line}</p>;
-              })}
-            </div>
-            
-            {/* Footer */}
-            <div className="px-4 py-3 border-t border-gray-200 bg-gray-50">
-              <button
-                onClick={() => setShowHelp(false)}
-                className="w-full py-2 rounded-lg bg-blue-500 text-white font-bold hover:bg-blue-600 text-sm"
-              >
-                הבנתי ✓
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       
       {/* Stop Info Dialog - shows selection criteria */}
       {showStopInfoDialog && selectedStopInfo && (

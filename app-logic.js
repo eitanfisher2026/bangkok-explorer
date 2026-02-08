@@ -1967,6 +1967,7 @@
     console.log('[EDIT] Form data prepared:', JSON.stringify(editFormData, null, 2));
     setNewLocation(editFormData);
     console.log('[EDIT] newLocation state updated');
+    setGooglePlaceInfo(null);
     setShowEditLocationDialog(true);
     console.log('[EDIT] Dialog opened');
   };
