@@ -158,23 +158,19 @@
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude: lat, longitude: lng } = position.coords;
-        setStartPointCoords({ lat, lng });
         console.log('[GPS] Got location:', lat, lng);
         
         // Try to get address via reverse geocode
         try {
           const address = await window.BKK.reverseGeocode(lat, lng);
-          if (address) {
-            setFormData(prev => ({ ...prev, startPoint: address }));
-            showToast('📍 מיקום נוכחי נקלט!', 'success');
-          } else {
-            // Fallback to coordinates
-            setFormData(prev => ({ ...prev, startPoint: `${lat.toFixed(6)}, ${lng.toFixed(6)}` }));
-            showToast('📍 מיקום נקלט (לא נמצאה כתובת)', 'success');
-          }
+          const displayAddress = address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+          setStartPointCoords({ lat, lng, address: displayAddress });
+          setFormData(prev => ({ ...prev, startPoint: displayAddress }));
+          showToast(address ? '📍 מיקום נוכחי נקלט!' : '📍 מיקום נקלט (לא נמצאה כתובת)', 'success');
         } catch (err) {
-          // Fallback to coordinates
-          setFormData(prev => ({ ...prev, startPoint: `${lat.toFixed(6)}, ${lng.toFixed(6)}` }));
+          const fallback = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+          setStartPointCoords({ lat, lng, address: fallback });
+          setFormData(prev => ({ ...prev, startPoint: fallback }));
           showToast('📍 מיקום נקלט', 'success');
         }
         
@@ -207,8 +203,9 @@
     try {
       const result = await window.BKK.geocodeAddress(text);
       if (result) {
-        setStartPointCoords({ lat: result.lat, lng: result.lng });
-        setFormData(prev => ({ ...prev, startPoint: result.address || result.displayName || text }));
+        const validatedAddress = result.address || result.displayName || text;
+        setStartPointCoords({ lat: result.lat, lng: result.lng, address: validatedAddress });
+        setFormData(prev => ({ ...prev, startPoint: validatedAddress }));
         showToast(`✅ כתובת אומתה: ${result.displayName || result.address}`, 'success');
         console.log('[START_POINT] Geocoded:', text, '->', result);
       } else {
@@ -1383,7 +1380,7 @@
         description: `מסלול ${routeType === 'circular' ? 'מעגלי' : 'לינארי'}`,
         duration: formData.hours, // Keep for backward compatibility but not displayed
         circular: routeType === 'circular',
-        startPoint: formData.startPoint || 'התחלה מהמקום הראשון ברשימה',
+        startPoint: (startPointCoords?.address) || formData.startPoint || 'התחלה מהמקום הראשון ברשימה',
         startPointCoords: startPointCoords || null,
         stops: uniqueStops,
         preferences: { ...formData },
@@ -1610,10 +1607,14 @@
 
   const loadSavedRoute = (savedRoute) => {
     setRoute(savedRoute);
-    // Restore formData from preferences, but override startPoint with the validated one from route
-    const restoredStartPoint = savedRoute.startPoint === 'התחלה מהמקום הראשון ברשימה' ? '' : (savedRoute.startPoint || '');
-    setFormData({...savedRoute.preferences, startPoint: restoredStartPoint });
-    setStartPointCoords(savedRoute.startPointCoords || null);
+    // Restore startPoint: prefer startPointCoords.address (validated), then route.startPoint, then preferences
+    const coords = savedRoute.startPointCoords || null;
+    const validatedAddress = coords?.address || '';
+    const startPointText = validatedAddress || 
+      (savedRoute.startPoint !== 'התחלה מהמקום הראשון ברשימה' ? savedRoute.startPoint : '') || 
+      '';
+    setFormData({...savedRoute.preferences, startPoint: startPointText });
+    setStartPointCoords(coords);
     // Restore route type (circular/linear)
     setRouteType(savedRoute.circular ? 'circular' : 'linear');
     setCurrentView('form');

@@ -603,6 +603,18 @@
                         >
                           {isLocating ? '⏳' : '📍'}
                         </button>
+                        {(formData.startPoint?.trim() || startPointCoords) && (
+                          <button
+                            onClick={() => {
+                              setFormData({...formData, startPoint: ''});
+                              setStartPointCoords(null);
+                            }}
+                            className="px-1.5 py-1.5 rounded-lg text-xs font-bold bg-gray-200 text-gray-600 hover:bg-red-100 hover:text-red-600"
+                            title="נקה נקודת התחלה"
+                          >
+                            ✕
+                          </button>
+                        )}
                       </div>
                       {startPointCoords ? (
                         <p style={{ fontSize: '10px', color: '#16a34a', marginTop: '3px', fontWeight: 'bold' }}>
