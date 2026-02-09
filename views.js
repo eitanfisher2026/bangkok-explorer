@@ -880,6 +880,7 @@
               {route.stops.map((stop, i) => {
                 const stopId = stop.id || i;
                 const isDisabled = disabledStops.includes(stopId);
+                const isCustom = stop.custom;
                 const hasValidCoords = stop.lat && stop.lng && stop.lat !== 0 && stop.lng !== 0;
                 
                 // Determine source badge
