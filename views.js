@@ -413,18 +413,6 @@
                                         </span>
                                       )}
                                       <span>{stop.name}</span>
-                                      {/* Info icon - show selection criteria */}
-                                      <button
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          setSelectedStopInfo(stop);
-                                          setShowStopInfoDialog(true);
-                                        }}
-                                        className="text-blue-500 hover:text-blue-700 ml-1"
-                                        title="מידע על בחירת המקום"
-                                        style={{ fontSize: '10px' }}
-                                      >ⓘ</button>
                                       {stop.outsideArea && (
                                         <span className="text-orange-500" title="מקום מחוץ לגבולות האזור" style={{ fontSize: '10px' }}>
                                           🔺
@@ -925,18 +913,6 @@
                             >
                               {stop.name}
                             </a>
-                            {/* Info icon - show selection criteria */}
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setSelectedStopInfo(stop);
-                                setShowStopInfoDialog(true);
-                              }}
-                              className="text-blue-500 hover:text-blue-700 ml-1"
-                              title="מידע על בחירת המקום"
-                              style={{ fontSize: '12px' }}
-                            >ⓘ</button>
                             {stop.outsideArea && (
                               <span 
                                 className="text-orange-500" 
@@ -1971,7 +1947,7 @@
                 
                 {debugMode && (
                   <div className="mt-2 text-xs text-gray-600">
-                    פאנל Debug יופיע בתחתית המסך
+                    הודעות Debug יופיעו בקונסול (F12)
                   </div>
                 )}
               </div>

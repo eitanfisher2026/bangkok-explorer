@@ -946,9 +946,6 @@ const BangkokExplorer = () => {
     return saved || 'circular';
   }); // 'circular' or 'linear'
   const [savedRoutes, setSavedRoutes] = useState([]);
-  const [routeName, setRouteName] = useState('');
-  const [routeNotes, setRouteNotes] = useState('');
-  const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [customLocations, setCustomLocations] = useState([]);
   const [showAddLocationDialog, setShowAddLocationDialog] = useState(false);
   const [showBlacklistLocations, setShowBlacklistLocations] = useState(false);
@@ -976,12 +973,8 @@ const BangkokExplorer = () => {
   
   // Interest search configuration (editable)
   const [interestConfig, setInterestConfig] = useState({});
-  const [showInterestConfigDialog, setShowInterestConfigDialog] = useState(false);
-  const [editingInterestConfig, setEditingInterestConfig] = useState(null);
   const [googlePlaceInfo, setGooglePlaceInfo] = useState(null);
   const [loadingGoogleInfo, setLoadingGoogleInfo] = useState(false);
-  const [showStopInfoDialog, setShowStopInfoDialog] = useState(false);
-  const [selectedStopInfo, setSelectedStopInfo] = useState(null);
   const [editingCustomInterest, setEditingCustomInterest] = useState(null);
   const [showAddInterestDialog, setShowAddInterestDialog] = useState(false);
   const [newInterest, setNewInterest] = useState({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '' });
@@ -993,8 +986,6 @@ const BangkokExplorer = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [addingPlaceIds, setAddingPlaceIds] = useState([]); // Track places being added
-  const [showLocationDetailModal, setShowLocationDetailModal] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importedData, setImportedData] = useState(null);
   
@@ -1018,8 +1009,6 @@ const BangkokExplorer = () => {
   const [debugMode, setDebugMode] = useState(() => {
     return localStorage.getItem('bangkok_debug_mode') === 'true';
   });
-  const [debugLogs, setDebugLogs] = useState([]);
-  const [debugPanelOpen, setDebugPanelOpen] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [startPointCoords, setStartPointCoords] = useState(null); // { lat, lng }
   const [isLocating, setIsLocating] = useState(false);
@@ -1031,12 +1020,9 @@ const BangkokExplorer = () => {
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   
-  // Add debug log entry
+  // Add debug log entry (console only)
   const addDebugLog = (category, message, data = null) => {
     if (!debugMode) return;
-    const timestamp = new Date().toLocaleTimeString('he-IL');
-    const entry = { timestamp, category, message, data };
-    setDebugLogs(prev => [...prev.slice(-100), entry]); // Keep last 100 entries
     console.log(`[${category}] ${message}`, data || '');
   };
   
@@ -2483,7 +2469,6 @@ const BangkokExplorer = () => {
       });
 
       setRoute(newRoute);
-      setRouteName(defaultName); // Set default name
       console.log('[ROUTE] Route set, staying in form view');
       console.log('[ROUTE] Route object:', newRoute);
       
@@ -2643,45 +2628,6 @@ const BangkokExplorer = () => {
     });
   };
 
-  const saveRoute = () => {
-    if (!routeName.trim()) {
-      showToast('נא להזין שם למסלול', 'warning');
-      return;
-    }
-    
-    // Check for duplicate name
-    const nameExists = savedRoutes.find(r => r.name.toLowerCase() === routeName.trim().toLowerCase());
-    if (nameExists) {
-      showToast('מסלול עם שם זה כבר קיים', 'error');
-      return;
-    }
-
-    const routeToSave = {
-      ...route,
-      name: routeName.trim(),
-      notes: routeNotes.trim() || '',
-      savedAt: new Date().toISOString(),
-      inProgress: true,
-      locked: false
-    };
-
-    const updated = [routeToSave, ...savedRoutes];
-    setSavedRoutes(updated);
-    saveRoutesToStorage(updated);
-    
-    setShowSaveDialog(false);
-    setRouteName('');
-    setRouteNotes('');
-    setRoute(routeToSave); // Update route to show it's saved
-    showToast('המסלול נשמר!', 'success');
-    
-    // Open edit dialog with saved route
-    setEditingRoute({...routeToSave});
-    setRouteDialogMode('add');
-    setShowRouteDialog(true);
-  };
-
-  // Quick save - bypasses old dialog, saves with default name and opens new route dialog
   // Strip heavy data (base64 images) from route before localStorage save
   const stripRouteForStorage = (r) => {
     const stripped = { ...r };
@@ -4305,18 +4251,6 @@ const BangkokExplorer = () => {
                                         </span>
                                       )}
                                       <span>{stop.name}</span>
-                                      {/* Info icon - show selection criteria */}
-                                      <button
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          setSelectedStopInfo(stop);
-                                          setShowStopInfoDialog(true);
-                                        }}
-                                        className="text-blue-500 hover:text-blue-700 ml-1"
-                                        title="מידע על בחירת המקום"
-                                        style={{ fontSize: '10px' }}
-                                      >ⓘ</button>
                                       {stop.outsideArea && (
                                         <span className="text-orange-500" title="מקום מחוץ לגבולות האזור" style={{ fontSize: '10px' }}>
                                           🔺
@@ -4817,18 +4751,6 @@ const BangkokExplorer = () => {
                             >
                               {stop.name}
                             </a>
-                            {/* Info icon - show selection criteria */}
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setSelectedStopInfo(stop);
-                                setShowStopInfoDialog(true);
-                              }}
-                              className="text-blue-500 hover:text-blue-700 ml-1"
-                              title="מידע על בחירת המקום"
-                              style={{ fontSize: '12px' }}
-                            >ⓘ</button>
                             {stop.outsideArea && (
                               <span 
                                 className="text-orange-500" 
@@ -5863,7 +5785,7 @@ const BangkokExplorer = () => {
                 
                 {debugMode && (
                   <div className="mt-2 text-xs text-gray-600">
-                    פאנל Debug יופיע בתחתית המסך
+                    הודעות Debug יופיעו בקונסול (F12)
                   </div>
                 )}
               </div>
@@ -6189,86 +6111,6 @@ const BangkokExplorer = () => {
 
         {/* === DIALOGS (from dialogs.js) === */}
 
-
-        {showSaveDialog && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2">
-            <div className="bg-white rounded-xl w-full max-w-md shadow-2xl">
-              {/* Header */}
-              <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2.5 rounded-t-xl flex items-center justify-between">
-                <h3 className="text-base font-bold">💾 שמור מסלול</h3>
-                <button
-                  onClick={() => {
-                    setShowSaveDialog(false);
-                    setRouteName('');
-                    setRouteNotes('');
-                  }}
-                  className="text-xl hover:bg-white hover:bg-opacity-20 rounded-full w-7 h-7 flex items-center justify-center"
-                >
-                  ✕
-                </button>
-              </div>
-              
-              {/* Content */}
-              <div className="p-4 space-y-3">
-                <div>
-                  <label className="block text-xs font-bold mb-1">שם המסלול <span className="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    value={routeName}
-                    onChange={(e) => setRouteName(e.target.value)}
-                    placeholder="לדוגמה: טיול ראשון בבנקוק"
-                    className="w-full p-2 text-sm border-2 border-green-300 rounded-lg focus:border-green-500"
-                    style={{ direction: 'rtl' }}
-                    autoFocus
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-xs font-bold mb-1">הערות (אופציונלי)</label>
-                  <textarea
-                    value={routeNotes}
-                    onChange={(e) => setRouteNotes(e.target.value)}
-                    placeholder="תיאור קצר, טיפים, או הערות לעצמך..."
-                    className="w-full p-2 text-sm border-2 border-gray-300 rounded-lg focus:border-green-500 resize-none"
-                    style={{ direction: 'rtl' }}
-                    rows={2}
-                  />
-                </div>
-                
-                {/* Route summary */}
-                <div className="bg-gray-100 rounded-lg p-2 text-xs text-gray-600">
-                  <div>📍 {route?.stops?.length || 0} תחנות</div>
-                  <div>🗺️ {route?.areaName || ''}</div>
-                </div>
-              </div>
-              
-              {/* Footer */}
-              <div className="px-4 py-2.5 border-t border-gray-200 flex gap-2" style={{ direction: 'rtl' }}>
-                <button
-                  onClick={saveRoute}
-                  disabled={!routeName.trim()}
-                  className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                    routeName.trim()
-                      ? 'bg-green-500 text-white hover:bg-green-600'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                >
-                  💾 שמור
-                </button>
-                <button
-                  onClick={() => {
-                    setShowSaveDialog(false);
-                    setRouteName('');
-                    setRouteNotes('');
-                  }}
-                  className="px-5 py-2.5 rounded-lg bg-gray-300 text-gray-700 text-sm font-bold hover:bg-gray-400"
-                >
-                  ביטול
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Add/Edit Location Dialog - REDESIGNED */}
         {(showAddLocationDialog || showEditLocationDialog) && (
@@ -7548,6 +7390,16 @@ const BangkokExplorer = () => {
         </div>
       )}
 
+      {/* Image Modal */}
+      {showImageModal && modalImage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-80 z-[100] flex items-center justify-center p-4"
+          onClick={() => { setShowImageModal(false); setModalImage(null); }}
+        >
+          <img src={modalImage} alt="enlarged" className="max-w-full max-h-full rounded-lg shadow-2xl" />
+        </div>
+      )}
+
       {/* Help Dialog */}
       {showHelp && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
@@ -7740,130 +7592,6 @@ const BangkokExplorer = () => {
 
 
 
-
-      {/* Debug Panel - Fixed at bottom */}
-      {debugMode && (
-        <div 
-          style={{
-            position: 'fixed',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            backgroundColor: '#1e293b',
-            color: '#e2e8f0',
-            zIndex: 9998,
-            direction: 'ltr',
-            fontFamily: 'monospace',
-            fontSize: '11px'
-          }}
-        >
-          {/* Header */}
-          <div 
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '6px 12px',
-              backgroundColor: '#334155',
-              cursor: 'pointer'
-            }}
-            onClick={() => setDebugPanelOpen(!debugPanelOpen)}
-          >
-            <span style={{ fontWeight: 'bold' }}>
-              🔧 Debug Log ({debugLogs.length})
-            </span>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const text = debugLogs.map(l => `${l.timestamp} [${l.category}] ${l.message}${l.data ? ' ' + JSON.stringify(l.data) : ''}`).join('\n');
-                  navigator.clipboard.writeText(text);
-                  showToast('Copied to clipboard', 'success');
-                }}
-                style={{
-                  padding: '2px 8px',
-                  backgroundColor: '#3b82f6',
-                  border: 'none',
-                  borderRadius: '4px',
-                  color: 'white',
-                  cursor: 'pointer',
-                  fontSize: '10px'
-                }}
-              >
-                Copy
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setDebugLogs([]);
-                }}
-                style={{
-                  padding: '2px 8px',
-                  backgroundColor: '#ef4444',
-                  border: 'none',
-                  borderRadius: '4px',
-                  color: 'white',
-                  cursor: 'pointer',
-                  fontSize: '10px'
-                }}
-              >
-                Clear
-              </button>
-              <span style={{ fontSize: '14px' }}>
-                {debugPanelOpen ? '▼' : '▲'}
-              </span>
-            </div>
-          </div>
-          
-          {/* Log content */}
-          {debugPanelOpen && (
-            <div 
-              style={{
-                maxHeight: '150px',
-                overflowY: 'auto',
-                padding: '8px 12px'
-              }}
-            >
-              {debugLogs.length === 0 ? (
-                <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>
-                  No logs yet. Actions will appear here.
-                </div>
-              ) : (
-                debugLogs.map((log, i) => (
-                  <div 
-                    key={i}
-                    style={{
-                      padding: '2px 0',
-                      borderBottom: '1px solid #334155',
-                      display: 'flex',
-                      gap: '8px'
-                    }}
-                  >
-                    <span style={{ color: '#64748b' }}>{log.timestamp}</span>
-                    <span style={{ 
-                      color: log.category === 'ERROR' ? '#f87171' : 
-                             log.category === 'API' ? '#60a5fa' :
-                             log.category === 'ROUTE' ? '#4ade80' :
-                             log.category === 'ADD' ? '#a78bfa' :
-                             '#94a3b8',
-                      fontWeight: 'bold',
-                      minWidth: '50px'
-                    }}>
-                      [{log.category}]
-                    </span>
-                    <span style={{ color: '#e2e8f0' }}>{log.message}</span>
-                    {log.data && (
-                      <span style={{ color: '#94a3b8', fontSize: '10px' }}>
-                        {typeof log.data === 'object' ? JSON.stringify(log.data) : log.data}
-                      </span>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-      )}
 
 
       </div>

@@ -1,83 +1,3 @@
-        {showSaveDialog && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2">
-            <div className="bg-white rounded-xl w-full max-w-md shadow-2xl">
-              {/* Header */}
-              <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2.5 rounded-t-xl flex items-center justify-between">
-                <h3 className="text-base font-bold">💾 שמור מסלול</h3>
-                <button
-                  onClick={() => {
-                    setShowSaveDialog(false);
-                    setRouteName('');
-                    setRouteNotes('');
-                  }}
-                  className="text-xl hover:bg-white hover:bg-opacity-20 rounded-full w-7 h-7 flex items-center justify-center"
-                >
-                  ✕
-                </button>
-              </div>
-              
-              {/* Content */}
-              <div className="p-4 space-y-3">
-                <div>
-                  <label className="block text-xs font-bold mb-1">שם המסלול <span className="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    value={routeName}
-                    onChange={(e) => setRouteName(e.target.value)}
-                    placeholder="לדוגמה: טיול ראשון בבנקוק"
-                    className="w-full p-2 text-sm border-2 border-green-300 rounded-lg focus:border-green-500"
-                    style={{ direction: 'rtl' }}
-                    autoFocus
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-xs font-bold mb-1">הערות (אופציונלי)</label>
-                  <textarea
-                    value={routeNotes}
-                    onChange={(e) => setRouteNotes(e.target.value)}
-                    placeholder="תיאור קצר, טיפים, או הערות לעצמך..."
-                    className="w-full p-2 text-sm border-2 border-gray-300 rounded-lg focus:border-green-500 resize-none"
-                    style={{ direction: 'rtl' }}
-                    rows={2}
-                  />
-                </div>
-                
-                {/* Route summary */}
-                <div className="bg-gray-100 rounded-lg p-2 text-xs text-gray-600">
-                  <div>📍 {route?.stops?.length || 0} תחנות</div>
-                  <div>🗺️ {route?.areaName || ''}</div>
-                </div>
-              </div>
-              
-              {/* Footer */}
-              <div className="px-4 py-2.5 border-t border-gray-200 flex gap-2" style={{ direction: 'rtl' }}>
-                <button
-                  onClick={saveRoute}
-                  disabled={!routeName.trim()}
-                  className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                    routeName.trim()
-                      ? 'bg-green-500 text-white hover:bg-green-600'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                >
-                  💾 שמור
-                </button>
-                <button
-                  onClick={() => {
-                    setShowSaveDialog(false);
-                    setRouteName('');
-                    setRouteNotes('');
-                  }}
-                  className="px-5 py-2.5 rounded-lg bg-gray-300 text-gray-700 text-sm font-bold hover:bg-gray-400"
-                >
-                  ביטול
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Add/Edit Location Dialog - REDESIGNED */}
         {(showAddLocationDialog || showEditLocationDialog) && (
           <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2">
@@ -1353,6 +1273,16 @@
               })()}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Image Modal */}
+      {showImageModal && modalImage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-80 z-[100] flex items-center justify-center p-4"
+          onClick={() => { setShowImageModal(false); setModalImage(null); }}
+        >
+          <img src={modalImage} alt="enlarged" className="max-w-full max-h-full rounded-lg shadow-2xl" />
         </div>
       )}
 

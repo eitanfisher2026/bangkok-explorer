@@ -33,9 +33,6 @@
     return saved || 'circular';
   }); // 'circular' or 'linear'
   const [savedRoutes, setSavedRoutes] = useState([]);
-  const [routeName, setRouteName] = useState('');
-  const [routeNotes, setRouteNotes] = useState('');
-  const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [customLocations, setCustomLocations] = useState([]);
   const [showAddLocationDialog, setShowAddLocationDialog] = useState(false);
   const [showBlacklistLocations, setShowBlacklistLocations] = useState(false);
@@ -63,12 +60,8 @@
   
   // Interest search configuration (editable)
   const [interestConfig, setInterestConfig] = useState({});
-  const [showInterestConfigDialog, setShowInterestConfigDialog] = useState(false);
-  const [editingInterestConfig, setEditingInterestConfig] = useState(null);
   const [googlePlaceInfo, setGooglePlaceInfo] = useState(null);
   const [loadingGoogleInfo, setLoadingGoogleInfo] = useState(false);
-  const [showStopInfoDialog, setShowStopInfoDialog] = useState(false);
-  const [selectedStopInfo, setSelectedStopInfo] = useState(null);
   const [editingCustomInterest, setEditingCustomInterest] = useState(null);
   const [showAddInterestDialog, setShowAddInterestDialog] = useState(false);
   const [newInterest, setNewInterest] = useState({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '' });
@@ -80,8 +73,6 @@
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [addingPlaceIds, setAddingPlaceIds] = useState([]); // Track places being added
-  const [showLocationDetailModal, setShowLocationDetailModal] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importedData, setImportedData] = useState(null);
   
@@ -105,8 +96,6 @@
   const [debugMode, setDebugMode] = useState(() => {
     return localStorage.getItem('bangkok_debug_mode') === 'true';
   });
-  const [debugLogs, setDebugLogs] = useState([]);
-  const [debugPanelOpen, setDebugPanelOpen] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [startPointCoords, setStartPointCoords] = useState(null); // { lat, lng }
   const [isLocating, setIsLocating] = useState(false);
@@ -118,12 +107,9 @@
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   
-  // Add debug log entry
+  // Add debug log entry (console only)
   const addDebugLog = (category, message, data = null) => {
     if (!debugMode) return;
-    const timestamp = new Date().toLocaleTimeString('he-IL');
-    const entry = { timestamp, category, message, data };
-    setDebugLogs(prev => [...prev.slice(-100), entry]); // Keep last 100 entries
     console.log(`[${category}] ${message}`, data || '');
   };
   
@@ -1570,7 +1556,6 @@
       });
 
       setRoute(newRoute);
-      setRouteName(defaultName); // Set default name
       console.log('[ROUTE] Route set, staying in form view');
       console.log('[ROUTE] Route object:', newRoute);
       
@@ -1730,45 +1715,6 @@
     });
   };
 
-  const saveRoute = () => {
-    if (!routeName.trim()) {
-      showToast('נא להזין שם למסלול', 'warning');
-      return;
-    }
-    
-    // Check for duplicate name
-    const nameExists = savedRoutes.find(r => r.name.toLowerCase() === routeName.trim().toLowerCase());
-    if (nameExists) {
-      showToast('מסלול עם שם זה כבר קיים', 'error');
-      return;
-    }
-
-    const routeToSave = {
-      ...route,
-      name: routeName.trim(),
-      notes: routeNotes.trim() || '',
-      savedAt: new Date().toISOString(),
-      inProgress: true,
-      locked: false
-    };
-
-    const updated = [routeToSave, ...savedRoutes];
-    setSavedRoutes(updated);
-    saveRoutesToStorage(updated);
-    
-    setShowSaveDialog(false);
-    setRouteName('');
-    setRouteNotes('');
-    setRoute(routeToSave); // Update route to show it's saved
-    showToast('המסלול נשמר!', 'success');
-    
-    // Open edit dialog with saved route
-    setEditingRoute({...routeToSave});
-    setRouteDialogMode('add');
-    setShowRouteDialog(true);
-  };
-
-  // Quick save - bypasses old dialog, saves with default name and opens new route dialog
   // Strip heavy data (base64 images) from route before localStorage save
   const stripRouteForStorage = (r) => {
     const stripped = { ...r };
