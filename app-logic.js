@@ -451,7 +451,7 @@
     }
   }, []);
 
-  // Load interest active/inactive status
+  // Load interest active/inactive status (per-user with admin defaults)
   useEffect(() => {
     // Default status: built-in = active, uncovered = inactive
     const builtInIds = interestOptions.map(i => i.id);
@@ -462,26 +462,42 @@
     uncoveredIds.forEach(id => { defaultStatus[id] = false; });
     
     if (isFirebaseAvailable && database) {
-      const statusRef = database.ref('settings/interestStatus');
+      const userId = localStorage.getItem('bangkok_user_id') || 'unknown';
+      const adminStatusRef = database.ref('settings/interestStatus');
+      const userStatusRef = database.ref(`users/${userId}/interestStatus`);
       
-      statusRef.once('value').then((snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-          setInterestStatus({ ...defaultStatus, ...data });
-          console.log('[FIREBASE] Loaded interest status');
-        } else {
-          statusRef.set(defaultStatus);
-          setInterestStatus(defaultStatus);
-          console.log('[FIREBASE] Saved default interest status');
+      // Load admin defaults first, then user overrides
+      adminStatusRef.once('value').then((adminSnap) => {
+        const adminData = adminSnap.val() || defaultStatus;
+        // Save admin defaults if not present
+        if (!adminSnap.val()) {
+          adminStatusRef.set(defaultStatus);
         }
+        
+        return userStatusRef.once('value').then((userSnap) => {
+          const userData = userSnap.val();
+          if (userData) {
+            // User has their own preferences
+            setInterestStatus({ ...defaultStatus, ...adminData, ...userData });
+            console.log('[FIREBASE] Loaded user interest status');
+          } else {
+            // New user - use admin defaults
+            setInterestStatus({ ...defaultStatus, ...adminData });
+            console.log('[FIREBASE] Using admin defaults for new user');
+          }
+          markLoaded('status');
+        });
+      }).catch(err => {
+        console.error('[FIREBASE] Error loading interest status:', err);
+        setInterestStatus(defaultStatus);
         markLoaded('status');
       });
       
-      // Listen for changes
-      statusRef.on('value', (snapshot) => {
+      // Listen for user's own changes
+      userStatusRef.on('value', (snapshot) => {
         const data = snapshot.val();
         if (data) {
-          setInterestStatus(prev => ({ ...defaultStatus, ...data }));
+          setInterestStatus(prev => ({ ...prev, ...data }));
         }
       });
     } else {
@@ -1564,6 +1580,9 @@
       // CRITICAL: Skip blacklisted locations!
       if (loc.status === 'blacklist') return false;
       
+      // Skip invalid locations (missing required data)
+      if (!isLocationValid(loc)) return false;
+      
       if (isRadiusMode) {
         // In radius mode: filter by distance from current position
         if (!formData.currentLat || !formData.currentLng || !loc.lat || !loc.lng) return false;
@@ -2229,22 +2248,59 @@
     }
   };
 
-  // Toggle interest active/inactive status
+  // Toggle interest active/inactive status (per-user)
   const toggleInterestStatus = (interestId) => {
+    // Invalid interests cannot be activated
+    if (!isInterestValid(interestId) && !interestStatus[interestId]) return;
+    
     const newStatus = !interestStatus[interestId];
     const updatedStatus = { ...interestStatus, [interestId]: newStatus };
     setInterestStatus(updatedStatus);
     
     if (isFirebaseAvailable && database) {
-      database.ref(`settings/interestStatus/${interestId}`).set(newStatus)
+      const userId = localStorage.getItem('bangkok_user_id') || 'unknown';
+      database.ref(`users/${userId}/interestStatus/${interestId}`).set(newStatus)
         .then(() => {
-          console.log('[FIREBASE] Interest status updated:', interestId, newStatus);
+          console.log('[FIREBASE] User interest status updated:', interestId, newStatus);
         })
         .catch(err => {
           console.error('Error updating interest status:', err);
         });
     } else {
       localStorage.setItem('bangkok_interest_status', JSON.stringify(updatedStatus));
+    }
+  };
+
+  // Reset user interest preferences to admin defaults
+  const resetInterestStatusToDefault = async () => {
+    if (isFirebaseAvailable && database) {
+      const userId = localStorage.getItem('bangkok_user_id') || 'unknown';
+      try {
+        // Remove user overrides
+        await database.ref(`users/${userId}/interestStatus`).remove();
+        // Reload admin defaults
+        const adminSnap = await database.ref('settings/interestStatus').once('value');
+        const adminData = adminSnap.val() || {};
+        const builtInIds = interestOptions.map(i => i.id);
+        const uncoveredIds = uncoveredInterests.map(i => i.id || i.name.replace(/\s+/g, '_').toLowerCase());
+        const defaultStatus = {};
+        builtInIds.forEach(id => { defaultStatus[id] = true; });
+        uncoveredIds.forEach(id => { defaultStatus[id] = false; });
+        setInterestStatus({ ...defaultStatus, ...adminData });
+        showToast('התחומים אופסו לברירת מחדל', 'success');
+      } catch (err) {
+        console.error('Error resetting interest status:', err);
+        showToast('שגיאה באיפוס', 'error');
+      }
+    } else {
+      localStorage.removeItem('bangkok_interest_status');
+      const builtInIds = interestOptions.map(i => i.id);
+      const uncoveredIds = uncoveredInterests.map(i => i.id || i.name.replace(/\s+/g, '_').toLowerCase());
+      const defaultStatus = {};
+      builtInIds.forEach(id => { defaultStatus[id] = true; });
+      uncoveredIds.forEach(id => { defaultStatus[id] = false; });
+      setInterestStatus(defaultStatus);
+      showToast('התחומים אופסו לברירת מחדל', 'success');
     }
   };
 
@@ -2258,6 +2314,20 @@
     if (config.types && Array.isArray(config.types) && config.types.length > 0) return true;
     
     return false;
+  };
+
+  // Check if location has all required data
+  const isLocationValid = (loc) => {
+    if (!loc) return false;
+    // Must have name
+    if (!loc.name || !loc.name.trim()) return false;
+    // Must have at least one interest
+    if (!loc.interests || loc.interests.length === 0) return false;
+    // Must have address OR coordinates
+    const hasAddress = loc.address && loc.address.trim();
+    const hasCoords = loc.lat && loc.lng;
+    if (!hasAddress && !hasCoords) return false;
+    return true;
   };
 
   const deleteCustomLocation = (locationId) => {

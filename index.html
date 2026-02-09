@@ -1424,7 +1424,7 @@ const BangkokExplorer = () => {
     }
   }, []);
 
-  // Load interest active/inactive status
+  // Load interest active/inactive status (per-user with admin defaults)
   useEffect(() => {
     // Default status: built-in = active, uncovered = inactive
     const builtInIds = interestOptions.map(i => i.id);
@@ -1435,26 +1435,42 @@ const BangkokExplorer = () => {
     uncoveredIds.forEach(id => { defaultStatus[id] = false; });
     
     if (isFirebaseAvailable && database) {
-      const statusRef = database.ref('settings/interestStatus');
+      const userId = localStorage.getItem('bangkok_user_id') || 'unknown';
+      const adminStatusRef = database.ref('settings/interestStatus');
+      const userStatusRef = database.ref(`users/${userId}/interestStatus`);
       
-      statusRef.once('value').then((snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-          setInterestStatus({ ...defaultStatus, ...data });
-          console.log('[FIREBASE] Loaded interest status');
-        } else {
-          statusRef.set(defaultStatus);
-          setInterestStatus(defaultStatus);
-          console.log('[FIREBASE] Saved default interest status');
+      // Load admin defaults first, then user overrides
+      adminStatusRef.once('value').then((adminSnap) => {
+        const adminData = adminSnap.val() || defaultStatus;
+        // Save admin defaults if not present
+        if (!adminSnap.val()) {
+          adminStatusRef.set(defaultStatus);
         }
+        
+        return userStatusRef.once('value').then((userSnap) => {
+          const userData = userSnap.val();
+          if (userData) {
+            // User has their own preferences
+            setInterestStatus({ ...defaultStatus, ...adminData, ...userData });
+            console.log('[FIREBASE] Loaded user interest status');
+          } else {
+            // New user - use admin defaults
+            setInterestStatus({ ...defaultStatus, ...adminData });
+            console.log('[FIREBASE] Using admin defaults for new user');
+          }
+          markLoaded('status');
+        });
+      }).catch(err => {
+        console.error('[FIREBASE] Error loading interest status:', err);
+        setInterestStatus(defaultStatus);
         markLoaded('status');
       });
       
-      // Listen for changes
-      statusRef.on('value', (snapshot) => {
+      // Listen for user's own changes
+      userStatusRef.on('value', (snapshot) => {
         const data = snapshot.val();
         if (data) {
-          setInterestStatus(prev => ({ ...defaultStatus, ...data }));
+          setInterestStatus(prev => ({ ...prev, ...data }));
         }
       });
     } else {
@@ -2537,6 +2553,9 @@ const BangkokExplorer = () => {
       // CRITICAL: Skip blacklisted locations!
       if (loc.status === 'blacklist') return false;
       
+      // Skip invalid locations (missing required data)
+      if (!isLocationValid(loc)) return false;
+      
       if (isRadiusMode) {
         // In radius mode: filter by distance from current position
         if (!formData.currentLat || !formData.currentLng || !loc.lat || !loc.lng) return false;
@@ -3202,22 +3221,59 @@ const BangkokExplorer = () => {
     }
   };
 
-  // Toggle interest active/inactive status
+  // Toggle interest active/inactive status (per-user)
   const toggleInterestStatus = (interestId) => {
+    // Invalid interests cannot be activated
+    if (!isInterestValid(interestId) && !interestStatus[interestId]) return;
+    
     const newStatus = !interestStatus[interestId];
     const updatedStatus = { ...interestStatus, [interestId]: newStatus };
     setInterestStatus(updatedStatus);
     
     if (isFirebaseAvailable && database) {
-      database.ref(`settings/interestStatus/${interestId}`).set(newStatus)
+      const userId = localStorage.getItem('bangkok_user_id') || 'unknown';
+      database.ref(`users/${userId}/interestStatus/${interestId}`).set(newStatus)
         .then(() => {
-          console.log('[FIREBASE] Interest status updated:', interestId, newStatus);
+          console.log('[FIREBASE] User interest status updated:', interestId, newStatus);
         })
         .catch(err => {
           console.error('Error updating interest status:', err);
         });
     } else {
       localStorage.setItem('bangkok_interest_status', JSON.stringify(updatedStatus));
+    }
+  };
+
+  // Reset user interest preferences to admin defaults
+  const resetInterestStatusToDefault = async () => {
+    if (isFirebaseAvailable && database) {
+      const userId = localStorage.getItem('bangkok_user_id') || 'unknown';
+      try {
+        // Remove user overrides
+        await database.ref(`users/${userId}/interestStatus`).remove();
+        // Reload admin defaults
+        const adminSnap = await database.ref('settings/interestStatus').once('value');
+        const adminData = adminSnap.val() || {};
+        const builtInIds = interestOptions.map(i => i.id);
+        const uncoveredIds = uncoveredInterests.map(i => i.id || i.name.replace(/\s+/g, '_').toLowerCase());
+        const defaultStatus = {};
+        builtInIds.forEach(id => { defaultStatus[id] = true; });
+        uncoveredIds.forEach(id => { defaultStatus[id] = false; });
+        setInterestStatus({ ...defaultStatus, ...adminData });
+        showToast('התחומים אופסו לברירת מחדל', 'success');
+      } catch (err) {
+        console.error('Error resetting interest status:', err);
+        showToast('שגיאה באיפוס', 'error');
+      }
+    } else {
+      localStorage.removeItem('bangkok_interest_status');
+      const builtInIds = interestOptions.map(i => i.id);
+      const uncoveredIds = uncoveredInterests.map(i => i.id || i.name.replace(/\s+/g, '_').toLowerCase());
+      const defaultStatus = {};
+      builtInIds.forEach(id => { defaultStatus[id] = true; });
+      uncoveredIds.forEach(id => { defaultStatus[id] = false; });
+      setInterestStatus(defaultStatus);
+      showToast('התחומים אופסו לברירת מחדל', 'success');
     }
   };
 
@@ -3231,6 +3287,20 @@ const BangkokExplorer = () => {
     if (config.types && Array.isArray(config.types) && config.types.length > 0) return true;
     
     return false;
+  };
+
+  // Check if location has all required data
+  const isLocationValid = (loc) => {
+    if (!loc) return false;
+    // Must have name
+    if (!loc.name || !loc.name.trim()) return false;
+    // Must have at least one interest
+    if (!loc.interests || loc.interests.length === 0) return false;
+    // Must have address OR coordinates
+    const hasAddress = loc.address && loc.address.trim();
+    const hasCoords = loc.lat && loc.lng;
+    if (!hasAddress && !hasCoords) return false;
+    return true;
   };
 
   const deleteCustomLocation = (locationId) => {
@@ -4692,15 +4762,20 @@ const BangkokExplorer = () => {
                         border: formData.interests.includes(option.id) ? '3px solid #f97316' : '2px solid #d1d5db',
                         backgroundColor: formData.interests.includes(option.id) ? '#fed7aa' : '#ffffff',
                         boxShadow: formData.interests.includes(option.id) ? '0 4px 6px -1px rgba(0, 0, 0, 0.2)' : 'none',
-                        position: 'relative'
+                        position: 'relative',
+                        overflow: 'hidden'
                       }}
                       className="p-1.5 rounded-lg text-xs"
                     >
                       <div className="text-lg mb-1">{option.icon}</div>
                       <div style={{
                         fontWeight: '600',
-                        fontSize: '11px',
-                        color: formData.interests.includes(option.id) ? '#c2410c' : '#374151'
+                        fontSize: '10px',
+                        color: formData.interests.includes(option.id) ? '#c2410c' : '#374151',
+                        wordBreak: 'break-word',
+                        lineHeight: '1.2',
+                        maxHeight: '2.4em',
+                        overflow: 'hidden'
                       }}>{option.label}</div>
                     </button>
                   );
@@ -6115,7 +6190,7 @@ const BangkokExplorer = () => {
                                       : null;
                                   return (
                                     <div key={loc.id}
-                                      className="flex items-center justify-between gap-2 border border-emerald-300 rounded p-1.5 bg-emerald-50 mb-0.5"
+                                      className={`flex items-center justify-between gap-2 border-2 rounded p-1.5 mb-0.5 ${isLocationValid(loc) ? "border-emerald-300 bg-emerald-50" : "border-red-400 bg-red-50"}`}
                                       style={{ contain: 'layout style' }}
                                     >
                                       <div className="flex-1 min-w-0">
@@ -6131,6 +6206,7 @@ const BangkokExplorer = () => {
                                           {loc.inProgress && <span className="text-orange-600" title="בעבודה" style={{ fontSize: '14px' }}>🛠️</span>}
                                           {loc.outsideArea && <span className="text-orange-500 text-xs" title="מחוץ לגבולות">🔺</span>}
                                           {loc.missingCoordinates && <span className="text-red-500 text-xs" title="אין מיקום">⚠️</span>}
+                                          {!isLocationValid(loc) && <span className="text-red-500 text-[9px]" title="חסרים פרטים (כתובת/קורדינטות/תחום)">❌</span>}
                                           {placesGroupBy === 'area' && loc.interests?.map((int, idx) => {
                                             const obj2 = interestMap[int];
                                             return obj2?.icon ? <span key={idx} title={obj2.label} style={{ fontSize: '13px' }}>{obj2.icon}</span> : null;
@@ -6164,7 +6240,7 @@ const BangkokExplorer = () => {
                                     : null;
                                 return (
                                   <div key={loc.id}
-                                    className="flex items-center justify-between gap-2 border border-emerald-300 rounded p-1.5 bg-emerald-50 mb-0.5"
+                                    className={`flex items-center justify-between gap-2 border-2 rounded p-1.5 mb-0.5 ${isLocationValid(loc) ? "border-emerald-300 bg-emerald-50" : "border-red-400 bg-red-50"}`}
                                     style={{ contain: 'layout style' }}
                                   >
                                     <div className="flex-1 min-w-0">
@@ -6178,6 +6254,7 @@ const BangkokExplorer = () => {
                                         )}
                                         {loc.locked && <span title="נעול" style={{ fontSize: '12px' }}>🔒</span>}
                                         {loc.inProgress && <span className="text-orange-600" title="בעבודה" style={{ fontSize: '14px' }}>🛠️</span>}
+                                        {!isLocationValid(loc) && <span className="text-red-500 text-[9px]" title="חסרים פרטים">❌</span>}
                                       </div>
                                     </div>
                                     <button onClick={() => handleEditLocation(loc)}
@@ -6266,16 +6343,25 @@ const BangkokExplorer = () => {
                   {Object.values(interestStatus).filter(Boolean).length} פעילים
                 </span>
               </div>
-              <button
-                onClick={() => {
-                  setEditingCustomInterest(null);
-                  setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', inProgress: true, locked: false, builtIn: false });
-                  setShowAddInterestDialog(true);
-                }}
-                className="bg-purple-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-purple-600"
-              >
-                ➕ הוסף תחום
-              </button>
+              <div className="flex gap-1">
+                <button
+                  onClick={resetInterestStatusToDefault}
+                  className="bg-gray-200 text-gray-700 px-2 py-1.5 rounded-lg text-[10px] font-bold hover:bg-gray-300"
+                  title="אפס לברירת מחדל"
+                >
+                  🔄 ברירת מחדל
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingCustomInterest(null);
+                    setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', inProgress: true, locked: false, builtIn: false });
+                    setShowAddInterestDialog(true);
+                  }}
+                  className="bg-purple-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-purple-600"
+                >
+                  ➕ הוסף תחום
+                </button>
+              </div>
             </div>
             
             {/* Unified Interest List */}
@@ -6299,10 +6385,11 @@ const BangkokExplorer = () => {
                 setShowAddInterestDialog(true);
               };
               
-              // Render a single interest row
+              // Render a single interest row with toggle button
               const renderInterestRow = (interest, isCustom = false, isActive = true) => {
                 const isValid = isInterestValid(interest.id);
-                const borderClass = !isActive ? 'border border-gray-300 bg-gray-50 opacity-60'
+                const effectiveActive = isValid ? isActive : false; // Invalid always inactive
+                const borderClass = !effectiveActive ? 'border border-gray-300 bg-gray-50 opacity-60'
                   : isCustom ? (isValid ? 'border-2 border-purple-400 bg-purple-50' : 'border-2 border-red-400 bg-red-50')
                   : (isValid ? 'border border-green-300 bg-green-50' : 'border-2 border-red-400 bg-red-50');
                 
@@ -6310,28 +6397,43 @@ const BangkokExplorer = () => {
                   <div key={interest.id} className={`flex items-center justify-between gap-2 rounded-lg p-2 ${borderClass}`}>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <span className="text-lg flex-shrink-0">{interest.icon}</span>
-                      <span className={`font-medium text-sm truncate ${!isActive ? 'text-gray-500' : ''}`}>{interest.label || interest.name}</span>
+                      <span className={`font-medium text-sm truncate ${!effectiveActive ? 'text-gray-500' : ''}`}>{interest.label || interest.name}</span>
                       {isCustom && <span className="text-[10px] bg-purple-200 text-purple-800 px-1 py-0.5 rounded flex-shrink-0">מותאם</span>}
                       {!isValid && <span className="text-red-500 text-xs flex-shrink-0" title="חסר הגדרות חיפוש">⚠️</span>}
                       {interest.inProgress && <span className="text-orange-600 flex-shrink-0" title="בעבודה" style={{ fontSize: '12px' }}>🛠️</span>}
                       {interest.locked && <span title="נעול" style={{ fontSize: '11px' }} className="flex-shrink-0">🔒</span>}
                     </div>
-                    <button
-                      onClick={() => openInterestDialog(interest, isCustom)}
-                      className="text-xs px-1 py-0.5 rounded hover:bg-blue-100 flex-shrink-0"
-                      title="פרטים / ערוך"
-                    >✏️</button>
+                    <div className="flex gap-1 flex-shrink-0">
+                      {/* Toggle button */}
+                      <button
+                        onClick={() => toggleInterestStatus(interest.id)}
+                        disabled={!isValid}
+                        className={`text-[10px] px-2 py-1 rounded font-bold transition ${
+                          !isValid ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          : effectiveActive ? 'bg-red-100 text-red-600 hover:bg-red-200' 
+                          : 'bg-green-100 text-green-600 hover:bg-green-200'
+                        }`}
+                        title={!isValid ? 'תחום לא וולידי' : effectiveActive ? 'השבת' : 'הפעל'}
+                      >
+                        {effectiveActive ? '⏸️ השבת' : '▶️ הפעל'}
+                      </button>
+                      <button
+                        onClick={() => openInterestDialog(interest, isCustom)}
+                        className="text-xs px-1 py-0.5 rounded flex-shrink-0"
+                        title="פרטים / ערוך"
+                      >✏️</button>
+                    </div>
                   </div>
                 );
               };
               
               // Collect active and inactive
-              const activeBuiltIn = interestOptions.filter(i => interestStatus[i.id] !== false);
-              const activeUncovered = uncoveredInterests.filter(i => interestStatus[i.id] === true);
-              const activeCustom = customInterests.filter(i => interestStatus[i.id] !== false);
-              const inactiveBuiltIn = interestOptions.filter(i => interestStatus[i.id] === false);
-              const inactiveUncovered = uncoveredInterests.filter(i => interestStatus[i.id] !== true);
-              const inactiveCustom = customInterests.filter(i => interestStatus[i.id] === false);
+              const activeBuiltIn = interestOptions.filter(i => isInterestValid(i.id) && interestStatus[i.id] !== false);
+              const activeUncovered = uncoveredInterests.filter(i => isInterestValid(i.id) && interestStatus[i.id] === true);
+              const activeCustom = customInterests.filter(i => isInterestValid(i.id) && interestStatus[i.id] !== false);
+              const inactiveBuiltIn = interestOptions.filter(i => !isInterestValid(i.id) || interestStatus[i.id] === false);
+              const inactiveUncovered = uncoveredInterests.filter(i => !isInterestValid(i.id) || interestStatus[i.id] !== true);
+              const inactiveCustom = customInterests.filter(i => !isInterestValid(i.id) || interestStatus[i.id] === false);
               
               return (
                 <>
