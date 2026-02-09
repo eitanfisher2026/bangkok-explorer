@@ -2227,7 +2227,10 @@ const BangkokExplorer = () => {
   };
 
   // Auto-clean: remove selected interests that are no longer valid/visible
+  // IMPORTANT: Only runs after initial data is loaded to prevent race condition
+  // where saved interests get cleared before Firebase data arrives
   useEffect(() => {
+    if (!isDataLoaded) return;
     if (formData.interests.length === 0) return;
     const visibleIds = allInterestOptions
       .filter(opt => opt && opt.id && isInterestValid(opt.id))
@@ -2239,7 +2242,7 @@ const BangkokExplorer = () => {
       console.log('[CLEANUP] Removed invalid interests from selection:', removedNames);
       setFormData(prev => ({ ...prev, interests: cleaned }));
     }
-  }, [interestConfig, customInterests]);
+  }, [interestConfig, customInterests, isDataLoaded]);
 
   // Button styles - loaded from utils.js
 
@@ -3915,7 +3918,7 @@ const BangkokExplorer = () => {
           <h1 className="text-2xl font-bold">Bangkok Explorer 🇹🇭</h1>
           <div className="text-left">
             <span className="text-xs opacity-70 block">v{window.BKK.VERSION}</span>
-            <span className="text-[8px] opacity-50">© 2026 Eitan Fisher</span>
+            <span className="text-xs font-medium opacity-80">© 2026 Eitan Fisher</span>
           </div>
         </div>
       </div>
@@ -6190,6 +6193,12 @@ const BangkokExplorer = () => {
             </div>
           </div>
         )}
+
+        {/* Copyright Footer */}
+        <div className="text-center py-4 mt-6 border-t border-gray-200">
+          <p className="text-sm font-bold text-gray-500">© 2026 Eitan Fisher</p>
+          <p className="text-[10px] text-gray-400 mt-0.5">Bangkok Explorer v{window.BKK.VERSION}</p>
+        </div>
 
         {/* === DIALOGS (from dialogs.js) === */}
 

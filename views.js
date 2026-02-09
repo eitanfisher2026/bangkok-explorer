@@ -23,7 +23,7 @@
           <h1 className="text-2xl font-bold">Bangkok Explorer 🇹🇭</h1>
           <div className="text-left">
             <span className="text-xs opacity-70 block">v{window.BKK.VERSION}</span>
-            <span className="text-[8px] opacity-50">© 2026 Eitan Fisher</span>
+            <span className="text-xs font-medium opacity-80">© 2026 Eitan Fisher</span>
           </div>
         </div>
       </div>
@@ -2298,5 +2298,11 @@
             </div>
           </div>
         )}
+
+        {/* Copyright Footer */}
+        <div className="text-center py-4 mt-6 border-t border-gray-200">
+          <p className="text-sm font-bold text-gray-500">© 2026 Eitan Fisher</p>
+          <p className="text-[10px] text-gray-400 mt-0.5">Bangkok Explorer v{window.BKK.VERSION}</p>
+        </div>
 
         {/* === DIALOGS (from dialogs.js) === */}

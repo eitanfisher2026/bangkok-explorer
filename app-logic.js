@@ -1301,7 +1301,10 @@
   };
 
   // Auto-clean: remove selected interests that are no longer valid/visible
+  // IMPORTANT: Only runs after initial data is loaded to prevent race condition
+  // where saved interests get cleared before Firebase data arrives
   useEffect(() => {
+    if (!isDataLoaded) return;
     if (formData.interests.length === 0) return;
     const visibleIds = allInterestOptions
       .filter(opt => opt && opt.id && isInterestValid(opt.id))
@@ -1313,7 +1316,7 @@
       console.log('[CLEANUP] Removed invalid interests from selection:', removedNames);
       setFormData(prev => ({ ...prev, interests: cleaned }));
     }
-  }, [interestConfig, customInterests]);
+  }, [interestConfig, customInterests, isDataLoaded]);
 
   // Button styles - loaded from utils.js
 
