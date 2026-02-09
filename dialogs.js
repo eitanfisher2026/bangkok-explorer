@@ -499,13 +499,18 @@
                         {editingLocation.status === 'blacklist' ? (
                           <button
                             onClick={() => {
+                              // Restore and mark as inProgress
+                              const loc = customLocations.find(l => l.id === editingLocation.id);
+                              if (loc && isFirebaseAvailable && database) {
+                                database.ref(`customLocations/${loc.firebaseId || loc.id}`).update({ inProgress: true });
+                              }
                               toggleLocationStatus(editingLocation.id);
                               setShowEditLocationDialog(false);
                               setEditingLocation(null);
                             }}
                             className="flex-1 py-2 bg-green-500 text-white rounded-lg text-sm font-bold hover:bg-green-600"
                           >
-                            ✅ החזר למסלול
+                            ✅ החזר כמקום פעיל
                           </button>
                         ) : (
                           <button
@@ -631,7 +636,15 @@
               {/* Header */}
               <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2.5 rounded-t-xl flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold">{editingCustomInterest ? `✏️ ${newInterest.icon} ${newInterest.label}` : 'הוסף תחום עניין'}</h3>
+                  <h3 className="text-base font-bold">{editingCustomInterest ? `✏️ ${newInterest.icon?.startsWith?.('data:') ? '' : newInterest.icon} ${newInterest.label}` : 'הוסף תחום עניין'}</h3>
+                  {editingCustomInterest && (
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${newInterest.builtIn ? 'bg-blue-200 text-blue-800' : 'bg-purple-200 text-purple-800'}`}>
+                      {newInterest.builtIn ? '🏗️ מערכת' : '👤 אישי'}
+                    </span>
+                  )}
+                  {!editingCustomInterest && (
+                    <span className="text-[10px] bg-purple-200 text-purple-800 px-2 py-0.5 rounded-full font-bold">👤 אישי</span>
+                  )}
                   <button
                     onClick={() => showHelpFor('addInterest')}
                     className="bg-white text-purple-600 hover:bg-purple-100 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shadow"
@@ -667,17 +680,45 @@
                   </div>
                   <div>
                     <label className="block text-xs font-bold mb-1">אייקון</label>
-                    <input
-                      type="text"
-                      value={newInterest.icon}
-                      onChange={(e) => {
-                        const firstEmoji = [...e.target.value][0] || '';
-                        setNewInterest({...newInterest, icon: firstEmoji});
-                      }}
-                      placeholder="📍"
-                      className="w-full p-2 text-xl border-2 border-gray-300 rounded-lg text-center"
-                      disabled={newInterest.builtIn}
-                    />
+                    {newInterest.icon && newInterest.icon.startsWith('data:') ? (
+                      <div className="relative">
+                        <img src={newInterest.icon} alt="icon" className="w-full h-10 object-contain rounded-lg border-2 border-gray-300 bg-white" />
+                        <button
+                          onClick={() => setNewInterest({...newInterest, icon: '📍'})}
+                          className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-4 h-4 text-[9px] font-bold"
+                        >✕</button>
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        value={newInterest.icon}
+                        onChange={(e) => {
+                          const firstEmoji = [...e.target.value][0] || '';
+                          setNewInterest({...newInterest, icon: firstEmoji});
+                        }}
+                        placeholder="📍"
+                        className="w-full p-2 text-xl border-2 border-gray-300 rounded-lg text-center"
+                        disabled={newInterest.builtIn}
+                      />
+                    )}
+                    {!newInterest.builtIn && (
+                      <label className="block w-full mt-1 p-1 border border-dashed border-gray-300 rounded text-center cursor-pointer hover:bg-gray-50 text-[9px] text-gray-500">
+                        📁 קובץ
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = () => setNewInterest({...newInterest, icon: reader.result});
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
                   </div>
                 </div>
 
@@ -786,11 +827,23 @@
                         >
                           {interestStatus[editingCustomInterest.id] === false ? '✅ הפעל' : '⏸️ השבת'}
                         </button>
-                        {!newInterest.builtIn && (
+                        {(!newInterest.builtIn || isUnlocked) && (
                           <button
                             onClick={() => {
-                              showConfirm(`למחוק את "${newInterest.label}"?`, () => {
-                                deleteCustomInterest(editingCustomInterest.id);
+                              const msg = newInterest.builtIn 
+                                ? `⚠️ אתה עומד למחוק תחום מערכת "${newInterest.label}". פעולה זו תסיר אותו לצמיתות. להמשיך?`
+                                : `אתה עומד למחוק תחום אישי "${newInterest.label}". להמשיך?`;
+                              showConfirm(msg, () => {
+                                if (newInterest.builtIn) {
+                                  // For built-in: toggle off + remove config
+                                  toggleInterestStatus(editingCustomInterest.id);
+                                  if (isFirebaseAvailable && database) {
+                                    database.ref(`settings/interestConfig/${editingCustomInterest.id}`).remove();
+                                  }
+                                  showToast('תחום מערכת הוסר', 'success');
+                                } else {
+                                  deleteCustomInterest(editingCustomInterest.id);
+                                }
                                 setShowAddInterestDialog(false);
                                 setEditingCustomInterest(null);
                               });
