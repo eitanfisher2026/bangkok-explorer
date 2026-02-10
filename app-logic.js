@@ -61,6 +61,7 @@
     description: '',
     notes: '',
     area: formData.area,
+    areas: [formData.area],
     interests: [],
     lat: null,
     lng: null,
@@ -1653,9 +1654,11 @@
             });
           }
         } else {
-          const area = loc.area || 'unknown';
-          if (!groups[area]) groups[area] = [];
-          groups[area].push(loc);
+          const locAreas = loc.areas || (loc.area ? [loc.area] : ['unknown']);
+          locAreas.forEach(areaId => {
+            if (!groups[areaId]) groups[areaId] = [];
+            groups[areaId].push(loc);
+          });
         }
       });
       
@@ -1669,8 +1672,8 @@
       
       const sortWithin = (locs) => [...locs].sort((a, b) => {
         if (placesGroupBy === 'interest') {
-          const aArea = (areaMap[a.area] || {}).label || '';
-          const bArea = (areaMap[b.area] || {}).label || '';
+          const aArea = (areaMap[(a.areas || [a.area])[0]] || {}).label || '';
+          const bArea = (areaMap[(b.areas || [b.area])[0]] || {}).label || '';
           return aArea.localeCompare(bArea, 'he') || a.name.localeCompare(b.name, 'he');
         } else {
           return (a.interests?.[0] || '').localeCompare(b.interests?.[0] || '') || a.name.localeCompare(b.name, 'he');
@@ -1756,8 +1759,9 @@
         const dist = calcDistance(formData.currentLat, formData.currentLng, loc.lat, loc.lng);
         if (dist > formData.radiusMeters) return false;
       } else {
-        // In area mode: filter by area (original behavior)
-        if (loc.area !== formData.area) return false;
+        // In area mode: filter by area (supports multi-area)
+        const locAreas = loc.areas || (loc.area ? [loc.area] : []);
+        if (!locAreas.includes(formData.area)) return false;
       }
       
       if (!loc.interests || loc.interests.length === 0) return false;
@@ -2597,7 +2601,8 @@
       name: loc.name || '',
       description: loc.description || '',
       notes: loc.notes || '',
-      area: loc.area || formData.area,
+      area: loc.area || (loc.areas ? loc.areas[0] : formData.area),
+      areas: loc.areas || (loc.area ? [loc.area] : [formData.area]),
       interests: loc.interests || [],
       lat: loc.lat || null,
       lng: loc.lng || null,
@@ -2641,6 +2646,7 @@
       description: place.description || 'נוסף מ-Google',
       notes: '',
       area: formData.area,
+      areas: (() => { const d = window.BKK.getAreasForCoordinates(place.lat, place.lng); return d.length > 0 ? d : [formData.area]; })(),
       interests: place.interests || [],
       lat: place.lat,
       lng: place.lng,
@@ -2733,6 +2739,7 @@
       description: place.description || 'נוסף מחיפוש',
       notes: '',
       area: formData.area,
+      areas: (() => { const d = window.BKK.getAreasForCoordinates(place.lat, place.lng); return d.length > 0 ? d : [formData.area]; })(),
       interests: place.interests && place.interests.length > 0 ? place.interests : [],
       lat: place.lat,
       lng: place.lng,
@@ -2859,7 +2866,8 @@
             name: loc.name.trim(),
             description: loc.description || loc.notes || '',
             notes: loc.notes || '',
-            area: loc.area || 'sukhumvit',
+            area: loc.area || (loc.areas ? loc.areas[0] : 'sukhumvit'),
+            areas: window.BKK.normalizeLocationAreas(loc),
             interests: Array.isArray(loc.interests) ? loc.interests : [],
             lat: loc.lat || null,
             lng: loc.lng || null,
@@ -2970,7 +2978,8 @@
           name: loc.name.trim(),
           description: loc.description || loc.notes || '',
           notes: loc.notes || '',
-          area: loc.area || 'sukhumvit',
+          area: loc.area || (loc.areas ? loc.areas[0] : 'sukhumvit'),
+          areas: window.BKK.normalizeLocationAreas(loc),
           interests: Array.isArray(loc.interests) ? loc.interests : [],
           lat: loc.lat || null,
           lng: loc.lng || null,
@@ -3070,13 +3079,14 @@
     
     // Check if location is within area boundaries (only if has coordinates)
     if (hasCoordinates) {
-      const boundaryCheck = checkLocationInArea(lat, lng, newLocation.area);
-      const areaName = areaOptions.find(a => a.id === newLocation.area)?.label || newLocation.area;
-      outsideArea = !boundaryCheck.valid;
+      const selectedAreas = newLocation.areas || (newLocation.area ? [newLocation.area] : []);
+      const inAnyArea = selectedAreas.some(aId => checkLocationInArea(lat, lng, aId).valid);
+      outsideArea = !inAnyArea && selectedAreas.length > 0;
       
-      if (!boundaryCheck.valid) {
+      if (outsideArea) {
+        const areaNames = selectedAreas.map(aId => areaOptions.find(a => a.id === aId)?.label || aId).join(', ');
         showToast(
-          `אזהרה: המיקום ${boundaryCheck.distanceKm} ק"מ מחוץ לאזור ${areaName}. נשמר בכל זאת.`,
+          `אזהרה: המיקום מחוץ לאזורים שנבחרו (${areaNames}). נשמר בכל זאת.`,
           'warning'
         );
       }
@@ -3088,7 +3098,8 @@
       name: newLocation.name.trim(),
       description: newLocation.description.trim() || newLocation.notes?.trim() || 'מקום שהוספתי',
       notes: newLocation.notes?.trim() || '',
-      area: newLocation.area,
+      area: (newLocation.areas || [newLocation.area])[0] || 'sukhumvit',
+      areas: newLocation.areas || (newLocation.area ? [newLocation.area] : ['sukhumvit']),
       interests: newLocation.interests,
       lat: lat,
       lng: lng,
@@ -3157,6 +3168,7 @@
         description: '', 
         notes: '',
         area: formData.area, 
+        areas: [formData.area],
         interests: [], 
         lat: null, 
         lng: null, 
@@ -3192,13 +3204,14 @@
     
     // Check if location is within area boundaries (only if has coordinates)
     if (hasCoordinates) {
-      const boundaryCheck = checkLocationInArea(newLocation.lat, newLocation.lng, newLocation.area);
-      const areaName = areaOptions.find(a => a.id === newLocation.area)?.label || newLocation.area;
-      outsideArea = !boundaryCheck.valid;
+      const selectedAreas = newLocation.areas || (newLocation.area ? [newLocation.area] : []);
+      const inAnyArea = selectedAreas.some(aId => checkLocationInArea(newLocation.lat, newLocation.lng, aId).valid);
+      outsideArea = !inAnyArea && selectedAreas.length > 0;
       
-      if (!boundaryCheck.valid) {
+      if (outsideArea) {
+        const areaNames = selectedAreas.map(aId => areaOptions.find(a => a.id === aId)?.label || aId).join(', ');
         showToast(
-          `אזהרה: המיקום ${boundaryCheck.distanceKm} ק"מ מחוץ לאזור ${areaName}. נשמר בכל זאת.`,
+          `אזהרה: המיקום מחוץ לאזורים שנבחרו (${areaNames}). נשמר בכל זאת.`,
           'warning'
         );
       }
@@ -3207,6 +3220,8 @@
     const updatedLocation = { 
       ...editingLocation, // Keep existing fields like status, inProgress
       ...newLocation, // Override with edited fields
+      area: (newLocation.areas || [newLocation.area])[0] || editingLocation.area || 'sukhumvit',
+      areas: newLocation.areas || (newLocation.area ? [newLocation.area] : editingLocation.areas || ['sukhumvit']),
       custom: true, 
       id: editingLocation.id,
       outsideArea: outsideArea, // Flag for outside area
@@ -3255,6 +3270,7 @@
         description: '', 
         notes: '',
         area: formData.area, 
+        areas: [formData.area],
         interests: [], 
         lat: null, 
         lng: null, 

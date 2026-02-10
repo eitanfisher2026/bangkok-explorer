@@ -1878,9 +1878,9 @@
                                             const obj2 = interestMap[int];
                                             return obj2?.icon ? <span key={idx} title={obj2.label} style={{ fontSize: '13px' }}>{obj2.icon}</span> : null;
                                           })}
-                                          {placesGroupBy === 'interest' && loc.area && (
-                                            <span className="text-[10px] bg-gray-200 text-gray-600 px-1 rounded">{areaMap[loc.area]?.label || loc.area}</span>
-                                          )}
+                                          {placesGroupBy === 'interest' && (loc.areas || [loc.area]).filter(Boolean).map((aId, idx) => (
+                                            <span key={idx} className="text-[9px] bg-gray-200 text-gray-600 px-1 rounded">{(areaMap[aId] || {}).label || aId}</span>
+                                          ))}
                                         </div>
                                       </div>
                                       <button onClick={() => handleEditLocation(loc)}

@@ -38,6 +38,35 @@ window.BKK.checkLocationInArea = (lat, lng, areaId) => {
 };
 
 /**
+ * Get all areas that contain this coordinate (within radius)
+ * @returns {string[]} Array of area IDs
+ */
+window.BKK.getAreasForCoordinates = (lat, lng) => {
+  if (!lat || !lng) return [];
+  const coords = window.BKK.areaCoordinates || {};
+  const results = [];
+  for (const [areaId, area] of Object.entries(coords)) {
+    const check = window.BKK.checkLocationInArea(lat, lng, areaId);
+    if (check.valid) results.push(areaId);
+  }
+  return results.length > 0 ? results : [];
+};
+
+/**
+ * Normalize location areas: convert old 'area' string to 'areas' array
+ * Backward-compatible migration
+ */
+window.BKK.normalizeLocationAreas = (loc) => {
+  if (loc.areas && Array.isArray(loc.areas) && loc.areas.length > 0) {
+    return loc.areas;
+  }
+  if (loc.area && typeof loc.area === 'string') {
+    return [loc.area];
+  }
+  return ['sukhumvit'];
+};
+
+/**
  * Extract coordinates from Google Maps URL (various formats)
  * @returns {{ lat: number, lng: number } | null}
  */

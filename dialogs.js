@@ -63,19 +63,55 @@
                     />
                   </div>
                   
-                  {/* Area - 1 column */}
+                  {/* Areas - multi-select */}
                   <div>
-                    <label className="block text-xs font-bold mb-1">איזור</label>
-                    <select
-                      value={newLocation.area}
-                      onChange={(e) => setNewLocation({...newLocation, area: e.target.value})}
-                      className="w-full p-2 text-sm border-2 border-gray-300 rounded-lg focus:border-purple-500"
-                      style={{ direction: 'rtl' }}
-                    >
-                      {areaOptions.map(area => (
-                        <option key={area.id} value={area.id}>{area.label}</option>
-                      ))}
-                    </select>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold">אזורים</label>
+                      <button
+                        onClick={() => {
+                          const lat = newLocation.lat;
+                          const lng = newLocation.lng;
+                          if (lat && lng) {
+                            const detected = window.BKK.getAreasForCoordinates(lat, lng);
+                            if (detected.length > 0) {
+                              setNewLocation({...newLocation, areas: detected, area: detected[0]});
+                            } else {
+                              alert('המיקום לא נמצא בתוך אף אזור מוגדר');
+                            }
+                          } else {
+                            alert('צריך קואורדינטות כדי לזהות אזורים');
+                          }
+                        }}
+                        className="text-[9px] px-2 py-0.5 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 font-bold"
+                      >📍 זהה אוטומטית</button>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1 p-1.5 bg-gray-50 rounded-lg max-h-28 overflow-y-auto border-2 border-gray-300">
+                      {areaOptions.map(area => {
+                        const isSelected = (newLocation.areas || [newLocation.area]).includes(area.id);
+                        return (
+                          <button
+                            key={area.id}
+                            onClick={() => {
+                              const current = newLocation.areas || (newLocation.area ? [newLocation.area] : []);
+                              const updated = current.includes(area.id)
+                                ? current.filter(a => a !== area.id)
+                                : [...current, area.id];
+                              if (updated.length === 0) return; // must have at least one
+                              setNewLocation({...newLocation, areas: updated, area: updated[0]});
+                            }}
+                            className={`p-1 rounded text-[9px] font-bold transition-all text-center ${
+                              isSelected
+                                ? 'bg-purple-500 text-white shadow-md'
+                                : 'bg-white text-gray-500 hover:bg-gray-100'
+                            }`}
+                            style={{ lineHeight: '1.1' }}
+                          >
+                            <div style={{ fontSize: '14px' }}>{area.icon}</div>
+                            <div>{area.label}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 

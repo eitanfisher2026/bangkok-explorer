@@ -629,6 +629,35 @@ window.BKK.checkLocationInArea = (lat, lng, areaId) => {
 };
 
 /**
+ * Get all areas that contain this coordinate (within radius)
+ * @returns {string[]} Array of area IDs
+ */
+window.BKK.getAreasForCoordinates = (lat, lng) => {
+  if (!lat || !lng) return [];
+  const coords = window.BKK.areaCoordinates || {};
+  const results = [];
+  for (const [areaId, area] of Object.entries(coords)) {
+    const check = window.BKK.checkLocationInArea(lat, lng, areaId);
+    if (check.valid) results.push(areaId);
+  }
+  return results.length > 0 ? results : [];
+};
+
+/**
+ * Normalize location areas: convert old 'area' string to 'areas' array
+ * Backward-compatible migration
+ */
+window.BKK.normalizeLocationAreas = (loc) => {
+  if (loc.areas && Array.isArray(loc.areas) && loc.areas.length > 0) {
+    return loc.areas;
+  }
+  if (loc.area && typeof loc.area === 'string') {
+    return [loc.area];
+  }
+  return ['sukhumvit'];
+};
+
+/**
  * Extract coordinates from Google Maps URL (various formats)
  * @returns {{ lat: number, lng: number } | null}
  */
@@ -1053,6 +1082,7 @@ const BangkokExplorer = () => {
     description: '',
     notes: '',
     area: formData.area,
+    areas: [formData.area],
     interests: [],
     lat: null,
     lng: null,
@@ -2645,9 +2675,11 @@ const BangkokExplorer = () => {
             });
           }
         } else {
-          const area = loc.area || 'unknown';
-          if (!groups[area]) groups[area] = [];
-          groups[area].push(loc);
+          const locAreas = loc.areas || (loc.area ? [loc.area] : ['unknown']);
+          locAreas.forEach(areaId => {
+            if (!groups[areaId]) groups[areaId] = [];
+            groups[areaId].push(loc);
+          });
         }
       });
       
@@ -2661,8 +2693,8 @@ const BangkokExplorer = () => {
       
       const sortWithin = (locs) => [...locs].sort((a, b) => {
         if (placesGroupBy === 'interest') {
-          const aArea = (areaMap[a.area] || {}).label || '';
-          const bArea = (areaMap[b.area] || {}).label || '';
+          const aArea = (areaMap[(a.areas || [a.area])[0]] || {}).label || '';
+          const bArea = (areaMap[(b.areas || [b.area])[0]] || {}).label || '';
           return aArea.localeCompare(bArea, 'he') || a.name.localeCompare(b.name, 'he');
         } else {
           return (a.interests?.[0] || '').localeCompare(b.interests?.[0] || '') || a.name.localeCompare(b.name, 'he');
@@ -2748,8 +2780,9 @@ const BangkokExplorer = () => {
         const dist = calcDistance(formData.currentLat, formData.currentLng, loc.lat, loc.lng);
         if (dist > formData.radiusMeters) return false;
       } else {
-        // In area mode: filter by area (original behavior)
-        if (loc.area !== formData.area) return false;
+        // In area mode: filter by area (supports multi-area)
+        const locAreas = loc.areas || (loc.area ? [loc.area] : []);
+        if (!locAreas.includes(formData.area)) return false;
       }
       
       if (!loc.interests || loc.interests.length === 0) return false;
@@ -3589,7 +3622,8 @@ const BangkokExplorer = () => {
       name: loc.name || '',
       description: loc.description || '',
       notes: loc.notes || '',
-      area: loc.area || formData.area,
+      area: loc.area || (loc.areas ? loc.areas[0] : formData.area),
+      areas: loc.areas || (loc.area ? [loc.area] : [formData.area]),
       interests: loc.interests || [],
       lat: loc.lat || null,
       lng: loc.lng || null,
@@ -3633,6 +3667,7 @@ const BangkokExplorer = () => {
       description: place.description || 'נוסף מ-Google',
       notes: '',
       area: formData.area,
+      areas: (() => { const d = window.BKK.getAreasForCoordinates(place.lat, place.lng); return d.length > 0 ? d : [formData.area]; })(),
       interests: place.interests || [],
       lat: place.lat,
       lng: place.lng,
@@ -3725,6 +3760,7 @@ const BangkokExplorer = () => {
       description: place.description || 'נוסף מחיפוש',
       notes: '',
       area: formData.area,
+      areas: (() => { const d = window.BKK.getAreasForCoordinates(place.lat, place.lng); return d.length > 0 ? d : [formData.area]; })(),
       interests: place.interests && place.interests.length > 0 ? place.interests : [],
       lat: place.lat,
       lng: place.lng,
@@ -3851,7 +3887,8 @@ const BangkokExplorer = () => {
             name: loc.name.trim(),
             description: loc.description || loc.notes || '',
             notes: loc.notes || '',
-            area: loc.area || 'sukhumvit',
+            area: loc.area || (loc.areas ? loc.areas[0] : 'sukhumvit'),
+            areas: window.BKK.normalizeLocationAreas(loc),
             interests: Array.isArray(loc.interests) ? loc.interests : [],
             lat: loc.lat || null,
             lng: loc.lng || null,
@@ -3962,7 +3999,8 @@ const BangkokExplorer = () => {
           name: loc.name.trim(),
           description: loc.description || loc.notes || '',
           notes: loc.notes || '',
-          area: loc.area || 'sukhumvit',
+          area: loc.area || (loc.areas ? loc.areas[0] : 'sukhumvit'),
+          areas: window.BKK.normalizeLocationAreas(loc),
           interests: Array.isArray(loc.interests) ? loc.interests : [],
           lat: loc.lat || null,
           lng: loc.lng || null,
@@ -4062,13 +4100,14 @@ const BangkokExplorer = () => {
     
     // Check if location is within area boundaries (only if has coordinates)
     if (hasCoordinates) {
-      const boundaryCheck = checkLocationInArea(lat, lng, newLocation.area);
-      const areaName = areaOptions.find(a => a.id === newLocation.area)?.label || newLocation.area;
-      outsideArea = !boundaryCheck.valid;
+      const selectedAreas = newLocation.areas || (newLocation.area ? [newLocation.area] : []);
+      const inAnyArea = selectedAreas.some(aId => checkLocationInArea(lat, lng, aId).valid);
+      outsideArea = !inAnyArea && selectedAreas.length > 0;
       
-      if (!boundaryCheck.valid) {
+      if (outsideArea) {
+        const areaNames = selectedAreas.map(aId => areaOptions.find(a => a.id === aId)?.label || aId).join(', ');
         showToast(
-          `אזהרה: המיקום ${boundaryCheck.distanceKm} ק"מ מחוץ לאזור ${areaName}. נשמר בכל זאת.`,
+          `אזהרה: המיקום מחוץ לאזורים שנבחרו (${areaNames}). נשמר בכל זאת.`,
           'warning'
         );
       }
@@ -4080,7 +4119,8 @@ const BangkokExplorer = () => {
       name: newLocation.name.trim(),
       description: newLocation.description.trim() || newLocation.notes?.trim() || 'מקום שהוספתי',
       notes: newLocation.notes?.trim() || '',
-      area: newLocation.area,
+      area: (newLocation.areas || [newLocation.area])[0] || 'sukhumvit',
+      areas: newLocation.areas || (newLocation.area ? [newLocation.area] : ['sukhumvit']),
       interests: newLocation.interests,
       lat: lat,
       lng: lng,
@@ -4149,6 +4189,7 @@ const BangkokExplorer = () => {
         description: '', 
         notes: '',
         area: formData.area, 
+        areas: [formData.area],
         interests: [], 
         lat: null, 
         lng: null, 
@@ -4184,13 +4225,14 @@ const BangkokExplorer = () => {
     
     // Check if location is within area boundaries (only if has coordinates)
     if (hasCoordinates) {
-      const boundaryCheck = checkLocationInArea(newLocation.lat, newLocation.lng, newLocation.area);
-      const areaName = areaOptions.find(a => a.id === newLocation.area)?.label || newLocation.area;
-      outsideArea = !boundaryCheck.valid;
+      const selectedAreas = newLocation.areas || (newLocation.area ? [newLocation.area] : []);
+      const inAnyArea = selectedAreas.some(aId => checkLocationInArea(newLocation.lat, newLocation.lng, aId).valid);
+      outsideArea = !inAnyArea && selectedAreas.length > 0;
       
-      if (!boundaryCheck.valid) {
+      if (outsideArea) {
+        const areaNames = selectedAreas.map(aId => areaOptions.find(a => a.id === aId)?.label || aId).join(', ');
         showToast(
-          `אזהרה: המיקום ${boundaryCheck.distanceKm} ק"מ מחוץ לאזור ${areaName}. נשמר בכל זאת.`,
+          `אזהרה: המיקום מחוץ לאזורים שנבחרו (${areaNames}). נשמר בכל זאת.`,
           'warning'
         );
       }
@@ -4199,6 +4241,8 @@ const BangkokExplorer = () => {
     const updatedLocation = { 
       ...editingLocation, // Keep existing fields like status, inProgress
       ...newLocation, // Override with edited fields
+      area: (newLocation.areas || [newLocation.area])[0] || editingLocation.area || 'sukhumvit',
+      areas: newLocation.areas || (newLocation.area ? [newLocation.area] : editingLocation.areas || ['sukhumvit']),
       custom: true, 
       id: editingLocation.id,
       outsideArea: outsideArea, // Flag for outside area
@@ -4247,6 +4291,7 @@ const BangkokExplorer = () => {
         description: '', 
         notes: '',
         area: formData.area, 
+        areas: [formData.area],
         interests: [], 
         lat: null, 
         lng: null, 
@@ -6439,9 +6484,9 @@ const BangkokExplorer = () => {
                                             const obj2 = interestMap[int];
                                             return obj2?.icon ? <span key={idx} title={obj2.label} style={{ fontSize: '13px' }}>{obj2.icon}</span> : null;
                                           })}
-                                          {placesGroupBy === 'interest' && loc.area && (
-                                            <span className="text-[10px] bg-gray-200 text-gray-600 px-1 rounded">{areaMap[loc.area]?.label || loc.area}</span>
-                                          )}
+                                          {placesGroupBy === 'interest' && (loc.areas || [loc.area]).filter(Boolean).map((aId, idx) => (
+                                            <span key={idx} className="text-[9px] bg-gray-200 text-gray-600 px-1 rounded">{(areaMap[aId] || {}).label || aId}</span>
+                                          ))}
                                         </div>
                                       </div>
                                       <button onClick={() => handleEditLocation(loc)}
@@ -7237,19 +7282,55 @@ const BangkokExplorer = () => {
                     />
                   </div>
                   
-                  {/* Area - 1 column */}
+                  {/* Areas - multi-select */}
                   <div>
-                    <label className="block text-xs font-bold mb-1">איזור</label>
-                    <select
-                      value={newLocation.area}
-                      onChange={(e) => setNewLocation({...newLocation, area: e.target.value})}
-                      className="w-full p-2 text-sm border-2 border-gray-300 rounded-lg focus:border-purple-500"
-                      style={{ direction: 'rtl' }}
-                    >
-                      {areaOptions.map(area => (
-                        <option key={area.id} value={area.id}>{area.label}</option>
-                      ))}
-                    </select>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold">אזורים</label>
+                      <button
+                        onClick={() => {
+                          const lat = newLocation.lat;
+                          const lng = newLocation.lng;
+                          if (lat && lng) {
+                            const detected = window.BKK.getAreasForCoordinates(lat, lng);
+                            if (detected.length > 0) {
+                              setNewLocation({...newLocation, areas: detected, area: detected[0]});
+                            } else {
+                              alert('המיקום לא נמצא בתוך אף אזור מוגדר');
+                            }
+                          } else {
+                            alert('צריך קואורדינטות כדי לזהות אזורים');
+                          }
+                        }}
+                        className="text-[9px] px-2 py-0.5 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 font-bold"
+                      >📍 זהה אוטומטית</button>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1 p-1.5 bg-gray-50 rounded-lg max-h-28 overflow-y-auto border-2 border-gray-300">
+                      {areaOptions.map(area => {
+                        const isSelected = (newLocation.areas || [newLocation.area]).includes(area.id);
+                        return (
+                          <button
+                            key={area.id}
+                            onClick={() => {
+                              const current = newLocation.areas || (newLocation.area ? [newLocation.area] : []);
+                              const updated = current.includes(area.id)
+                                ? current.filter(a => a !== area.id)
+                                : [...current, area.id];
+                              if (updated.length === 0) return; // must have at least one
+                              setNewLocation({...newLocation, areas: updated, area: updated[0]});
+                            }}
+                            className={`p-1 rounded text-[9px] font-bold transition-all text-center ${
+                              isSelected
+                                ? 'bg-purple-500 text-white shadow-md'
+                                : 'bg-white text-gray-500 hover:bg-gray-100'
+                            }`}
+                            style={{ lineHeight: '1.1' }}
+                          >
+                            <div style={{ fontSize: '14px' }}>{area.icon}</div>
+                            <div>{area.label}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 
