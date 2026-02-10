@@ -50,6 +50,7 @@
   const [customLocations, setCustomLocations] = useState([]);
   const [showAddLocationDialog, setShowAddLocationDialog] = useState(false);
   const [showBlacklistLocations, setShowBlacklistLocations] = useState(false);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
   const [placesGroupBy, setPlacesGroupBy] = useState('interest'); // 'interest' or 'area'
   const [routesSortBy, setRoutesSortBy] = useState('area'); // 'area' or 'name'
   const [editingRoute, setEditingRoute] = useState(null);
@@ -1414,6 +1415,49 @@
   useEffect(() => {
     localStorage.setItem('bangkok_preferences', JSON.stringify(formData));
   }, [formData]);
+
+  // Version check - auto-check on load + manual check
+  const checkForUpdates = async (silent = false) => {
+    try {
+      const response = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
+      if (!response.ok) return false;
+      const data = await response.json();
+      const serverVersion = data.version;
+      const localVersion = window.BKK.VERSION;
+      
+      if (serverVersion && serverVersion !== localVersion) {
+        console.log(`[UPDATE] New version available: ${serverVersion} (current: ${localVersion})`);
+        setUpdateAvailable(true);
+        if (!silent) {
+          showToast(`גרסה חדשה זמינה: ${serverVersion}`, 'success');
+        }
+        return true;
+      } else {
+        if (!silent) showToast('האפליקציה מעודכנת ✅', 'success');
+        return false;
+      }
+    } catch (e) {
+      console.log('[UPDATE] Check failed:', e);
+      if (!silent) showToast('לא ניתן לבדוק עדכונים', 'error');
+      return false;
+    }
+  };
+
+  const applyUpdate = () => {
+    // Clear all caches and hard reload
+    if ('caches' in window) {
+      caches.keys().then(names => {
+        names.forEach(name => caches.delete(name));
+      });
+    }
+    window.location.reload(true);
+  };
+
+  // Auto-check for updates on load (silent)
+  useEffect(() => {
+    const timer = setTimeout(() => checkForUpdates(true), 5000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Save column width
   useEffect(() => {

@@ -28,7 +28,19 @@
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto p-4 pb-32">
+      {/* Update Banner */}
+      {updateAvailable && (
+        <div className="mx-2 mb-2 bg-green-500 text-white rounded-lg p-2 flex items-center justify-between shadow-lg animate-pulse"
+          style={{ animationDuration: '2s' }}>
+          <span className="text-sm font-bold">🔄 גרסה חדשה זמינה!</span>
+          <button
+            onClick={applyUpdate}
+            className="bg-white text-green-700 px-3 py-1 rounded-lg text-sm font-bold hover:bg-green-100"
+          >
+            עדכן עכשיו
+          </button>
+        </div>
+      )}      <div className="max-w-4xl mx-auto p-4 pb-32">
         {/* Navigation Tabs */}
         <div className="flex flex-wrap gap-1 mb-4 bg-white rounded-lg p-1.5 shadow">
           <button
@@ -2493,6 +2505,20 @@
           </button>
           <p className="text-sm font-bold text-gray-500">© 2026 Eitan Fisher</p>
           <p className="text-[10px] text-gray-400 mt-0.5">Bangkok Explorer v{window.BKK.VERSION}</p>
+          <div className="flex gap-2 mt-1 justify-center">
+            <button
+              onClick={() => checkForUpdates(false)}
+              className="text-[10px] bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 font-bold"
+            >
+              🔄 בדוק עדכונים
+            </button>
+            <button
+              onClick={applyUpdate}
+              className="text-[10px] bg-gray-100 text-gray-600 px-2 py-1 rounded hover:bg-gray-200 font-bold"
+            >
+              🔃 רענן אפליקציה
+            </button>
+          </div>
         </div>
 
       {/* Floating Feedback Button */}

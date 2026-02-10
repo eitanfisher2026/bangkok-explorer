@@ -5,6 +5,7 @@ Combines split files into index.html
 
 Usage: python3 build.py
 """
+import re, json
 
 def read_file(filename):
     with open(filename, 'r', encoding='utf-8') as f:
@@ -19,6 +20,14 @@ def build():
     app_logic = read_file('app-logic.js')
     views = read_file('views.js')
     dialogs = read_file('dialogs.js')
+    
+    # Extract version and write version.json
+    m = re.search(r"VERSION\s*=\s*'([^']+)'", config)
+    if m:
+        ver = m.group(1)
+        with open('version.json', 'w') as f:
+            json.dump({"version": ver}, f)
+        print(f"📋 Version: {ver}")
     
     output = template
     output = output.replace('// __INSERT_CONFIG__', config)

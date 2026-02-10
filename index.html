@@ -163,7 +163,7 @@
 window.BKK = window.BKK || {};
 
 // App Version
-window.BKK.VERSION = '2.9.0';
+window.BKK.VERSION = '2.10.0';
 
 // Firebase Configuration
 window.BKK.firebaseConfig = {
@@ -1023,6 +1023,7 @@ const BangkokExplorer = () => {
   const [customLocations, setCustomLocations] = useState([]);
   const [showAddLocationDialog, setShowAddLocationDialog] = useState(false);
   const [showBlacklistLocations, setShowBlacklistLocations] = useState(false);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
   const [placesGroupBy, setPlacesGroupBy] = useState('interest'); // 'interest' or 'area'
   const [routesSortBy, setRoutesSortBy] = useState('area'); // 'area' or 'name'
   const [editingRoute, setEditingRoute] = useState(null);
@@ -2387,6 +2388,49 @@ const BangkokExplorer = () => {
   useEffect(() => {
     localStorage.setItem('bangkok_preferences', JSON.stringify(formData));
   }, [formData]);
+
+  // Version check - auto-check on load + manual check
+  const checkForUpdates = async (silent = false) => {
+    try {
+      const response = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
+      if (!response.ok) return false;
+      const data = await response.json();
+      const serverVersion = data.version;
+      const localVersion = window.BKK.VERSION;
+      
+      if (serverVersion && serverVersion !== localVersion) {
+        console.log(`[UPDATE] New version available: ${serverVersion} (current: ${localVersion})`);
+        setUpdateAvailable(true);
+        if (!silent) {
+          showToast(`גרסה חדשה זמינה: ${serverVersion}`, 'success');
+        }
+        return true;
+      } else {
+        if (!silent) showToast('האפליקציה מעודכנת ✅', 'success');
+        return false;
+      }
+    } catch (e) {
+      console.log('[UPDATE] Check failed:', e);
+      if (!silent) showToast('לא ניתן לבדוק עדכונים', 'error');
+      return false;
+    }
+  };
+
+  const applyUpdate = () => {
+    // Clear all caches and hard reload
+    if ('caches' in window) {
+      caches.keys().then(names => {
+        names.forEach(name => caches.delete(name));
+      });
+    }
+    window.location.reload(true);
+  };
+
+  // Auto-check for updates on load (silent)
+  useEffect(() => {
+    const timer = setTimeout(() => checkForUpdates(true), 5000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Save column width
   useEffect(() => {
@@ -4403,7 +4447,19 @@ const BangkokExplorer = () => {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto p-4 pb-32">
+      {/* Update Banner */}
+      {updateAvailable && (
+        <div className="mx-2 mb-2 bg-green-500 text-white rounded-lg p-2 flex items-center justify-between shadow-lg animate-pulse"
+          style={{ animationDuration: '2s' }}>
+          <span className="text-sm font-bold">🔄 גרסה חדשה זמינה!</span>
+          <button
+            onClick={applyUpdate}
+            className="bg-white text-green-700 px-3 py-1 rounded-lg text-sm font-bold hover:bg-green-100"
+          >
+            עדכן עכשיו
+          </button>
+        </div>
+      )}      <div className="max-w-4xl mx-auto p-4 pb-32">
         {/* Navigation Tabs */}
         <div className="flex flex-wrap gap-1 mb-4 bg-white rounded-lg p-1.5 shadow">
           <button
@@ -6868,6 +6924,20 @@ const BangkokExplorer = () => {
           </button>
           <p className="text-sm font-bold text-gray-500">© 2026 Eitan Fisher</p>
           <p className="text-[10px] text-gray-400 mt-0.5">Bangkok Explorer v{window.BKK.VERSION}</p>
+          <div className="flex gap-2 mt-1 justify-center">
+            <button
+              onClick={() => checkForUpdates(false)}
+              className="text-[10px] bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 font-bold"
+            >
+              🔄 בדוק עדכונים
+            </button>
+            <button
+              onClick={applyUpdate}
+              className="text-[10px] bg-gray-100 text-gray-600 px-2 py-1 rounded hover:bg-gray-200 font-bold"
+            >
+              🔃 רענן אפליקציה
+            </button>
+          </div>
         </div>
 
       {/* Floating Feedback Button */}
