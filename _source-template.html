@@ -18,7 +18,7 @@
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="icon-32x32.png">
     <link rel="apple-touch-icon" sizes="180x180" href="icon-180x180.png">
-    <meta name="theme-color" content="#0d9488">
+    <meta name="theme-color" content="#e11d48">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="BKK Explorer">
@@ -52,6 +52,11 @@
       @keyframes fadeIn {
         from { opacity: 0; transform: translateY(6px); }
         to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes headerShimmer {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
       }
       .view-fade-in {
         animation: fadeIn 0.2s ease-out;

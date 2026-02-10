@@ -18,7 +18,7 @@
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="icon-32x32.png">
     <link rel="apple-touch-icon" sizes="180x180" href="icon-180x180.png">
-    <meta name="theme-color" content="#0d9488">
+    <meta name="theme-color" content="#e11d48">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="BKK Explorer">
@@ -52,6 +52,11 @@
       @keyframes fadeIn {
         from { opacity: 0; transform: translateY(6px); }
         to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes headerShimmer {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
       }
       .view-fade-in {
         animation: fadeIn 0.2s ease-out;
@@ -4419,10 +4424,10 @@ const BangkokExplorer = () => {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-slate-50" dir="rtl">
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-rose-50" dir="rtl">
       {/* Loading Overlay */}
       {!isDataLoaded && (
-        <div className="fixed inset-0 bg-gradient-to-br from-gray-50 to-slate-50 z-[100] flex flex-col items-center justify-center">
+        <div className="fixed inset-0 bg-gradient-to-br from-amber-50 to-rose-50 z-[100] flex flex-col items-center justify-center">
           <div className="text-center">
             <div className="text-5xl mb-4 animate-bounce">🗺️</div>
             <h2 className="text-xl font-bold text-gray-700 mb-2">Bangkok Explorer</h2>
@@ -4438,23 +4443,26 @@ const BangkokExplorer = () => {
       )}
 
       <div style={{
-        background: 'linear-gradient(135deg, #0d9488 0%, #0891b2 100%)',
+        background: 'linear-gradient(135deg, #e11d48 0%, #f59e0b 50%, #e11d48 100%)',
+        backgroundSize: '200% 200%',
+        animation: 'headerShimmer 6s ease infinite',
         padding: '8px 16px',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.08)'
+        boxShadow: '0 2px 8px rgba(225, 29, 72, 0.2)'
       }}>
-        <div className="flex items-center justify-center gap-2">
-          <span style={{ fontSize: '16px' }}>🌴</span>
+        <div className="flex items-center justify-center gap-1.5">
+          <span style={{ fontSize: '14px' }}>🛺</span>
           <h1 style={{ 
             fontSize: '16px', 
-            fontWeight: '700', 
+            fontWeight: '800', 
             color: 'white',
-            letterSpacing: '0.3px',
-            margin: 0
+            letterSpacing: '0.5px',
+            margin: 0,
+            textShadow: '0 1px 3px rgba(0,0,0,0.2)'
           }}>Bangkok Explorer</h1>
-          <span style={{ fontSize: '16px' }}>✈️</span>
+          <span style={{ fontSize: '14px' }}>🍜</span>
           <span style={{ 
             fontSize: '8px', 
-            color: 'rgba(255,255,255,0.4)',
+            color: 'rgba(255,255,255,0.5)',
             alignSelf: 'flex-end',
             marginBottom: '2px'
           }}>v{window.BKK.VERSION}</span>
@@ -4479,7 +4487,7 @@ const BangkokExplorer = () => {
           <button
             onClick={() => { setCurrentView('form'); window.scrollTo(0, 0); }}
             className={`flex-1 min-w-0 py-2 px-1 rounded-lg font-medium transition text-[10px] sm:text-xs leading-tight ${
-              currentView === 'form' || currentView === 'route' ? 'bg-cyan-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+              currentView === 'form' || currentView === 'route' ? 'bg-rose-500 text-white' : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
             <div className="truncate text-center">🗺️ מסלול</div>
