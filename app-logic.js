@@ -487,14 +487,23 @@
   useEffect(() => {
     if (isFirebaseAvailable && database) {
       const interestsRef = database.ref('customInterests');
+      const builtInIds = new Set([...window.BKK.interestOptions.map(i => i.id), ...window.BKK.uncoveredInterests.map(i => i.id)]);
       
       const unsubscribe = interestsRef.on('value', (snapshot) => {
         const data = snapshot.val();
         if (data) {
-          const interestsArray = Object.keys(data).map(key => ({
+          const allEntries = Object.keys(data).map(key => ({
             ...data[key],
             firebaseId: key
           }));
+          // Filter out built-in IDs that were accidentally saved as custom
+          const duplicates = allEntries.filter(i => builtInIds.has(i.id));
+          const interestsArray = allEntries.filter(i => !builtInIds.has(i.id));
+          // Auto-cleanup duplicates from Firebase
+          if (duplicates.length > 0) {
+            console.log('[CLEANUP] Removing', duplicates.length, 'built-in duplicates from customInterests');
+            duplicates.forEach(d => database.ref(`customInterests/${d.firebaseId}`).remove());
+          }
           setCustomInterests(interestsArray);
           console.log('[FIREBASE] Loaded', interestsArray.length, 'interests');
         } else {
@@ -683,10 +692,11 @@
           const intSnap = await database.ref('customInterests').once('value');
           const intData = intSnap.val();
           if (intData) {
+            const builtInIds = new Set([...window.BKK.interestOptions.map(i => i.id), ...window.BKK.uncoveredInterests.map(i => i.id)]);
             const interestsArray = Object.keys(intData).map(key => ({
               ...intData[key],
               firebaseId: key
-            }));
+            })).filter(i => !builtInIds.has(i.id));
             setCustomInterests(interestsArray);
             console.log('[REFRESH] Loaded', interestsArray.length, 'interests');
           } else {
