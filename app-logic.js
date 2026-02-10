@@ -100,7 +100,12 @@
     // Wait for DOM
     const timer = setTimeout(() => {
       const container = document.getElementById('leaflet-map-container');
-      if (!container || leafletMapRef.current) return;
+      if (!container) return;
+      // Clean previous map if exists
+      if (leafletMapRef.current) {
+        leafletMapRef.current.remove();
+        leafletMapRef.current = null;
+      }
       
       try {
         const coords = window.BKK.areaCoordinates || {};
@@ -134,11 +139,12 @@
               '<span style="color:#666;font-size:11px;">' + area.labelEn + '</span><br/>' +
               '<span style="color:#999;font-size:10px;">רדיוס: ' + c.radius + ' מ\'</span></div>'
             );
+            // Name label instead of icon
             L.marker([c.lat, c.lng], {
               icon: L.divIcon({
                 className: '',
-                html: '<div style="font-size:20px;text-align:center;line-height:1;">' + area.icon + '</div>',
-                iconSize: [30, 30], iconAnchor: [15, 15]
+                html: '<div style="font-size:10px;font-weight:bold;text-align:center;color:' + color + ';text-shadow:0 0 3px white,0 0 3px white,0 0 3px white;white-space:nowrap;line-height:1.1;">' + area.icon + '<br/>' + area.label + '</div>',
+                iconSize: [60, 30], iconAnchor: [30, 15]
               })
             }).addTo(map);
           });
@@ -155,30 +161,39 @@
             attribution: '© OSM', maxZoom: 18
           }).addTo(map);
           
-          // Center marker
-          L.marker([lat, lng]).addTo(map).bindPopup(
+          // Radius circle FIRST (so marker is on top)
+          const radiusCircle = L.circle([lat, lng], {
+            radius: formData.radiusMeters, color: '#e11d48', fillColor: '#e11d48',
+            fillOpacity: 0.12, weight: 3, dashArray: '8,6'
+          }).addTo(map);
+          
+          // Center marker (red, prominent)
+          L.circleMarker([lat, lng], {
+            radius: 8, color: '#e11d48', fillColor: '#e11d48',
+            fillOpacity: 1, weight: 2
+          }).addTo(map).bindPopup(
             '<div style="text-align:center;direction:rtl;">' +
             '<b>📍 ' + (formData.radiusPlaceName || 'מיקום נוכחי') + '</b><br/>' +
             '<span style="font-size:11px;color:#666;">רדיוס: ' + formData.radiusMeters + ' מ\'</span></div>'
           ).openPopup();
           
-          // Radius circle
-          L.circle([lat, lng], {
-            radius: formData.radiusMeters, color: '#e11d48', fillColor: '#e11d48',
-            fillOpacity: 0.1, weight: 2, dashArray: '6,4'
-          }).addTo(map);
+          // Fit to circle bounds
+          map.fitBounds(radiusCircle.getBounds().pad(0.15));
           
-          // Fit bounds to circle
-          const circle = L.circle([lat, lng], { radius: formData.radiusMeters });
-          map.fitBounds(circle.getBounds().pad(0.2));
-          
-          // Also show area circles faintly for context
+          // Show area circles faintly for context
           areas.forEach(area => {
             const c = coords[area.id];
             if (!c) return;
             L.circle([c.lat, c.lng], {
               radius: c.radius, color: '#94a3b8', fillColor: '#94a3b8',
               fillOpacity: 0.04, weight: 1
+            }).addTo(map);
+            L.marker([c.lat, c.lng], {
+              icon: L.divIcon({
+                className: '',
+                html: '<div style="font-size:8px;color:#94a3b8;text-align:center;white-space:nowrap;">' + area.label + '</div>',
+                iconSize: [50, 15], iconAnchor: [25, 7]
+              })
             }).addTo(map);
           });
           
@@ -187,10 +202,10 @@
       } catch(err) {
         console.error('[MAP]', err);
       }
-    }, 100);
+    }, 150);
     
     return () => clearTimeout(timer);
-  }, [showMapModal, mapMode]);
+  }, [showMapModal, mapMode, formData.currentLat, formData.currentLng, formData.radiusMeters]);
   const [modalImage, setModalImage] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');

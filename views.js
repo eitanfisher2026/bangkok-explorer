@@ -135,32 +135,37 @@
               
               {/* Right Column: Search Mode */}
               <div className="flex-shrink-0 flex flex-col" style={{ width: rightColWidth + 'px' }}>
-                {/* Mode Toggle */}
-                <div className="flex bg-gray-200 rounded-lg p-0.5 mb-2">
+                {/* Map button + Mode Toggle */}
+                <div className="flex items-center gap-1 mb-2">
                   <button
-                    onClick={() => setFormData({...formData, searchMode: 'area'})}
-                    className={`flex-1 py-1 rounded text-[9px] font-bold transition ${
-                      formData.searchMode === 'area' ? 'bg-white shadow text-blue-600' : 'text-gray-500'
-                    }`}
-                  >🗺️ איזור</button>
-                  <button
-                    onClick={() => setFormData({...formData, searchMode: 'radius'})}
-                    className={`flex-1 py-1 rounded text-[9px] font-bold transition ${
-                      formData.searchMode === 'radius' ? 'bg-white shadow text-blue-600' : 'text-gray-500'
-                    }`}
-                  >📍 רדיוס</button>
+                    onClick={() => { 
+                      setMapMode(formData.searchMode === 'radius' && formData.currentLat ? 'radius' : 'areas'); 
+                      setShowMapModal(true); 
+                    }}
+                    className="px-1.5 py-1 rounded-lg text-[10px] bg-emerald-100 text-emerald-700 hover:bg-emerald-200 font-bold flex-shrink-0"
+                    title="הצג מפה"
+                  >🗺️</button>
+                  <div className="flex bg-gray-200 rounded-lg p-0.5 flex-1">
+                    <button
+                      onClick={() => setFormData({...formData, searchMode: 'area'})}
+                      className={`flex-1 py-1 rounded text-[9px] font-bold transition ${
+                        formData.searchMode === 'area' ? 'bg-white shadow text-blue-600' : 'text-gray-500'
+                      }`}
+                    >🗺️ איזור</button>
+                    <button
+                      onClick={() => setFormData({...formData, searchMode: 'radius'})}
+                      className={`flex-1 py-1 rounded text-[9px] font-bold transition ${
+                        formData.searchMode === 'radius' ? 'bg-white shadow text-blue-600' : 'text-gray-500'
+                      }`}
+                    >📍 רדיוס</button>
+                  </div>
                 </div>
                 
                 {formData.searchMode === 'area' ? (
-                  /* Area Mode - same as before */
+                  /* Area Mode - GRID layout */
                   <div>
                     <div className="flex items-center justify-center gap-1 mb-1.5">
                       <label className="font-medium text-xs block text-center">🗺️ איזור</label>
-                      <button
-                        onClick={() => { setMapMode('areas'); setShowMapModal(true); }}
-                        className="px-1 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-600 hover:bg-emerald-200"
-                        title="הצג מפת אזורים"
-                      >🗺️</button>
                       <button
                         onClick={detectArea}
                         disabled={isLocating}
@@ -170,24 +175,27 @@
                         {isLocating ? '⏳' : '📍'}
                       </button>
                     </div>
-                    <div className="border border-gray-200 rounded-lg p-1.5">
-                      <div className="space-y-1.5">
+                    <div className="border border-gray-200 rounded-lg p-1">
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
                         {areaOptions.map(area => (
                           <button
                             key={area.id}
                             onClick={() => setFormData({...formData, area: area.id})}
                             style={{
-                              border: formData.area === area.id ? '3px solid #3b82f6' : '2px solid #d1d5db',
+                              border: formData.area === area.id ? '2px solid #3b82f6' : '1.5px solid #e5e7eb',
                               backgroundColor: formData.area === area.id ? '#dbeafe' : '#ffffff',
-                              boxShadow: formData.area === area.id ? '0 4px 6px -1px rgba(59, 130, 246, 0.3)' : 'none'
+                              padding: '4px 2px',
+                              borderRadius: '6px',
+                              textAlign: 'center',
+                              lineHeight: '1.1'
                             }}
-                            className="w-full p-1.5 rounded-lg text-xs"
                           >
-                            <div className="text-base mb-0.5">{area.icon}</div>
+                            <div style={{ fontSize: '14px' }}>{area.icon}</div>
                             <div style={{
-                              fontWeight: 'bold',
-                              fontSize: '10px',
-                              color: formData.area === area.id ? '#1e40af' : '#374151'
+                              fontWeight: '700',
+                              fontSize: '9px',
+                              color: formData.area === area.id ? '#1e40af' : '#374151',
+                              wordBreak: 'break-word'
                             }}>{area.label}</div>
                           </button>
                         ))}
@@ -200,13 +208,6 @@
                     {/* Radius slider */}
                     <div className="text-center">
                       <label className="font-medium text-[10px] block text-center mb-0.5">📍 רדיוס חיפוש</label>
-                      {formData.currentLat && (
-                        <button
-                          onClick={() => { setMapMode('radius'); setShowMapModal(true); }}
-                          className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-600 hover:bg-emerald-200 mb-0.5"
-                          title="הצג מפה עם רדיוס"
-                        >🗺️ הצג על מפה</button>
-                      )}
                       <div className="text-lg font-bold text-blue-600">{formData.radiusMeters}מ'</div>
                       <input
                         type="range"
