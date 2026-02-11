@@ -643,14 +643,14 @@
                                         );
                                         
                                         if (existingLoc) {
-                                          // Place was added - show edit button
+                                          // Place was added - show edit/view button
                                           return (
                                             <button
                                               onClick={() => handleEditLocation(existingLoc)}
                                               className="text-[9px] px-1 py-0.5 rounded bg-blue-500 text-white hover:bg-blue-600"
-                                              title="ערוך (נוסף לרשימה)"
+                                              title={existingLoc.locked && !isUnlocked ? "צפייה בלבד" : "ערוך (נוסף לרשימה)"}
                                             >
-                                              ✏️
+                                              {existingLoc.locked && !isUnlocked ? '👁️' : '✏️'}
                                             </button>
                                           );
                                         }
@@ -681,9 +681,9 @@
                                           }
                                         }}
                                         className="text-[9px] px-1 py-0.5 rounded bg-blue-500 text-white hover:bg-blue-600"
-                                        title="ערוך"
+                                        title={(() => { const cl = customLocations.find(loc => loc.name === stop.name); return cl?.locked && !isUnlocked ? "צפייה בלבד" : "ערוך"; })()}
                                       >
-                                        ✏️
+                                        {(() => { const cl = customLocations.find(loc => loc.name === stop.name); return cl?.locked && !isUnlocked ? '👁️' : '✏️'; })()}
                                       </button>
                                     )}
                                   </div>

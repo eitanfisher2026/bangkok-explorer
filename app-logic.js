@@ -575,28 +575,28 @@
   useEffect(() => {
     // Default configurations
     const defaultConfig = {
-      temples: { types: ['hindu_temple', 'buddhist_temple', 'church', 'mosque'], blacklist: [] },
-      food: { types: ['restaurant', 'meal_takeaway'], blacklist: ['bar', 'pub', 'club'] },
-      graffiti: { textSearch: 'street art', blacklist: [] },
-      artisans: { types: ['store', 'art_gallery'], blacklist: ['cannabis', 'weed', 'kratom', 'massage', 'spa'] },
-      galleries: { types: ['art_gallery', 'museum'], blacklist: ['cannabis', 'weed', 'kratom', 'massage', 'spa', 'cafe', 'coffee'] },
-      architecture: { types: ['historical_landmark'], blacklist: [] },
-      canals: { types: ['boat_tour_agency', 'marina'], blacklist: [] },
-      cafes: { types: ['cafe', 'coffee_shop'], blacklist: ['cannabis', 'weed', 'kratom'] },
-      markets: { types: ['market', 'shopping_mall'], blacklist: [] },
-      nightlife: { types: ['bar', 'night_club'], blacklist: [] },
-      parks: { types: ['park', 'national_park'], blacklist: [] },
-      rooftop: { types: ['bar', 'restaurant'], blacklist: [] },
-      entertainment: { types: ['movie_theater', 'amusement_park', 'performing_arts_theater'], blacklist: [] },
+      temples: { types: ['hindu_temple', 'buddhist_temple', 'church', 'mosque'], blacklist: ['hotel', 'restaurant', 'school'] },
+      food: { types: ['restaurant', 'meal_takeaway'], blacklist: ['bar', 'pub', 'club', 'hotel', 'hostel'] },
+      graffiti: { textSearch: 'street art', blacklist: ['tattoo', 'ink', 'piercing', 'salon'] },
+      artisans: { types: ['store', 'art_gallery'], blacklist: ['cannabis', 'weed', 'kratom', 'massage', 'spa', '7-eleven', 'convenience'] },
+      galleries: { types: ['art_gallery', 'museum'], blacklist: ['cannabis', 'weed', 'kratom', 'massage', 'spa', 'cafe', 'coffee', 'hotel'] },
+      architecture: { types: ['historical_landmark'], blacklist: ['hotel', 'restaurant', 'mall', 'parking'] },
+      canals: { types: ['boat_tour_agency', 'marina'], blacklist: ['hotel', 'restaurant', 'parking'] },
+      cafes: { types: ['cafe', 'coffee_shop'], blacklist: ['cannabis', 'weed', 'kratom', 'hookah', 'shisha'] },
+      markets: { types: ['market', 'shopping_mall'], blacklist: ['hotel', 'supermarket', '7-eleven', 'convenience', 'tesco', 'big c', 'makro'] },
+      nightlife: { types: ['bar', 'night_club'], blacklist: ['restaurant', 'hotel', 'hostel', 'cafe'] },
+      parks: { types: ['park', 'national_park'], blacklist: ['hotel', 'parking', 'car park', 'garage', 'water park'] },
+      rooftop: { types: ['bar', 'restaurant'], blacklist: ['parking', 'car park', 'garage'] },
+      entertainment: { types: ['movie_theater', 'amusement_park', 'performing_arts_theater'], blacklist: ['hotel', 'mall'] },
       // Uncovered interests (inactive by default)
-      massage_spa: { types: ['spa', 'massage'], blacklist: [] },
-      fitness: { types: ['gym', 'fitness_center', 'sports_club'], blacklist: [] },
-      shopping_special: { types: ['clothing_store', 'jewelry_store', 'shoe_store'], blacklist: [] },
-      learning: { types: ['school', 'university'], blacklist: [] },
-      health: { types: ['pharmacy', 'hospital', 'doctor'], blacklist: [] },
+      massage_spa: { types: ['spa', 'massage'], blacklist: ['cannabis', 'weed', 'kratom', 'hotel'] },
+      fitness: { types: ['gym', 'fitness_center', 'sports_club'], blacklist: ['hotel', 'hostel', 'physiotherapy'] },
+      shopping_special: { types: ['clothing_store', 'jewelry_store', 'shoe_store'], blacklist: ['market', 'wholesale', 'pawn'] },
+      learning: { types: ['school', 'university'], blacklist: ['kindergarten', 'nursery', 'daycare', 'driving school'] },
+      health: { types: ['pharmacy', 'hospital', 'doctor'], blacklist: ['veterinary', 'pet'] },
       accommodation: { types: ['hotel', 'lodging'], blacklist: [] },
       transport: { types: ['car_rental', 'transit_station'], blacklist: [] },
-      business: { types: ['coworking_space'], blacklist: [] },
+      business: { types: ['coworking_space'], blacklist: ['hotel', 'hostel'] },
     };
     
     if (isFirebaseAvailable && database) {
@@ -605,9 +605,21 @@
       configRef.once('value').then((snapshot) => {
         const data = snapshot.val();
         if (data) {
-          // Merge with defaults
-          setInterestConfig({ ...defaultConfig, ...data });
-          console.log('[FIREBASE] Loaded interest config');
+          // Deep merge: for each interest, use Firebase config but fall back to default blacklist if empty
+          const merged = { ...defaultConfig };
+          for (const [key, val] of Object.entries(data)) {
+            if (merged[key]) {
+              merged[key] = { ...merged[key], ...val };
+              // If Firebase has empty blacklist but default has values, keep default
+              if ((!val.blacklist || val.blacklist.length === 0) && defaultConfig[key]?.blacklist?.length > 0) {
+                merged[key].blacklist = defaultConfig[key].blacklist;
+              }
+            } else {
+              merged[key] = val;
+            }
+          }
+          setInterestConfig(merged);
+          console.log('[FIREBASE] Loaded interest config (deep merge)');
         } else {
           // Save defaults to Firebase
           configRef.set(defaultConfig);
@@ -621,7 +633,18 @@
       configRef.on('value', (snapshot) => {
         const data = snapshot.val();
         if (data) {
-          setInterestConfig({ ...defaultConfig, ...data });
+          const merged = { ...defaultConfig };
+          for (const [key, val] of Object.entries(data)) {
+            if (merged[key]) {
+              merged[key] = { ...merged[key], ...val };
+              if ((!val.blacklist || val.blacklist.length === 0) && defaultConfig[key]?.blacklist?.length > 0) {
+                merged[key].blacklist = defaultConfig[key].blacklist;
+              }
+            } else {
+              merged[key] = val;
+            }
+          }
+          setInterestConfig(merged);
         }
       });
     } else {
