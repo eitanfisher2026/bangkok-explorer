@@ -6027,13 +6027,11 @@ const BangkokExplorer = () => {
                           <input
                             type="text"
                             value={formData.startPoint}
-                            onChange={(e) => {
-                              setFormData({...formData, startPoint: e.target.value});
-                              setStartPointCoords(null);
-                            }}
-                            placeholder="כתובת, שם מלון, תחנת רכבת..."
-                            className="w-full p-1.5 border border-gray-300 rounded-lg text-xs"
-                            style={{ direction: 'rtl', paddingLeft: '8px', paddingRight: '8px' }}
+                            readOnly
+                            onClick={() => setShowAddressDialog(true)}
+                            placeholder="לחץ 🔍 לחיפוש או 📌 מהרשימה"
+                            className="w-full p-1.5 border border-gray-300 rounded-lg text-xs cursor-pointer hover:border-blue-400"
+                            style={{ direction: 'rtl', paddingLeft: '8px', paddingRight: '8px', backgroundColor: startPointCoords ? '#f0fdf4' : '#fff' }}
                           />
                         </div>
                         {(formData.startPoint?.trim() || startPointCoords) && (
