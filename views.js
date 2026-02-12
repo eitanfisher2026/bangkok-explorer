@@ -574,7 +574,7 @@
                           <div className="space-y-1.5">
                             {stops.map((stop) => {
                               const hasValidCoords = stop.lat && stop.lng && stop.lat !== 0 && stop.lng !== 0;
-                              const stopId = stop.id || stop.originalIndex;
+                              const stopId = (stop.name || '').toLowerCase().trim();
                               const isDisabled = disabledStops.includes(stopId);
                               const isCustom = stop.custom;
                               const isAddedLater = stop.addedLater;
@@ -586,7 +586,8 @@
                                   borderWidth: isStartPoint ? '2px' : isAddedLater ? '2px' : '1px',
                                   borderStyle: isAddedLater ? 'dashed' : 'solid',
                                   backgroundColor: isStartPoint ? '#f0fdf4' : !hasValidCoords ? '#fef2f2' : isAddedLater ? '#eff6ff' : isDisabled ? '#f3f4f6' : '#fafafa',
-                                  opacity: isDisabled ? 0.6 : 1
+                                  opacity: isDisabled ? 0.45 : 1,
+                                  filter: isDisabled ? 'grayscale(0.6)' : 'none'
                                 }}>
                                   {/* Action buttons - absolute left */}
                                   <div className="absolute top-0.5 left-0.5 flex gap-0.5">
@@ -594,7 +595,7 @@
                                     {hasValidCoords && !isDisabled && (
                                       <button
                                         onClick={() => {
-                                          const displayText = stop.description || stop.name || `${stop.lat.toFixed(5)}, ${stop.lng.toFixed(5)}`;
+                                          const displayText = stop.name || stop.description || `${stop.lat.toFixed(5)}, ${stop.lng.toFixed(5)}`;
                                           setStartPointCoords({ lat: stop.lat, lng: stop.lng, address: stop.name });
                                           setFormData(prev => ({...prev, startPoint: displayText}));
                                           if (route?.optimized) {
@@ -612,14 +613,16 @@
                                         📌
                                       </button>
                                     )}
-                                    {/* Temporary skip button - toggles between active/paused */}
+                                    {/* Pause/Resume button */}
+                                    {!(hasValidCoords && startPointCoords?.lat === stop.lat && startPointCoords?.lng === stop.lng) && (
                                     <button
                                       onClick={() => toggleStopActive(stop.originalIndex)}
-                                      className={`text-[9px] px-1 py-0.5 rounded ${isDisabled ? 'bg-yellow-500 text-white' : 'bg-gray-400 text-white'}`}
-                                      title={isDisabled ? 'החזר למסלול' : 'דלג זמנית'}
+                                      className={`text-[9px] px-1 py-0.5 rounded ${isDisabled ? 'bg-green-500 text-white' : 'bg-gray-400 text-white'}`}
+                                      title={isDisabled ? 'החזר למסלול' : 'השהה'}
                                     >
-                                      {isDisabled ? '⏸️' : '✕'}
+                                      {isDisabled ? '▶️' : '⏸️'}
                                     </button>
+                                    )}
                                     {/* Remove button for manually added stops */}
                                     {stop.manuallyAdded && (
                                       <button
@@ -787,7 +790,7 @@
                     onClick={() => setShowManualAddDialog(true)}
                     style={{
                       width: '100%',
-                      background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)',
+                      background: 'linear-gradient(135deg, #14b8a6, #0d9488)',
                       color: 'white',
                       display: 'block',
                       textAlign: 'center',
@@ -796,7 +799,7 @@
                       fontWeight: 'bold',
                       fontSize: '13px',
                       border: 'none',
-                      boxShadow: '0 4px 6px -1px rgba(109, 40, 217, 0.3)',
+                      boxShadow: '0 4px 6px -1px rgba(20, 184, 166, 0.3)',
                       marginBottom: '4px',
                       cursor: 'pointer'
                     }}
@@ -808,7 +811,7 @@
                     href={(() => {
                       // Filter active stops with valid coordinates
                       const activeStops = route.stops.filter((s, i) => {
-                        const isActive = !disabledStops.includes(s.id || i);
+                        const isActive = !disabledStops.includes((s.name || '').toLowerCase().trim());
                         const hasValidCoords = s.lat && s.lng && s.lat !== 0 && s.lng !== 0;
                         return isActive && hasValidCoords;
                       });
@@ -831,7 +834,7 @@
                     rel="noopener noreferrer"
                     onClick={(e) => {
                       const activeStops = route.stops.filter((s, i) => {
-                        const isActive = !disabledStops.includes(s.id || i);
+                        const isActive = !disabledStops.includes((s.name || '').toLowerCase().trim());
                         const hasValidCoords = s.lat && s.lng && s.lat !== 0 && s.lng !== 0;
                         return isActive && hasValidCoords;
                       });
@@ -1010,7 +1013,7 @@
                           }
                           // Build Google Maps URL based on routeType
                           const activeStops = route.stops.filter((stop, i) => {
-                            const isActive = !disabledStops.includes(stop.id || i);
+                            const isActive = !disabledStops.includes((stop.name || '').toLowerCase().trim());
                             const hasValidCoords = stop.lat && stop.lng && stop.lat !== 0 && stop.lng !== 0;
                             return isActive && hasValidCoords;
                           });
@@ -1252,7 +1255,7 @@
                 </button>
               </div>
               {route.stops.map((stop, i) => {
-                const stopId = stop.id || i;
+                const stopId = (stop.name || '').toLowerCase().trim();
                 const isDisabled = disabledStops.includes(stopId);
                 const isCustom = stop.custom;
                 const hasValidCoords = stop.lat && stop.lng && stop.lat !== 0 && stop.lng !== 0;
@@ -1456,7 +1459,7 @@
                 href={(() => {
                   // Filter active stops with valid coordinates
                   const activeStops = route.stops.filter((s, i) => {
-                    const isActive = !disabledStops.includes(s.id || i);
+                    const isActive = !disabledStops.includes((s.name || '').toLowerCase().trim());
                     const hasValidCoords = s.lat && s.lng && s.lat !== 0 && s.lng !== 0;
                     return isActive && hasValidCoords;
                   });
@@ -1479,7 +1482,7 @@
                 rel="noopener noreferrer"
                 onClick={(e) => {
                   const activeStops = route.stops.filter((s, i) => {
-                    const isActive = !disabledStops.includes(s.id || i);
+                    const isActive = !disabledStops.includes((s.name || '').toLowerCase().trim());
                     const hasValidCoords = s.lat && s.lng && s.lat !== 0 && s.lng !== 0;
                     return isActive && hasValidCoords;
                   });
@@ -1553,7 +1556,7 @@
                   href={(() => {
                     // Build Google Maps URL based on routeType
                     const activeStops = route.stops.filter((stop, i) => {
-                      const isActive = !disabledStops.includes(stop.id || i);
+                      const isActive = !disabledStops.includes((stop.name || '').toLowerCase().trim());
                       const hasValidCoords = stop.lat && stop.lng && stop.lat !== 0 && stop.lng !== 0;
                       return isActive && hasValidCoords;
                     });

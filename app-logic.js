@@ -2400,6 +2400,17 @@
       });
 
       setRoute(newRoute);
+      
+      // Clean up disabled stops: keep only those that still exist in the new route
+      if (disabledStops.length > 0) {
+        const newStopNames = new Set(newRoute.stops.map(s => (s.name || '').toLowerCase().trim()));
+        const stillRelevant = disabledStops.filter(name => newStopNames.has(name));
+        if (stillRelevant.length !== disabledStops.length) {
+          console.log('[ROUTE] Cleaned disabled stops:', disabledStops.length, '->', stillRelevant.length);
+          setDisabledStops(stillRelevant);
+        }
+      }
+      
       console.log('[ROUTE] Route set, staying in form view');
       console.log('[ROUTE] Route object:', newRoute);
       
@@ -2428,13 +2439,11 @@
     const isCircular = routeType === 'circular';
     
     // Filter out disabled stops for optimization, keep them at end
-    const activeStops = route.stops.filter((stop, i) => {
-      const stopId = stop.id || i;
-      return !disabledStops.includes(stopId);
+    const activeStops = route.stops.filter(stop => {
+      return !disabledStops.includes((stop.name || '').toLowerCase().trim());
     });
-    const inactiveStops = route.stops.filter((stop, i) => {
-      const stopId = stop.id || i;
-      return disabledStops.includes(stopId);
+    const inactiveStops = route.stops.filter(stop => {
+      return disabledStops.includes((stop.name || '').toLowerCase().trim());
     });
     
     console.log(`[COMPUTE] Optimizing ${activeStops.length} active stops (${isCircular ? 'circular' : 'linear'})`);
@@ -2451,9 +2460,6 @@
       startPoint: startPointCoords.address || formData.startPoint || '',
       startPointCoords: startPointCoords
     });
-    
-    // Clear disabled stops indices since order changed
-    setDisabledStops([]);
     
     showToast(`מסלול ${isCircular ? 'מעגלי' : 'לינארי'} חושב! ${optimized.length} עצירות`, 'success');
     
@@ -4096,16 +4102,17 @@
   };
 
   const toggleStopActive = (stopIndex) => {
-    const stopId = route.stops[stopIndex].id || stopIndex;
-    const newDisabledStops = disabledStops.includes(stopId)
-      ? disabledStops.filter(id => id !== stopId)
-      : [...disabledStops, stopId];
+    const stopName = route.stops[stopIndex]?.name?.toLowerCase().trim();
+    if (!stopName) return;
+    const newDisabledStops = disabledStops.includes(stopName)
+      ? disabledStops.filter(n => n !== stopName)
+      : [...disabledStops, stopName];
     
     setDisabledStops(newDisabledStops);
     
     // Regenerate map URL with only active stops
-    const activeStops = route.stops.filter((_, i) => 
-      !newDisabledStops.includes(route.stops[i].id || i)
+    const activeStops = route.stops.filter(s => 
+      !newDisabledStops.includes(s.name?.toLowerCase().trim())
     );
     
     let waypoints = activeStops.map(s => `${s.lat},${s.lng}`);
