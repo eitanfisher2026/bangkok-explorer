@@ -544,7 +544,8 @@
                     });
                     
                     return Object.entries(groupedStops).map(([interest, stops]) => {
-                      const interestObj = interestMap[interest];
+                      const isManualGroup = interest === '_manual';
+                      const interestObj = isManualGroup ? { id: '_manual', label: 'נוספו ידנית', icon: '📍' } : interestMap[interest];
                       if (!interestObj) return null;
                       
                       return (
@@ -555,6 +556,7 @@
                               <span style={{ fontSize: '14px' }}>{interestObj.icon?.startsWith?.('data:') ? <img src={interestObj.icon} alt="" style={{ width: '16px', height: '16px', objectFit: 'contain', display: 'inline' }} /> : interestObj.icon}</span>
                               <span>{interestObj.label} ({stops.length})</span>
                             </div>
+                            {!isManualGroup && (
                             <button
                               onClick={async () => {
                                 // Fetch more for this specific interest
@@ -565,6 +567,7 @@
                             >
                               + עוד
                             </button>
+                            )}
                           </div>
                           
                           {/* Stops in this interest */}
@@ -617,6 +620,23 @@
                                     >
                                       {isDisabled ? '⏸️' : '✕'}
                                     </button>
+                                    {/* Remove button for manually added stops */}
+                                    {stop.manuallyAdded && (
+                                      <button
+                                        onClick={() => {
+                                          setManualStops(prev => prev.filter(ms => ms.name !== stop.name));
+                                          setRoute(prev => prev ? {
+                                            ...prev,
+                                            stops: prev.stops.filter((_, idx) => idx !== stop.originalIndex)
+                                          } : prev);
+                                          showToast(`🗑️ ${stop.name} הוסר מהמסלול`, 'info');
+                                        }}
+                                        className="text-[9px] px-1 py-0.5 rounded bg-red-500 text-white hover:bg-red-600"
+                                        title="הסר מהמסלול"
+                                      >
+                                        🗑️
+                                      </button>
+                                    )}
                                     
                                     {!isCustom && (
                                       (() => {
@@ -762,6 +782,28 @@
                 </div>
                 
                 <div className="mt-3 space-y-2">
+                  {/* Add manual stop button */}
+                  <button
+                    onClick={() => setShowManualAddDialog(true)}
+                    style={{
+                      width: '100%',
+                      background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)',
+                      color: 'white',
+                      display: 'block',
+                      textAlign: 'center',
+                      padding: '8px',
+                      borderRadius: '12px',
+                      fontWeight: 'bold',
+                      fontSize: '13px',
+                      border: 'none',
+                      boxShadow: '0 4px 6px -1px rgba(109, 40, 217, 0.3)',
+                      marginBottom: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ➕ הוסף ידנית נקודה למסלול
+                  </button>
+                  
                   <a
                     href={(() => {
                       // Filter active stops with valid coordinates

@@ -41,6 +41,8 @@
   const [route, setRoute] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [disabledStops, setDisabledStops] = useState([]); // Track disabled stop IDs
+  const [manualStops, setManualStops] = useState([]); // Manually added stops (session only)
+  const [showManualAddDialog, setShowManualAddDialog] = useState(false);
   const [routeType, setRouteType] = useState(() => {
     // Load from localStorage or default to 'circular'
     const saved = localStorage.getItem('bangkok_route_type');
@@ -1522,7 +1524,9 @@
       });
       
       // Filter 4: Distance check - remove places too far from search center
-      const maxDistance = searchRadius * 2.5; // Allow 2.5x the area radius
+      // For radius mode: searchRadius is user-chosen, allow 2x as buffer
+      // For area mode: searchRadius is area radius, allow 2x as buffer
+      const maxDistance = searchRadius * 2;
       const distanceFiltered = transformed.filter(place => {
         const dist = calcDistance(center.lat, center.lng, place.lat, place.lng);
         if (dist > maxDistance) {
@@ -2376,6 +2380,17 @@
         errors: fetchErrors.length > 0 ? fetchErrors : null,
         optimized: false
       };
+
+      // Include manually added stops (if any)
+      if (manualStops.length > 0) {
+        const existingNames = new Set(uniqueStops.map(s => s.name.toLowerCase().trim()));
+        const nonDuplicateManual = manualStops.filter(ms => !existingNames.has(ms.name.toLowerCase().trim()));
+        if (nonDuplicateManual.length > 0) {
+          newRoute.stops = [...newRoute.stops, ...nonDuplicateManual];
+          newRoute.stats.manual = nonDuplicateManual.length;
+          newRoute.stats.total = newRoute.stops.length;
+        }
+      }
 
       console.log('[ROUTE] Route created successfully:', {
         stops: newRoute.stops.length,

@@ -1351,6 +1351,127 @@
         </div>
       )}
 
+      {/* Manual Add Stop Dialog */}
+      {showManualAddDialog && (() => {
+        const searchManualPlace = async () => {
+          const input = document.getElementById('manual-stop-input');
+          const resultsDiv = document.getElementById('manual-stop-results');
+          const q = input?.value?.trim();
+          if (!q || !resultsDiv) return;
+          
+          resultsDiv.innerHTML = '<p style="text-align:center;color:#9ca3af;font-size:12px;padding:8px">⏳ מחפש...</p>';
+          
+          try {
+            const result = await window.BKK.geocodeAddress(q);
+            if (result) {
+              const display = result.displayName || result.address || q;
+              resultsDiv.innerHTML = '';
+              const btn = document.createElement('button');
+              btn.className = 'w-full p-3 text-right bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition';
+              btn.style.direction = 'rtl';
+              btn.innerHTML = `<div style="font-weight:bold;font-size:14px;color:#6d28d9">📍 ${display}</div><div style="font-size:10px;color:#6b7280;margin-top:2px">${result.lat.toFixed(5)}, ${result.lng.toFixed(5)}</div>`;
+              btn.onclick = () => {
+                const newStop = {
+                  name: display,
+                  lat: result.lat,
+                  lng: result.lng,
+                  description: `⭐ N/A`,
+                  address: result.address || display,
+                  duration: 45,
+                  interests: ['_manual'],
+                  manuallyAdded: true,
+                  googlePlace: false,
+                  rating: 0,
+                  ratingCount: 0
+                };
+                
+                // Check duplicates against current route
+                const isDup = route?.stops?.some(s => s.name.toLowerCase().trim() === newStop.name.toLowerCase().trim());
+                if (isDup) {
+                  showToast(`"${display}" כבר קיים במסלול`, 'warning');
+                  return;
+                }
+                
+                // Add to manualStops (session state)
+                setManualStops(prev => [...prev, newStop]);
+                
+                // Add to current route if exists
+                if (route) {
+                  setRoute(prev => prev ? {
+                    ...prev,
+                    stops: [...prev.stops, newStop]
+                  } : prev);
+                }
+                
+                showToast(`➕ ${display} נוסף למסלול`, 'success');
+                
+                // Clear input for next add
+                const inp = document.getElementById('manual-stop-input');
+                if (inp) inp.value = '';
+                resultsDiv.innerHTML = '<p style="text-align:center;color:#16a34a;font-size:12px;padding:8px">✅ נוסף! ניתן להוסיף מקום נוסף או לסגור</p>';
+              };
+              resultsDiv.appendChild(btn);
+            } else {
+              resultsDiv.innerHTML = '<p style="text-align:center;color:#ef4444;font-size:12px;padding:8px">❌ לא נמצאו תוצאות</p>';
+            }
+          } catch (err) {
+            console.error('[MANUAL_ADD] Search error:', err);
+            resultsDiv.innerHTML = '<p style="text-align:center;color:#ef4444;font-size:12px;padding:8px">❌ שגיאה בחיפוש</p>';
+          }
+        };
+        
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-3">
+            <div className="bg-white rounded-xl w-full max-w-md shadow-2xl" style={{ direction: 'rtl' }}>
+              {/* Header */}
+              <div className="bg-gradient-to-r from-purple-500 to-violet-600 text-white px-4 py-2.5 rounded-t-xl flex items-center justify-between">
+                <h3 className="text-sm font-bold">➕ הוסף ידנית נקודה למסלול</h3>
+                <button
+                  onClick={() => setShowManualAddDialog(false)}
+                  className="text-xl hover:bg-white hover:bg-opacity-20 rounded-full w-7 h-7 flex items-center justify-center"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              {/* Search input */}
+              <div className="p-4 space-y-3">
+                <div className="flex gap-2">
+                  <input
+                    id="manual-stop-input"
+                    type="text"
+                    onKeyDown={(e) => { if (e.key === 'Enter') searchManualPlace(); }}
+                    placeholder="הקלד כתובת, שם מקום, מלון..."
+                    className="flex-1 p-2.5 border border-gray-300 rounded-lg text-sm"
+                    style={{ direction: 'rtl' }}
+                    autoFocus
+                  />
+                  <button
+                    onClick={searchManualPlace}
+                    className="px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap bg-purple-500 text-white hover:bg-purple-600"
+                  >
+                    🔍 חפש
+                  </button>
+                </div>
+                
+                <p className="text-[11px] text-gray-500">
+                  💡 חפש מקום והקש עליו כדי להוסיף למסלול. ניתן להוסיף כמה מקומות שרוצים.
+                </p>
+                
+                {manualStops.length > 0 && (
+                  <div className="text-[11px] text-purple-600 font-bold">
+                    📍 {manualStops.length} מקומות נוספו ידנית בסשן זה
+                  </div>
+                )}
+                
+                {/* Results container */}
+                <div id="manual-stop-results" className="space-y-2 max-h-60 overflow-y-auto"></div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Address Search Dialog */}
       {showAddressDialog && (() => {
         const searchAddress = async () => {
