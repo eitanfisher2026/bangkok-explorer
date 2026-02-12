@@ -5,7 +5,7 @@
       if (saved) {
         const prefs = JSON.parse(saved);
         // Add maxStops if not present (for backward compatibility)
-        if (!prefs.maxStops) prefs.maxStops = 10;
+        if (!prefs.maxStops) prefs.maxStops = 15;
         // Add fetchMoreCount if not present
         if (!prefs.fetchMoreCount) prefs.fetchMoreCount = 3;
         // Add radius search fields if not present
@@ -22,7 +22,7 @@
       interests: [],
       circular: true,
       startPoint: '',
-      maxStops: 10,
+      maxStops: 15,
       fetchMoreCount: 3,
       searchMode: 'area',
       radiusMeters: 500,
@@ -2091,7 +2091,7 @@
       
       // Calculate stops needed per interest
       const numInterests = formData.interests.length || 1;
-      const maxStops = formData.maxStops || 10;
+      const maxStops = formData.maxStops || 15;
       const stopsPerInterest = Math.ceil(maxStops / numInterests);
       
       // Track results per interest for smart completion

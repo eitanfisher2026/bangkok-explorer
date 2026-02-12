@@ -967,7 +967,7 @@ const BangkokExplorer = () => {
       if (saved) {
         const prefs = JSON.parse(saved);
         // Add maxStops if not present (for backward compatibility)
-        if (!prefs.maxStops) prefs.maxStops = 10;
+        if (!prefs.maxStops) prefs.maxStops = 15;
         // Add fetchMoreCount if not present
         if (!prefs.fetchMoreCount) prefs.fetchMoreCount = 3;
         // Add radius search fields if not present
@@ -984,7 +984,7 @@ const BangkokExplorer = () => {
       interests: [],
       circular: true,
       startPoint: '',
-      maxStops: 10,
+      maxStops: 15,
       fetchMoreCount: 3,
       searchMode: 'area',
       radiusMeters: 500,
@@ -3053,7 +3053,7 @@ const BangkokExplorer = () => {
       
       // Calculate stops needed per interest
       const numInterests = formData.interests.length || 1;
-      const maxStops = formData.maxStops || 10;
+      const maxStops = formData.maxStops || 15;
       const stopsPerInterest = Math.ceil(maxStops / numInterests);
       
       // Track results per interest for smart completion
@@ -7868,10 +7868,10 @@ const BangkokExplorer = () => {
                               setNewLocation({...newLocation, areas: detected, area: detected[0]});
                               showToast(`זוהו ${detected.length} אזורים`, 'success');
                             } else {
-                              alert('המיקום לא נמצא בתוך אף אזור מוגדר');
+                              showToast('המיקום לא נמצא בתוך אף אזור מוגדר', 'warning');
                             }
                           } else {
-                            alert('צריך קואורדינטות כדי לזהות אזורים');
+                            showToast('צריך קואורדינטות כדי לזהות אזורים', 'warning');
                           }
                         }}
                         className="text-[9px] px-2 py-0.5 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 font-bold"

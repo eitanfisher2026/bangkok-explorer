@@ -80,10 +80,10 @@
                               setNewLocation({...newLocation, areas: detected, area: detected[0]});
                               showToast(`זוהו ${detected.length} אזורים`, 'success');
                             } else {
-                              alert('המיקום לא נמצא בתוך אף אזור מוגדר');
+                              showToast('המיקום לא נמצא בתוך אף אזור מוגדר', 'warning');
                             }
                           } else {
-                            alert('צריך קואורדינטות כדי לזהות אזורים');
+                            showToast('צריך קואורדינטות כדי לזהות אזורים', 'warning');
                           }
                         }}
                         className="text-[9px] px-2 py-0.5 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 font-bold"
