@@ -2476,11 +2476,15 @@
       startPointCoords: startPointCoords
     });
     
-    showToast(`מסלול ${isCircular ? 'מעגלי' : 'לינארי'} חושב! ${optimized.length} עצירות`, 'success');
+    showToast(`מסלול חושב! ${optimized.length} עצירות`, 'success');
     
     setTimeout(() => {
-      document.getElementById('route-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 100);
+      // Scroll to bottom of results to show the Google Maps button
+      const el = document.getElementById('open-google-maps-btn');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 200);
   };
 
   // Fetch more places for a specific interest

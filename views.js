@@ -760,12 +760,7 @@
                     ❓
                   </button>
                 </div>
-                {/* Icon legend - especially useful in wizard mode */}
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', padding: '4px 8px', background: '#f0f9ff', borderRadius: '6px', marginBottom: '6px', fontSize: '10px', color: '#4b5563', direction: 'rtl', justifyContent: 'flex-start' }}>
-                  <span>⏸️ = דלג על מקום</span>
-                  <span>▶️ = החזר מקום</span>
-                  <span>📌 = קבע כנקודת התחלה</span>
-                </div>
+                {/* Help link instead of inline legend */}
                 <div className="max-h-96 overflow-y-auto" style={{ contain: 'content' }}>
                   {(() => {
                     // Group stops by interest
@@ -1230,7 +1225,7 @@
                     )}
                     {route?.optimized && (
                       <p style={{ fontSize: '10px', color: '#16a34a', textAlign: 'center', marginBottom: '2px', fontWeight: 'bold' }}>
-                        ✅ המסלול מחושב — {routeType === 'circular' ? 'מעגלי' : 'לינארי'}
+                        ✅ המסלול מחושב! פתח בגוגל מפות ⬇️
                       </p>
                     )}
                     
@@ -1238,6 +1233,7 @@
                     <div style={{ display: 'flex', gap: '6px', marginBottom: '4px', marginTop: '4px' }}>
                       {/* Open in Google Maps Button */}
                       <button
+                        id="open-google-maps-btn"
                         disabled={!route?.optimized}
                         onClick={() => {
                           if (!route?.optimized) {

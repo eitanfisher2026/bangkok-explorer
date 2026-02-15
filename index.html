@@ -316,8 +316,10 @@ window.BKK.helpContent = {
 קודם מופיעים מקומות שהוספת בעצמך, ואחר כך מקומות מגוגל לפי דירוג.
 
 **כפתורים ליד כל מקום:**
-• ⏸️ — השהה (לא ייכלל במסלול). לחץ ▶️ כדי להחזיר
-• 📌 — קבע כנקודת התחלה
+• ⏸️ — דלג על מקום (לא ייכלל במסלול). לחץ ▶️ כדי להחזיר
+• 📌 — קבע מקום כנקודת התחלה
+
+**במצב מתקדם גם:**
 • + — הוסף למקומות שלי
 • ✏️ — ערוך פרטים
 • 🗑️ — הסר (רק מקומות שנוספו ידנית)
@@ -3436,11 +3438,15 @@ const BangkokExplorer = () => {
       startPointCoords: startPointCoords
     });
     
-    showToast(`מסלול ${isCircular ? 'מעגלי' : 'לינארי'} חושב! ${optimized.length} עצירות`, 'success');
+    showToast(`מסלול חושב! ${optimized.length} עצירות`, 'success');
     
     setTimeout(() => {
-      document.getElementById('route-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 100);
+      // Scroll to bottom of results to show the Google Maps button
+      const el = document.getElementById('open-google-maps-btn');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 200);
   };
 
   // Fetch more places for a specific interest
@@ -5911,12 +5917,7 @@ const BangkokExplorer = () => {
                     ❓
                   </button>
                 </div>
-                {/* Icon legend - especially useful in wizard mode */}
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', padding: '4px 8px', background: '#f0f9ff', borderRadius: '6px', marginBottom: '6px', fontSize: '10px', color: '#4b5563', direction: 'rtl', justifyContent: 'flex-start' }}>
-                  <span>⏸️ = דלג על מקום</span>
-                  <span>▶️ = החזר מקום</span>
-                  <span>📌 = קבע כנקודת התחלה</span>
-                </div>
+                {/* Help link instead of inline legend */}
                 <div className="max-h-96 overflow-y-auto" style={{ contain: 'content' }}>
                   {(() => {
                     // Group stops by interest
@@ -6381,7 +6382,7 @@ const BangkokExplorer = () => {
                     )}
                     {route?.optimized && (
                       <p style={{ fontSize: '10px', color: '#16a34a', textAlign: 'center', marginBottom: '2px', fontWeight: 'bold' }}>
-                        ✅ המסלול מחושב — {routeType === 'circular' ? 'מעגלי' : 'לינארי'}
+                        ✅ המסלול מחושב! פתח בגוגל מפות ⬇️
                       </p>
                     )}
                     
@@ -6389,6 +6390,7 @@ const BangkokExplorer = () => {
                     <div style={{ display: 'flex', gap: '6px', marginBottom: '4px', marginTop: '4px' }}>
                       {/* Open in Google Maps Button */}
                       <button
+                        id="open-google-maps-btn"
                         disabled={!route?.optimized}
                         onClick={() => {
                           if (!route?.optimized) {
