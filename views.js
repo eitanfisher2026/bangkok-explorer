@@ -2833,16 +2833,10 @@
           <p className="text-[10px] text-gray-400 mt-0.5">Bangkok Explorer v{window.BKK.VERSION}</p>
           <div className="flex gap-2 mt-1 justify-center">
             <button
-              onClick={() => checkForUpdates(false)}
-              className="text-[10px] bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 font-bold"
-            >
-              🔄 בדוק עדכונים
-            </button>
-            <button
               onClick={applyUpdate}
-              className="text-[10px] bg-gray-100 text-gray-600 px-2 py-1 rounded hover:bg-gray-200 font-bold"
+              className="text-[10px] bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200 font-bold"
             >
-              🔃 רענן אפליקציה
+              🔄 רענן ובדוק עדכונים
             </button>
           </div>
         </div>

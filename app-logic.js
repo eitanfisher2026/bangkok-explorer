@@ -268,6 +268,7 @@
     const t = dataLoadTracker.current;
     if (t.locations && t.interests && t.config && t.status && t.routes) {
       setIsDataLoaded(true);
+      window.scrollTo(0, 0);
     }
   };
   
@@ -277,6 +278,7 @@
       if (!isDataLoaded) {
         console.warn('[LOAD] Safety timeout - forcing data loaded after 5s');
         setIsDataLoaded(true);
+        window.scrollTo(0, 0);
       }
     }, 5000);
     return () => clearTimeout(timer);
