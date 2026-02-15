@@ -744,6 +744,12 @@
                     ❓
                   </button>
                 </div>
+                {/* Icon legend - especially useful in wizard mode */}
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', padding: '4px 8px', background: '#f0f9ff', borderRadius: '6px', marginBottom: '6px', fontSize: '10px', color: '#4b5563', direction: 'rtl', justifyContent: 'center' }}>
+                  <span>⏸️ = השהה מקום</span>
+                  <span>▶️ = החזר מקום</span>
+                  <span>📌 = נקודת התחלה</span>
+                </div>
                 <div className="max-h-96 overflow-y-auto" style={{ contain: 'content' }}>
                   {(() => {
                     // Group stops by interest
@@ -901,7 +907,7 @@
                                       })()
                                     )}
                                     
-                                    {isCustom && (
+                                    {isCustom && !wizardMode && (
                                       <button
                                         onClick={() => {
                                           const customLoc = customLocations.find(loc => loc.name === stop.name);
@@ -963,14 +969,14 @@
                                           🔺
                                         </span>
                                       )}
-                                      {isCustom && (
+                                      {isCustom && !wizardMode && (
                                         <span title="מקום שלי" style={{ fontSize: '11px' }}>🎖️</span>
                                       )}
-                                      {isAddedLater && (
+                                      {isAddedLater && !wizardMode && (
                                         <span className="text-blue-500 font-bold" title="נוסף ב+עוד" style={{ fontSize: '9px' }}>+עוד</span>
                                       )}
                                       {/* Camera icon for custom locations with image */}
-                                      {isCustom && stop.uploadedImage && (
+                                      {isCustom && stop.uploadedImage && !wizardMode && (
                                         <button
                                           onClick={(e) => {
                                             e.preventDefault();
@@ -2867,20 +2873,20 @@
                   {mapMode === 'areas' ? '🗺️ מפת כל האזורים' : '📍 רדיוס חיפוש'}
                 </h3>
               </div>
-              <div className="flex bg-gray-100 rounded p-0.5">
+              <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
                 <button
                   onClick={() => setMapMode('areas')}
-                  className={`px-2 py-0.5 rounded text-[9px] font-bold transition ${
-                    mapMode === 'areas' ? 'bg-white shadow text-blue-600' : 'text-gray-400'
+                  className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                    mapMode === 'areas' ? 'bg-blue-500 text-white shadow' : 'text-gray-500 hover:bg-gray-200'
                   }`}
-                >אזורים</button>
+                >🗺️ אזורים</button>
                 <button
                   onClick={() => setMapMode('radius')}
                   disabled={!formData.currentLat}
-                  className={`px-2 py-0.5 rounded text-[9px] font-bold transition ${
-                    mapMode === 'radius' ? 'bg-white shadow text-rose-600' : 'text-gray-400'
+                  className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                    mapMode === 'radius' ? 'bg-rose-500 text-white shadow' : 'text-gray-500 hover:bg-gray-200'
                   } ${!formData.currentLat ? 'opacity-30 cursor-not-allowed' : ''}`}
-                >רדיוס</button>
+                >📍 רדיוס</button>
               </div>
             </div>
             {/* Map Container */}
