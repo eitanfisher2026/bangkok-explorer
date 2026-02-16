@@ -295,7 +295,7 @@
             <div className="truncate text-center text-[8px]">תחומים {(() => {
               const builtIn = (window.BKK.interestOptions || []).filter(i => isInterestValid(i.id) && interestStatus[i.id] !== false);
               const uncov = (window.BKK.uncoveredInterests || []).filter(i => isInterestValid(i.id) && interestStatus[i.id] === true);
-              const cust = (customInterests || []).filter(i => isInterestValid(i.id) && interestStatus[i.id] !== false);
+              const cust = (cityCustomInterests || []).filter(i => isInterestValid(i.id) && interestStatus[i.id] !== false);
               const total = builtIn.length + uncov.length + cust.length;
               return total > 0 ? `(${total})` : '';
             })()}</div>
@@ -692,14 +692,14 @@
                   if (!option || !option.id) return false;
                   // Must be valid (have search config)
                   if (!isInterestValid(option.id)) return false;
-                  // Custom interests always shown (if valid)
-                  const isCustom = customInterests.some(ci => ci.id === option.id);
-                  if (isCustom) return true;
+                  // Custom interests also check status (respect disabled)
+                  const isCustom = cityCustomInterests.some(ci => ci.id === option.id);
+                  if (isCustom) return interestStatus[option.id] !== false;
                   // Built-in/uncovered shown only if active
                   return interestStatus[option.id] !== false;
                 }).map(option => {
                   const tooltip = interestTooltips[option.id] || option.label;
-                  const customInterest = customInterests.find(ci => ci.id === option.id);
+                  const customInterest = cityCustomInterests.find(ci => ci.id === option.id);
                   const isCustom = !!customInterest;
                   
                   return (
@@ -2344,7 +2344,7 @@
                 <h2 className="text-lg font-bold">🏷️ התחומים שלי</h2>
                 <button onClick={() => showHelpFor('myInterests')} className="text-blue-400 hover:text-blue-600 text-sm" title="עזרה"style={{ background: "none", border: "none", color: "#3b82f6", fontSize: "11px", cursor: "pointer", textDecoration: "underline" }}>עזרה</button>
                 <span className="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full">
-                  {(window.BKK.interestOptions || []).length + (window.BKK.uncoveredInterests || []).length + (customInterests || []).length} סה"כ
+                  {(window.BKK.interestOptions || []).length + (window.BKK.uncoveredInterests || []).length + (cityCustomInterests || []).length} סה"כ
                 </span>
               </div>
               <div className="flex gap-1">
@@ -2445,10 +2445,10 @@
               });
               const activeBuiltIn = overriddenBuiltIn.filter(i => isInterestValid(i.id) && interestStatus[i.id] !== false);
               const activeUncovered = overriddenUncovered.filter(i => isInterestValid(i.id) && interestStatus[i.id] === true);
-              const activeCustom = customInterests.filter(i => isInterestValid(i.id) && interestStatus[i.id] !== false);
+              const activeCustom = cityCustomInterests.filter(i => isInterestValid(i.id) && interestStatus[i.id] !== false);
               const inactiveBuiltIn = overriddenBuiltIn.filter(i => !isInterestValid(i.id) || interestStatus[i.id] === false);
               const inactiveUncovered = overriddenUncovered.filter(i => !isInterestValid(i.id) || interestStatus[i.id] !== true);
-              const inactiveCustom = customInterests.filter(i => !isInterestValid(i.id) || interestStatus[i.id] === false);
+              const inactiveCustom = cityCustomInterests.filter(i => !isInterestValid(i.id) || interestStatus[i.id] === false);
               
               return (
                 <>

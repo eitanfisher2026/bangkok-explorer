@@ -950,7 +950,8 @@
                             icon: newInterest.icon || '📍',
                             privateOnly: newInterest.privateOnly || false,
                             inProgress: newInterest.inProgress || false,
-                            locked: newInterest.locked || false
+                            locked: newInterest.locked || false,
+                            cityId: selectedCityId
                           };
                           
                           if (isFirebaseAvailable && database) {

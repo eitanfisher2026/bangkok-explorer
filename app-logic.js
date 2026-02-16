@@ -1701,8 +1701,8 @@
     }
   };
 
-  // Combine all interests: built-in + uncovered + custom
-  const allInterestOptions = [...interestOptions, ...uncoveredInterests, ...(customInterests || [])].map(opt => {
+  // Combine all interests: built-in + uncovered + custom (city-filtered)
+  const allInterestOptions = [...interestOptions, ...uncoveredInterests, ...(cityCustomInterests || [])].map(opt => {
     const config = interestConfig[opt.id];
     if (!config) return opt;
     return {
@@ -1799,7 +1799,7 @@
       if (allInterestOptions) allInterestOptions.forEach(o => { if (o && o.id) map[o.id] = o; });
       return map;
     } catch(e) { console.error('[MEMO] interestMap error:', e); return {}; }
-  }, [customInterests, allInterestOptions.length]);
+  }, [cityCustomInterests, allInterestOptions.length]);
 
   const areaMap = useMemo(() => {
     try {
@@ -1817,6 +1817,10 @@
   const citySavedRoutes = useMemo(() => {
     return savedRoutes.filter(r => (r.cityId || 'bangkok') === selectedCityId);
   }, [savedRoutes, selectedCityId]);
+
+  const cityCustomInterests = useMemo(() => {
+    return (customInterests || []).filter(i => (i.cityId || 'bangkok') === selectedCityId);
+  }, [customInterests, selectedCityId]);
 
   // Memoize expensive places grouping/sorting
   const groupedPlaces = useMemo(() => {
@@ -1927,7 +1931,7 @@
       console.log('[CLEANUP] Removed invalid interests from selection:', removedNames);
       setFormData(prev => ({ ...prev, interests: cleaned }));
     }
-  }, [interestConfig, customInterests, isDataLoaded]);
+  }, [interestConfig, cityCustomInterests, isDataLoaded]);
 
   // Button styles - loaded from utils.js
 
