@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-  Bangkok Explorer - Smart Route Planning App
+  City Explorer - Smart Route Planning App
   Copyright © 2026 Eitan Fisher. All Rights Reserved.
   
   This application and its source code are protected by copyright.
@@ -13,7 +13,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Bangkok Explorer</title>
+    <title>City Explorer</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="icon-32x32.png">
@@ -217,7 +217,7 @@ function initFirebase() {
 const GOOGLE_PLACES_API_KEY = window.BKK.GOOGLE_PLACES_API_KEY;
 const GOOGLE_PLACES_API_URL = window.BKK.GOOGLE_PLACES_API_URL;
 
-const BangkokExplorer = () => {
+const CityExplorer = () => {
 
 // __INSERT_APP_LOGIC__
 
@@ -239,7 +239,7 @@ window.__firebaseReady.then(function(sdkLoaded) {
   } else {
     console.log('[FIREBASE] SDK not loaded - running without Firebase');
   }
-  ReactDOM.createRoot(document.getElementById('root')).render(<BangkokExplorer />);
+  ReactDOM.createRoot(document.getElementById('root')).render(<CityExplorer />);
 });
     </script>
 </body>

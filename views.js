@@ -6,7 +6,7 @@
         <div className="fixed inset-0 bg-gradient-to-br from-amber-50 to-rose-50 z-[9999] flex flex-col items-center justify-center">
           <div className="text-center">
             <div className="text-5xl mb-4 animate-bounce">🗺️</div>
-            <h2 className="text-xl font-bold text-gray-700 mb-2">Bangkok Explorer</h2>
+            <h2 className="text-xl font-bold text-gray-700 mb-2">{window.BKK.selectedCity?.name || 'City Explorer'}</h2>
             <div className="flex items-center justify-center gap-2 text-gray-500">
               <svg className="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -26,7 +26,7 @@
         boxShadow: '0 2px 8px rgba(225, 29, 72, 0.2)'
       }}>
         <div className="flex items-center justify-center gap-1.5">
-          <span style={{ fontSize: '14px' }}>🛺</span>
+          <span style={{ fontSize: '14px' }}>{window.BKK.selectedCity?.secondaryIcon || '🛺'}</span>
           <h1 style={{ 
             fontSize: '16px', 
             fontWeight: '800', 
@@ -34,8 +34,8 @@
             letterSpacing: '0.5px',
             margin: 0,
             textShadow: '0 1px 3px rgba(0,0,0,0.2)'
-          }}>Bangkok Explorer</h1>
-          <span style={{ fontSize: '14px' }}>🍜</span>
+          }}>{window.BKK.selectedCity?.name || 'City Explorer'}</h1>
+          <span style={{ fontSize: '14px' }}>{window.BKK.selectedCity?.icon || '🗺️'}</span>
           <span style={{ 
             fontSize: '8px', 
             color: 'rgba(255,255,255,0.5)',
@@ -85,9 +85,26 @@
             {/* Step 1: Choose Area */}
             {wizardStep === 1 && (
               <div className="bg-white rounded-xl shadow-lg p-3">
+                {/* City Selector */}
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                  {Object.values(window.BKK.cities).map(city => (
+                    <button
+                      key={city.id}
+                      onClick={() => switchCity(city.id)}
+                      style={{
+                        padding: '4px 10px', borderRadius: '16px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold',
+                        border: selectedCityId === city.id ? '2px solid #e11d48' : '1.5px solid #e5e7eb',
+                        background: selectedCityId === city.id ? '#fef2f2' : 'white',
+                        color: selectedCityId === city.id ? '#e11d48' : '#6b7280',
+                        transition: 'all 0.2s'
+                      }}
+                    >{city.icon} {city.name}</button>
+                  ))}
+                </div>
+
                 <h2 style={{ textAlign: 'center', fontSize: '16px', fontWeight: 'bold', marginBottom: '1px' }}>📍 איפה מטיילים?</h2>
                 <p style={{ textAlign: 'center', fontSize: '11px', color: '#6b7280', marginBottom: '6px' }}>
-                  בחר אזור בבנגקוק
+                  בחר אזור ב{window.BKK.selectedCity?.name || 'עיר'}
                   <button onClick={() => showHelpFor('main')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', marginRight: '4px', textDecoration: 'underline' }}>
                     איך זה עובד?
                   </button>
@@ -103,7 +120,9 @@
 
                 {/* Area Grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px', marginBottom: '6px' }}>
-                  {(window.BKK.areaOptions || []).map(area => (
+                  {(window.BKK.areaOptions || []).map(area => {
+                    const safety = (window.BKK.areaCoordinates?.[area.id]?.safety) || 'safe';
+                    return (
                     <button
                       key={area.id}
                       onClick={() => setFormData({...formData, area: area.id, searchMode: 'area'})}
@@ -113,10 +132,15 @@
                         cursor: 'pointer', textAlign: 'right', direction: 'rtl', transition: 'all 0.2s'
                       }}
                     >
-                      <div style={{ fontWeight: 'bold', fontSize: '12px', color: '#1f2937' }}>{area.label}</div>
+                      <div style={{ fontWeight: 'bold', fontSize: '12px', color: '#1f2937' }}>
+                        {area.label}
+                        {safety === 'caution' && <span style={{ color: '#f59e0b', marginRight: '3px' }} title="צריך להזהר">⚠️</span>}
+                        {safety === 'danger' && <span style={{ color: '#ef4444', marginRight: '3px' }} title="מסוכן">🔴</span>}
+                      </div>
                       <div style={{ fontSize: '9px', color: '#6b7280', marginTop: '1px' }}>{area.desc || area.labelEn}</div>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
                 
                 {/* Radius - search near me */}
@@ -153,7 +177,7 @@
                     marginBottom: '6px', transition: 'all 0.2s'
                   }}
                 >
-                  <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#7c3aed' }}>🌏 כל בנגקוק</div>
+                  <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#7c3aed' }}>🌏 כל {window.BKK.selectedCity?.name || 'העיר'}</div>
                   <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '1px' }}>חיפוש בכל העיר</div>
                 </button>
 
@@ -390,7 +414,7 @@
                 
                 {formData.searchMode === 'all' ? (
                   <div style={{ padding: '8px', textAlign: 'center', color: '#7c3aed', fontSize: '11px', fontWeight: 'bold' }}>
-                    🌏 חיפוש בכל בנגקוק
+                    🌏 חיפוש בכל {window.BKK.selectedCity?.name || 'העיר'}
                   </div>
                 ) : formData.searchMode === 'area' ? (
                   /* Area Mode - GRID layout */
@@ -2457,6 +2481,29 @@
               </button>
             </div>
             
+            {/* City Selector */}
+            <div className="mb-3">
+              <div className="bg-gradient-to-r from-rose-50 to-orange-50 border-2 border-rose-400 rounded-lg p-2">
+                <h3 className="text-sm font-bold text-gray-800 mb-2">🌍 בחר עיר</h3>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {Object.values(window.BKK.cities).map(city => (
+                    <button
+                      key={city.id}
+                      onClick={() => switchCity(city.id)}
+                      style={{
+                        padding: '6px 12px', borderRadius: '16px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold',
+                        border: selectedCityId === city.id ? '2px solid #e11d48' : '1.5px solid #e5e7eb',
+                        background: selectedCityId === city.id ? '#fef2f2' : 'white',
+                        color: selectedCityId === city.id ? '#e11d48' : '#6b7280',
+                        transition: 'all 0.2s'
+                      }}
+                    >{city.icon} {city.name}</button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-gray-500 mt-1">{window.BKK.selectedCity?.areas?.length || 0} אזורים · {window.BKK.selectedCity?.interests?.length || 0} תחומי עניין</p>
+              </div>
+            </div>
+
             {/* Max Stops Setting */}
             <div className="mb-3">
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-400 rounded-lg p-2">
@@ -2813,7 +2860,7 @@
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <button
               onClick={() => {
-                const shareData = { title: 'Bangkok Explorer', text: 'אפליקציה לתכנון טיולים בבנגקוק', url: window.location.href };
+                const shareData = { title: 'City Explorer', text: 'אפליקציה לתכנון טיולים', url: window.location.href };
                 if (navigator.share) { navigator.share(shareData).catch(() => {}); }
                 else { try { navigator.clipboard.writeText(window.location.href); showToast('הקישור הועתק! 📋', 'success'); } catch(e) { showToast(window.location.href, 'info'); } }
               }}

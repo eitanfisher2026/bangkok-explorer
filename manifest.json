@@ -1,7 +1,7 @@
 {
-  "name": "Bangkok Explorer",
-  "short_name": "BKK Explorer",
-  "description": "Smart trip planning app for Bangkok",
+  "name": "City Explorer",
+  "short_name": "Explorer",
+  "description": "Smart trip planning app for cities worldwide",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f8fafc",

@@ -116,9 +116,11 @@ window.BKK.extractCoordsFromUrl = (url) => {
 window.BKK.geocodeAddress = async (address) => {
   if (!address || !address.trim()) return null;
 
-  const searchQuery = address.toLowerCase().includes('bangkok') 
+  const cityName = (window.BKK.selectedCity?.nameEn || 'Bangkok');
+  const countryName = (window.BKK.selectedCity?.country || 'Thailand');
+  const searchQuery = address.toLowerCase().includes(cityName.toLowerCase()) 
     ? address 
-    : `${address}, Bangkok, Thailand`;
+    : `${address}, ${cityName}, ${countryName}`;
   
   const response = await fetch(
     'https://places.googleapis.com/v1/places:searchText',
@@ -154,9 +156,11 @@ window.BKK.geocodeAddress = async (address) => {
 window.BKK.geocodeByName = async (name) => {
   if (!name || !name.trim()) return null;
 
-  const searchQuery = name.toLowerCase().includes('bangkok') 
+  const cityName = (window.BKK.selectedCity?.nameEn || 'Bangkok');
+  const countryName = (window.BKK.selectedCity?.country || 'Thailand');
+  const searchQuery = name.toLowerCase().includes(cityName.toLowerCase()) 
     ? name 
-    : `${name}, Bangkok, Thailand`;
+    : `${name}, ${cityName}, ${countryName}`;
   
   const response = await fetch(
     'https://places.googleapis.com/v1/places:searchText',

@@ -39,6 +39,9 @@
   };
 
   const [currentView, setCurrentView] = useState('form');
+  const [selectedCityId, setSelectedCityId] = useState(() => {
+    try { return localStorage.getItem('city_explorer_city') || 'bangkok'; } catch(e) { return 'bangkok'; }
+  });
   const [wizardMode, setWizardMode] = useState(() => {
     try { return localStorage.getItem('bangkok_wizard_mode') !== 'false'; } catch(e) { return true; }
   });
@@ -1129,7 +1132,7 @@
     }
   };
 
-  // Config - loaded from config.js
+  // Config - loaded from config.js, re-read on city change via selectedCityId dependency
   const interestOptions = window.BKK.interestOptions;
 
   const interestToGooglePlaces = window.BKK.interestToGooglePlaces;
@@ -1139,6 +1142,32 @@
   const interestTooltips = window.BKK.interestTooltips;
 
   const areaCoordinates = window.BKK.areaCoordinates;
+
+  // Switch city function
+  const switchCity = (cityId) => {
+    if (cityId === selectedCityId) return;
+    if (!window.BKK.cities[cityId]) return;
+    
+    window.BKK.selectCity(cityId);
+    setSelectedCityId(cityId);
+    localStorage.setItem('city_explorer_city', cityId);
+    
+    // Reset form data for new city
+    const firstArea = window.BKK.areaOptions[0]?.id || '';
+    setFormData({
+      hours: 3, area: firstArea, interests: [], circular: true, startPoint: '',
+      maxStops: 15, fetchMoreCount: 3, searchMode: 'area',
+      radiusMeters: 500, radiusSource: 'gps', radiusPlaceId: null, radiusPlaceName: '',
+      gpsLat: null, gpsLng: null, currentLat: null, currentLng: null
+    });
+    setRoute(null);
+    setWizardStep(1);
+    setCurrentView('form');
+    setDisabledStops([]);
+    setManualStops([]);
+    window.scrollTo(0, 0);
+    showToast(window.BKK.selectedCity.icon + ' ' + window.BKK.selectedCity.name, 'success');
+  };
   
   // Utility functions - loaded from utils.js
   const checkLocationInArea = window.BKK.checkLocationInArea;
@@ -1243,7 +1272,8 @@
       if (textSearchQuery) {
         // Use Text Search API for interests like "graffiti" -> "street art"
         const areaName = area ? (areaOptions.find(a => a.id === area)?.labelEn || area) : '';
-        const searchQuery = `${textSearchQuery} ${areaName} Bangkok`.trim();
+        const cityName = window.BKK.cityNameForSearch || 'Bangkok';
+        const searchQuery = `${textSearchQuery} ${areaName} ${cityName}`.trim();
         
         addDebugLog('API', `Text Search`, { query: searchQuery, area });
         console.log('[DYNAMIC] Using Text Search:', searchQuery);
@@ -1258,13 +1288,13 @@
           body: JSON.stringify({
             textQuery: searchQuery,
             maxResultCount: 20,
-            locationBias: {
+            locationRestriction: {
               circle: {
                 center: {
                   latitude: center.lat,
                   longitude: center.lng
                 },
-                radius: searchRadius * 1.5
+                radius: searchRadius * 1.2
               }
             }
           })
@@ -1533,9 +1563,10 @@
       });
       
       // Filter 4: Distance check - remove places too far from search center
-      // For radius mode: searchRadius is user-chosen, allow 2x as buffer
-      // For area mode: searchRadius is area radius, allow 2x as buffer
-      const maxDistance = searchRadius * 2;
+      // Use per-area distanceMultiplier, fallback to city default, fallback to 1.2
+      const areaConfig = areaCoordinates[area] || {};
+      const distMultiplier = areaConfig.distanceMultiplier || window.BKK.selectedCity?.distanceMultiplier || 1.2;
+      const maxDistance = searchRadius * distMultiplier;
       const distanceFiltered = transformed.filter(place => {
         const dist = calcDistance(center.lat, center.lng, place.lat, place.lng);
         if (dist > maxDistance) {
@@ -1586,7 +1617,7 @@
     
     try {
       // Use Text Search to find the place
-      const searchQuery = location.name + ' Bangkok';
+      const searchQuery = location.name + ' ' + (window.BKK.cityNameForSearch || 'Bangkok');
       
       const response = await fetch(GOOGLE_PLACES_TEXT_SEARCH_URL, {
         method: 'POST',
@@ -2069,14 +2100,18 @@
     setStartPointCoords(null);
     setFormData(prev => ({...prev, startPoint: ''}));
     
-    // For 'all' mode, auto-set Bangkok center and large radius
+    // For 'all' mode, auto-set city center and large radius
     if (formData.searchMode === 'all') {
       if (!formData.currentLat) {
-        setFormData(prev => ({...prev, currentLat: 13.7563, currentLng: 100.5018, radiusMeters: 15000, radiusPlaceName: 'כל בנגקוק'}));
-        formData.currentLat = 13.7563;
-        formData.currentLng = 100.5018;
-        formData.radiusMeters = 15000;
-        formData.radiusPlaceName = 'כל בנגקוק';
+        const cityCenter = window.BKK.selectedCity?.center || { lat: 13.7563, lng: 100.5018 };
+        const cityRadius = window.BKK.selectedCity?.allCityRadius || 15000;
+        const cityName = window.BKK.selectedCity?.name || 'כל העיר';
+        const allCityLabel = 'כל ' + cityName;
+        setFormData(prev => ({...prev, currentLat: cityCenter.lat, currentLng: cityCenter.lng, radiusMeters: cityRadius, radiusPlaceName: allCityLabel}));
+        formData.currentLat = cityCenter.lat;
+        formData.currentLng = cityCenter.lng;
+        formData.radiusMeters = cityRadius;
+        formData.radiusPlaceName = allCityLabel;
       }
     }
     
@@ -2350,8 +2385,9 @@
       // Route name and area info
       let areaName, interestsText;
       if (isRadiusMode) {
-        if (formData.searchMode === 'all' || formData.radiusPlaceName === 'כל בנגקוק') {
-          areaName = 'כל בנגקוק';
+        const allCityLabel = 'כל ' + (window.BKK.selectedCity?.name || 'העיר');
+        if (formData.searchMode === 'all' || formData.radiusPlaceName === allCityLabel || formData.radiusPlaceName === 'כל בנגקוק') {
+          areaName = allCityLabel;
         } else {
           const sourceName = formData.radiusSource === 'myplace' && formData.radiusPlaceId
             ? customLocations.find(l => l.id === formData.radiusPlaceId)?.name || 'מקום שלי'
@@ -3998,10 +4034,12 @@
     try {
       showToast('מחפש כתובת...', 'info');
       
-      // Add "Bangkok, Thailand" if not already included
-      const searchQuery = address.toLowerCase().includes('bangkok') 
+      // Add city name if not already included
+      const cityName = window.BKK.cityNameForSearch || 'Bangkok';
+      const countryName = window.BKK.selectedCity?.country || '';
+      const searchQuery = address.toLowerCase().includes(cityName.toLowerCase()) 
         ? address 
-        : `${address}, Bangkok, Thailand`;
+        : `${address}, ${cityName}${countryName ? ', ' + countryName : ''}`;
       
       // Use Google Places API Text Search
       const response = await fetch(
@@ -4051,7 +4089,9 @@
     if (!query || !query.trim()) return;
     try {
       setLocationSearchResults([]); // show loading state
-      const searchQuery = query.toLowerCase().includes('bangkok') ? query : `${query}, Bangkok, Thailand`;
+      const cityForSearch = window.BKK.cityNameForSearch || 'Bangkok';
+      const countryForSearch = window.BKK.selectedCity?.country || '';
+      const searchQuery = query.toLowerCase().includes(cityForSearch.toLowerCase()) ? query : `${query}, ${cityForSearch}${countryForSearch ? ', ' + countryForSearch : ''}`;
       const response = await fetch('https://places.googleapis.com/v1/places:searchText', {
         method: 'POST',
         headers: {
@@ -4093,10 +4133,12 @@
     try {
       showToast('מחפש לפי שם...', 'info');
       
-      // Add "Bangkok, Thailand" for better results
-      const searchQuery = name.toLowerCase().includes('bangkok') 
+      // Add city name for better results
+      const cityForSearch = window.BKK.cityNameForSearch || 'Bangkok';
+      const countryForSearch = window.BKK.selectedCity?.country || '';
+      const searchQuery = name.toLowerCase().includes(cityForSearch.toLowerCase()) 
         ? name 
-        : `${name}, Bangkok, Thailand`;
+        : `${name}, ${cityForSearch}${countryForSearch ? ', ' + countryForSearch : ''}`;
       
       const response = await fetch(
         `https://places.googleapis.com/v1/places:searchText`,

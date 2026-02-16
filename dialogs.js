@@ -749,7 +749,7 @@
                         style={{ direction: 'ltr' }}
                       />
                       <p className="text-[9px] text-gray-500 mt-0.5" style={{ direction: 'ltr' }}>
-                        Searches: "[query] [area] Bangkok"
+                        Searches: "[query] [area] {window.BKK.cityNameForSearch || 'City'}"
                       </p>
                     </div>
                   ) : (
@@ -1586,7 +1586,7 @@
                 </div>
                 
                 <p className="text-[11px] text-gray-500">
-                  💡 הקלד כתובת מלאה, שם מלון, תחנת רכבת, או כל מקום בבנגקוק
+                  💡 הקלד כתובת מלאה, שם מלון, תחנת רכבת, או כל מקום ב{window.BKK.selectedCity?.name || 'עיר'}
                 </p>
                 
                 {/* Results container */}
