@@ -67,16 +67,16 @@ window.BKK.cities = {
     interests: [
       { id: 'temples', label: 'מקדשים', labelEn: 'Temples', icon: '🛕' },
       { id: 'food', label: 'אוכל', labelEn: 'Food', icon: '🍜' },
-      { id: 'graffiti', label: 'גרפיטי', icon: '🎨' },
-      { id: 'artisans', label: 'מלאכה', icon: '🔨' },
+      { id: 'graffiti', label: 'גרפיטי', labelEn: 'Street Art', icon: '🎨' },
+      { id: 'artisans', label: 'מלאכה', labelEn: 'Crafts', icon: '🔨' },
       { id: 'galleries', label: 'גלריות', labelEn: 'Galleries', icon: '🖼️' },
       { id: 'architecture', label: 'ארכיטקטורה', labelEn: 'Architecture', icon: '🏛️' },
-      { id: 'canals', label: 'תעלות', icon: '🚤' },
-      { id: 'cafes', label: 'קפה', icon: '☕' },
+      { id: 'canals', label: 'תעלות', labelEn: 'Canals', icon: '🚤' },
+      { id: 'cafes', label: 'קפה', labelEn: 'Coffee', icon: '☕' },
       { id: 'markets', label: 'שווקים', labelEn: 'Markets', icon: '🏪' },
-      { id: 'nightlife', label: 'לילה', icon: '🌃' },
+      { id: 'nightlife', label: 'לילה', labelEn: 'Nightlife', icon: '🌃' },
       { id: 'parks', label: 'פארקים', labelEn: 'Parks', icon: '🌳' },
-      { id: 'rooftop', label: 'גגות', icon: '🌆' },
+      { id: 'rooftop', label: 'גגות', labelEn: 'Rooftops', icon: '🌆' },
       { id: 'entertainment', label: 'בידור', labelEn: 'Entertainment', icon: '🎭' }
     ],
 
@@ -99,14 +99,14 @@ window.BKK.cities = {
     textSearchInterests: { graffiti: 'street art' },
 
     uncoveredInterests: [
-      { id: 'massage_spa', icon: '💆', label: 'עיסוי וספא', name: 'עיסוי וספא', examples: 'Thai massage, wellness centers, spa' },
-      { id: 'fitness', icon: '🏋️', label: 'כושר וספורט', name: 'כושר וספורט', examples: 'Gyms, yoga studios, Muay Thai, fitness' },
-      { id: 'shopping_special', icon: '🛍️', label: 'קניות מיוחדות', name: 'קניות מיוחדות', examples: 'Boutiques, jewelry, fashion stores' },
-      { id: 'learning', icon: '🎓', label: 'לימוד וחוויות', name: 'לימוד וחוויות', examples: 'Cooking classes, meditation, workshops' },
-      { id: 'health', icon: '🏥', label: 'בריאות ורפואה', name: 'בריאות ורפואה', examples: 'Clinics, pharmacies, health services' },
-      { id: 'accommodation', icon: '🏨', label: 'אירוח', name: 'אירוח', examples: 'Hotels, hostels, guesthouses' },
-      { id: 'transport', icon: '🚗', label: 'תחבורה', name: 'תחבורה', examples: 'Car rental, bike rental, transportation' },
-      { id: 'business', icon: '💼', label: 'עסקים', name: 'עסקים', examples: 'Coworking, offices, business centers' }
+      { id: 'massage_spa', icon: '💆', label: 'עיסוי וספא', labelEn: 'Massage & Spa', name: 'עיסוי וספא', examples: 'Thai massage, wellness centers, spa' },
+      { id: 'fitness', icon: '🏋️', label: 'כושר וספורט', labelEn: 'Fitness & Sports', name: 'כושר וספורט', examples: 'Gyms, yoga studios, Muay Thai, fitness' },
+      { id: 'shopping_special', icon: '🛍️', label: 'קניות מיוחדות', labelEn: 'Special Shopping', name: 'קניות מיוחדות', examples: 'Boutiques, jewelry, fashion stores' },
+      { id: 'learning', icon: '🎓', label: 'לימוד וחוויות', labelEn: 'Learning & Experiences', name: 'לימוד וחוויות', examples: 'Cooking classes, meditation, workshops' },
+      { id: 'health', icon: '🏥', label: 'בריאות ורפואה', labelEn: 'Health & Medical', name: 'בריאות ורפואה', examples: 'Clinics, pharmacies, health services' },
+      { id: 'accommodation', icon: '🏨', label: 'אירוח', labelEn: 'Accommodation', name: 'אירוח', examples: 'Hotels, hostels, guesthouses' },
+      { id: 'transport', icon: '🚗', label: 'תחבורה', labelEn: 'Transport', name: 'תחבורה', examples: 'Car rental, bike rental, transportation' },
+      { id: 'business', icon: '💼', label: 'עסקים', labelEn: 'Business', name: 'עסקים', examples: 'Coworking, offices, business centers' }
     ],
 
     interestTooltips: {
@@ -147,17 +147,17 @@ window.BKK.cities = {
 
     interests: [
       { id: 'food', label: 'אוכל', labelEn: 'Food', icon: '🍽️' },
-      { id: 'cafes', label: 'קפה', icon: '☕' },
+      { id: 'cafes', label: 'קפה', labelEn: 'Coffee', icon: '☕' },
       { id: 'beaches', label: 'חופים', labelEn: 'Beaches', icon: '🏖️' },
-      { id: 'graffiti', label: 'גרפיטי', icon: '🎨' },
+      { id: 'graffiti', label: 'גרפיטי', labelEn: 'Street Art', icon: '🎨' },
       { id: 'galleries', label: 'גלריות', labelEn: 'Galleries', icon: '🖼️' },
-      { id: 'architecture', label: 'באוהאוס', icon: '🏛️' },
+      { id: 'architecture', label: 'באוהאוס', labelEn: 'Bauhaus', icon: '🏛️' },
       { id: 'markets', label: 'שווקים', labelEn: 'Markets', icon: '🏪' },
-      { id: 'nightlife', label: 'לילה', icon: '🌃' },
+      { id: 'nightlife', label: 'לילה', labelEn: 'Nightlife', icon: '🌃' },
       { id: 'parks', label: 'פארקים', labelEn: 'Parks', icon: '🌳' },
       { id: 'shopping', label: 'קניות', labelEn: 'Shopping', icon: '🛍️' },
-      { id: 'culture', label: 'תרבות', icon: '🎭' },
-      { id: 'history', label: 'היסטוריה', icon: '🏚️' }
+      { id: 'culture', label: 'תרבות', labelEn: 'Culture', icon: '🎭' },
+      { id: 'history', label: 'היסטוריה', labelEn: 'History', icon: '🏚️' }
     ],
 
     interestToGooglePlaces: {
@@ -171,9 +171,9 @@ window.BKK.cities = {
     textSearchInterests: { graffiti: 'street art', architecture: 'bauhaus building', beaches: 'beach' },
 
     uncoveredInterests: [
-      { id: 'fitness', icon: '🏋️', label: 'כושר וספורט', name: 'כושר וספורט', examples: 'Gyms, yoga, pilates, cycling' },
-      { id: 'wellness', icon: '💆', label: 'ספא ורווחה', name: 'ספא ורווחה', examples: 'Spa, massage, wellness' },
-      { id: 'coworking', icon: '💻', label: 'עבודה', name: 'חללי עבודה', examples: 'Coworking, cafes with wifi' }
+      { id: 'fitness', icon: '🏋️', label: 'כושר וספורט', labelEn: 'Fitness & Sports', name: 'כושר וספורט', examples: 'Gyms, yoga, pilates, cycling' },
+      { id: 'wellness', icon: '💆', label: 'ספא ורווחה', labelEn: 'Spa & Wellness', name: 'ספא ורווחה', examples: 'Spa, massage, wellness' },
+      { id: 'coworking', icon: '💻', label: 'עבודה', labelEn: 'Coworking', name: 'חללי עבודה', examples: 'Coworking, cafes with wifi' }
     ],
 
     interestTooltips: {
@@ -214,17 +214,17 @@ window.BKK.cities = {
 
     interests: [
       { id: 'food', label: 'אוכל', labelEn: 'Food', icon: '🍜' },
-      { id: 'cafes', label: 'קפה', icon: '☕' },
-      { id: 'hawkers', label: 'הוקרס', icon: '🥘' },
+      { id: 'cafes', label: 'קפה', labelEn: 'Coffee', icon: '☕' },
+      { id: 'hawkers', label: 'הוקרס', labelEn: 'Hawkers', icon: '🥘' },
       { id: 'temples', label: 'מקדשים', labelEn: 'Temples', icon: '🛕' },
-      { id: 'gardens', label: 'גנים', icon: '🌺' },
+      { id: 'gardens', label: 'גנים', labelEn: 'Gardens', icon: '🌺' },
       { id: 'architecture', label: 'ארכיטקטורה', labelEn: 'Architecture', icon: '🏛️' },
-      { id: 'graffiti', label: 'גרפיטי', icon: '🎨' },
+      { id: 'graffiti', label: 'גרפיטי', labelEn: 'Street Art', icon: '🎨' },
       { id: 'galleries', label: 'גלריות', labelEn: 'Galleries', icon: '🖼️' },
       { id: 'markets', label: 'שווקים', labelEn: 'Markets', icon: '🏪' },
-      { id: 'nightlife', label: 'לילה', icon: '🌃' },
+      { id: 'nightlife', label: 'לילה', labelEn: 'Nightlife', icon: '🌃' },
       { id: 'shopping', label: 'קניות', labelEn: 'Shopping', icon: '🛍️' },
-      { id: 'rooftop', label: 'גגות', icon: '🌆' }
+      { id: 'rooftop', label: 'גגות', labelEn: 'Rooftops', icon: '🌆' }
     ],
 
     interestToGooglePlaces: {
@@ -239,8 +239,8 @@ window.BKK.cities = {
     textSearchInterests: { graffiti: 'street art', hawkers: 'hawker centre', gardens: 'garden' },
 
     uncoveredInterests: [
-      { id: 'wellness', icon: '💆', label: 'ספא ורווחה', name: 'ספא ורווחה', examples: 'Spa, massage, wellness' },
-      { id: 'adventure', icon: '🎢', label: 'אטרקציות', name: 'אטרקציות', examples: 'Theme parks, zoo, aquarium' }
+      { id: 'wellness', icon: '💆', label: 'ספא ורווחה', labelEn: 'Spa & Wellness', name: 'ספא ורווחה', examples: 'Spa, massage, wellness' },
+      { id: 'adventure', icon: '🎢', label: 'אטרקציות', labelEn: 'Attractions', name: 'אטרקציות', examples: 'Theme parks, zoo, aquarium' }
     ],
 
     interestTooltips: {

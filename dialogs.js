@@ -45,7 +45,7 @@
                   {/* Name - full width with search */}
                   <div>
                     <label className="block text-xs font-bold mb-1">
-                      שם <span className="text-red-500">*</span>
+                      Name <span className="text-red-500">*</span>
                     </label>
                     <div style={{ display: 'flex', gap: '4px' }}>
                       <input
@@ -397,11 +397,11 @@
                         rel="noopener noreferrer"
                         className="flex-1 py-2 bg-green-500 text-white rounded-lg text-sm font-bold hover:bg-green-600 text-center"
                       >
-                        🗺️ פתח בגוגל
+                        🗺️ Open in Google
                       </a>
                     ) : (
                       <button disabled className="flex-1 py-2 bg-gray-300 text-gray-500 rounded-lg text-sm font-bold cursor-not-allowed">
-                        🗺️ פתח בגוגל (אין קואורדינטות)
+                        🗺️ Open in Google (no coords)
                       </button>
                     )}
                     <button
@@ -450,7 +450,7 @@
                   
                   {googlePlaceInfo && googlePlaceInfo.notFound && (
                     <div className="mt-2 text-xs text-red-600 bg-white rounded p-2 border border-red-200">
-                      ❌ המקום לא נמצא ב-Google עבור: "{googlePlaceInfo.searchQuery}"
+                      ❌ Place not found on Google for: "{googlePlaceInfo.searchQuery}"
                     </div>
                   )}
                 </div>
@@ -512,7 +512,7 @@
                           }}
                           className="flex-1 py-2 bg-green-500 text-white rounded-lg text-sm font-bold hover:bg-green-600"
                         >
-                          ✅ החזר כמקום פעיל
+                          ✅ Restore as active
                         </button>
                       ) : (
                         <button
@@ -523,7 +523,7 @@
                           }}
                           className="flex-1 py-2 bg-blue-500 text-white rounded-lg text-sm font-bold hover:bg-blue-600"
                         >
-                          🚫 דלג לצמיתות
+                          🚫 Skip permanently
                         </button>
                       )}
                       <button
@@ -536,7 +536,7 @@
                         }}
                         className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700"
                       >
-                        🗑️ מחק מקום
+                        🗑️ Delete place
                       </button>
                     </div>
                   </div>
@@ -558,11 +558,11 @@
                         rel="noopener noreferrer"
                         className="flex-1 py-2.5 rounded-lg text-sm font-bold text-center bg-green-500 text-white hover:bg-green-600"
                       >
-                        🗺️ פתח בגוגל
+                        🗺️ Open in Google
                       </a>
                     )}
                     <div className="flex-shrink-0 py-2.5 px-3 bg-yellow-100 text-yellow-800 rounded-lg text-[11px] font-bold text-center flex items-center">
-                      🔒 צפייה בלבד
+                      🔒 View only
                     </div>
                   </>
                 ) : (
@@ -612,7 +612,7 @@
                   }}
                   className="px-5 py-2.5 rounded-lg bg-green-500 text-white text-sm font-bold hover:bg-green-600"
                 >
-                  ✓ סגור
+                  ✓ Close
                 </button>
               </div>
                 );
@@ -701,7 +701,7 @@
                     )}
                     {(!newInterest.builtIn || isUnlocked) && (
                       <label className="block w-full mt-1 p-1 border border-dashed border-gray-300 rounded text-center cursor-pointer hover:bg-gray-50 text-[9px] text-gray-500">
-                        📁 קובץ
+                        📁 File
                         <input
                           type="file"
                           accept="image/*"
@@ -865,7 +865,7 @@
                           }}
                           className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700"
                         >
-                          🗑️ מחק תחום
+                          🗑️ Delete interest
                         </button>
                       )}
                     </div>
@@ -879,7 +879,7 @@
                   const isLockedInterest = editingCustomInterest?.locked && !isUnlocked;
                   return isLockedInterest ? (
                     <div className="flex-shrink-0 py-2.5 px-3 bg-yellow-100 text-yellow-800 rounded-lg text-[11px] font-bold text-center flex items-center">
-                      🔒 צפייה בלבד
+                      🔒 View only
                     </div>
                   ) : (
                     <button
@@ -991,7 +991,7 @@
                   }}
                   className="px-5 py-2.5 rounded-lg bg-green-500 text-white text-sm font-bold hover:bg-green-600"
                 >
-                  ✓ סגור
+                  ✓ Close
                 </button>
               </div>
 
@@ -1135,7 +1135,7 @@
                     }}
                     className="text-xs px-3 py-1.5 rounded-lg bg-red-500 text-white font-bold hover:bg-red-600 transition"
                   >
-                    🗑️ נקה לוג
+                    🗑️ Clear log
                   </button>
                 )}
               </div>
@@ -1227,7 +1227,7 @@
 
               {/* Stops list */}
               <div>
-                <label className="block text-xs font-bold mb-1">תחנות ({editingRoute.stops?.length || 0})</label>
+                <label className="block text-xs font-bold mb-1">Stops ({editingRoute.stops?.length || 0})</label>
                 <div className="max-h-32 overflow-y-auto space-y-0.5">
                   {(editingRoute.stops || []).map((stop, idx) => (
                     <div key={idx} className="flex items-center gap-1 text-xs bg-gray-50 px-2 py-1 rounded">
@@ -1244,7 +1244,7 @@
               <div className="flex gap-2">
                 <button
                   onClick={() => {
-                    const shareText = `🗺️ ${editingRoute.name}\n📍 ${editingRoute.areaName}\n🎯 ${editingRoute.stops?.length || 0} תחנות\n${editingRoute.circular ? t('route.circularRoute') : t('route.linearDesc')}\n\nתחנות:\n${(editingRoute.stops || []).map((s, i) => `${i+1}. ${s.name}${s.address ? ' - ' + s.address : ''}`).join('\n')}`;
+                    const shareText = `🗺️ ${editingRoute.name}\n📍 ${editingRoute.areaName}\n🎯 ${editingRoute.stops?.length || 0} stops\n${editingRoute.circular ? t('route.circularRoute') : t('route.linearDesc')}\n\nstops:\n${(editingRoute.stops || []).map((s, i) => `${i+1}. ${s.name}${s.address ? ' - ' + s.address : ''}`).join('\n')}`;
                     if (navigator.share) {
                       navigator.share({ title: editingRoute.name, text: shareText });
                     } else {
@@ -1254,7 +1254,7 @@
                   }}
                   className="flex-1 py-2 bg-green-500 text-white rounded-lg text-sm font-bold hover:bg-green-600"
                 >
-                  📤 שתף מסלול
+                  📤 Share route
                 </button>
                 <button
                   onClick={() => {
@@ -1268,7 +1268,7 @@
                       if (mapsUrl) line += `\n   🗺️ ${mapsUrl}`;
                       return line;
                     }).join('\n\n');
-                    const text = `📍 נקודות עניין - ${editingRoute.name}\n${'─'.repeat(30)}\n\n${pois}`;
+                    const text = `📍 POI - ${editingRoute.name}\n${'─'.repeat(30)}\n\n${pois}`;
                     if (navigator.share) {
                       navigator.share({ title: `POI - ${editingRoute.name}`, text });
                     } else {
@@ -1278,7 +1278,7 @@
                   }}
                   className="flex-1 py-2 bg-indigo-500 text-white rounded-lg text-sm font-bold hover:bg-indigo-600"
                 >
-                  📋 שתף נקודות עניין
+                  📋 Share POI
                 </button>
               </div>
 
@@ -1322,7 +1322,7 @@
                     }}
                     className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700"
                   >
-                    🗑️ מחק מסלול
+                    🗑️ Delete route
                   </button>
                 </div>
               </div>
@@ -1345,10 +1345,10 @@
                           }}
                           className="flex-1 py-2.5 bg-blue-500 text-white rounded-lg text-sm font-bold hover:bg-blue-600"
                         >
-                          📍 פתח מסלול
+                          📍 Open route
                         </button>
                         <div className="flex-shrink-0 py-2.5 px-3 bg-yellow-100 text-yellow-800 rounded-lg text-[11px] font-bold text-center">
-                          🔒 צפייה בלבד
+                          🔒 View only
                         </div>
                       </>
                     ) : (
@@ -1366,7 +1366,7 @@
                           }}
                           className="flex-1 py-2.5 bg-blue-500 text-white rounded-lg text-sm font-bold hover:bg-blue-600"
                         >
-                          💾 עדכן
+                          💾 Update
                         </button>
                         <button
                           onClick={() => {
@@ -1376,7 +1376,7 @@
                           }}
                           className="flex-1 py-2.5 bg-blue-500 text-white rounded-lg text-sm font-bold hover:bg-blue-600"
                         >
-                          📍 פתח מסלול
+                          📍 Open route
                         </button>
                       </>
                     )}
@@ -1384,7 +1384,7 @@
                       onClick={() => { setShowRouteDialog(false); setEditingRoute(null); }}
                       className="px-5 py-2.5 rounded-lg bg-green-500 text-white text-sm font-bold hover:bg-green-600"
                     >
-                      ✓ סגור
+                      ✓ Close
                     </button>
                   </>
                 );
@@ -1451,15 +1451,15 @@
                 // Clear input for next add
                 const inp = document.getElementById('manual-stop-input');
                 if (inp) inp.value = '';
-                resultsDiv.innerHTML = '<p style="text-align:center;color:#16a34a;font-size:12px;padding:8px">✅ נוסף! ניתן להוסיף מקום נוסף או לסגור</p>';
+                resultsDiv.innerHTML = '<p style="text-align:center;color:#16a34a;font-size:12px;padding:8px">✅ Added! You can add more or close</p>';
               };
               resultsDiv.appendChild(btn);
             } else {
-              resultsDiv.innerHTML = '<p style="text-align:center;color:#ef4444;font-size:12px;padding:8px">❌ לא נמצאו תוצאות</p>';
+              resultsDiv.innerHTML = '<p style="text-align:center;color:#ef4444;font-size:12px;padding:8px">❌ No results found</p>';
             }
           } catch (err) {
             console.error('[MANUAL_ADD] Search error:', err);
-            resultsDiv.innerHTML = '<p style="text-align:center;color:#ef4444;font-size:12px;padding:8px">❌ שגיאה בחיפוש</p>';
+            resultsDiv.innerHTML = '<p style="text-align:center;color:#ef4444;font-size:12px;padding:8px">❌ Search error</p>';
           }
         };
         
@@ -1493,7 +1493,7 @@
                     onClick={searchManualPlace}
                     className="px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap bg-purple-500 text-white hover:bg-purple-600"
                   >
-                    🔍 חפש
+                    🔍 Search
                   </button>
                 </div>
                 
@@ -1544,11 +1544,11 @@
               };
               resultsDiv.appendChild(btn);
             } else {
-              resultsDiv.innerHTML = '<p style="text-align:center;color:#ef4444;font-size:12px;padding:8px">❌ לא נמצאו תוצאות</p>';
+              resultsDiv.innerHTML = '<p style="text-align:center;color:#ef4444;font-size:12px;padding:8px">❌ No results found</p>';
             }
           } catch (err) {
             console.error('[ADDRESS_DIALOG] Search error:', err);
-            resultsDiv.innerHTML = '<p style="text-align:center;color:#ef4444;font-size:12px;padding:8px">❌ שגיאה בחיפוש</p>';
+            resultsDiv.innerHTML = '<p style="text-align:center;color:#ef4444;font-size:12px;padding:8px">❌ Search error</p>';
           }
         };
         
@@ -1582,7 +1582,7 @@
                     onClick={searchAddress}
                     className="px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap bg-green-500 text-white hover:bg-green-600"
                   >
-                    🔍 חפש
+                    🔍 Search
                   </button>
                 </div>
                 
@@ -1666,13 +1666,13 @@
                 }}
                 className="flex-1 py-2 bg-red-500 text-white rounded-lg font-bold hover:bg-red-600"
               >
-                אישור
+                OK
               </button>
               <button
                 onClick={() => setShowConfirmDialog(false)}
                 className="flex-1 py-2 bg-gray-300 text-gray-700 rounded-lg font-bold hover:bg-gray-400"
               >
-                ביטול
+                Cancel
               </button>
             </div>
           </div>
@@ -1730,7 +1730,7 @@
                     : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 }`}
               >
-                📨 שלח
+                📨 Send
               </button>
             </div>
           </div>
@@ -1868,7 +1868,7 @@
                   onClick={handleImportMerge}
                   className="flex-1 py-2.5 bg-green-500 text-white rounded-lg font-bold hover:bg-green-600 transition text-sm"
                 >
-                  ✅ ייבא הכל
+                  ✅ Import all
                 </button>
                 <button
                   onClick={() => {
@@ -1877,7 +1877,7 @@
                   }}
                   className="flex-1 py-2.5 bg-gray-300 text-gray-700 rounded-lg font-bold hover:bg-gray-400 transition text-sm"
                 >
-                  ביטול
+                  Cancel
                 </button>
               </div>
             </div>
@@ -1968,7 +1968,7 @@
                   }}
                   className="flex-1 py-2 bg-green-500 text-white rounded-lg font-medium"
                 >
-                  אישור
+                  OK
                 </button>
                 <button
                   onClick={() => {
@@ -1977,7 +1977,7 @@
                   }}
                   className="flex-1 py-2 bg-gray-300 text-gray-700 rounded-lg font-medium"
                 >
-                  ביטול
+                  Cancel
                 </button>
               </div>
             </div>

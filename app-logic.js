@@ -156,7 +156,7 @@
               '<div style="text-align:center;direction:rtl;font-size:13px;">' +
               '<b>' + area.label + '</b><br/>' +
               '<span style="color:#666;font-size:11px;">' + area.labelEn + '</span><br/>' +
-              '<span style="color:#999;font-size:10px;">רדיוס: ' + c.radius + ' m</span></div>'
+              '<span style="color:#999;font-size:10px;">Radius: ' + c.radius + ' m</span></div>'
             );
             // Name label with background for readability
             L.marker([c.lat, c.lng], {
@@ -200,7 +200,7 @@
           }).addTo(map).bindPopup(
             '<div style="text-align:center;direction:rtl;">' +
             '<b>📍 ' + (formData.radiusPlaceName || t('form.currentLocation')) + '</b><br/>' +
-            '<span style="font-size:11px;color:#666;">רדיוס: ' + formData.radiusMeters + ' m</span></div>'
+            '<span style="font-size:11px;color:#666;">Radius: ' + formData.radiusMeters + ' m</span></div>'
           ).openPopup();
           
           // Fit to circle bounds
