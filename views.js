@@ -2003,7 +2003,7 @@
               <div className="text-center py-12 text-gray-500">
                 <div className="text-6xl mb-4">🔍</div>
                 <p className="font-bold">{t("places.noResultsFor")} "{searchQuery}"</p>
-                <p className="text-sm mt-2">Try a different search</p>/p>
+                <p className="text-sm mt-2">{t("general.tryDifferentSearch")}</p>/p>
               </div>
             ) : cityCustomLocations.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
@@ -2014,7 +2014,7 @@
             ) : (
               <div className="text-center py-12 text-gray-500">
                 <div className="text-6xl mb-4">🔍</div>
-                <p className="font-bold">Start typing to search</p>
+                <p className="font-bold">{t("general.startTypingToSearch")}</p>
                 <p className="text-sm mt-2">{`${cityCustomLocations.length} ${t("route.places")} - ${tLabel(window.BKK.selectedCity) || t('places.thisCity')}`}</p>
               </div>
             )}
@@ -2596,7 +2596,7 @@
                                 onChange={(e) => { area.radius = parseInt(e.target.value) || area.radius; if (areaCoord) areaCoord.radius = area.radius; setFormData(prev => ({...prev})); }}
                               />
                             </label>
-                            <label style={{ fontSize: '9px', color: '#6b7280' }}>Multiplier:
+                            <label style={{ fontSize: '9px', color: '#6b7280' }}>{t("general.multiplier")}:
                               <input type="number" step="0.1" value={area.distanceMultiplier || window.BKK.selectedCity?.distanceMultiplier || 1.2} style={{ width: '40px', fontSize: '9px', padding: '1px 3px', border: '1px solid #d1d5db', borderRadius: '4px', marginRight: '2px' }}
                                 onChange={(e) => { area.distanceMultiplier = parseFloat(e.target.value) || 1.2; if (areaCoord) areaCoord.distanceMultiplier = area.distanceMultiplier; setFormData(prev => ({...prev})); }}
                               />

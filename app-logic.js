@@ -154,7 +154,7 @@
               fillOpacity: 0.15, weight: 2
             }).addTo(map).bindPopup(
               '<div style="text-align:center;direction:rtl;font-size:13px;">' +
-              '<b>' + area.label + '</b><br/>' +
+              '<b>' + tLabel(area) + '</b><br/>' +
               '<span style="color:#666;font-size:11px;">' + area.labelEn + '</span><br/>' +
               '<span style="color:#999;font-size:10px;">Radius: ' + c.radius + ' m</span></div>'
             );
@@ -162,7 +162,7 @@
             L.marker([c.lat, c.lng], {
               icon: L.divIcon({
                 className: '',
-                html: '<div style="font-size:10px;font-weight:bold;text-align:center;color:' + color + ';background:rgba(255,255,255,0.88);padding:2px 5px;border-radius:4px;border:1.5px solid ' + color + ';white-space:nowrap;line-height:1.2;box-shadow:0 1px 3px rgba(0,0,0,0.15);">' + area.label + '</div>',
+                html: '<div style="font-size:10px;font-weight:bold;text-align:center;color:' + color + ';background:rgba(255,255,255,0.88);padding:2px 5px;border-radius:4px;border:1.5px solid ' + color + ';white-space:nowrap;line-height:1.2;box-shadow:0 1px 3px rgba(0,0,0,0.15);">' + tLabel(area) + '</div>',
                 iconSize: [80, 22], iconAnchor: [40, 11]
               })
             }).addTo(map);
@@ -217,7 +217,7 @@
             L.marker([c.lat, c.lng], {
               icon: L.divIcon({
                 className: '',
-                html: '<div style="font-size:8px;color:#94a3b8;text-align:center;white-space:nowrap;">' + area.label + '</div>',
+                html: '<div style="font-size:8px;color:#94a3b8;text-align:center;white-space:nowrap;">' + tLabel(area) + '</div>',
                 iconSize: [50, 15], iconAnchor: [25, 7]
               })
             }).addTo(map);
@@ -444,7 +444,7 @@
         }
         
         if (closest) {
-          const areaName = areaOptions.find(a => a.id === closest)?.label || closest;
+          const areaName = areaOptions.find(a => a.id === closest)? tLabel(areaOptions.find(a => a.id === closest)) : closest;
           setFormData(prev => ({ ...prev, area: closest }));
           showToast(`${t("toast.foundInArea")} ${areaName}`, 'success');
         } else {
@@ -1175,7 +1175,7 @@
     setDisabledStops([]);
     setManualStops([]);
     window.scrollTo(0, 0);
-    showToast(window.BKK.selectedCity.icon + ' ' + window.BKK.selectedCity.name, 'success');
+    showToast(window.BKK.selectedCity.icon + ' ' + tLabel(window.BKK.selectedCity), 'success');
   };
 
   const switchLanguage = (lang) => {
@@ -1239,7 +1239,7 @@
     // Filter out invalid interests (those without search config)
     const validInterests = interests.filter(id => isInterestValid(id));
     if (validInterests.length === 0) {
-      const names = interests.map(id => allInterestOptions.find(o => o.id === id)?.label || id).join(', ');
+      const names = interests.map(id => allInterestOptions.find(o => o.id === id)).filter(Boolean).map(o => tLabel(o) || o?.id || id).join(', ');
       addDebugLog('API', `No valid config for: ${names}`);
       console.warn('[DYNAMIC] No valid interests - all are missing search config:', names);
       return [];
@@ -1247,7 +1247,7 @@
     
     if (validInterests.length < interests.length) {
       const skipped = interests.filter(id => !isInterestValid(id));
-      const skippedNames = skipped.map(id => allInterestOptions.find(o => o.id === id)?.label || id).join(', ');
+      const skippedNames = skipped.map(id => allInterestOptions.find(o => o.id === id)).filter(Boolean).map(o => tLabel(o) || o?.id || id).join(', ');
       addDebugLog('API', `Skipped interests without config: ${skippedNames}`);
       console.warn('[DYNAMIC] Skipped invalid interests:', skippedNames);
     }
@@ -1405,7 +1405,7 @@
                   console.log(`[DYNAMIC] Retry success for type: ${singleType}, got ${retryData.places.length} places`);
                 }
               } else {
-                const interestNames = validInterests.map(id => allInterestOptions.find(o => o.id === id)?.label || id).join(', ');
+                const interestNames = validInterests.map(id => allInterestOptions.find(o => o.id === id)).filter(Boolean).map(o => tLabel(o) || o?.id || id).join(', ');
                 addDebugLog('API', `Type "${singleType}" not supported by Google (${interestNames})`);
                 console.warn(`[DYNAMIC] Type "${singleType}" not supported, skipping`);
               }
@@ -1716,7 +1716,7 @@
     if (!config) return opt;
     return {
       ...opt,
-      label: config.labelOverride || opt.label,
+      label: config.labelOverride || opt.label, labelEn: config.labelOverrideEn || opt.labelEn,
       icon: config.iconOverride || opt.icon,
       inProgress: config.inProgress !== undefined ? config.inProgress : opt.inProgress,
       locked: config.locked !== undefined ? config.locked : opt.locked
@@ -1867,16 +1867,16 @@
       
       const sortedKeys = Object.keys(groups).sort((a, b) => {
         if (placesGroupBy === 'interest') {
-          return ((interestMap[a] || {}).label || a).localeCompare((interestMap[b] || {}).label || b, 'he');
+          return (tLabel(interestMap[a]) || a).localeCompare(tLabel(interestMap[b]) || b);
         } else {
-          return ((areaMap[a] || {}).label || a).localeCompare((areaMap[b] || {}).label || b, 'he');
+          return (tLabel(areaMap[a]) || a).localeCompare(tLabel(areaMap[b]) || b);
         }
       });
       
       const sortWithin = (locs) => [...locs].sort((a, b) => {
         if (placesGroupBy === 'interest') {
-          const aArea = (areaMap[(a.areas || [a.area])[0]] || {}).label || '';
-          const bArea = (areaMap[(b.areas || [b.area])[0]] || {}).label || '';
+          const aArea = tLabel(areaMap[(a.areas || [a.area])[0]]) || '';
+          const bArea = tLabel(areaMap[(b.areas || [b.area])[0]]) || '';
           return aArea.localeCompare(bArea, 'he') || a.name.localeCompare(b.name, 'he');
         } else {
           return (a.interests?.[0] || '').localeCompare(b.interests?.[0] || '') || a.name.localeCompare(b.name, 'he');
@@ -1936,7 +1936,7 @@
     const cleaned = formData.interests.filter(id => visibleIds.includes(id));
     if (cleaned.length !== formData.interests.length) {
       const removed = formData.interests.filter(id => !visibleIds.includes(id));
-      const removedNames = removed.map(id => allInterestOptions.find(o => o.id === id)?.label || id).join(', ');
+      const removedNames = removed.map(id => allInterestOptions.find(o => o.id === id)).filter(Boolean).map(o => tLabel(o) || o?.id || id).join(', ');
       console.log('[CLEANUP] Removed invalid interests from selection:', removedNames);
       setFormData(prev => ({ ...prev, interests: cleaned }));
     }
@@ -2427,10 +2427,10 @@
         }
       } else {
         const selectedArea = areaOptions.find(a => a.id === formData.area);
-        areaName = selectedArea?.label || t('general.allCity');
+        areaName = tLabel(selectedArea) || t('general.allCity');
       }
       interestsText = formData.interests
-        .map(id => allInterestOptions.filter(o => o && o.id).find(o => o.id === id)?.label)
+        .map(id => allInterestOptions.filter(o => o && o.id).find(o => o.id === id)).map(o => o ? tLabel(o) : null)
         .filter(Boolean)
         .join(', ');
       
@@ -3718,7 +3718,7 @@
       outsideArea = !inAnyArea && selectedAreas.length > 0;
       
       if (outsideArea) {
-        const areaNames = selectedAreas.map(aId => areaOptions.find(a => a.id === aId)?.label || aId).join(', ');
+        const areaNames = selectedAreas.map(aId => areaOptions.find(a => a.id === aId)).filter(Boolean).map(a => tLabel(a)).join(', ') || aId);
         showToast(
           `${t("toast.outsideAreaWarning")} (${areaNames})`,
           'warning'
@@ -3872,7 +3872,7 @@
       outsideArea = !inAnyArea && selectedAreas.length > 0;
       
       if (outsideArea) {
-        const areaNames = selectedAreas.map(aId => areaOptions.find(a => a.id === aId)?.label || aId).join(', ');
+        const areaNames = selectedAreas.map(aId => areaOptions.find(a => a.id === aId)).filter(Boolean).map(a => tLabel(a)).join(', ') || aId);
         showToast(
           `${t("toast.outsideAreaWarning")} (${areaNames})`,
           'warning'

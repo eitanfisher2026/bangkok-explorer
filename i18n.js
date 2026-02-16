@@ -287,6 +287,20 @@ general: {
   interestsHeader: 'תחומים',
   searchTip: 'לחץ 🔍 לחיפוש כתובת, 📍 למיקום נוכחי, או 📌 ממקום ברשימה',
   stopsCount: 'תחנות',
+  clickToUpload: 'לחץ להעלאה',
+  name: 'שם',
+  link: 'קישור',
+  location: 'מיקום',
+  icon: 'אייקון',
+  routeName: 'שם המסלול',
+  mapsLink: 'קישור Maps',
+  searchSettings: 'הגדרות חיפוש',
+  tryDifferentSearch: 'נסה לחפש משהו אחר',
+  startTypingToSearch: 'התחל להקליד כדי לחפש',
+  multiplier: 'מכפיל',
+  noEntries: 'אין כניסות עדיין',
+  noFeedback: 'אין משובים עדיין',
+  feedback: 'משובים',
 },
 
 // --- Navigation & Views ---
@@ -508,6 +522,9 @@ interests: {
   customCount: 'תחומים מותאמים',
   activeInterests: 'תחומים פעילים',
   disabledInterests: 'תחומים מושבתים',
+  privateInterest: 'תחום פרטי',
+  myPlacesOnly: 'רק מקומות שלי, בלי פנייה לגוגל',
+  interestStatus: 'סטטוס תחומים',
 },
 
 // --- Toasts & Messages ---
@@ -609,6 +626,8 @@ settings: {
   systemProtected: '🔒 מערכת מוגנת בסיסמה',
   noPassword: '🔓 ללא סיסמה - גישה פתוחה לכולם',
   newPasswordPlaceholder: 'סיסמה חדשה...',
+  lockedSettings: 'הגדרות נעולות',
+  enterPassword: 'הזן סיסמה לפתיחת ההגדרות',
 },
 
 // --- Help ---
@@ -833,6 +852,20 @@ general: {
   interestsHeader: 'Interests',
   searchTip: 'Click 🔍 to search address, 📍 for location, or 📌 from your places',
   stopsCount: 'stops',
+  clickToUpload: 'Click to upload',
+  name: 'Name',
+  link: 'Link',
+  location: 'Location',
+  icon: 'Icon',
+  routeName: 'Route name',
+  mapsLink: 'Maps link',
+  searchSettings: 'Search settings',
+  tryDifferentSearch: 'Try a different search',
+  startTypingToSearch: 'Start typing to search',
+  multiplier: 'Multiplier',
+  noEntries: 'No entries yet',
+  noFeedback: 'No feedback yet',
+  feedback: 'Feedback',
 },
 
 nav: {
@@ -1048,6 +1081,9 @@ interests: {
   customCount: 'Custom interests',
   activeInterests: 'Active interests',
   disabledInterests: 'Disabled interests',
+  privateInterest: 'Private interest',
+  myPlacesOnly: 'My places only, no Google',
+  interestStatus: 'Interest status',
 },
 
 toast: {
@@ -1147,6 +1183,8 @@ settings: {
   systemProtected: '🔒 System password protected',
   noPassword: '🔓 No password - open access',
   newPasswordPlaceholder: 'New password...',
+  lockedSettings: 'Locked settings',
+  enterPassword: 'Enter password to unlock',
 },
 
 help: {

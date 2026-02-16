@@ -131,7 +131,7 @@
                         }}
                         className="text-[9px] px-2 py-0.5 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 font-bold"
                       >{`📍 Auto-detect`}</button>
-                      <label className="text-xs font-bold">Areas</label>
+                      <label className="text-xs font-bold">{t("general.areas")}</label>
                     </div>
                     <div className="grid grid-cols-6 gap-1 p-1.5 bg-gray-50 rounded-lg overflow-y-auto border-2 border-gray-300" style={{ maxHeight: '120px' }}>
                       {areaOptions.map(area => {
@@ -164,7 +164,7 @@
 
                 {/* Interests - Compact Grid */}
                 <div>
-                  <label className="block text-xs font-bold mb-1">Interests</label>
+                  <label className="block text-xs font-bold mb-1">{t("general.interestsHeader")}</label>
                   <div className="grid grid-cols-6 gap-1.5 p-2 bg-gray-50 rounded-lg max-h-32 overflow-y-auto">
                     {allInterestOptions.map(option => (
                       <button
@@ -228,7 +228,7 @@
                   ) : (
                     <label className="block w-full p-3 border-2 border-dashed border-purple-300 rounded-lg text-center cursor-pointer hover:bg-purple-50">
                       <span className="text-2xl">📸</span>
-                      <div className="text-xs text-gray-600 mt-1">Click to upload</div>
+                      <div className="text-xs text-gray-600 mt-1">{t("general.clickToUpload")}</div>
                       <input
                         type="file"
                         accept="image/*"
@@ -278,7 +278,7 @@
                       onClick={() => setNewLocation({...newLocation, imageUrls: [...(newLocation.imageUrls || []), '']})}
                       className="w-full p-1.5 border border-dashed border-gray-300 rounded-lg text-xs text-gray-600 hover:bg-gray-50"
                     >
-                      + Link
+                      {`+ ${t("general.link")}`}
                     </button>
                   </div>
                 </div>
@@ -297,7 +297,7 @@
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold mb-1">🔗 Maps link</label>
+                    <label className="block text-xs font-bold mb-1">{`🔗 ${t("general.mapsLink")}`}</label>
                     <input
                       type="text"
                       value={newLocation.mapsUrl || ''}
@@ -348,7 +348,7 @@
                       title={t("form.searchByName")}
                     >
                       <span className="text-sm">🔤</span>
-                      <span>Name</span>
+                      <span>{t("general.name")}</span>
                     </button>
                     <button
                       onClick={() => geocodeAddress(newLocation.address)}
@@ -374,7 +374,7 @@
                       title={t("form.extractFromLink")}
                     >
                       <span className="text-sm">🔗</span>
-                      <span>Link</span>
+                      <span>{t("general.link")}</span>
                     </button>
                     <button
                       onClick={getCurrentLocation}
@@ -382,7 +382,7 @@
                       title={t("form.gps")}
                     >
                       <span className="text-sm">📍</span>
-                      <span>Location</span>
+                      <span>{t("general.location")}</span>
                     </button>
                   </div>
                 </div>
@@ -677,7 +677,7 @@
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold mb-1">Icon</label>
+                    <label className="block text-xs font-bold mb-1">{t("general.icon")}</label>
                     {newInterest.icon && newInterest.icon.startsWith('data:') ? (
                       <div className="relative">
                         <img src={newInterest.icon} alt="icon" className="w-full h-10 object-contain rounded-lg border-2 border-gray-300 bg-white" />
@@ -722,7 +722,7 @@
 
                 {/* Search Configuration */}
                 <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
-                  <label className="block text-xs font-bold mb-2 text-blue-800">🔍 Search settings</label>
+                  <label className="block text-xs font-bold mb-2 text-blue-800">{`🔍 ${t("general.searchSettings")}`}</label>
                   
                   <div className="mb-2">
                     <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>Search Mode:</label>
@@ -791,8 +791,8 @@
                         onChange={(e) => setNewInterest({...newInterest, privateOnly: e.target.checked})}
                         className="rounded" style={{ accentColor: "#7c3aed", width: "16px", height: "16px" }}
                       />
-                      <span className="text-xs font-bold text-blue-800">🔒 Private interest</span>
-                      <span className="text-[9px] text-gray-500">— My places only, no Google</span>
+                      <span className="text-xs font-bold text-blue-800">{`🔒 ${t("interests.privateInterest")}`}</span>
+                      <span className="text-[9px] text-gray-500">{`— ${t("interests.myPlacesOnly")}`}</span>
                     </label>
                   </div>
                   )}
@@ -1004,7 +1004,7 @@
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50">
-              <h2 className="text-xl font-bold text-gray-800">🔒 Access Log</h2>
+              <h2 className="text-xl font-bold text-gray-800">{`🔒 ${t("general.viewAccessLog")}`}</h2>
               <button
                 onClick={() => setShowAccessLog(false)}
                 className="text-2xl font-bold text-gray-600 hover:text-gray-800"
@@ -1201,7 +1201,7 @@
 
               {/* Name */}
               <div>
-                <label className="block text-xs font-bold mb-1">Route name</label>
+                <label className="block text-xs font-bold mb-1">{t("general.routeName")}</label>
                 <input
                   type="text"
                   value={editingRoute.name || ''}
@@ -1845,7 +1845,7 @@
                 </div>
                 {importedData.interestConfig && (
                   <div className="flex justify-between text-sm">
-                    <span>⚙️ Search settings</span>
+                    <span>{`⚙️ ${t("general.searchSettings")}`}</span>
                     <span className="font-bold text-gray-600">{Object.keys(importedData.interestConfig).length}</span>
                   </div>
                 )}
@@ -1890,7 +1890,7 @@
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl w-full max-w-sm shadow-2xl">
             <div className="bg-gradient-to-r from-gray-700 to-gray-800 text-white p-3 rounded-t-xl">
-              <h3 className="text-base font-bold">🔒 Locked settings</h3>
+              <h3 className="text-base font-bold">{`🔒 ${t("settings.lockedSettings")}`}</h3>
             </div>
             <div className="p-4 space-y-4">
               <p className="text-sm text-gray-600 text-center">{t("settings.enterPassword")}</p>

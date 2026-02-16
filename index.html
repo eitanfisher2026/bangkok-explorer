@@ -460,6 +460,20 @@ general: {
   interestsHeader: 'תחומים',
   searchTip: 'לחץ 🔍 לחיפוש כתובת, 📍 למיקום נוכחי, או 📌 ממקום ברשימה',
   stopsCount: 'תחנות',
+  clickToUpload: 'לחץ להעלאה',
+  name: 'שם',
+  link: 'קישור',
+  location: 'מיקום',
+  icon: 'אייקון',
+  routeName: 'שם המסלול',
+  mapsLink: 'קישור Maps',
+  searchSettings: 'הגדרות חיפוש',
+  tryDifferentSearch: 'נסה לחפש משהו אחר',
+  startTypingToSearch: 'התחל להקליד כדי לחפש',
+  multiplier: 'מכפיל',
+  noEntries: 'אין כניסות עדיין',
+  noFeedback: 'אין משובים עדיין',
+  feedback: 'משובים',
 },
 
 // --- Navigation & Views ---
@@ -681,6 +695,9 @@ interests: {
   customCount: 'תחומים מותאמים',
   activeInterests: 'תחומים פעילים',
   disabledInterests: 'תחומים מושבתים',
+  privateInterest: 'תחום פרטי',
+  myPlacesOnly: 'רק מקומות שלי, בלי פנייה לגוגל',
+  interestStatus: 'סטטוס תחומים',
 },
 
 // --- Toasts & Messages ---
@@ -782,6 +799,8 @@ settings: {
   systemProtected: '🔒 מערכת מוגנת בסיסמה',
   noPassword: '🔓 ללא סיסמה - גישה פתוחה לכולם',
   newPasswordPlaceholder: 'סיסמה חדשה...',
+  lockedSettings: 'הגדרות נעולות',
+  enterPassword: 'הזן סיסמה לפתיחת ההגדרות',
 },
 
 // --- Help ---
@@ -1006,6 +1025,20 @@ general: {
   interestsHeader: 'Interests',
   searchTip: 'Click 🔍 to search address, 📍 for location, or 📌 from your places',
   stopsCount: 'stops',
+  clickToUpload: 'Click to upload',
+  name: 'Name',
+  link: 'Link',
+  location: 'Location',
+  icon: 'Icon',
+  routeName: 'Route name',
+  mapsLink: 'Maps link',
+  searchSettings: 'Search settings',
+  tryDifferentSearch: 'Try a different search',
+  startTypingToSearch: 'Start typing to search',
+  multiplier: 'Multiplier',
+  noEntries: 'No entries yet',
+  noFeedback: 'No feedback yet',
+  feedback: 'Feedback',
 },
 
 nav: {
@@ -1221,6 +1254,9 @@ interests: {
   customCount: 'Custom interests',
   activeInterests: 'Active interests',
   disabledInterests: 'Disabled interests',
+  privateInterest: 'Private interest',
+  myPlacesOnly: 'My places only, no Google',
+  interestStatus: 'Interest status',
 },
 
 toast: {
@@ -1320,6 +1356,8 @@ settings: {
   systemProtected: '🔒 System password protected',
   noPassword: '🔓 No password - open access',
   newPasswordPlaceholder: 'New password...',
+  lockedSettings: 'Locked settings',
+  enterPassword: 'Enter password to unlock',
 },
 
 help: {
@@ -2324,7 +2362,7 @@ const CityExplorer = () => {
               fillOpacity: 0.15, weight: 2
             }).addTo(map).bindPopup(
               '<div style="text-align:center;direction:rtl;font-size:13px;">' +
-              '<b>' + area.label + '</b><br/>' +
+              '<b>' + tLabel(area) + '</b><br/>' +
               '<span style="color:#666;font-size:11px;">' + area.labelEn + '</span><br/>' +
               '<span style="color:#999;font-size:10px;">Radius: ' + c.radius + ' m</span></div>'
             );
@@ -2332,7 +2370,7 @@ const CityExplorer = () => {
             L.marker([c.lat, c.lng], {
               icon: L.divIcon({
                 className: '',
-                html: '<div style="font-size:10px;font-weight:bold;text-align:center;color:' + color + ';background:rgba(255,255,255,0.88);padding:2px 5px;border-radius:4px;border:1.5px solid ' + color + ';white-space:nowrap;line-height:1.2;box-shadow:0 1px 3px rgba(0,0,0,0.15);">' + area.label + '</div>',
+                html: '<div style="font-size:10px;font-weight:bold;text-align:center;color:' + color + ';background:rgba(255,255,255,0.88);padding:2px 5px;border-radius:4px;border:1.5px solid ' + color + ';white-space:nowrap;line-height:1.2;box-shadow:0 1px 3px rgba(0,0,0,0.15);">' + tLabel(area) + '</div>',
                 iconSize: [80, 22], iconAnchor: [40, 11]
               })
             }).addTo(map);
@@ -2387,7 +2425,7 @@ const CityExplorer = () => {
             L.marker([c.lat, c.lng], {
               icon: L.divIcon({
                 className: '',
-                html: '<div style="font-size:8px;color:#94a3b8;text-align:center;white-space:nowrap;">' + area.label + '</div>',
+                html: '<div style="font-size:8px;color:#94a3b8;text-align:center;white-space:nowrap;">' + tLabel(area) + '</div>',
                 iconSize: [50, 15], iconAnchor: [25, 7]
               })
             }).addTo(map);
@@ -2614,7 +2652,7 @@ const CityExplorer = () => {
         }
         
         if (closest) {
-          const areaName = areaOptions.find(a => a.id === closest)?.label || closest;
+          const areaName = areaOptions.find(a => a.id === closest)? tLabel(areaOptions.find(a => a.id === closest)) : closest;
           setFormData(prev => ({ ...prev, area: closest }));
           showToast(`${t("toast.foundInArea")} ${areaName}`, 'success');
         } else {
@@ -3345,7 +3383,7 @@ const CityExplorer = () => {
     setDisabledStops([]);
     setManualStops([]);
     window.scrollTo(0, 0);
-    showToast(window.BKK.selectedCity.icon + ' ' + window.BKK.selectedCity.name, 'success');
+    showToast(window.BKK.selectedCity.icon + ' ' + tLabel(window.BKK.selectedCity), 'success');
   };
 
   const switchLanguage = (lang) => {
@@ -3409,7 +3447,7 @@ const CityExplorer = () => {
     // Filter out invalid interests (those without search config)
     const validInterests = interests.filter(id => isInterestValid(id));
     if (validInterests.length === 0) {
-      const names = interests.map(id => allInterestOptions.find(o => o.id === id)?.label || id).join(', ');
+      const names = interests.map(id => allInterestOptions.find(o => o.id === id)).filter(Boolean).map(o => tLabel(o) || o?.id || id).join(', ');
       addDebugLog('API', `No valid config for: ${names}`);
       console.warn('[DYNAMIC] No valid interests - all are missing search config:', names);
       return [];
@@ -3417,7 +3455,7 @@ const CityExplorer = () => {
     
     if (validInterests.length < interests.length) {
       const skipped = interests.filter(id => !isInterestValid(id));
-      const skippedNames = skipped.map(id => allInterestOptions.find(o => o.id === id)?.label || id).join(', ');
+      const skippedNames = skipped.map(id => allInterestOptions.find(o => o.id === id)).filter(Boolean).map(o => tLabel(o) || o?.id || id).join(', ');
       addDebugLog('API', `Skipped interests without config: ${skippedNames}`);
       console.warn('[DYNAMIC] Skipped invalid interests:', skippedNames);
     }
@@ -3575,7 +3613,7 @@ const CityExplorer = () => {
                   console.log(`[DYNAMIC] Retry success for type: ${singleType}, got ${retryData.places.length} places`);
                 }
               } else {
-                const interestNames = validInterests.map(id => allInterestOptions.find(o => o.id === id)?.label || id).join(', ');
+                const interestNames = validInterests.map(id => allInterestOptions.find(o => o.id === id)).filter(Boolean).map(o => tLabel(o) || o?.id || id).join(', ');
                 addDebugLog('API', `Type "${singleType}" not supported by Google (${interestNames})`);
                 console.warn(`[DYNAMIC] Type "${singleType}" not supported, skipping`);
               }
@@ -3886,7 +3924,7 @@ const CityExplorer = () => {
     if (!config) return opt;
     return {
       ...opt,
-      label: config.labelOverride || opt.label,
+      label: config.labelOverride || opt.label, labelEn: config.labelOverrideEn || opt.labelEn,
       icon: config.iconOverride || opt.icon,
       inProgress: config.inProgress !== undefined ? config.inProgress : opt.inProgress,
       locked: config.locked !== undefined ? config.locked : opt.locked
@@ -4037,16 +4075,16 @@ const CityExplorer = () => {
       
       const sortedKeys = Object.keys(groups).sort((a, b) => {
         if (placesGroupBy === 'interest') {
-          return ((interestMap[a] || {}).label || a).localeCompare((interestMap[b] || {}).label || b, 'he');
+          return (tLabel(interestMap[a]) || a).localeCompare(tLabel(interestMap[b]) || b);
         } else {
-          return ((areaMap[a] || {}).label || a).localeCompare((areaMap[b] || {}).label || b, 'he');
+          return (tLabel(areaMap[a]) || a).localeCompare(tLabel(areaMap[b]) || b);
         }
       });
       
       const sortWithin = (locs) => [...locs].sort((a, b) => {
         if (placesGroupBy === 'interest') {
-          const aArea = (areaMap[(a.areas || [a.area])[0]] || {}).label || '';
-          const bArea = (areaMap[(b.areas || [b.area])[0]] || {}).label || '';
+          const aArea = tLabel(areaMap[(a.areas || [a.area])[0]]) || '';
+          const bArea = tLabel(areaMap[(b.areas || [b.area])[0]]) || '';
           return aArea.localeCompare(bArea, 'he') || a.name.localeCompare(b.name, 'he');
         } else {
           return (a.interests?.[0] || '').localeCompare(b.interests?.[0] || '') || a.name.localeCompare(b.name, 'he');
@@ -4106,7 +4144,7 @@ const CityExplorer = () => {
     const cleaned = formData.interests.filter(id => visibleIds.includes(id));
     if (cleaned.length !== formData.interests.length) {
       const removed = formData.interests.filter(id => !visibleIds.includes(id));
-      const removedNames = removed.map(id => allInterestOptions.find(o => o.id === id)?.label || id).join(', ');
+      const removedNames = removed.map(id => allInterestOptions.find(o => o.id === id)).filter(Boolean).map(o => tLabel(o) || o?.id || id).join(', ');
       console.log('[CLEANUP] Removed invalid interests from selection:', removedNames);
       setFormData(prev => ({ ...prev, interests: cleaned }));
     }
@@ -4597,10 +4635,10 @@ const CityExplorer = () => {
         }
       } else {
         const selectedArea = areaOptions.find(a => a.id === formData.area);
-        areaName = selectedArea?.label || t('general.allCity');
+        areaName = tLabel(selectedArea) || t('general.allCity');
       }
       interestsText = formData.interests
-        .map(id => allInterestOptions.filter(o => o && o.id).find(o => o.id === id)?.label)
+        .map(id => allInterestOptions.filter(o => o && o.id).find(o => o.id === id)).map(o => o ? tLabel(o) : null)
         .filter(Boolean)
         .join(', ');
       
@@ -5888,7 +5926,7 @@ const CityExplorer = () => {
       outsideArea = !inAnyArea && selectedAreas.length > 0;
       
       if (outsideArea) {
-        const areaNames = selectedAreas.map(aId => areaOptions.find(a => a.id === aId)?.label || aId).join(', ');
+        const areaNames = selectedAreas.map(aId => areaOptions.find(a => a.id === aId)).filter(Boolean).map(a => tLabel(a)).join(', ') || aId);
         showToast(
           `${t("toast.outsideAreaWarning")} (${areaNames})`,
           'warning'
@@ -6042,7 +6080,7 @@ const CityExplorer = () => {
       outsideArea = !inAnyArea && selectedAreas.length > 0;
       
       if (outsideArea) {
-        const areaNames = selectedAreas.map(aId => areaOptions.find(a => a.id === aId)?.label || aId).join(', ');
+        const areaNames = selectedAreas.map(aId => areaOptions.find(a => a.id === aId)).filter(Boolean).map(a => tLabel(a)).join(', ') || aId);
         showToast(
           `${t("toast.outsideAreaWarning")} (${areaNames})`,
           'warning'
@@ -8467,7 +8505,7 @@ const CityExplorer = () => {
               <div className="text-center py-12 text-gray-500">
                 <div className="text-6xl mb-4">🔍</div>
                 <p className="font-bold">{t("places.noResultsFor")} "{searchQuery}"</p>
-                <p className="text-sm mt-2">Try a different search</p>/p>
+                <p className="text-sm mt-2">{t("general.tryDifferentSearch")}</p>/p>
               </div>
             ) : cityCustomLocations.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
@@ -8478,7 +8516,7 @@ const CityExplorer = () => {
             ) : (
               <div className="text-center py-12 text-gray-500">
                 <div className="text-6xl mb-4">🔍</div>
-                <p className="font-bold">Start typing to search</p>
+                <p className="font-bold">{t("general.startTypingToSearch")}</p>
                 <p className="text-sm mt-2">{`${cityCustomLocations.length} ${t("route.places")} - ${tLabel(window.BKK.selectedCity) || t('places.thisCity')}`}</p>
               </div>
             )}
@@ -9060,7 +9098,7 @@ const CityExplorer = () => {
                                 onChange={(e) => { area.radius = parseInt(e.target.value) || area.radius; if (areaCoord) areaCoord.radius = area.radius; setFormData(prev => ({...prev})); }}
                               />
                             </label>
-                            <label style={{ fontSize: '9px', color: '#6b7280' }}>Multiplier:
+                            <label style={{ fontSize: '9px', color: '#6b7280' }}>{t("general.multiplier")}:
                               <input type="number" step="0.1" value={area.distanceMultiplier || window.BKK.selectedCity?.distanceMultiplier || 1.2} style={{ width: '40px', fontSize: '9px', padding: '1px 3px', border: '1px solid #d1d5db', borderRadius: '4px', marginRight: '2px' }}
                                 onChange={(e) => { area.distanceMultiplier = parseFloat(e.target.value) || 1.2; if (areaCoord) areaCoord.distanceMultiplier = area.distanceMultiplier; setFormData(prev => ({...prev})); }}
                               />
@@ -9658,7 +9696,7 @@ const CityExplorer = () => {
                         }}
                         className="text-[9px] px-2 py-0.5 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 font-bold"
                       >{`📍 Auto-detect`}</button>
-                      <label className="text-xs font-bold">Areas</label>
+                      <label className="text-xs font-bold">{t("general.areas")}</label>
                     </div>
                     <div className="grid grid-cols-6 gap-1 p-1.5 bg-gray-50 rounded-lg overflow-y-auto border-2 border-gray-300" style={{ maxHeight: '120px' }}>
                       {areaOptions.map(area => {
@@ -9691,7 +9729,7 @@ const CityExplorer = () => {
 
                 {/* Interests - Compact Grid */}
                 <div>
-                  <label className="block text-xs font-bold mb-1">Interests</label>
+                  <label className="block text-xs font-bold mb-1">{t("general.interestsHeader")}</label>
                   <div className="grid grid-cols-6 gap-1.5 p-2 bg-gray-50 rounded-lg max-h-32 overflow-y-auto">
                     {allInterestOptions.map(option => (
                       <button
@@ -9755,7 +9793,7 @@ const CityExplorer = () => {
                   ) : (
                     <label className="block w-full p-3 border-2 border-dashed border-purple-300 rounded-lg text-center cursor-pointer hover:bg-purple-50">
                       <span className="text-2xl">📸</span>
-                      <div className="text-xs text-gray-600 mt-1">Click to upload</div>
+                      <div className="text-xs text-gray-600 mt-1">{t("general.clickToUpload")}</div>
                       <input
                         type="file"
                         accept="image/*"
@@ -9805,7 +9843,7 @@ const CityExplorer = () => {
                       onClick={() => setNewLocation({...newLocation, imageUrls: [...(newLocation.imageUrls || []), '']})}
                       className="w-full p-1.5 border border-dashed border-gray-300 rounded-lg text-xs text-gray-600 hover:bg-gray-50"
                     >
-                      + Link
+                      {`+ ${t("general.link")}`}
                     </button>
                   </div>
                 </div>
@@ -9824,7 +9862,7 @@ const CityExplorer = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold mb-1">🔗 Maps link</label>
+                    <label className="block text-xs font-bold mb-1">{`🔗 ${t("general.mapsLink")}`}</label>
                     <input
                       type="text"
                       value={newLocation.mapsUrl || ''}
@@ -9875,7 +9913,7 @@ const CityExplorer = () => {
                       title={t("form.searchByName")}
                     >
                       <span className="text-sm">🔤</span>
-                      <span>Name</span>
+                      <span>{t("general.name")}</span>
                     </button>
                     <button
                       onClick={() => geocodeAddress(newLocation.address)}
@@ -9901,7 +9939,7 @@ const CityExplorer = () => {
                       title={t("form.extractFromLink")}
                     >
                       <span className="text-sm">🔗</span>
-                      <span>Link</span>
+                      <span>{t("general.link")}</span>
                     </button>
                     <button
                       onClick={getCurrentLocation}
@@ -9909,7 +9947,7 @@ const CityExplorer = () => {
                       title={t("form.gps")}
                     >
                       <span className="text-sm">📍</span>
-                      <span>Location</span>
+                      <span>{t("general.location")}</span>
                     </button>
                   </div>
                 </div>
@@ -10204,7 +10242,7 @@ const CityExplorer = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold mb-1">Icon</label>
+                    <label className="block text-xs font-bold mb-1">{t("general.icon")}</label>
                     {newInterest.icon && newInterest.icon.startsWith('data:') ? (
                       <div className="relative">
                         <img src={newInterest.icon} alt="icon" className="w-full h-10 object-contain rounded-lg border-2 border-gray-300 bg-white" />
@@ -10249,7 +10287,7 @@ const CityExplorer = () => {
 
                 {/* Search Configuration */}
                 <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
-                  <label className="block text-xs font-bold mb-2 text-blue-800">🔍 Search settings</label>
+                  <label className="block text-xs font-bold mb-2 text-blue-800">{`🔍 ${t("general.searchSettings")}`}</label>
                   
                   <div className="mb-2">
                     <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>Search Mode:</label>
@@ -10318,8 +10356,8 @@ const CityExplorer = () => {
                         onChange={(e) => setNewInterest({...newInterest, privateOnly: e.target.checked})}
                         className="rounded" style={{ accentColor: "#7c3aed", width: "16px", height: "16px" }}
                       />
-                      <span className="text-xs font-bold text-blue-800">🔒 Private interest</span>
-                      <span className="text-[9px] text-gray-500">— My places only, no Google</span>
+                      <span className="text-xs font-bold text-blue-800">{`🔒 ${t("interests.privateInterest")}`}</span>
+                      <span className="text-[9px] text-gray-500">{`— ${t("interests.myPlacesOnly")}`}</span>
                     </label>
                   </div>
                   )}
@@ -10531,7 +10569,7 @@ const CityExplorer = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50">
-              <h2 className="text-xl font-bold text-gray-800">🔒 Access Log</h2>
+              <h2 className="text-xl font-bold text-gray-800">{`🔒 ${t("general.viewAccessLog")}`}</h2>
               <button
                 onClick={() => setShowAccessLog(false)}
                 className="text-2xl font-bold text-gray-600 hover:text-gray-800"
@@ -10728,7 +10766,7 @@ const CityExplorer = () => {
 
               {/* Name */}
               <div>
-                <label className="block text-xs font-bold mb-1">Route name</label>
+                <label className="block text-xs font-bold mb-1">{t("general.routeName")}</label>
                 <input
                   type="text"
                   value={editingRoute.name || ''}
@@ -11372,7 +11410,7 @@ const CityExplorer = () => {
                 </div>
                 {importedData.interestConfig && (
                   <div className="flex justify-between text-sm">
-                    <span>⚙️ Search settings</span>
+                    <span>{`⚙️ ${t("general.searchSettings")}`}</span>
                     <span className="font-bold text-gray-600">{Object.keys(importedData.interestConfig).length}</span>
                   </div>
                 )}
@@ -11417,7 +11455,7 @@ const CityExplorer = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl w-full max-w-sm shadow-2xl">
             <div className="bg-gradient-to-r from-gray-700 to-gray-800 text-white p-3 rounded-t-xl">
-              <h3 className="text-base font-bold">🔒 Locked settings</h3>
+              <h3 className="text-base font-bold">{`🔒 ${t("settings.lockedSettings")}`}</h3>
             </div>
             <div className="p-4 space-y-4">
               <p className="text-sm text-gray-600 text-center">{t("settings.enterPassword")}</p>
