@@ -295,7 +295,7 @@
             }`}
           >
             <div className="text-center">🏷️</div>
-            <div className="truncate text-center text-[8px]">{t("nav.myInterests")} {(()= => {
+            <div className="truncate text-center text-[8px]">{t("nav.myInterests")} {(() => {
               const builtIn = (window.BKK.interestOptions || []).filter(i => isInterestValid(i.id) && interestStatus[i.id] !== false);
               const uncov = (window.BKK.uncoveredInterests || []).filter(i => isInterestValid(i.id) && interestStatus[i.id] === true);
               const cust = (cityCustomInterests || []).filter(i => isInterestValid(i.id) && interestStatus[i.id] !== false);
