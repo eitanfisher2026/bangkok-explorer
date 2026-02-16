@@ -49,12 +49,12 @@
       {updateAvailable && (
         <div className="mx-2 mb-2 bg-green-500 text-white rounded-lg p-2 flex items-center justify-between shadow-lg animate-pulse"
           style={{ animationDuration: '2s' }}>
-          <span className="text-sm font-bold">🔄 New version available!</span>
+          <span className="text-sm font-bold">{t("general.newVersionAvailableBanner")}</span>
           <button
             onClick={applyUpdate}
             className="bg-white text-green-700 px-3 py-1 rounded-lg text-sm font-bold hover:bg-green-100"
           >
-            Update now
+            {t("general.updateNow")}
           </button>
         </div>
       )}      <div className="max-w-4xl mx-auto p-2 sm:p-4 pb-32">
@@ -167,7 +167,7 @@
                   }}
                 >
                   <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#2563eb' }}>📍 Near me</div>
-                  <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '1px' }}>GPS search (1km)</div>
+                  <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '1px' }}>GPS (1km)</div>
                 </button>
 
                 {/* All Bangkok option */}
@@ -193,7 +193,7 @@
                     background: formData.area || formData.searchMode === 'radius' || formData.searchMode === 'all' ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : '#d1d5db',
                     color: 'white', fontSize: '16px', fontWeight: 'bold', boxShadow: formData.area || formData.searchMode === 'radius' || formData.searchMode === 'all' ? '0 4px 6px rgba(37,99,235,0.3)' : 'none'
                   }}
-                >← Next</button>
+                >{t("general.next")}</button>
               </div>
             )}
 
@@ -238,7 +238,7 @@
                   <button
                     onClick={() => { setWizardStep(1); window.scrollTo(0, 0); }}
                     style={{ flex: '0 0 auto', padding: '12px 20px', borderRadius: '12px', border: '2px solid #e5e7eb', background: 'white', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', color: '#6b7280' }}
-                  >→ Back</button>
+                  >{t("general.back")}</button>
                   <button
                     onClick={() => { generateRoute(); setWizardStep(3); window.scrollTo(0, 0); }}
                     disabled={formData.interests.length === 0}
@@ -333,11 +333,11 @@
             <button
               onClick={() => { setWizardStep(2); setRoute(null); setCurrentView('form'); window.scrollTo(0, 0); }}
               style={{ padding: '8px 16px', borderRadius: '10px', border: '2px solid #e5e7eb', background: 'white', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', color: '#6b7280' }}
-            >→ Back</button>
+            >{t("general.back")}</button>
             <button
               onClick={() => { setWizardStep(1); setRoute(null); setCurrentView('form'); setFormData(prev => ({...prev, interests: []})); window.scrollTo(0, 0); }}
               style={{ padding: '8px 16px', borderRadius: '10px', border: '2px solid #e5e7eb', background: 'white', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', color: '#6b7280' }}
-            >🔄 Start over</button>
+            >{t("general.startOver")}</button>
           </div>
         )}
 
@@ -349,7 +349,7 @@
               <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
             </svg>
             <p style={{ fontSize: '14px', fontWeight: 'bold', color: '#374151' }}>{`🔍 ${t("general.searching")}...`}</p>
-            <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>This may take a few seconds</p>
+            <p style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>{t("general.mayTakeSeconds")}</p>
           </div>
         )}
 
@@ -536,7 +536,7 @@
                         className={`flex-1 py-1 rounded text-[9px] font-bold transition ${
                           formData.radiusSource === 'myplace' ? 'bg-blue-500 text-white' : 'text-gray-500'
                         }`}
-                      >🏠 My place</button>
+                      >{t("general.myPlace")}</button>
                     </div>
                     
                     {formData.radiusSource === 'gps' ? (
@@ -854,7 +854,7 @@
                               className="text-[10px] px-2 py-0.5 rounded bg-blue-500 text-white hover:bg-blue-600"
                               title={`${t("route.moreFromCategory")} ${tLabel(interestObj)}`}
                             >
-                              + more
+                              {t("general.more")}
                             </button>
                             )}
                           </div>
@@ -1011,7 +1011,7 @@
                                       )}
                                       <span>{stop.name}</span>
                                       {isStartPoint && (
-                                        <span className="text-[8px] bg-green-600 text-white px-1 py-0.5 rounded font-bold">📌 Start</span>
+                                        <span className="text-[8px] bg-green-600 text-white px-1 py-0.5 rounded font-bold">{t("general.start")}</span>
                                       )}
                                       {stop.detectedArea && formData.searchMode === 'radius' && (
                                         <span className="text-[8px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded font-bold">
@@ -1190,7 +1190,7 @@
                           }}
                           style={{ cursor: 'pointer' }}
                         />
-                        <span>Linear</span>
+                        <span>{t("general.linear")}</span>
                       </label>
                     </div>
                     
@@ -1397,7 +1397,7 @@
                           }}
                           title={t("route.saveRoute")}
                         >
-                          💾 Save
+                          💾 {t("general.save")}
                         </button>
                       ))}
                     </div>
@@ -1818,7 +1818,7 @@
                       onChange={() => setRouteType('linear')}
                       style={{ cursor: 'pointer' }}
                     />
-                    <span>Linear</span>
+                    <span>{t("general.linear")}</span>
                   </label>
                 </div>
                 
@@ -2150,13 +2150,13 @@
                       onClick={() => setPlacesGroupBy('interest')}
                       className={`px-2 py-0.5 rounded text-[10px] font-bold ${placesGroupBy === 'interest' ? 'bg-white shadow text-purple-700' : 'text-gray-500'}`}
                     >
-                      By interest
+                      {t("places.byInterest")}
                     </button>
                     <button
                       onClick={() => setPlacesGroupBy('area')}
                       className={`px-2 py-0.5 rounded text-[10px] font-bold ${placesGroupBy === 'area' ? 'bg-white shadow text-purple-700' : 'text-gray-500'}`}
                     >
-                      By area
+                      {t("places.byArea")}
                     </button>
                   </div>
                   <button
@@ -2719,7 +2719,7 @@
             {/* Debug Mode Toggle */}
             <div className="mb-4">
               <div className="bg-gradient-to-r from-gray-50 to-slate-50 border-2 border-gray-400 rounded-xl p-3">
-                <h3 className="text-base font-bold text-gray-800 mb-1">🔧 Debug mode</h3>
+                <h3 className="text-base font-bold text-gray-800 mb-1">{t("general.debugMode")}</h3>
                 <p className="text-xs text-gray-600 mb-2">
                   Show activity log for debugging
                 </p>
@@ -2750,14 +2750,14 @@
             {isCurrentUserAdmin && (
             <div className="mb-4">
               <div className="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-400 rounded-xl p-3">
-                <h3 className="text-base font-bold text-gray-800 mb-1">👑 Admin management</h3>
+                <h3 className="text-base font-bold text-gray-800 mb-1">{t("general.adminManagement")}</h3>
                 
                 {/* Current Device Info */}
                 <div className="text-xs bg-white rounded-lg p-2 border border-red-200 mb-3">
-                  <strong>Current device:</strong> {localStorage.getItem('bangkok_user_id')?.slice(-12) || 'N/A'}
+                  <strong>{t("general.currentDevice")}:</strong> {localStorage.getItem('bangkok_user_id')?.slice(-12) || 'N/A'}
                   <br />
-                  <strong>Status:</strong> 
-                  <span className="text-green-600 font-bold"> 🔓 Open</span>
+                  <strong>{t("general.status")}:</strong> 
+                  <span className="text-green-600 font-bold"> 🔓 {t("general.open")}</span>
                 </div>
                 
                 {/* Password Section - Secure */}
@@ -2793,7 +2793,7 @@
                       }}
                       className="px-3 py-2 bg-green-500 text-white rounded text-sm font-bold"
                     >
-                      Save
+                      {t("general.save")}
                     </button>
                   </div>
                   <p className="text-[10px] text-gray-500 mt-1">
@@ -2803,17 +2803,17 @@
                 
                 {/* Admin Users List */}
                 <div className="mb-3">
-                  <label className="text-xs font-bold text-gray-700 block mb-1">👥 Admin users ({adminUsers.length}):</label>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">{t("general.adminUsers")} ({adminUsers.length}):</label>
                   <div className="bg-white border rounded-lg max-h-32 overflow-y-auto">
                     {adminUsers.length === 0 ? (
-                      <div className="p-2 text-xs text-gray-500 text-center">No registered users</div>
+                      <div className="p-2 text-xs text-gray-500 text-center">{t("general.noRegisteredUsers")}</div>
                     ) : (
                       adminUsers.map((user, idx) => (
                         <div key={user.userId} className="flex justify-between items-center p-2 border-b last:border-b-0 text-xs">
                           <div>
                             <span className="font-mono">{user.oderId?.slice(-12) || 'Unknown'}</span>
                             {user.oderId === localStorage.getItem('bangkok_user_id') && (
-                              <span className="text-green-600 mr-1">(you)</span>
+                              <span className="text-green-600 mr-1">({t("general.you")})</span>
                             )}
                             <br />
                             <span className="text-gray-500">{user.addedAt ? new Date(user.addedAt).toLocaleDateString('he-IL') : ''}</span>
@@ -2828,7 +2828,7 @@
                             }}
                             className="px-2 py-1 bg-red-500 text-white rounded text-[10px]"
                           >
-                            Remove
+                            {t("general.remove")}
                           </button>
                         </div>
                       ))
@@ -2845,7 +2845,7 @@
                   className="w-full bg-blue-500 text-white py-2 rounded-lg font-bold text-sm hover:bg-blue-600 flex items-center justify-center gap-2"
                 >
                   📋 View access log
-                  {hasNewEntries && <span className="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full">New!</span>}
+                  {hasNewEntries && <span className="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full">{t("general.new")}</span>}
                 </button>
                 
                 {/* Feedback Viewer Button */}
@@ -2857,7 +2857,7 @@
                   className="w-full bg-purple-500 text-white py-2 rounded-lg font-bold text-sm hover:bg-purple-600 flex items-center justify-center gap-2 mt-2"
                 >
                   💬 Feedback ({feedbackList.length})
-                  {hasNewFeedback && <span className="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full">New!</span>}
+                  {hasNewFeedback && <span className="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full">{t("general.new")}</span>}
                 </button>
               </div>
             </div>
@@ -2865,7 +2865,7 @@
             
             <div className="mb-4">
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-400 rounded-xl p-3">
-                <h3 className="text-base font-bold text-gray-800 mb-1">💾 Import & Export</h3>
+                <h3 className="text-base font-bold text-gray-800 mb-1">{t("general.importExport")}</h3>
                 <p className="text-xs text-gray-600 mb-2">
                   Save and transfer data between devices
                 </p>
@@ -2912,7 +2912,7 @@
                     }}
                     className="w-full bg-blue-500 text-white py-2 px-3 rounded-lg font-bold hover:bg-blue-600 transition text-sm flex items-center justify-center gap-2"
                   >
-                    <span>📤 Export all</span>
+                    <span>{t("general.exportAll")}</span>
                     <span className="text-xs bg-blue-600 px-2 py-0.5 rounded">
                       {customInterests.length + customLocations.length + savedRoutes.length}
                     </span>
@@ -2962,9 +2962,9 @@
                   <div className="bg-blue-100 border border-blue-300 rounded-lg p-2 text-[10px]">
                     <p className="text-blue-900 font-bold mb-1">💡 Uses:</p>
                     <ul className="text-blue-800 space-y-0.5 mr-3">
-                      <li>• Transfer between Claude and GitHub</li>
-                      <li>• Data backup</li>
-                      <li>• Share with friends</li>
+                      <li>{t("general.transferDevices")}</li>
+                      <li>{t("general.dataBackup")}</li>
+                      <li>{t("general.shareWithFriends")}</li>
                     </ul>
                   </div>
                 </div>
@@ -3027,7 +3027,7 @@
                   className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
                     mapMode === 'areas' ? 'bg-blue-500 text-white shadow' : 'text-gray-500 hover:bg-gray-200'
                   }`}
-                >🗺️ Areas</button>
+                >{t("general.areas")}</button>
                 <button
                   onClick={() => {
                     if (!formData.currentLat) {

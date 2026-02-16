@@ -397,11 +397,11 @@
                         rel="noopener noreferrer"
                         className="flex-1 py-2 bg-green-500 text-white rounded-lg text-sm font-bold hover:bg-green-600 text-center"
                       >
-                        🗺️ Open in Google
+                        {t("general.openInGoogle")}
                       </a>
                     ) : (
                       <button disabled className="flex-1 py-2 bg-gray-300 text-gray-500 rounded-lg text-sm font-bold cursor-not-allowed">
-                        🗺️ Open in Google (no coords)
+                        🗺️ {t("general.openInGoogleNoCoords")}
                       </button>
                     )}
                     <button
@@ -512,7 +512,7 @@
                           }}
                           className="flex-1 py-2 bg-green-500 text-white rounded-lg text-sm font-bold hover:bg-green-600"
                         >
-                          ✅ Restore as active
+                          ✅ {t("general.restoreActive")}
                         </button>
                       ) : (
                         <button
@@ -536,7 +536,7 @@
                         }}
                         className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700"
                       >
-                        🗑️ Delete place
+                        🗑️ {t("general.deletePlace")}
                       </button>
                     </div>
                   </div>
@@ -558,7 +558,7 @@
                         rel="noopener noreferrer"
                         className="flex-1 py-2.5 rounded-lg text-sm font-bold text-center bg-green-500 text-white hover:bg-green-600"
                       >
-                        🗺️ Open in Google
+                        {t("general.openInGoogle")}
                       </a>
                     )}
                     <div className="flex-shrink-0 py-2.5 px-3 bg-yellow-100 text-yellow-800 rounded-lg text-[11px] font-bold text-center flex items-center">
@@ -865,7 +865,7 @@
                           }}
                           className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700"
                         >
-                          🗑️ Delete interest
+                          🗑️ {t("general.deleteInterest")}
                         </button>
                       )}
                     </div>
@@ -1017,7 +1017,7 @@
               {accessLogs.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <p className="text-4xl mb-2">📭</p>
-                  <p>No entries yet</p>
+                  <p>{t("general.noRegisteredUsers")}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -1135,7 +1135,7 @@
                     }}
                     className="text-xs px-3 py-1.5 rounded-lg bg-red-500 text-white font-bold hover:bg-red-600 transition"
                   >
-                    🗑️ Clear log
+                    🗑️ {t("general.clearLog")}
                   </button>
                 )}
               </div>
@@ -1227,7 +1227,7 @@
 
               {/* Stops list */}
               <div>
-                <label className="block text-xs font-bold mb-1">Stops ({editingRoute.stops?.length || 0})</label>
+                <label className="block text-xs font-bold mb-1">{t("general.stopsCount")} ({editingRoute.stops?.length || 0})</label>
                 <div className="max-h-32 overflow-y-auto space-y-0.5">
                   {(editingRoute.stops || []).map((stop, idx) => (
                     <div key={idx} className="flex items-center gap-1 text-xs bg-gray-50 px-2 py-1 rounded">
@@ -1254,7 +1254,7 @@
                   }}
                   className="flex-1 py-2 bg-green-500 text-white rounded-lg text-sm font-bold hover:bg-green-600"
                 >
-                  📤 Share route
+                  📤 {t("general.shareRoute")}
                 </button>
                 <button
                   onClick={() => {
@@ -1278,7 +1278,7 @@
                   }}
                   className="flex-1 py-2 bg-indigo-500 text-white rounded-lg text-sm font-bold hover:bg-indigo-600"
                 >
-                  📋 Share POI
+                  📋 {t("general.sharePoi")}
                 </button>
               </div>
 
@@ -1314,7 +1314,7 @@
                 <div className="flex gap-2">
                   <button
                     onClick={() => {
-                      showConfirm(`Delete route "${editingRoute.name}"?`, () => {
+                      showConfirm(`{t("general.deleteRoute")} "${editingRoute.name}"?`, () => {
                         deleteRoute(editingRoute.id);
                         setShowRouteDialog(false);
                         setEditingRoute(null);
@@ -1322,7 +1322,7 @@
                     }}
                     className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700"
                   >
-                    🗑️ Delete route
+                    🗑️ {t("general.deleteRoute")}
                   </button>
                 </div>
               </div>
@@ -1345,7 +1345,7 @@
                           }}
                           className="flex-1 py-2.5 bg-blue-500 text-white rounded-lg text-sm font-bold hover:bg-blue-600"
                         >
-                          📍 Open route
+                          📍 {t("general.openRoute")}
                         </button>
                         <div className="flex-shrink-0 py-2.5 px-3 bg-yellow-100 text-yellow-800 rounded-lg text-[11px] font-bold text-center">
                           🔒 View only
@@ -1376,7 +1376,7 @@
                           }}
                           className="flex-1 py-2.5 bg-blue-500 text-white rounded-lg text-sm font-bold hover:bg-blue-600"
                         >
-                          📍 Open route
+                          📍 {t("general.openRoute")}
                         </button>
                       </>
                     )}
@@ -1769,7 +1769,7 @@
               {feedbackList.length === 0 ? (
                 <div className="text-center text-gray-400 py-8">
                   <div className="text-3xl mb-2">📭</div>
-                  <p className="text-sm">No feedback yet</p>
+                  <p className="text-sm">{t("general.noRegisteredUsers")}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -1868,7 +1868,7 @@
                   onClick={handleImportMerge}
                   className="flex-1 py-2.5 bg-green-500 text-white rounded-lg font-bold hover:bg-green-600 transition text-sm"
                 >
-                  ✅ Import all
+                  ✅ {t("general.importFromFile")}
                 </button>
                 <button
                   onClick={() => {
@@ -1893,7 +1893,7 @@
               <h3 className="text-base font-bold">🔒 Locked settings</h3>
             </div>
             <div className="p-4 space-y-4">
-              <p className="text-sm text-gray-600 text-center">Enter password to unlock</p>
+              <p className="text-sm text-gray-600 text-center">{t("settings.enterPassword")}</p>
               <input
                 type="password"
                 value={passwordInput}
