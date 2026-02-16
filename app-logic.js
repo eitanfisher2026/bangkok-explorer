@@ -3718,7 +3718,7 @@
       outsideArea = !inAnyArea && selectedAreas.length > 0;
       
       if (outsideArea) {
-        const areaNames = selectedAreas.map(aId => areaOptions.find(a => a.id === aId)).filter(Boolean).map(a => tLabel(a)).join(', ') || aId);
+        const areaNames = selectedAreas.map(aId => areaOptions.find(a => a.id === aId)).filter(Boolean).map(a => tLabel(a)).join(', ');
         showToast(
           `${t("toast.outsideAreaWarning")} (${areaNames})`,
           'warning'
@@ -3872,7 +3872,7 @@
       outsideArea = !inAnyArea && selectedAreas.length > 0;
       
       if (outsideArea) {
-        const areaNames = selectedAreas.map(aId => areaOptions.find(a => a.id === aId)).filter(Boolean).map(a => tLabel(a)).join(', ') || aId);
+        const areaNames = selectedAreas.map(aId => areaOptions.find(a => a.id === aId)).filter(Boolean).map(a => tLabel(a)).join(', ');
         showToast(
           `${t("toast.outsideAreaWarning")} (${areaNames})`,
           'warning'
