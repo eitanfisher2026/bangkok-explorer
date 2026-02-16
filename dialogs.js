@@ -7,7 +7,7 @@
               <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2.5 rounded-t-xl flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-bold">
-                    {showEditLocationDialog ? 'ערוך מקום' : 'הוסף מקום'}
+                    {showEditLocationDialog ? t('places.editPlace') : t('places.addPlace')}
                   </h3>
                   <button
                     onClick={() => showHelpFor('addLocation')}
@@ -63,7 +63,7 @@
                           }
                         }}
                         onKeyDown={(e) => { if (e.key === 'Enter' && newLocation.name?.trim()) { e.preventDefault(); searchPlacesByName(newLocation.name); } }}
-                        placeholder="שם המקום"
+                        placeholder={t("places.placeName")}
                         className="flex-1 p-2 text-sm border-2 border-purple-300 rounded-lg focus:border-purple-500"
                         style={{ direction: 'rtl' }}
                         autoFocus
@@ -75,7 +75,7 @@
                           padding: '6px 10px', borderRadius: '8px', border: 'none', cursor: newLocation.name?.trim() ? 'pointer' : 'not-allowed',
                           background: newLocation.name?.trim() ? 'linear-gradient(135deg, #8b5cf6, #7c3aed)' : '#d1d5db', color: 'white', fontSize: '16px'
                         }}
-                        title="חפש מקום בגוגל"
+                        title={t("form.searchPlaceGoogle")}
                       >🔍</button>
                     </div>
                     {/* Search Results Dropdown */}
@@ -96,7 +96,7 @@
                                 googlePlaceId: result.googlePlaceId
                               });
                               setLocationSearchResults(null);
-                              showToast(`✅ ${result.name} נבחר`, 'success');
+                              showToast(`✅ ${result.name} ${t("toast.selectedPlace")}`, 'success');
                             }}
                             style={{ width: '100%', textAlign: 'right', padding: '6px 10px', borderBottom: '1px solid #f3f4f6', cursor: 'pointer', background: 'none', border: 'none', direction: 'rtl' }}
                             onMouseEnter={(e) => e.target.style.background = '#f3f4f6'}
@@ -121,7 +121,7 @@
                             const detected = window.BKK.getAreasForCoordinates(lat, lng);
                             if (detected.length > 0) {
                               setNewLocation({...newLocation, areas: detected, area: detected[0]});
-                              showToast(`זוהו ${detected.length} אזורים`, 'success');
+                              showToast(`${detected.length} ${t("toast.detectedAreas")}`, 'success');
                             } else {
                               showToast(t('places.locationNotInAnyArea'), 'warning');
                             }
@@ -198,7 +198,7 @@
                     type="text"
                     value={newLocation.description || ''}
                     onChange={(e) => setNewLocation({...newLocation, description: e.target.value})}
-                    placeholder="תיאור קצר של המקום"
+                    placeholder={t("places.description")}
                     className="w-full p-2 text-sm border-2 border-gray-300 rounded-lg focus:border-purple-500"
                     style={{ direction: 'rtl' }}
                   />
@@ -291,7 +291,7 @@
                       type="text"
                       value={newLocation.address || ''}
                       onChange={(e) => setNewLocation({...newLocation, address: e.target.value})}
-                      placeholder="כתובת"
+                      placeholder={t("places.address")}
                       className="w-full p-1.5 text-xs border border-gray-300 rounded-lg focus:border-purple-500"
                       style={{ direction: 'rtl' }}
                     />
@@ -345,7 +345,7 @@
                           ? 'bg-indigo-500 text-white hover:bg-indigo-600'
                           : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       }`}
-                      title="חפש לפי שם המקום"
+                      title={t("form.searchByName")}
                     >
                       <span className="text-sm">🔤</span>
                       <span>שם</span>
@@ -358,10 +358,10 @@
                           ? 'bg-purple-500 text-white hover:bg-purple-600'
                           : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       }`}
-                      title="חפש לפי כתובת"
+                      title={t("form.searchByAddress")}
                     >
                       <span className="text-sm">🏠</span>
-                      <span>כתובת</span>
+                      <span>{t("places.address")}</span>
                     </button>
                     <button
                       onClick={() => parseMapsUrl(newLocation.mapsUrl)}
@@ -371,7 +371,7 @@
                           ? 'bg-blue-500 text-white hover:bg-blue-600'
                           : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       }`}
-                      title="חלץ מקישור"
+                      title={t("form.extractFromLink")}
                     >
                       <span className="text-sm">🔗</span>
                       <span>קישור</span>
@@ -379,7 +379,7 @@
                     <button
                       onClick={getCurrentLocation}
                       className="p-1.5 rounded-lg text-[9px] font-bold bg-green-500 text-white hover:bg-green-600 flex flex-col items-center"
-                      title="השתמש ב-GPS"
+                      title={t("form.gps")}
                     >
                       <span className="text-sm">📍</span>
                       <span>מיקום</span>
@@ -416,7 +416,7 @@
                           : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       }`}
                     >
-                      {loadingGoogleInfo ? '⏳ טוען...' : '🔎 מידע מגוגל'}
+                      {loadingGoogleInfo ? t('general.loading') : t('places.googleInfo')}
                     </button>
                   </div>
                   
@@ -597,7 +597,7 @@
                       : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   }`}
                 >
-                  {showEditLocationDialog ? '💾 עדכן' : '➕ הוסף'}
+                  {showEditLocationDialog ? t('general.update') : t('general.add')}
                 </button>
                 )}
                 <button
@@ -630,10 +630,10 @@
               {/* Header */}
               <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2.5 rounded-t-xl flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold">{editingCustomInterest ? `${newInterest.icon?.startsWith?.('data:') ? '' : newInterest.icon} ${newInterest.label}` : 'הוסף תחום עניין'}</h3>
+                  <h3 className="text-base font-bold">{editingCustomInterest ? `${newInterest.icon?.startsWith?.('data:') ? '' : newInterest.icon} ${newInterest.label}` : t('interests.addInterest')}</h3>
                   {editingCustomInterest && (
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${newInterest.builtIn ? 'bg-blue-200 text-blue-800' : 'bg-purple-200 text-purple-800'}`}>
-                      {newInterest.builtIn ? '🏗️ מערכת' : '👤 אישי'}
+                      {newInterest.builtIn ? t('general.system') : t('general.private')}
                     </span>
                   )}
                   {!editingCustomInterest && (
@@ -664,12 +664,12 @@
                 {/* Name + Icon row */}
                 <div className="grid grid-cols-4 gap-2">
                   <div className="col-span-3">
-                    <label className="block text-xs font-bold mb-1">שם התחום <span className="text-red-500">*</span></label>
+                    <label className="block text-xs font-bold mb-1">{t("interests.interestName")} <span className="text-red-500">*</span></label>
                     <input
                       type="text"
                       value={newInterest.label}
                       onChange={(e) => setNewInterest({...newInterest, label: e.target.value})}
-                      placeholder="לדוגמה: בתי קולנוע"
+                      placeholder={t("interests.exampleTypes")}
                       className="w-full p-2 text-sm border-2 border-purple-300 rounded-lg focus:border-purple-500"
                       style={{ direction: 'rtl' }}
                       disabled={newInterest.builtIn && !isUnlocked}
@@ -841,7 +841,7 @@
                             : 'bg-blue-500 text-white hover:bg-blue-600'
                         }`}
                       >
-                        {interestStatus[editingCustomInterest.id] === false ? '✅ הפעל' : '⏸️ השבת'}
+                        {interestStatus[editingCustomInterest.id] === false ? t('general.enable') : t('general.disable')}
                       </button>
                       {(!newInterest.builtIn || isUnlocked) && (
                         <button
@@ -979,7 +979,7 @@
                           : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       }`}
                     >
-                      {editingCustomInterest ? '💾 עדכן' : '➕ הוסף'}
+                      {editingCustomInterest ? t('general.update') : t('general.add')}
                     </button>
                   );
                 })()}
@@ -1191,11 +1191,11 @@
                 })()}
                 {/* Circular / Linear */}
                 <div className="text-xs text-gray-700">
-                  <span className="font-bold">🔀 סוג:</span> {editingRoute.circular ? '🔄 מעגלי' : '➡️ ליניארי'}
+                  <span className="font-bold">🔀 סוג:</span> {editingRoute.circular ? t('route.circularRoute') : t('route.linearRoute')}
                 </div>
                 {/* Start point */}
                 <div className="text-xs text-gray-700">
-                  <span className="font-bold">🚩 נקודת התחלה:</span> {editingRoute.startPoint || editingRoute.startPointCoords?.address || 'המקום הראשון ברשימה'}
+                  <span className="font-bold">🚩 נקודת התחלה:</span> {editingRoute.startPoint || editingRoute.startPointCoords?.address || t('form.startPointFirst')}
                 </div>
               </div>
 
@@ -1244,7 +1244,7 @@
               <div className="flex gap-2">
                 <button
                   onClick={() => {
-                    const shareText = `🗺️ ${editingRoute.name}\n📍 ${editingRoute.areaName}\n🎯 ${editingRoute.stops?.length || 0} תחנות\n${editingRoute.circular ? '🔄 מסלול מעגלי' : '➡️ מסלול ליניארי'}\n\nתחנות:\n${(editingRoute.stops || []).map((s, i) => `${i+1}. ${s.name}${s.address ? ' - ' + s.address : ''}`).join('\n')}`;
+                    const shareText = `🗺️ ${editingRoute.name}\n📍 ${editingRoute.areaName}\n🎯 ${editingRoute.stops?.length || 0} תחנות\n${editingRoute.circular ? t('route.circularRoute') : t('route.linearDesc')}\n\nתחנות:\n${(editingRoute.stops || []).map((s, i) => `${i+1}. ${s.name}${s.address ? ' - ' + s.address : ''}`).join('\n')}`;
                     if (navigator.share) {
                       navigator.share({ title: editingRoute.name, text: shareText });
                     } else {
@@ -1270,7 +1270,7 @@
                     }).join('\n\n');
                     const text = `📍 נקודות עניין - ${editingRoute.name}\n${'─'.repeat(30)}\n\n${pois}`;
                     if (navigator.share) {
-                      navigator.share({ title: `נקודות עניין - ${editingRoute.name}`, text });
+                      navigator.share({ title: `POI - ${editingRoute.name}`, text });
                     } else {
                       navigator.clipboard.writeText(text);
                       showToast(t('route.pointsCopied'), 'success');
@@ -1446,7 +1446,7 @@
                   } : prev);
                 }
                 
-                showToast(`➕ ${display} נוסף למסלול`, 'success');
+                showToast(`➕ ${display} ${t("interests.added")}`, 'success');
                 
                 // Clear input for next add
                 const inp = document.getElementById('manual-stop-input');
@@ -1619,7 +1619,7 @@
             <div className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-3 flex items-center justify-between">
               <h3 className="text-base font-bold flex items-center gap-2">
                 <span>ℹ️</span>
-                {helpContent[helpContext]?.title || 'עזרה'}
+                {helpContent[helpContext]?.title || t('general.help')}
               </h3>
               <button
                 onClick={() => setShowHelp(false)}
@@ -1691,9 +1691,9 @@
             <div className="p-4 space-y-3">
               <div className="flex gap-2">
                 {[
-                  { id: 'bug', label: '🐛 באג', color: 'red' },
-                  { id: 'idea', label: '💡 רעיון', color: 'yellow' },
-                  { id: 'general', label: '💭 כללי', color: 'blue' }
+                  { id: 'bug', label: t('general.bug'), color: 'red' },
+                  { id: 'idea', label: t('general.idea'), color: 'yellow' },
+                  { id: 'general', label: t('general.generalFeedback'), color: 'blue' }
                 ].map(cat => (
                   <button
                     key={cat.id}
@@ -1757,7 +1757,7 @@
                       });
                     }}
                     className="text-white opacity-70 hover:opacity-100 text-sm"
-                    title="מחק הכל"
+                    title={t("general.deleteAll")}
                   >
                     🗑️
                   </button>
@@ -1789,14 +1789,14 @@
                           <button
                             onClick={() => toggleFeedbackResolved(item)}
                             className={`text-sm px-1 ${item.resolved ? 'opacity-50' : ''}`}
-                            title={item.resolved ? 'סמן כלא טופל' : 'סמן כטופל'}
+                            title={item.resolved ? t('places.markUnhandled') : t('places.markHandled')}
                           >
                             {item.resolved ? '↩️' : '✅'}
                           </button>
                           <button
                             onClick={() => deleteFeedback(item)}
                             className="text-sm px-1 opacity-50 hover:opacity-100"
-                            title="מחק"
+                            title={t("general.delete")}
                           >
                             🗑️
                           </button>
@@ -1826,7 +1826,7 @@
               {importedData.exportDate && (
                 <p className="text-xs text-gray-500 text-center">
                   מתאריך: {new Date(importedData.exportDate).toLocaleDateString('he-IL')}
-                  {importedData.version && ` | גרסה: ${importedData.version}`}
+                  {importedData.version && ` | v${importedData.version}`}
                 </p>
               )}
               
@@ -1898,7 +1898,7 @@
                 type="password"
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
-                placeholder="סיסמה"
+                placeholder={t("settings.password")}
                 className="w-full p-3 border rounded-lg text-center text-lg"
                 autoFocus
                 onKeyDown={async (e) => {

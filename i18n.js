@@ -173,6 +173,13 @@ general: {
   customPlace: 'מקום מותאם אישית',
   meters100: '>100מ',
   meters2000: '>2000מ',
+  caution: 'זהירות',
+  openStatus: 'פתוח',
+  closedStatus: 'סגור',
+  skipPermanently: 'דלג לצמיתות',
+  areas: 'אזורים',
+  total: 'סה"כ',
+  version: 'גרסה',
 },
 
 // --- Navigation & Views ---
@@ -187,6 +194,7 @@ nav: {
   quickMode: 'מצב מהיר',
   advancedMode: 'מצב מתקדם',
   switchToQuick: 'עבור למצב מהיר',
+  planTrip: 'תכנן את הטיול',
 },
 
 // --- Wizard / Quick Mode ---
@@ -279,6 +287,12 @@ route: {
   pointsCopied: 'נקודות העניין הועתקו ללוח',
   addManualStop: '➕ הוסף ידנית נקודה למסלול',
   moreFromCategory: '+ עוד',
+  routeCalculated: 'מסלול חושב!',
+  stops: 'עצירות',
+  places: 'מקומות',
+  savedAs: 'נשמר:',
+  startPoint: 'נקודת התחלה',
+  routeType: 'סוג מסלול',
 },
 
 // --- Places ---
@@ -346,6 +360,9 @@ places: {
   needCoordsForAreas: 'צריך קואורדינטות כדי לזהות אזורים',
   badCoords: 'לא זיהיתי קואורדינטות. נסה קישור Google Maps או: 13.7465,100.4927',
   shortLinksHint: 'קישורים מקוצרים: פתח בדפדפן והעתק את הקישור המלא',
+  searchResults: 'חיפוש',
+  thisCity: 'עיר זו',
+  fromGoogleCache: 'מגוגל (cache)',
 },
 
 // --- Interests ---
@@ -362,6 +379,8 @@ interests: {
   interestsReset: 'התחומים אופסו לברירת מחדל',
   exampleTypes: 'לדוגמה: בתי קולנוע',
   privateOnly: 'תחום פרטי',
+  activeCount: 'פעילים',
+  customCount: 'תחומים מותאמים',
 },
 
 // --- Toasts & Messages ---
@@ -411,6 +430,25 @@ toast: {
   debugOff: '❌ Debug כבוי',
   addedNoteSuccess: '✅ נוסף! ניתן להוסיף מקום נוסף או לסגור',
   firebaseUnavailable: 'Firebase לא זמין',
+  urlTooLong: '⚠️ כתובת ארוכה. ייתכן שחלק מהנקודות לא יוצגו',
+  addressVerified: '✅ כתובת אומתה:',
+  foundInArea: '📍 נמצאת באזור:',
+  detectedAreas: 'זוהו אזורים',
+  selectedPlace: 'נבחר',
+  coordsDetected: 'קואורדינטות נקלטו:',
+  locationDetectedCoords: 'מיקום נקלט:',
+  found: 'נמצא!',
+  foundPlace: 'נמצא:',
+  newVersionAvailable: 'גרסה חדשה זמינה:',
+  removedFromRoute: 'הוסר מהמסלול',
+  addedMorePlaces: 'נוספו מקומות ל',
+  noMoreInInterest: 'לא נמצאו עוד מקומות ב',
+  errorsGettingPlaces: 'שגיאות בקבלת מקומות:',
+  interestDeletedWithPlaces: 'תחום נמחק (מקומות עדיין משתמשים בו)',
+  outsideAreaWarning: 'אזהרה: המיקום מחוץ לאזורים שנבחרו. נשמר בכל זאת.',
+  fileDownloaded: 'הקובץ הורד!',
+  invalidFileNoData: 'קובץ לא תקין - לא נמצאו נתונים',
+  addedFromSearch: 'נוסף מחיפוש',
 },
 
 // --- Settings ---
@@ -431,6 +469,9 @@ settings: {
   deleteAllFeedback: 'למחוק את כל המשובים?',
   appDescription: 'אפליקציה לתכנון טיולים',
   language: 'שפה',
+  password: 'סיסמה',
+  systemPassword: 'סיסמת מערכת',
+  error: 'שגיאה',
 },
 
 // --- Help ---
@@ -458,6 +499,12 @@ help: {
   addInterest: { title: 'הוספת/עריכת תחום עניין', content: "**איך מוסיפים תחום חדש:**\n1. בחר **שם** ו**אייקון** (אימוג'י)\n2. בחר **סוג חיפוש:**\n   • **Category** — לפי סוג מקום בגוגל (למשל: museum, restaurant)\n   • **Text** — חיפוש חופשי (למשל: \"rooftop bar\")\n3. לחץ **הוסף** — התחום יופיע ברשימת התחומים\n\n**מילות סינון** — מקומות עם מילים אלו בשם לא ייכללו (למשל: cannabis)." },
 },
 
+  import: {
+    interests: 'תחומים:',
+    configs: 'הגדרות:',
+    locations: 'מקומות:',
+    routes: 'מסלולים:',
+  },
 }, // end Hebrew
 
 
@@ -535,6 +582,13 @@ general: {
   customPlace: 'Custom place',
   meters100: '>100m',
   meters2000: '>2000m',
+  caution: 'Caution',
+  openStatus: 'Open',
+  closedStatus: 'Closed',
+  skipPermanently: 'Skip permanently',
+  areas: 'areas',
+  total: 'Total',
+  version: 'Version',
 },
 
 nav: {
@@ -548,6 +602,7 @@ nav: {
   quickMode: 'Quick mode',
   advancedMode: 'Advanced mode',
   switchToQuick: 'Switch to quick mode',
+  planTrip: 'Plan your trip',
 },
 
 wizard: {
@@ -637,6 +692,12 @@ route: {
   pointsCopied: 'Points of interest copied to clipboard',
   addManualStop: '➕ Manually add a stop to route',
   moreFromCategory: '+ more',
+  routeCalculated: 'Route calculated!',
+  stops: 'stops',
+  places: 'places',
+  savedAs: 'Saved:',
+  startPoint: 'Starting point',
+  routeType: 'Route type',
 },
 
 places: {
@@ -703,6 +764,9 @@ places: {
   needCoordsForAreas: 'Coordinates needed to identify areas',
   badCoords: 'Could not detect coordinates. Try a Google Maps link or: 13.7465,100.4927',
   shortLinksHint: 'Shortened links: open in browser and copy the full link',
+  searchResults: 'Search',
+  thisCity: 'this city',
+  fromGoogleCache: 'from Google (cache)',
 },
 
 interests: {
@@ -718,6 +782,8 @@ interests: {
   interestsReset: 'Interests reset to default',
   exampleTypes: 'For example: movie theaters',
   privateOnly: 'Private interest',
+  activeCount: 'active',
+  customCount: 'Custom interests',
 },
 
 toast: {
@@ -766,6 +832,25 @@ toast: {
   debugOff: '❌ Debug disabled',
   addedNoteSuccess: '✅ Added! You can add another place or close',
   firebaseUnavailable: 'Firebase unavailable',
+  urlTooLong: '⚠️ URL too long. Some points may not display',
+  addressVerified: '✅ Address verified:',
+  foundInArea: '📍 Found in area:',
+  detectedAreas: 'areas detected',
+  selectedPlace: 'selected',
+  coordsDetected: 'Coordinates detected:',
+  locationDetectedCoords: 'Location detected:',
+  found: 'Found!',
+  foundPlace: 'Found:',
+  newVersionAvailable: 'New version available:',
+  removedFromRoute: 'Removed from route',
+  addedMorePlaces: 'places added to',
+  noMoreInInterest: 'No more places in',
+  errorsGettingPlaces: 'Errors getting places:',
+  interestDeletedWithPlaces: 'Interest deleted (places still using it)',
+  outsideAreaWarning: 'Warning: Location outside selected areas. Saved anyway.',
+  fileDownloaded: 'File downloaded!',
+  invalidFileNoData: 'Invalid file - no data found',
+  addedFromSearch: 'Added from search',
 },
 
 settings: {
@@ -785,6 +870,9 @@ settings: {
   deleteAllFeedback: 'Delete all feedback?',
   appDescription: 'Trip planning app',
   language: 'Language',
+  password: 'Password',
+  systemPassword: 'System password',
+  error: 'Error',
 },
 
 help: {
@@ -811,6 +899,12 @@ help: {
   addInterest: { title: 'Add/Edit interest', content: "**How to add a new interest:**\n1. Choose a **name** and **icon** (emoji)\n2. Choose **search type:**\n   • **Category** — by Google place type (e.g.: museum, restaurant)\n   • **Text** — free search (e.g.: \"rooftop bar\")\n3. Click **Add** — the interest will appear in the interests list\n\n**Filter words** — places with these words in their name won't be included (e.g.: cannabis)." },
 },
 
+  import: {
+    interests: 'Interests:',
+    configs: 'Settings:',
+    locations: 'Places:',
+    routes: 'Routes:',
+  },
 } // end English
 
 }; // end strings

@@ -11,7 +11,7 @@
         // Add radius search fields if not present
         if (!prefs.searchMode) prefs.searchMode = 'area';
         // Handle legacy 'all' that was stored as radius with 15000
-        if (prefs.searchMode === 'radius' && prefs.radiusMeters === 15000 && prefs.radiusPlaceName === 'כל בנגקוק') prefs.searchMode = 'all';
+        if (prefs.searchMode === 'radius' && prefs.radiusMeters === 15000 && prefs.radiusPlaceName === t('general.allCity')) prefs.searchMode = 'all';
         if (!prefs.radiusMeters) prefs.radiusMeters = 500;
         if (!prefs.radiusSource) prefs.radiusSource = 'gps';
         if (!prefs.radiusPlaceName) prefs.radiusPlaceName = '';
@@ -156,7 +156,7 @@
               '<div style="text-align:center;direction:rtl;font-size:13px;">' +
               '<b>' + area.label + '</b><br/>' +
               '<span style="color:#666;font-size:11px;">' + area.labelEn + '</span><br/>' +
-              '<span style="color:#999;font-size:10px;">רדיוס: ' + c.radius + ' מ\'</span></div>'
+              '<span style="color:#999;font-size:10px;">רדיוס: ' + c.radius + ' m</span></div>'
             );
             // Name label with background for readability
             L.marker([c.lat, c.lng], {
@@ -200,7 +200,7 @@
           }).addTo(map).bindPopup(
             '<div style="text-align:center;direction:rtl;">' +
             '<b>📍 ' + (formData.radiusPlaceName || t('form.currentLocation')) + '</b><br/>' +
-            '<span style="font-size:11px;color:#666;">רדיוס: ' + formData.radiusMeters + ' מ\'</span></div>'
+            '<span style="font-size:11px;color:#666;">רדיוס: ' + formData.radiusMeters + ' m</span></div>'
           ).openPopup();
           
           // Fit to circle bounds
@@ -404,7 +404,7 @@
         const validatedAddress = result.address || result.displayName || text;
         setStartPointCoords({ lat: result.lat, lng: result.lng, address: validatedAddress });
         setFormData(prev => ({ ...prev, startPoint: validatedAddress }));
-        showToast(`✅ כתובת אומתה: ${result.displayName || result.address}`, 'success');
+        showToast(`${t("toast.addressVerified")} ${result.displayName || result.address}`, 'success');
         console.log('[START_POINT] Geocoded:', text, '->', result);
       } else {
         showToast(t('places.addressNotFound'), 'warning');
@@ -446,7 +446,7 @@
         if (closest) {
           const areaName = areaOptions.find(a => a.id === closest)?.label || closest;
           setFormData(prev => ({ ...prev, area: closest }));
-          showToast(`📍 נמצאת באזור: ${areaName}`, 'success');
+          showToast(`${t("toast.foundInArea")} ${areaName}`, 'success');
         } else {
           showToast(t('places.locationOutsideSelection'), 'warning');
         }
@@ -1743,7 +1743,7 @@
         console.log(`[UPDATE] New version available: ${serverVersion} (current: ${localVersion})`);
         setUpdateAvailable(true);
         if (!silent) {
-          showToast(`גרסה חדשה זמינה: ${serverVersion}`, 'success');
+          showToast(`${t("toast.newVersionAvailable")} ${serverVersion}`, 'success');
         }
         return true;
       } else {
@@ -2137,7 +2137,7 @@
         const cityCenter = window.BKK.selectedCity?.center || { lat: 13.7563, lng: 100.5018 };
         const cityRadius = window.BKK.selectedCity?.allCityRadius || 15000;
         const cityName = window.BKK.selectedCity?.name || t('general.allCity');
-        const allCityLabel = 'כל ' + cityName;
+        const allCityLabel = t('general.all') + ' ' + cityName;
         setFormData(prev => ({...prev, currentLat: cityCenter.lat, currentLng: cityCenter.lng, radiusMeters: cityRadius, radiusPlaceName: allCityLabel}));
         formData.currentLat = cityCenter.lat;
         formData.currentLng = cityCenter.lng;
@@ -2381,7 +2381,7 @@
         const errorMsg = fetchErrors.map(e => `${e.interest}: ${e.error}`).join(', ');
         
         console.error('[ROUTE] Data source errors:', fetchErrors);
-        showToast(`שגיאות בקבלת מקומות: ${errorMsg}`, 'warning');
+        showToast(`${t("toast.errorsGettingPlaces")} ${errorMsg}`, 'warning');
       }
       
       // In radius mode: detect area for each stop + filter out places outside known areas + add distance
@@ -2416,8 +2416,8 @@
       // Route name and area info
       let areaName, interestsText;
       if (isRadiusMode) {
-        const allCityLabel = 'כל ' + (window.BKK.selectedCity?.name || 'העיר');
-        if (formData.searchMode === 'all' || formData.radiusPlaceName === allCityLabel || formData.radiusPlaceName === 'כל בנגקוק') {
+        const allCityLabel = t('general.all') + ' ' + (window.BKK.selectedCity?.name || t('general.city'));
+        if (formData.searchMode === 'all' || formData.radiusPlaceName === allCityLabel || formData.radiusPlaceName === t('general.allCity')) {
           areaName = allCityLabel;
         } else {
           const sourceName = formData.radiusSource === 'myplace' && formData.radiusPlaceId
@@ -2427,7 +2427,7 @@
         }
       } else {
         const selectedArea = areaOptions.find(a => a.id === formData.area);
-        areaName = selectedArea?.label || 'בנקוק';
+        areaName = selectedArea?.label || t('general.allCity');
       }
       interestsText = formData.interests
         .map(id => allInterestOptions.filter(o => o && o.id).find(o => o.id === id)?.label)
@@ -2452,7 +2452,7 @@
         createdAt: new Date().toISOString(),
         areaName: areaName,
         interestsText: interestsText,
-        title: `${areaName} - ${uniqueStops.length} מקומות`,
+        title: `${areaName} - ${uniqueStops.length} ${t("route.places")}`,
         description: `מסלול ${routeType === 'circular' ? t('route.circular') : t('route.linear')}`,
         duration: formData.hours, // Keep for backward compatibility but not displayed
         circular: routeType === 'circular',
@@ -2556,7 +2556,7 @@
       startPointCoords: startPointCoords
     });
     
-    showToast(`מסלול חושב! ${optimized.length} עצירות`, 'success');
+    showToast(`${t("route.routeCalculated")} ${optimized.length} ${t("route.stops")}`, 'success');
     
     setTimeout(() => {
       // Scroll to bottom of results to show the Google Maps button
@@ -2628,7 +2628,7 @@
           placesToAdd.push(...fromCache);
           // Update cache: remove used ones
           googleCacheRef.current[interest] = unusedCached.slice(needed);
-          source = source ? `${source} ומגוגל (cache)` : 'מגוגל';
+          source = source ? `${source} + ${t("places.fromGoogleCache")}` : t('places.fromGoogle');
           console.log(`[FETCH_MORE] Added ${fromCache.length} from Google cache (${googleCacheRef.current[interest].length} remaining)`);
         }
       }
@@ -2674,13 +2674,13 @@
         // Cache remaining for future use
         googleCacheRef.current[interest] = newPlaces.slice(needed);
         placesToAdd.push(...fromApi);
-        source = source ? `${source} ומגוגל` : 'מגוגל';
+        source = source ? `${source} + ${t("places.fromGoogle")}` : t('places.fromGoogle');
         console.log(`[FETCH_MORE] Got ${fromApi.length} from API, cached ${googleCacheRef.current[interest].length}`);
         } // end if !isPrivate
       }
       
       if (placesToAdd.length === 0) {
-        showToast(`לא נמצאו עוד מקומות ב${interestLabel}`, 'warning');
+        showToast(`${t("toast.noMoreInInterest")} ${interestLabel}`, 'warning');
         return;
       }
       
@@ -2690,7 +2690,7 @@
       };
       
       setRoute(updatedRoute);
-      showToast(`נוספו ${placesToAdd.length} מקומות ל${interestLabel} (${source})`, 'success');
+      showToast(`${placesToAdd.length} ${t("toast.addedMorePlaces")} ${interestLabel} (${source})`, 'success');
       
     } catch (error) {
       console.error('[FETCH_MORE] Error:', error);
@@ -2820,9 +2820,9 @@
       
       // Build source message
       const sources = [];
-      if (fromCustom > 0) sources.push(`${fromCustom} מהמקומות שלך`);
-      if (fromCache > 0) sources.push(`${fromCache} מגוגל (cache)`);
-      if (fromApi > 0) sources.push(`${fromApi} מגוגל`);
+      if (fromCustom > 0) sources.push(`${fromCustom} ${t("general.fromMyPlaces")}`);
+      if (fromCache > 0) sources.push(`${fromCache} ${t("places.fromGoogleCache")}`);
+      if (fromApi > 0) sources.push(`${fromApi} ${t("places.fromGoogle")}`);
       showToast(`נוספו ${allNewPlaces.length} מקומות (${sources.join(', ')})`, 'success');
       
       setTimeout(() => {
@@ -2901,7 +2901,7 @@
   };
 
   const quickSaveRoute = () => {
-    const name = route.defaultName || route.name || `מסלול ${Date.now()}`;
+    const name = route.defaultName || route.name || `Route ${Date.now()}`;
     
     const routeToSave = {
       ...route,
@@ -3019,7 +3019,7 @@
           .then(() => {
             console.log('[FIREBASE] Interest deleted from shared database');
             if (locationsUsingInterest.length > 0) {
-              showToast(`תחום נמחק (${locationsUsingInterest.length} מקומות עדיין משתמשים בו)`, 'success');
+              showToast(`${t("toast.interestDeletedWithPlaces")} (${locationsUsingInterest.length})`, 'success');
             } else {
               showToast(t('interests.interestDeleted'), 'success');
             }
@@ -3036,7 +3036,7 @@
       localStorage.setItem('bangkok_custom_interests', JSON.stringify(updated));
       
       if (locationsUsingInterest.length > 0) {
-        showToast(`תחום נמחק (${locationsUsingInterest.length} מקומות עדיין משתמשים בו)`, 'success');
+        showToast(`${t("toast.interestDeletedWithPlaces")} (${locationsUsingInterest.length})`, 'success');
       } else {
         showToast(t('interests.interestDeleted'), 'success');
       }
@@ -3196,9 +3196,9 @@
         })
           .then(() => {
             const statusText = 
-              newStatus === 'blacklist' ? '🚫 דלג תמיד' : 
-              newStatus === 'review' ? '🛠️ בבדיקה' : 
-              '✅ כלול';
+              newStatus === 'blacklist' ? t('route.skipPermanently') : 
+              newStatus === 'review' ? t('general.underReview') : 
+              t('general.included');
             showToast(`${location.name}: ${statusText}`, 'success');
           })
           .catch((error) => {
@@ -3218,9 +3218,9 @@
       localStorage.setItem('bangkok_custom_locations', JSON.stringify(updated));
       
       const statusText = 
-        newStatus === 'blacklist' ? '🚫 דלג תמיד' : 
-        newStatus === 'review' ? '🛠️ בבדיקה' : 
-        '✅ כלול';
+        newStatus === 'blacklist' ? t('route.skipPermanently') : 
+        newStatus === 'review' ? t('general.underReview') : 
+        t('general.included');
       showToast(`${location.name}: ${statusText}`, 'success');
     }
   };
@@ -3368,7 +3368,7 @@
     const locationToAdd = {
       id: Date.now(),
       name: place.name,
-      description: place.description || 'נוסף מחיפוש',
+      description: place.description || t('toast.addedFromSearch'),
       notes: '',
       area: formData.area,
       areas: (() => { const d = window.BKK.getAreasForCoordinates(place.lat, place.lng); return d.length > 0 ? d : [formData.area]; })(),
@@ -3675,16 +3675,16 @@
     // Build detailed report
     const report = [];
     if (addedInterests > 0 || skippedInterests > 0) {
-      report.push(`תחומים: +${addedInterests}`);
+      report.push(`${t("import.interests")} +${addedInterests}`);
     }
     if (updatedConfigs > 0) {
-      report.push(`הגדרות: +${updatedConfigs}`);
+      report.push(`${t("import.configs")} +${updatedConfigs}`);
     }
     if (addedLocations > 0 || skippedLocations > 0) {
-      report.push(`מקומות: +${addedLocations}`);
+      report.push(`${t("import.locations")} +${addedLocations}`);
     }
     if (addedRoutes > 0 || skippedRoutes > 0) {
-      report.push(`מסלולים: +${addedRoutes}`);
+      report.push(`${t("import.routes")} +${addedRoutes}`);
     }
     
     const totalAdded = addedInterests + addedLocations + addedRoutes + updatedConfigs;
@@ -3720,7 +3720,7 @@
       if (outsideArea) {
         const areaNames = selectedAreas.map(aId => areaOptions.find(a => a.id === aId)?.label || aId).join(', ');
         showToast(
-          `אזהרה: המיקום מחוץ לאזורים שנבחרו (${areaNames}). נשמר בכל זאת.`,
+          `${t("toast.outsideAreaWarning")} (${areaNames})`,
           'warning'
         );
       }
@@ -3758,7 +3758,7 @@
       database.ref('customLocations').push(locationToAdd)
         .then((ref) => {
           console.log('[FIREBASE] Location added to shared database');
-          showToast('המקום נוסף ונשמר לכולם!', 'success');
+          showToast(t('places.placeAddedShared'), 'success');
           
           // If staying open, switch to edit mode
           if (!closeAfter) {
@@ -3874,7 +3874,7 @@
       if (outsideArea) {
         const areaNames = selectedAreas.map(aId => areaOptions.find(a => a.id === aId)?.label || aId).join(', ');
         showToast(
-          `אזהרה: המיקום מחוץ לאזורים שנבחרו (${areaNames}). נשמר בכל זאת.`,
+          `${t("toast.outsideAreaWarning")} (${areaNames})`,
           'warning'
         );
       }
@@ -3967,7 +3967,7 @@
           mapsUrl: `https://maps.google.com/?q=${lat},${lng}`
         }));
         
-        showToast(`מיקום נקלט: ${lat.toFixed(5)}, ${lng.toFixed(5)}`, 'success');
+        showToast(`${t("toast.locationDetectedCoords")} ${lat.toFixed(5)}, ${lng.toFixed(5)}`, 'success');
         
         // Then try to get address (reverse geocode)
         try {
@@ -4045,7 +4045,7 @@
     // Format 4: https://goo.gl/maps/... or https://maps.app.goo.gl/...
     // These shortened URLs need to be opened first, so just inform user
     if (!match && (url.includes('goo.gl') || url.includes('maps.app'))) {
-      showToast('קישורים מקוצרים: פתח בדפדפן והעתק את הקישור המלא', 'warning');
+      showToast(t('toast.shortLinksHint'), 'warning');
       setNewLocation({ ...newLocation, mapsUrl: url });
       return;
     }
@@ -4061,9 +4061,9 @@
     
     if (lat !== null && lng !== null) {
       setNewLocation({ ...newLocation, lat, lng, mapsUrl: url });
-      showToast(`קואורדינטות נקלטו: ${lat.toFixed(5)}, ${lng.toFixed(5)}`, 'success');
+      showToast(`${t("toast.coordsDetected")} ${lat.toFixed(5)}, ${lng.toFixed(5)}`, 'success');
     } else {
-      showToast('לא זיהיתי קואורדינטות. נסה קישור Google Maps או: 13.7465,100.4927', 'error');
+      showToast(t('toast.badCoords'), 'error');
       setNewLocation({ ...newLocation, mapsUrl: url });
     }
   };
@@ -4118,7 +4118,7 @@
           mapsUrl: `https://maps.google.com/?q=${location.latitude},${location.longitude}`
         });
         
-        showToast(`נמצא! ${formattedAddress}`, 'success');
+        showToast(`${t("toast.found")} ${formattedAddress}`, 'success');
       } else {
         showToast(t('places.addressNotFoundRetry'), 'error');
       }
@@ -4216,7 +4216,7 @@
           mapsUrl: `https://maps.google.com/?q=${location.latitude},${location.longitude}`
         });
         
-        showToast(`נמצא: ${place.displayName?.text || name}`, 'success');
+        showToast(`${t("toast.foundPlace")} ${place.displayName?.text || name}`, 'success');
       } else {
         showToast(t('places.placeNotFoundRetry'), 'error');
       }
