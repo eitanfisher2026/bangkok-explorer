@@ -107,9 +107,10 @@
 
                 <h2 style={{ textAlign: 'center', fontSize: '16px', fontWeight: 'bold', marginBottom: '1px' }}>{`📍 ${t("wizard.step1Title")}`}</h2>
                 <p style={{ textAlign: 'center', fontSize: '11px', color: '#6b7280', marginBottom: '6px' }}>
-                  {`${t("form.selectStartPoint")} - ${tLabel(window.BKK.selectedCity) || t('general.city')}`}
+                  {`${t("wizard.step1Subtitle")} - ${tLabel(window.BKK.selectedCity) || t('general.city')}`}
+                  {' '}
                   <button onClick={() => showHelpFor('main')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', marginRight: '4px', textDecoration: 'underline' }}>
-                    How does it work?
+                    {t("general.howItWorks")}
                   </button>
                 </p>
                 
@@ -2350,7 +2351,7 @@
                 <h2 className="text-lg font-bold">🏷️ {t("nav.myInterests")}</h2>
                 <button onClick={() => showHelpFor('myInterests')} className="text-blue-400 hover:text-blue-600 text-sm" title={t("general.help")}style={{ background: "none", border: "none", color: "#3b82f6", fontSize: "11px", cursor: "pointer", textDecoration: "underline" }}>{t("general.help")}</button>
                 <span className="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full">
-                  {(window.BKK.interestOptions || []).length + (window.BKK.uncoveredInterests || []).length + (cityCustomInterests || []).length} Total
+                  {(window.BKK.interestOptions || []).length + (window.BKK.uncoveredInterests || []).length + (cityCustomInterests || []).length} {t("general.total")}
                 </span>
               </div>
               <div className="flex gap-1">
@@ -2359,7 +2360,7 @@
                   className="bg-gray-200 text-gray-700 px-2 py-1.5 rounded-lg text-[10px] font-bold hover:bg-gray-300"
                   title={t("interests.resetToDefault")}
                 >
-                  🔄 Reset
+                  {t("interests.resetToDefault")}
                 </button>
                 <button
                   onClick={() => {
@@ -2369,7 +2370,7 @@
                   }}
                   className="bg-purple-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-purple-600"
                 >
-                  ➕ Add interest
+                  {t("interests.addInterest")}
                 </button>
               </div>
             </div>
@@ -2461,7 +2462,7 @@
                   {/* Active Interests */}
                   <div className="mb-4">
                     <h3 className="text-sm font-bold text-green-700 mb-2">
-                      ✅ Active interests ({activeBuiltIn.length + activeUncovered.length + activeCustom.length})
+                      {t("interests.activeInterests")} ({activeBuiltIn.length + activeUncovered.length + activeCustom.length})
                     </h3>
                     <div className="space-y-1">
                       {activeBuiltIn.map(i => renderInterestRow(i, false, true))}

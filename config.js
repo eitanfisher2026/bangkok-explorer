@@ -50,18 +50,18 @@ window.BKK.cities = {
     allCityRadius: 15000,
 
     areas: [
-      { id: 'sukhumvit', label: 'סוקומווית', labelEn: 'Sukhumvit', desc: 'חיי לילה, מסעדות, קניונים', lat: 13.7370, lng: 100.5610, radius: 2500, size: 'large', safety: 'safe' },
-      { id: 'old-town', label: 'העיר העתיקה', labelEn: 'Old Town', desc: 'מקדשים, ארמון המלך, היסטוריה', lat: 13.7500, lng: 100.4914, radius: 2000, size: 'medium', safety: 'safe' },
-      { id: 'chinatown', label: 'צ\'יינה טאון', labelEn: 'Chinatown', desc: 'אוכל רחוב, שווקים, מקדשים סיניים', lat: 13.7408, lng: 100.5050, radius: 1500, size: 'medium', safety: 'caution' },
-      { id: 'thonglor', label: 'תונגלור', labelEn: 'Thonglor', desc: 'קפה, גלריות, בוטיקים', lat: 13.7320, lng: 100.5830, radius: 2000, size: 'medium', safety: 'safe' },
-      { id: 'ari', label: 'ארי', labelEn: 'Ari', desc: 'שכונתי, קפה, אמנות רחוב', lat: 13.7790, lng: 100.5410, radius: 2000, size: 'medium', safety: 'safe' },
-      { id: 'riverside', label: 'ריברסייד', labelEn: 'Riverside', desc: 'נהר, מקדשים, שווקי לילה', lat: 13.7270, lng: 100.4965, radius: 2000, size: 'medium', safety: 'safe' },
-      { id: 'siam', label: 'סיאם', labelEn: 'Siam / Pratunam', desc: 'קניות, קניונים, מרכז העיר', lat: 13.7460, lng: 100.5340, radius: 1500, size: 'medium', safety: 'safe' },
-      { id: 'chatuchak', label: 'צ\'אטוצ\'אק', labelEn: 'Chatuchak', desc: 'שוק ענק, פארקים, אמנות', lat: 13.7999, lng: 100.5500, radius: 1500, size: 'medium', safety: 'safe' },
-      { id: 'silom', label: 'סילום', labelEn: 'Silom / Sathorn', desc: 'עסקים, מקדשים, חיי לילה', lat: 13.7262, lng: 100.5235, radius: 1800, size: 'medium', safety: 'safe' },
-      { id: 'ratchada', label: 'ראצ\'אדה', labelEn: 'Ratchada', desc: 'שווקי לילה, אוכל, בידור', lat: 13.7650, lng: 100.5730, radius: 1500, size: 'medium', safety: 'safe' },
-      { id: 'onnut', label: 'און נאט', labelEn: 'On Nut', desc: 'מקומי, אוכל זול, שווקים', lat: 13.7060, lng: 100.6010, radius: 1800, size: 'medium', safety: 'safe' },
-      { id: 'bangrak', label: 'באנג ראק', labelEn: 'Bang Rak', desc: 'אמנות, גלריות, אוכל', lat: 13.7280, lng: 100.5130, radius: 1000, size: 'small', safety: 'safe' }
+      { id: 'sukhumvit', label: 'סוקומווית', labelEn: 'Sukhumvit', desc: 'חיי לילה, מסעדות, קניונים', descEn: 'Nightlife, restaurants, malls', lat: 13.7370, lng: 100.5610, radius: 2500, size: 'large', safety: 'safe' },
+      { id: 'old-town', label: 'העיר העתיקה', labelEn: 'Old Town', desc: 'מקדשים, ארמון המלך, היסטוריה', descEn: 'Temples, Grand Palace, history', lat: 13.7500, lng: 100.4914, radius: 2000, size: 'medium', safety: 'safe' },
+      { id: 'chinatown', label: 'צ\'יינה טאון', labelEn: 'Chinatown', desc: 'אוכל רחוב, שווקים, מקדשים סיניים', descEn: 'Street food, markets, Chinese temples', lat: 13.7408, lng: 100.5050, radius: 1500, size: 'medium', safety: 'caution' },
+      { id: 'thonglor', label: 'תונגלור', labelEn: 'Thonglor', desc: 'קפה, גלריות, בוטיקים', descEn: 'Coffee, galleries, boutiques', lat: 13.7320, lng: 100.5830, radius: 2000, size: 'medium', safety: 'safe' },
+      { id: 'ari', label: 'ארי', labelEn: 'Ari', desc: 'שכונתי, קפה, אמנות רחוב', descEn: 'Local, coffee, street art', lat: 13.7790, lng: 100.5410, radius: 2000, size: 'medium', safety: 'safe' },
+      { id: 'riverside', label: 'ריברסייד', labelEn: 'Riverside', desc: 'נהר, מקדשים, שווקי לילה', descEn: 'River, temples, night markets', lat: 13.7270, lng: 100.4965, radius: 2000, size: 'medium', safety: 'safe' },
+      { id: 'siam', label: 'סיאם', labelEn: 'Siam / Pratunam', desc: 'קניות, קניונים, מרכז העיר', descEn: 'Shopping, malls, city center', lat: 13.7460, lng: 100.5340, radius: 1500, size: 'medium', safety: 'safe' },
+      { id: 'chatuchak', label: 'צ\'אטוצ\'אק', labelEn: 'Chatuchak', desc: 'שוק ענק, פארקים, אמנות', descEn: 'Huge market, parks, art', lat: 13.7999, lng: 100.5500, radius: 1500, size: 'medium', safety: 'safe' },
+      { id: 'silom', label: 'סילום', labelEn: 'Silom / Sathorn', desc: 'עסקים, מקדשים, חיי לילה', descEn: 'Business, temples, nightlife', lat: 13.7262, lng: 100.5235, radius: 1800, size: 'medium', safety: 'safe' },
+      { id: 'ratchada', label: 'ראצ\'אדה', labelEn: 'Ratchada', desc: 'שווקי לילה, אוכל, בידור', descEn: 'Night markets, food, entertainment', lat: 13.7650, lng: 100.5730, radius: 1500, size: 'medium', safety: 'safe' },
+      { id: 'onnut', label: 'און נאט', labelEn: 'On Nut', desc: 'מקומי, אוכל זול, שווקים', descEn: 'Local, cheap food, markets', lat: 13.7060, lng: 100.6010, radius: 1800, size: 'medium', safety: 'safe' },
+      { id: 'bangrak', label: 'באנג ראק', labelEn: 'Bang Rak', desc: 'אמנות, גלריות, אוכל', descEn: 'Art, galleries, food', lat: 13.7280, lng: 100.5130, radius: 1000, size: 'small', safety: 'safe' }
     ],
 
     interests: [
@@ -134,15 +134,15 @@ window.BKK.cities = {
     allCityRadius: 15000,
 
     areas: [
-      { id: 'tlv-north', label: 'צפון תל אביב', labelEn: 'North Tel Aviv', desc: 'הנמל, פארק הירקון, בזל', lat: 32.1033, lng: 34.7750, radius: 2000, size: 'large', safety: 'safe' },
-      { id: 'tlv-center', label: 'מרכז תל אביב', labelEn: 'Central Tel Aviv', desc: 'רוטשילד, דיזנגוף, הבימה', lat: 32.0731, lng: 34.7746, radius: 2000, size: 'large', safety: 'safe' },
-      { id: 'tlv-south', label: 'דרום ת"א ויפו', labelEn: 'South TLV & Jaffa', desc: 'שוק הפשפשים, נמל יפו, פלורנטין', lat: 32.0515, lng: 34.7561, radius: 2500, size: 'large', safety: 'caution' },
-      { id: 'holon', label: 'חולון', labelEn: 'Holon', desc: 'מוזיאון הילדים, עיצוב, פארקים', lat: 32.0114, lng: 34.7748, radius: 2500, size: 'large', safety: 'safe' },
-      { id: 'bat-yam', label: 'בת ים', labelEn: 'Bat Yam', desc: 'חוף, טיילת, אוכל', lat: 32.0236, lng: 34.7515, radius: 1800, size: 'medium', safety: 'safe' },
-      { id: 'petah-tikva', label: 'פתח תקווה', labelEn: 'Petah Tikva', desc: 'מסעדות, פארקים, קניונים', lat: 32.0841, lng: 34.8878, radius: 2500, size: 'large', safety: 'safe' },
-      { id: 'herzliya', label: 'הרצליה', labelEn: 'Herzliya', desc: 'מרינה, חופים, הייטק', lat: 32.1629, lng: 34.7987, radius: 2500, size: 'large', safety: 'safe' },
+      { id: 'tlv-north', label: 'צפון תל אביב', labelEn: 'North Tel Aviv', desc: 'הנמל, פארק הירקון, בזל', descEn: 'Port, Yarkon Park, Basel', lat: 32.1033, lng: 34.7750, radius: 2000, size: 'large', safety: 'safe' },
+      { id: 'tlv-center', label: 'מרכז תל אביב', labelEn: 'Central Tel Aviv', desc: 'רוטשילד, דיזנגוף, הבימה', descEn: 'Rothschild, Dizengoff, Habima', lat: 32.0731, lng: 34.7746, radius: 2000, size: 'large', safety: 'safe' },
+      { id: 'tlv-south', label: 'דרום ת"א ויפו', labelEn: 'South TLV & Jaffa', desc: 'שוק הפשפשים, נמל יפו, פלורנטין', descEn: 'Flea market, Jaffa port, Florentin', lat: 32.0515, lng: 34.7561, radius: 2500, size: 'large', safety: 'caution' },
+      { id: 'holon', label: 'חולון', labelEn: 'Holon', desc: 'מוזיאון הילדים, עיצוב, פארקים', descEn: 'Children museum, design, parks', lat: 32.0114, lng: 34.7748, radius: 2500, size: 'large', safety: 'safe' },
+      { id: 'bat-yam', label: 'בת ים', labelEn: 'Bat Yam', desc: 'חוף, טיילת, אוכל', descEn: 'Beach, boardwalk, food', lat: 32.0236, lng: 34.7515, radius: 1800, size: 'medium', safety: 'safe' },
+      { id: 'petah-tikva', label: 'פתח תקווה', labelEn: 'Petah Tikva', desc: 'מסעדות, פארקים, קניונים', descEn: 'Restaurants, parks, malls', lat: 32.0841, lng: 34.8878, radius: 2500, size: 'large', safety: 'safe' },
+      { id: 'herzliya', label: 'הרצליה', labelEn: 'Herzliya', desc: 'מרינה, חופים, הייטק', descEn: 'Marina, beaches, hi-tech', lat: 32.1629, lng: 34.7987, radius: 2500, size: 'large', safety: 'safe' },
       { id: 'ramat-gan', label: 'רמת גן וגבעתיים', labelEn: 'Ramat Gan & Givatayim', desc: 'הבורסה, ספארי, פארקים', lat: 32.0804, lng: 34.8135, radius: 2500, size: 'large', safety: 'safe' },
-      { id: 'bnei-brak', label: 'בני ברק', labelEn: 'Bnei Brak', desc: 'שווקים, אוכל, תרבות חרדית', lat: 32.0834, lng: 34.8338, radius: 1500, size: 'medium', safety: 'safe' }
+      { id: 'bnei-brak', label: 'בני ברק', labelEn: 'Bnei Brak', desc: 'שווקים, אוכל, תרבות חרדית', descEn: 'Markets, food, ultra-orthodox culture', lat: 32.0834, lng: 34.8338, radius: 1500, size: 'medium', safety: 'safe' }
     ],
 
     interests: [
@@ -204,9 +204,9 @@ window.BKK.cities = {
       { id: 'chinatown-sg', label: 'צ\'יינה טאון', labelEn: 'Chinatown', desc: 'מקדשים, אוכל רחוב, שווקים', lat: 1.2833, lng: 103.8440, radius: 1200, size: 'small', safety: 'safe' },
       { id: 'little-india', label: 'ליטל אינדיה', labelEn: 'Little India', desc: 'צבעוני, תבלינים, מקדשים הינדיים', lat: 1.3066, lng: 103.8518, radius: 1200, size: 'small', safety: 'safe' },
       { id: 'kampong-glam', label: 'קאמפונג גלאם', labelEn: 'Kampong Glam', desc: 'ערבי, גרפיטי, היפסטרים', lat: 1.3015, lng: 103.8596, radius: 1000, size: 'small', safety: 'safe' },
-      { id: 'orchard', label: 'אורצ\'רד', labelEn: 'Orchard Road', desc: 'קניות, קניונים, יוקרה', lat: 1.3048, lng: 103.8318, radius: 1500, size: 'medium', safety: 'safe' },
-      { id: 'sentosa', label: 'סנטוסה', labelEn: 'Sentosa', desc: 'חופים, יוניברסל, בידור', lat: 1.2494, lng: 103.8303, radius: 2000, size: 'large', safety: 'safe' },
-      { id: 'tiong-bahru', label: 'טיונג בארו', labelEn: 'Tiong Bahru', desc: 'קפה, גרפיטי, ארט דקו', lat: 1.2847, lng: 103.8310, radius: 1000, size: 'small', safety: 'safe' },
+      { id: 'orchard', label: 'אורצ\'רד', labelEn: 'Orchard Road', desc: 'קניות, קניונים, יוקרה', descEn: 'Shopping, malls, luxury', lat: 1.3048, lng: 103.8318, radius: 1500, size: 'medium', safety: 'safe' },
+      { id: 'sentosa', label: 'סנטוסה', labelEn: 'Sentosa', desc: 'חופים, יוניברסל, בידור', descEn: 'Beaches, Universal, entertainment', lat: 1.2494, lng: 103.8303, radius: 2000, size: 'large', safety: 'safe' },
+      { id: 'tiong-bahru', label: 'טיונג בארו', labelEn: 'Tiong Bahru', desc: 'קפה, גרפיטי, ארט דקו', descEn: 'Coffee, graffiti, art deco', lat: 1.2847, lng: 103.8310, radius: 1000, size: 'small', safety: 'safe' },
       { id: 'holland-v', label: 'הולנד וילאג\'', labelEn: 'Holland Village', desc: 'שכונתי, ברים, קפה', lat: 1.3112, lng: 103.7958, radius: 1200, size: 'small', safety: 'safe' },
       { id: 'clarke-quay', label: 'קלארק קי', labelEn: 'Clarke Quay', desc: 'נהר, ברים, חיי לילה', lat: 1.2906, lng: 103.8465, radius: 1000, size: 'small', safety: 'safe' },
       { id: 'bugis', label: 'בוגיס', labelEn: 'Bugis / Bras Basah', desc: 'תרבות, מוזיאונים, שווקים', lat: 1.2993, lng: 103.8558, radius: 1200, size: 'medium', safety: 'safe' }
@@ -274,7 +274,7 @@ window.BKK.selectCity = function(cityId) {
 
   // Populate legacy area variables
   window.BKK.areaOptions = city.areas.map(function(a) {
-    return { id: a.id, label: a.label, labelEn: a.labelEn, desc: a.desc };
+    return { id: a.id, label: a.label, labelEn: a.labelEn, desc: a.desc, descEn: a.descEn };
   });
 
   window.BKK.areaCoordinates = {};

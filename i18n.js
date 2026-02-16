@@ -332,6 +332,7 @@ nav: {
 // --- Wizard / Quick Mode ---
 wizard: {
   step1Title: 'איפה מטיילים?',
+  step1Subtitle: 'בחרו בין איזור / קרוב אליי / כל העיר',
   step2Title: 'מה מעניין אותך?',
   step2Subtitle: 'בחר תחום אחד או יותר',
   step3Title: 'תוצאות',
@@ -792,7 +793,7 @@ general: {
 
   updateNow: 'Update now',
   newVersionAvailableBanner: '🔄 New version available!',
-  howItWorks: 'How does it work?',
+  howItWorks: 'How it works',
   nearMe: 'Near me',
   next: 'Next',
   back: 'Back',
@@ -907,7 +908,8 @@ nav: {
 },
 
 wizard: {
-  step1Title: 'Where are you exploring?',
+  step1Title: 'Plan your trip',
+  step1Subtitle: 'Choose between area / near me / whole city',
   step2Title: 'What interests you?',
   step2Subtitle: 'Choose one or more topics',
   step3Title: 'Results',
