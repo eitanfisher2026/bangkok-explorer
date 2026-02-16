@@ -199,7 +199,7 @@
             fillOpacity: 1, weight: 2
           }).addTo(map).bindPopup(
             '<div style="text-align:center;direction:rtl;">' +
-            '<b>📍 ' + (formData.radiusPlaceName || 'מיקום נוכחי') + '</b><br/>' +
+            '<b>📍 ' + (formData.radiusPlaceName || t('form.currentLocation')) + '</b><br/>' +
             '<span style="font-size:11px;color:#666;">רדיוס: ' + formData.radiusMeters + ' מ\'</span></div>'
           ).openPopup();
           
@@ -348,7 +348,7 @@
   // Get current GPS location and reverse geocode to address
   const getMyLocation = () => {
     if (!navigator.geolocation) {
-      showToast('הדפדפן לא תומך באיתור מיקום', 'error');
+      showToast(t('toast.browserNoLocation'), 'error');
       return;
     }
     
@@ -364,12 +364,12 @@
           const displayAddress = address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
           setStartPointCoords({ lat, lng, address: displayAddress });
           setFormData(prev => ({ ...prev, startPoint: displayAddress }));
-          showToast(address ? '📍 מיקום נוכחי נקלט!' : '📍 מיקום נקלט (לא נמצאה כתובת)', 'success');
+          showToast(address ? t('form.locationDetectedFull') : t('form.locationDetectedNoAddr'), 'success');
         } catch (err) {
           const fallback = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
           setStartPointCoords({ lat, lng, address: fallback });
           setFormData(prev => ({ ...prev, startPoint: fallback }));
-          showToast('📍 מיקום נקלט', 'success');
+          showToast(t('form.locationDetected'), 'success');
         }
         
         setIsLocating(false);
@@ -378,11 +378,11 @@
         setIsLocating(false);
         console.error('[GPS] Error:', error);
         if (error.code === 1) {
-          showToast('אין הרשאת מיקום - אנא אשר גישה למיקום', 'error');
+          showToast(t('toast.locationNoPermission'), 'error');
         } else if (error.code === 2) {
-          showToast('לא ניתן לאתר מיקום', 'error');
+          showToast(t('toast.locationUnavailable'), 'error');
         } else {
-          showToast('שגיאה באיתור מיקום', 'error');
+          showToast(t('toast.locationError'), 'error');
         }
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
@@ -393,7 +393,7 @@
   const validateStartPoint = async () => {
     const text = formData.startPoint?.trim();
     if (!text) {
-      showToast('הזן כתובת או שם מקום', 'warning');
+      showToast(t('form.enterAddressOrName'), 'warning');
       return;
     }
     
@@ -407,11 +407,11 @@
         showToast(`✅ כתובת אומתה: ${result.displayName || result.address}`, 'success');
         console.log('[START_POINT] Geocoded:', text, '->', result);
       } else {
-        showToast('לא נמצאה כתובת תואמת', 'warning');
+        showToast(t('places.addressNotFound'), 'warning');
       }
     } catch (err) {
       console.error('[START_POINT] Geocode error:', err);
-      showToast('שגיאה בחיפוש כתובת', 'error');
+      showToast(t('toast.addressSearchError'), 'error');
     }
     setIsLocating(false);
   };
@@ -419,7 +419,7 @@
   // Detect which area the user is currently in based on GPS
   const detectArea = () => {
     if (!navigator.geolocation) {
-      showToast('הדפדפן לא תומך במיקום', 'error');
+      showToast(t('toast.browserNoLocation'), 'error');
       return;
     }
     setIsLocating(true);
@@ -448,16 +448,16 @@
           setFormData(prev => ({ ...prev, area: closest }));
           showToast(`📍 נמצאת באזור: ${areaName}`, 'success');
         } else {
-          showToast('המיקום הנוכחי שלך נמצא מחוץ לאזורי הבחירה', 'warning');
+          showToast(t('places.locationOutsideSelection'), 'warning');
         }
         setIsLocating(false);
       },
       (error) => {
         setIsLocating(false);
         if (error.code === 1) {
-          showToast('אין הרשאת מיקום - אנא אשר גישה למיקום', 'error');
+          showToast(t('toast.locationNoPermission'), 'error');
         } else {
-          showToast('לא ניתן לאתר מיקום', 'error');
+          showToast(t('toast.locationUnavailable'), 'error');
         }
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
@@ -870,7 +870,7 @@
           console.error('[REFRESH] Error loading admin settings:', e);
         }
         
-        showToast('🔄 כל הנתונים רועננו בהצלחה!', 'success');
+        showToast(t('toast.dataRefreshed'), 'success');
       } else {
         // Firebase not available - load from localStorage fallbacks
         try {
@@ -893,11 +893,11 @@
           }
         } catch (e) {}
         
-        showToast('🔄 נתונים רועננו (localStorage בלבד - Firebase לא זמין)', 'warning');
+        showToast(t('toast.dataRefreshedLocal'), 'warning');
       }
     } catch (error) {
       console.error('[REFRESH] Unexpected error:', error);
-      showToast('❌ שגיאה ברענון הנתונים', 'error');
+      showToast(t('toast.refreshError'), 'error');
     } finally {
       setIsRefreshing(false);
       console.log('[REFRESH] Complete');
@@ -1063,7 +1063,7 @@
   // Feedback System
   const submitFeedback = () => {
     if (!feedbackText.trim()) {
-      showToast('אנא כתוב משוב', 'warning');
+      showToast(t('settings.writeFeedback'), 'warning');
       return;
     }
     
@@ -1080,14 +1080,14 @@
     if (isFirebaseAvailable && database) {
       database.ref('feedback').push(feedbackEntry)
         .then(() => {
-          showToast('תודה על המשוב! 🙏', 'success');
+          showToast(t('toast.feedbackThanks'), 'success');
           setFeedbackText('');
           setFeedbackCategory('general');
           setShowFeedbackDialog(false);
         })
-        .catch(() => showToast('שגיאה בשליחה', 'error'));
+        .catch(() => showToast(t('toast.sendError'), 'error'));
     } else {
-      showToast('Firebase לא זמין', 'error');
+      showToast(t('toast.firebaseUnavailable'), 'error');
     }
   };
 
@@ -1137,7 +1137,7 @@
   const deleteFeedback = (feedbackItem) => {
     if (isFirebaseAvailable && database && feedbackItem.firebaseId) {
       database.ref(`feedback/${feedbackItem.firebaseId}`).remove()
-        .then(() => showToast('משוב נמחק', 'success'));
+        .then(() => showToast(t('toast.feedbackDeleted'), 'success'));
     }
   };
 
@@ -1624,7 +1624,7 @@
   // Function to fetch Google Place info for a location
   const fetchGooglePlaceInfo = async (location) => {
     if (!location || (!location.lat && !location.name)) {
-      showToast('אין מספיק מידע על המקום', 'error');
+      showToast(t('places.notEnoughInfo'), 'error');
       return null;
     }
     
@@ -1661,7 +1661,7 @@
       
       if (!data.places || data.places.length === 0) {
         setGooglePlaceInfo({ notFound: true, searchQuery });
-        showToast('המקום לא נמצא ב-Google', 'warning');
+        showToast(t('places.placeNotOnGoogle'), 'warning');
         return null;
       }
       
@@ -1703,7 +1703,7 @@
       return placeInfo;
     } catch (error) {
       console.error('Error fetching Google place info:', error);
-      showToast('שגיאה בשליפת מידע מ-Google', 'error');
+      showToast(t('toast.googleInfoError'), 'error');
       return null;
     } finally {
       setLoadingGoogleInfo(false);
@@ -1747,12 +1747,12 @@
         }
         return true;
       } else {
-        if (!silent) showToast('האפליקציה מעודכנת ✅', 'success');
+        if (!silent) showToast(t('toast.appUpToDate'), 'success');
         return false;
       }
     } catch (e) {
       console.log('[UPDATE] Check failed:', e);
-      if (!silent) showToast('לא ניתן לבדוק עדכונים', 'error');
+      if (!silent) showToast(t('toast.cannotCheckUpdates'), 'error');
       return false;
     }
   };
@@ -1902,7 +1902,7 @@
     if (!file) return;
     
     if (!file.type.startsWith('image/')) {
-      showToast('אנא בחר קובץ תמונה', 'error');
+      showToast(t('places.selectImageFile'), 'error');
       return;
     }
     
@@ -1911,7 +1911,7 @@
       setNewLocation(prev => ({ ...prev, uploadedImage: compressed }));
     } catch (error) {
       console.error('[IMAGE] Upload error:', error);
-      showToast('שגיאה בהעלאת התמונה', 'error');
+      showToast(t('toast.imageUploadError'), 'error');
     }
   };
 
@@ -2136,7 +2136,7 @@
       if (!formData.currentLat) {
         const cityCenter = window.BKK.selectedCity?.center || { lat: 13.7563, lng: 100.5018 };
         const cityRadius = window.BKK.selectedCity?.allCityRadius || 15000;
-        const cityName = window.BKK.selectedCity?.name || 'כל העיר';
+        const cityName = window.BKK.selectedCity?.name || t('general.allCity');
         const allCityLabel = 'כל ' + cityName;
         setFormData(prev => ({...prev, currentLat: cityCenter.lat, currentLng: cityCenter.lng, radiusMeters: cityRadius, radiusPlaceName: allCityLabel}));
         formData.currentLat = cityCenter.lat;
@@ -2148,16 +2148,16 @@
     
     if (isRadiusMode) {
       if (!formData.currentLat || !formData.currentLng) {
-        showToast('אנא מצא את המיקום הנוכחי שלך תחילה', 'warning');
+        showToast(t('form.findLocationFirst'), 'warning');
         return;
       }
       if (formData.interests.length === 0) {
-        showToast('אנא בחר לפחות תחום עניין אחד', 'warning');
+        showToast(t('form.selectAtLeastOneInterest'), 'warning');
         return;
       }
     } else {
       if (!formData.area || formData.interests.length === 0) {
-        showToast('אנא בחר איזור ולפחות תחום עניין אחד', 'warning');
+        showToast(t('form.selectAreaAndInterest'), 'warning');
         return;
       }
     }
@@ -2407,8 +2407,8 @@
       
       if (uniqueStops.length === 0) {
         showToast(isRadiusMode 
-          ? 'לא נמצאו מקומות באזורים המוכרים ברדיוס שנבחר. נסה להגדיל רדיוס.' 
-          : 'לא נמצאו מקומות. נסה תחומי עניין או אזור אחר.', 'error');
+          ? t('places.noPlacesInRadius') 
+          : t('places.noMatchingPlaces'), 'error');
         setIsGenerating(false);
         return;
       }
@@ -2421,8 +2421,8 @@
           areaName = allCityLabel;
         } else {
           const sourceName = formData.radiusSource === 'myplace' && formData.radiusPlaceId
-            ? customLocations.find(l => l.id === formData.radiusPlaceId)?.name || 'מקום שלי'
-            : formData.radiusPlaceName || 'מיקום נוכחי';
+            ? customLocations.find(l => l.id === formData.radiusPlaceId)?.name || t('form.myPlace')
+            : formData.radiusPlaceName || t('form.currentLocation');
           areaName = `${formData.radiusMeters}מ' מ-${sourceName}`;
         }
       } else {
@@ -2453,10 +2453,10 @@
         areaName: areaName,
         interestsText: interestsText,
         title: `${areaName} - ${uniqueStops.length} מקומות`,
-        description: `מסלול ${routeType === 'circular' ? 'מעגלי' : 'לינארי'}`,
+        description: `מסלול ${routeType === 'circular' ? t('route.circular') : t('route.linear')}`,
         duration: formData.hours, // Keep for backward compatibility but not displayed
         circular: routeType === 'circular',
-        startPoint: (startPointCoords?.address) || formData.startPoint || 'התחלה מהמקום הראשון ברשימה',
+        startPoint: (startPointCoords?.address) || formData.startPoint || t('form.startPointFirst'),
         startPointCoords: startPointCoords || null,
         stops: uniqueStops,
         preferences: { ...formData },
@@ -2517,7 +2517,7 @@
       // Stay in form view to show compact list
     } catch (error) {
       console.error('[ROUTE] Fatal error generating route:', error);
-      showToast(`שגיאה: ${error.message || 'שגיאה לא ידועה'}`, 'error');
+      showToast(`שגיאה: ${error.message || t('general.unknownError')}`, 'error');
     } finally {
       setIsGenerating(false);
     }
@@ -2527,7 +2527,7 @@
   const computeRoute = () => {
     if (!route || route.stops.length < 2) return;
     if (!startPointCoords) {
-      showToast('בחר נקודת התחלה לפני חישוב מסלול', 'warning');
+      showToast(t('form.chooseStartBeforeCalc'), 'warning');
       return;
     }
     
@@ -2608,7 +2608,7 @@
       if (unusedCustom.length > 0) {
         const toAdd = unusedCustom.slice(0, fetchCount);
         placesToAdd = toAdd.map(p => ({ ...p, addedLater: true }));
-        source = 'מהמקומות שלך';
+        source = t('general.fromMyPlaces');
         console.log(`[FETCH_MORE] Found ${toAdd.length} from unused custom locations`);
       }
       
@@ -2694,7 +2694,7 @@
       
     } catch (error) {
       console.error('[FETCH_MORE] Error:', error);
-      showToast('שגיאה בהוספת מקומות', 'error');
+      showToast(t('toast.addPlacesError'), 'error');
     } finally {
       setIsGenerating(false);
     }
@@ -2807,7 +2807,7 @@
       }
       
       if (allNewPlaces.length === 0) {
-        showToast('לא נמצאו עוד מקומות', 'warning');
+        showToast(t('places.noMorePlaces'), 'warning');
         return;
       }
       
@@ -2831,7 +2831,7 @@
       
     } catch (error) {
       console.error('[FETCH_MORE_ALL] Error:', error);
-      showToast('שגיאה בהוספת מקומות', 'error');
+      showToast(t('toast.addPlacesError'), 'error');
     } finally {
       setIsGenerating(false);
     }
@@ -2896,7 +2896,7 @@
       localStorage.setItem('bangkok_saved_routes', JSON.stringify(stripped));
     } catch (e) {
       console.error('[STORAGE] Failed to save routes:', e);
-      showToast('שגיאה בשמירה - אחסון מלא. נסה למחוק מסלולים ישנים', 'error');
+      showToast(t('toast.storageFull'), 'error');
     }
   };
 
@@ -2923,18 +2923,18 @@
           setEditingRoute({...savedWithFbId});
           setRouteDialogMode('add');
           setShowRouteDialog(true);
-          showToast('המסלול נשמר!', 'success');
+          showToast(t('route.routeSaved'), 'success');
         })
         .catch((error) => {
           console.error('[FIREBASE] Error saving route:', error);
-          showToast('שגיאה בשמירת מסלול', 'error');
+          showToast(t('toast.routeSaveError'), 'error');
         });
     } else {
       const updated = [routeToSave, ...savedRoutes];
       setSavedRoutes(updated);
       saveRoutesToStorage(updated);
       setRoute(routeToSave);
-      showToast('המסלול נשמר!', 'success');
+      showToast(t('route.routeSaved'), 'success');
       setEditingRoute({...routeToSave});
       setRouteDialogMode('add');
       setShowRouteDialog(true);
@@ -2948,18 +2948,18 @@
         database.ref(`savedRoutes/${routeToDelete.firebaseId}`).remove()
           .then(() => {
             console.log('[FIREBASE] Route deleted');
-            showToast('המסלול נמחק', 'success');
+            showToast(t('route.routeDeleted'), 'success');
           })
           .catch((error) => {
             console.error('[FIREBASE] Error deleting route:', error);
-            showToast('שגיאה במחיקה', 'error');
+            showToast(t('toast.deleteError'), 'error');
           });
       }
     } else {
       const updated = savedRoutes.filter(r => r.id !== routeId);
       setSavedRoutes(updated);
       saveRoutesToStorage(updated);
-      showToast('המסלול נמחק', 'success');
+      showToast(t('route.routeDeleted'), 'success');
     }
   };
 
@@ -2970,18 +2970,18 @@
         database.ref(`savedRoutes/${routeToUpdate.firebaseId}`).update(updates)
           .then(() => {
             console.log('[FIREBASE] Route updated');
-            showToast('המסלול עודכן', 'success');
+            showToast(t('route.routeUpdated'), 'success');
           })
           .catch((error) => {
             console.error('[FIREBASE] Error updating route:', error);
-            showToast('שגיאה בעדכון', 'error');
+            showToast(t('toast.updateError'), 'error');
           });
       }
     } else {
       const updated = savedRoutes.map(r => r.id === routeId ? { ...r, ...updates } : r);
       setSavedRoutes(updated);
       saveRoutesToStorage(updated);
-      showToast('המסלול עודכן', 'success');
+      showToast(t('route.routeUpdated'), 'success');
     }
   };
 
@@ -2991,7 +2991,7 @@
     const coords = savedRoute.startPointCoords || null;
     const validatedAddress = coords?.address || '';
     const startPointText = validatedAddress || 
-      (savedRoute.startPoint !== 'התחלה מהמקום הראשון ברשימה' ? savedRoute.startPoint : '') || 
+      (savedRoute.startPoint !== t('form.startPointFirst') ? savedRoute.startPoint : '') || 
       '';
     setFormData({...savedRoute.preferences, startPoint: startPointText });
     setStartPointCoords(coords);
@@ -3021,12 +3021,12 @@
             if (locationsUsingInterest.length > 0) {
               showToast(`תחום נמחק (${locationsUsingInterest.length} מקומות עדיין משתמשים בו)`, 'success');
             } else {
-              showToast('תחום נמחק!', 'success');
+              showToast(t('interests.interestDeleted'), 'success');
             }
           })
           .catch((error) => {
             console.error('[FIREBASE] Error deleting interest:', error);
-            showToast('שגיאה במחיקה', 'error');
+            showToast(t('toast.deleteError'), 'error');
           });
       }
     } else {
@@ -3038,7 +3038,7 @@
       if (locationsUsingInterest.length > 0) {
         showToast(`תחום נמחק (${locationsUsingInterest.length} מקומות עדיין משתמשים בו)`, 'success');
       } else {
-        showToast('תחום נמחק!', 'success');
+        showToast(t('interests.interestDeleted'), 'success');
       }
     }
   };
@@ -3082,10 +3082,10 @@
         builtInIds.forEach(id => { defaultStatus[id] = true; });
         uncoveredIds.forEach(id => { defaultStatus[id] = false; });
         setInterestStatus({ ...defaultStatus, ...adminData });
-        showToast('התחומים אופסו לברירת מחדל', 'success');
+        showToast(t('interests.interestsReset'), 'success');
       } catch (err) {
         console.error('Error resetting interest status:', err);
-        showToast('שגיאה באיפוס', 'error');
+        showToast(t('toast.resetError'), 'error');
       }
     } else {
       localStorage.removeItem('bangkok_interest_status');
@@ -3095,7 +3095,7 @@
       builtInIds.forEach(id => { defaultStatus[id] = true; });
       uncoveredIds.forEach(id => { defaultStatus[id] = false; });
       setInterestStatus(defaultStatus);
-      showToast('התחומים אופסו לברירת מחדל', 'success');
+      showToast(t('interests.interestsReset'), 'success');
     }
   };
 
@@ -3148,11 +3148,11 @@
         database.ref(`customLocations/${locationToDelete.firebaseId}`).remove()
           .then(() => {
             console.log('[FIREBASE] Location deleted from shared database');
-            showToast('המקום נמחק!', 'success');
+            showToast(t('places.placeDeleted'), 'success');
           })
           .catch((error) => {
             console.error('[FIREBASE] Error deleting location:', error);
-            showToast('שגיאה במחיקה', 'error');
+            showToast(t('toast.deleteError'), 'error');
           });
       }
     } else {
@@ -3160,7 +3160,7 @@
       const updated = customLocations.filter(loc => loc.id !== locationId);
       setCustomLocations(updated);
       localStorage.setItem('bangkok_custom_locations', JSON.stringify(updated));
-      showToast('המקום נמחק!', 'success');
+      showToast(t('places.placeDeleted'), 'success');
     }
   };
   
@@ -3203,7 +3203,7 @@
           })
           .catch((error) => {
             console.error('[FIREBASE] Error updating status:', error);
-            showToast('שגיאה בעדכון', 'error');
+            showToast(t('toast.updateError'), 'error');
           });
       }
     } else {
@@ -3272,7 +3272,7 @@
     const locationToAdd = {
       id: Date.now(),
       name: place.name,
-      description: place.description || 'נוסף מ-Google',
+      description: place.description || t('general.addedFromGoogle'),
       notes: '',
       address: place.address || '',
       area: formData.area,
@@ -3304,7 +3304,7 @@
       } catch (error) {
         console.error('[FIREBASE] Error adding Google place:', error);
         addDebugLog('ERROR', `Failed to add "${place.name}"`, error);
-        showToast('שגיאה בשמירה', 'error');
+        showToast(t('toast.saveError'), 'error');
         setAddingPlaceIds(prev => prev.filter(id => id !== placeId));
         return false;
       }
@@ -3345,7 +3345,7 @@
           })
           .catch((error) => {
             console.error('[FIREBASE] Error updating to blacklist:', error);
-            showToast('שגיאה בעדכון', 'error');
+            showToast(t('toast.updateError'), 'error');
           });
       } else {
         const updated = customLocations.map(loc => {
@@ -3396,7 +3396,7 @@
         })
         .catch((error) => {
           console.error('[FIREBASE] Error adding to blacklist:', error);
-          showToast('שגיאה בשמירה', 'error');
+          showToast(t('toast.saveError'), 'error');
         });
     } else {
       const updated = [...customLocations, locationToAdd];
@@ -3688,7 +3688,7 @@
     }
     
     const totalAdded = addedInterests + addedLocations + addedRoutes + updatedConfigs;
-    showToast(report.join(' | ') || 'לא נמצאו פריטים לייבוא', totalAdded > 0 ? 'success' : 'warning');
+    showToast(report.join(' | ') || t('toast.noImportItems'), totalAdded > 0 ? 'success' : 'warning');
   };
 
   const addCustomLocation = (closeAfter = true) => {
@@ -3730,7 +3730,7 @@
     const locationToAdd = {
       id: newId,
       name: newLocation.name.trim(),
-      description: newLocation.description.trim() || newLocation.notes?.trim() || 'מקום שהוספתי',
+      description: newLocation.description.trim() || newLocation.notes?.trim() || t('general.addedByUser'),
       notes: newLocation.notes?.trim() || '',
       area: (newLocation.areas || [newLocation.area])[0] || 'sukhumvit',
       areas: newLocation.areas || (newLocation.area ? [newLocation.area] : ['sukhumvit']),
@@ -3770,14 +3770,14 @@
         })
         .catch((error) => {
           console.error('[FIREBASE] Error adding location:', error);
-          showToast('שגיאה בשמירה', 'error');
+          showToast(t('toast.saveError'), 'error');
         });
     } else {
       // STATIC MODE: localStorage (local)
       const updated = [...customLocations, locationToAdd];
       setCustomLocations(updated);
       localStorage.setItem('bangkok_custom_locations', JSON.stringify(updated));
-      showToast('המקום נוסף!', 'success');
+      showToast(t('places.placeAdded'), 'success');
       
       // If staying open, switch to edit mode
       if (!closeAfter) {
@@ -3818,7 +3818,7 @@
   // Update existing location
   const updateCustomLocation = (closeAfter = true) => {
     if (!newLocation.name?.trim()) {
-      showToast('אנא הזן שם למקום', 'warning');
+      showToast(t('places.enterPlaceName'), 'warning');
       return;
     }
     
@@ -3900,7 +3900,7 @@
         database.ref(`customLocations/${firebaseId}`).set(locationData)
           .then(() => {
             console.log('[FIREBASE] Location updated in shared database');
-            showToast('המקום עודכן!', 'success');
+            showToast(t('places.placeUpdated'), 'success');
             // Update editingLocation with latest data
             if (!closeAfter) {
               setEditingLocation({ ...updatedLocation, firebaseId });
@@ -3908,7 +3908,7 @@
           })
           .catch((error) => {
             console.error('[FIREBASE] Error updating location:', error);
-            showToast('שגיאה בעדכון', 'error');
+            showToast(t('toast.updateError'), 'error');
           });
       }
     } else {
@@ -3918,7 +3918,7 @@
       );
       setCustomLocations(updated);
       localStorage.setItem('bangkok_custom_locations', JSON.stringify(updated));
-      showToast('המקום עודכן!', 'success');
+      showToast(t('places.placeUpdated'), 'success');
       // Update editingLocation with latest data
       if (!closeAfter) {
         setEditingLocation(updatedLocation);
@@ -3948,11 +3948,11 @@
   // Get current location from GPS
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
-      showToast('הדפדפן שלך לא תומך במיקום GPS', 'error');
+      showToast(t('toast.browserNoGps'), 'error');
       return;
     }
     
-    showToast('מחפש מיקום...', 'info');
+    showToast(t('form.searchingLocation'), 'info');
     
     navigator.geolocation.getCurrentPosition(
       async (position) => {
@@ -3983,17 +3983,17 @@
         }
       },
       (error) => {
-        let errorMessage = 'לא הצלחתי לקבל את המיקום.';
+        let errorMessage = t('toast.locationFailed');
         
         switch(error.code) {
           case error.PERMISSION_DENIED:
-            errorMessage = 'נדרשת הרשאה למיקום. אנא אפשר גישה במיקום בהגדרות הדפדפן.';
+            errorMessage = t('toast.locationNoPermissionBrowser');
             break;
           case error.POSITION_UNAVAILABLE:
-            errorMessage = 'המיקום לא זמין כרגע. נסה שוב.';
+            errorMessage = t('toast.locationNotAvailable');
             break;
           case error.TIMEOUT:
-            errorMessage = 'תם הזמן לקבלת המיקום. נסה שוב.';
+            errorMessage = t('toast.locationTimeout');
             break;
         }
         
@@ -4071,12 +4071,12 @@
   // Search address using Google Places API (instead of Geocoding)
   const geocodeAddress = async (address) => {
     if (!address || !address.trim()) {
-      showToast('אנא הזן כתובת', 'warning');
+      showToast(t('form.enterAddress'), 'warning');
       return;
     }
 
     try {
-      showToast('מחפש כתובת...', 'info');
+      showToast(t('places.searchingAddress'), 'info');
       
       // Add city name if not already included
       const cityName = window.BKK.cityNameForSearch || 'Bangkok';
@@ -4120,11 +4120,11 @@
         
         showToast(`נמצא! ${formattedAddress}`, 'success');
       } else {
-        showToast('לא נמצאה כתובת. נסה כתובת אחרת', 'error');
+        showToast(t('places.addressNotFoundRetry'), 'error');
       }
     } catch (error) {
       console.error('[GEOCODING] Error:', error);
-      showToast('שגיאה בחיפוש הכתובת. נסה באמצעות קישור Google Maps', 'error');
+      showToast(t('toast.addressSearchErrorHint'), 'error');
     }
   };
 
@@ -4158,11 +4158,11 @@
         })));
       } else {
         setLocationSearchResults([]);
-        showToast('לא נמצאו תוצאות', 'warning');
+        showToast(t('places.noPlacesFound'), 'warning');
       }
     } catch (err) {
       console.error('[SEARCH] Error:', err);
-      showToast('שגיאה בחיפוש', 'error');
+      showToast(t('toast.searchError'), 'error');
       setLocationSearchResults(null);
     }
   };
@@ -4170,12 +4170,12 @@
   // Search coordinates by place name
   const geocodeByName = async (name) => {
     if (!name || !name.trim()) {
-      showToast('אנא הזן שם מקום', 'warning');
+      showToast(t('form.enterPlaceName'), 'warning');
       return;
     }
 
     try {
-      showToast('מחפש לפי שם...', 'info');
+      showToast(t('form.searchingByName'), 'info');
       
       // Add city name for better results
       const cityForSearch = window.BKK.cityNameForSearch || 'Bangkok';
@@ -4218,11 +4218,11 @@
         
         showToast(`נמצא: ${place.displayName?.text || name}`, 'success');
       } else {
-        showToast('לא נמצא מקום. נסה שם אחר או כתובת', 'error');
+        showToast(t('places.placeNotFoundRetry'), 'error');
       }
     } catch (error) {
       console.error('[GEOCODE BY NAME] Error:', error);
-      showToast('שגיאה בחיפוש', 'error');
+      showToast(t('toast.searchError'), 'error');
     }
   };
 

@@ -2001,7 +2001,7 @@ const CityExplorer = () => {
             fillOpacity: 1, weight: 2
           }).addTo(map).bindPopup(
             '<div style="text-align:center;direction:rtl;">' +
-            '<b>📍 ' + (formData.radiusPlaceName || 'מיקום נוכחי') + '</b><br/>' +
+            '<b>📍 ' + (formData.radiusPlaceName || t('form.currentLocation')) + '</b><br/>' +
             '<span style="font-size:11px;color:#666;">רדיוס: ' + formData.radiusMeters + ' מ\'</span></div>'
           ).openPopup();
           
@@ -2150,7 +2150,7 @@ const CityExplorer = () => {
   // Get current GPS location and reverse geocode to address
   const getMyLocation = () => {
     if (!navigator.geolocation) {
-      showToast('הדפדפן לא תומך באיתור מיקום', 'error');
+      showToast(t('toast.browserNoLocation'), 'error');
       return;
     }
     
@@ -2166,12 +2166,12 @@ const CityExplorer = () => {
           const displayAddress = address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
           setStartPointCoords({ lat, lng, address: displayAddress });
           setFormData(prev => ({ ...prev, startPoint: displayAddress }));
-          showToast(address ? '📍 מיקום נוכחי נקלט!' : '📍 מיקום נקלט (לא נמצאה כתובת)', 'success');
+          showToast(address ? t('form.locationDetectedFull') : t('form.locationDetectedNoAddr'), 'success');
         } catch (err) {
           const fallback = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
           setStartPointCoords({ lat, lng, address: fallback });
           setFormData(prev => ({ ...prev, startPoint: fallback }));
-          showToast('📍 מיקום נקלט', 'success');
+          showToast(t('form.locationDetected'), 'success');
         }
         
         setIsLocating(false);
@@ -2180,11 +2180,11 @@ const CityExplorer = () => {
         setIsLocating(false);
         console.error('[GPS] Error:', error);
         if (error.code === 1) {
-          showToast('אין הרשאת מיקום - אנא אשר גישה למיקום', 'error');
+          showToast(t('toast.locationNoPermission'), 'error');
         } else if (error.code === 2) {
-          showToast('לא ניתן לאתר מיקום', 'error');
+          showToast(t('toast.locationUnavailable'), 'error');
         } else {
-          showToast('שגיאה באיתור מיקום', 'error');
+          showToast(t('toast.locationError'), 'error');
         }
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
@@ -2195,7 +2195,7 @@ const CityExplorer = () => {
   const validateStartPoint = async () => {
     const text = formData.startPoint?.trim();
     if (!text) {
-      showToast('הזן כתובת או שם מקום', 'warning');
+      showToast(t('form.enterAddressOrName'), 'warning');
       return;
     }
     
@@ -2209,11 +2209,11 @@ const CityExplorer = () => {
         showToast(`✅ כתובת אומתה: ${result.displayName || result.address}`, 'success');
         console.log('[START_POINT] Geocoded:', text, '->', result);
       } else {
-        showToast('לא נמצאה כתובת תואמת', 'warning');
+        showToast(t('places.addressNotFound'), 'warning');
       }
     } catch (err) {
       console.error('[START_POINT] Geocode error:', err);
-      showToast('שגיאה בחיפוש כתובת', 'error');
+      showToast(t('toast.addressSearchError'), 'error');
     }
     setIsLocating(false);
   };
@@ -2221,7 +2221,7 @@ const CityExplorer = () => {
   // Detect which area the user is currently in based on GPS
   const detectArea = () => {
     if (!navigator.geolocation) {
-      showToast('הדפדפן לא תומך במיקום', 'error');
+      showToast(t('toast.browserNoLocation'), 'error');
       return;
     }
     setIsLocating(true);
@@ -2250,16 +2250,16 @@ const CityExplorer = () => {
           setFormData(prev => ({ ...prev, area: closest }));
           showToast(`📍 נמצאת באזור: ${areaName}`, 'success');
         } else {
-          showToast('המיקום הנוכחי שלך נמצא מחוץ לאזורי הבחירה', 'warning');
+          showToast(t('places.locationOutsideSelection'), 'warning');
         }
         setIsLocating(false);
       },
       (error) => {
         setIsLocating(false);
         if (error.code === 1) {
-          showToast('אין הרשאת מיקום - אנא אשר גישה למיקום', 'error');
+          showToast(t('toast.locationNoPermission'), 'error');
         } else {
-          showToast('לא ניתן לאתר מיקום', 'error');
+          showToast(t('toast.locationUnavailable'), 'error');
         }
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
@@ -2672,7 +2672,7 @@ const CityExplorer = () => {
           console.error('[REFRESH] Error loading admin settings:', e);
         }
         
-        showToast('🔄 כל הנתונים רועננו בהצלחה!', 'success');
+        showToast(t('toast.dataRefreshed'), 'success');
       } else {
         // Firebase not available - load from localStorage fallbacks
         try {
@@ -2695,11 +2695,11 @@ const CityExplorer = () => {
           }
         } catch (e) {}
         
-        showToast('🔄 נתונים רועננו (localStorage בלבד - Firebase לא זמין)', 'warning');
+        showToast(t('toast.dataRefreshedLocal'), 'warning');
       }
     } catch (error) {
       console.error('[REFRESH] Unexpected error:', error);
-      showToast('❌ שגיאה ברענון הנתונים', 'error');
+      showToast(t('toast.refreshError'), 'error');
     } finally {
       setIsRefreshing(false);
       console.log('[REFRESH] Complete');
@@ -2865,7 +2865,7 @@ const CityExplorer = () => {
   // Feedback System
   const submitFeedback = () => {
     if (!feedbackText.trim()) {
-      showToast('אנא כתוב משוב', 'warning');
+      showToast(t('settings.writeFeedback'), 'warning');
       return;
     }
     
@@ -2882,14 +2882,14 @@ const CityExplorer = () => {
     if (isFirebaseAvailable && database) {
       database.ref('feedback').push(feedbackEntry)
         .then(() => {
-          showToast('תודה על המשוב! 🙏', 'success');
+          showToast(t('toast.feedbackThanks'), 'success');
           setFeedbackText('');
           setFeedbackCategory('general');
           setShowFeedbackDialog(false);
         })
-        .catch(() => showToast('שגיאה בשליחה', 'error'));
+        .catch(() => showToast(t('toast.sendError'), 'error'));
     } else {
-      showToast('Firebase לא זמין', 'error');
+      showToast(t('toast.firebaseUnavailable'), 'error');
     }
   };
 
@@ -2939,7 +2939,7 @@ const CityExplorer = () => {
   const deleteFeedback = (feedbackItem) => {
     if (isFirebaseAvailable && database && feedbackItem.firebaseId) {
       database.ref(`feedback/${feedbackItem.firebaseId}`).remove()
-        .then(() => showToast('משוב נמחק', 'success'));
+        .then(() => showToast(t('toast.feedbackDeleted'), 'success'));
     }
   };
 
@@ -3426,7 +3426,7 @@ const CityExplorer = () => {
   // Function to fetch Google Place info for a location
   const fetchGooglePlaceInfo = async (location) => {
     if (!location || (!location.lat && !location.name)) {
-      showToast('אין מספיק מידע על המקום', 'error');
+      showToast(t('places.notEnoughInfo'), 'error');
       return null;
     }
     
@@ -3463,7 +3463,7 @@ const CityExplorer = () => {
       
       if (!data.places || data.places.length === 0) {
         setGooglePlaceInfo({ notFound: true, searchQuery });
-        showToast('המקום לא נמצא ב-Google', 'warning');
+        showToast(t('places.placeNotOnGoogle'), 'warning');
         return null;
       }
       
@@ -3505,7 +3505,7 @@ const CityExplorer = () => {
       return placeInfo;
     } catch (error) {
       console.error('Error fetching Google place info:', error);
-      showToast('שגיאה בשליפת מידע מ-Google', 'error');
+      showToast(t('toast.googleInfoError'), 'error');
       return null;
     } finally {
       setLoadingGoogleInfo(false);
@@ -3549,12 +3549,12 @@ const CityExplorer = () => {
         }
         return true;
       } else {
-        if (!silent) showToast('האפליקציה מעודכנת ✅', 'success');
+        if (!silent) showToast(t('toast.appUpToDate'), 'success');
         return false;
       }
     } catch (e) {
       console.log('[UPDATE] Check failed:', e);
-      if (!silent) showToast('לא ניתן לבדוק עדכונים', 'error');
+      if (!silent) showToast(t('toast.cannotCheckUpdates'), 'error');
       return false;
     }
   };
@@ -3704,7 +3704,7 @@ const CityExplorer = () => {
     if (!file) return;
     
     if (!file.type.startsWith('image/')) {
-      showToast('אנא בחר קובץ תמונה', 'error');
+      showToast(t('places.selectImageFile'), 'error');
       return;
     }
     
@@ -3713,7 +3713,7 @@ const CityExplorer = () => {
       setNewLocation(prev => ({ ...prev, uploadedImage: compressed }));
     } catch (error) {
       console.error('[IMAGE] Upload error:', error);
-      showToast('שגיאה בהעלאת התמונה', 'error');
+      showToast(t('toast.imageUploadError'), 'error');
     }
   };
 
@@ -3938,7 +3938,7 @@ const CityExplorer = () => {
       if (!formData.currentLat) {
         const cityCenter = window.BKK.selectedCity?.center || { lat: 13.7563, lng: 100.5018 };
         const cityRadius = window.BKK.selectedCity?.allCityRadius || 15000;
-        const cityName = window.BKK.selectedCity?.name || 'כל העיר';
+        const cityName = window.BKK.selectedCity?.name || t('general.allCity');
         const allCityLabel = 'כל ' + cityName;
         setFormData(prev => ({...prev, currentLat: cityCenter.lat, currentLng: cityCenter.lng, radiusMeters: cityRadius, radiusPlaceName: allCityLabel}));
         formData.currentLat = cityCenter.lat;
@@ -3950,16 +3950,16 @@ const CityExplorer = () => {
     
     if (isRadiusMode) {
       if (!formData.currentLat || !formData.currentLng) {
-        showToast('אנא מצא את המיקום הנוכחי שלך תחילה', 'warning');
+        showToast(t('form.findLocationFirst'), 'warning');
         return;
       }
       if (formData.interests.length === 0) {
-        showToast('אנא בחר לפחות תחום עניין אחד', 'warning');
+        showToast(t('form.selectAtLeastOneInterest'), 'warning');
         return;
       }
     } else {
       if (!formData.area || formData.interests.length === 0) {
-        showToast('אנא בחר איזור ולפחות תחום עניין אחד', 'warning');
+        showToast(t('form.selectAreaAndInterest'), 'warning');
         return;
       }
     }
@@ -4209,8 +4209,8 @@ const CityExplorer = () => {
       
       if (uniqueStops.length === 0) {
         showToast(isRadiusMode 
-          ? 'לא נמצאו מקומות באזורים המוכרים ברדיוס שנבחר. נסה להגדיל רדיוס.' 
-          : 'לא נמצאו מקומות. נסה תחומי עניין או אזור אחר.', 'error');
+          ? t('places.noPlacesInRadius') 
+          : t('places.noMatchingPlaces'), 'error');
         setIsGenerating(false);
         return;
       }
@@ -4223,8 +4223,8 @@ const CityExplorer = () => {
           areaName = allCityLabel;
         } else {
           const sourceName = formData.radiusSource === 'myplace' && formData.radiusPlaceId
-            ? customLocations.find(l => l.id === formData.radiusPlaceId)?.name || 'מקום שלי'
-            : formData.radiusPlaceName || 'מיקום נוכחי';
+            ? customLocations.find(l => l.id === formData.radiusPlaceId)?.name || t('form.myPlace')
+            : formData.radiusPlaceName || t('form.currentLocation');
           areaName = `${formData.radiusMeters}מ' מ-${sourceName}`;
         }
       } else {
@@ -4255,10 +4255,10 @@ const CityExplorer = () => {
         areaName: areaName,
         interestsText: interestsText,
         title: `${areaName} - ${uniqueStops.length} מקומות`,
-        description: `מסלול ${routeType === 'circular' ? 'מעגלי' : 'לינארי'}`,
+        description: `מסלול ${routeType === 'circular' ? t('route.circular') : t('route.linear')}`,
         duration: formData.hours, // Keep for backward compatibility but not displayed
         circular: routeType === 'circular',
-        startPoint: (startPointCoords?.address) || formData.startPoint || 'התחלה מהמקום הראשון ברשימה',
+        startPoint: (startPointCoords?.address) || formData.startPoint || t('form.startPointFirst'),
         startPointCoords: startPointCoords || null,
         stops: uniqueStops,
         preferences: { ...formData },
@@ -4319,7 +4319,7 @@ const CityExplorer = () => {
       // Stay in form view to show compact list
     } catch (error) {
       console.error('[ROUTE] Fatal error generating route:', error);
-      showToast(`שגיאה: ${error.message || 'שגיאה לא ידועה'}`, 'error');
+      showToast(`שגיאה: ${error.message || t('general.unknownError')}`, 'error');
     } finally {
       setIsGenerating(false);
     }
@@ -4329,7 +4329,7 @@ const CityExplorer = () => {
   const computeRoute = () => {
     if (!route || route.stops.length < 2) return;
     if (!startPointCoords) {
-      showToast('בחר נקודת התחלה לפני חישוב מסלול', 'warning');
+      showToast(t('form.chooseStartBeforeCalc'), 'warning');
       return;
     }
     
@@ -4410,7 +4410,7 @@ const CityExplorer = () => {
       if (unusedCustom.length > 0) {
         const toAdd = unusedCustom.slice(0, fetchCount);
         placesToAdd = toAdd.map(p => ({ ...p, addedLater: true }));
-        source = 'מהמקומות שלך';
+        source = t('general.fromMyPlaces');
         console.log(`[FETCH_MORE] Found ${toAdd.length} from unused custom locations`);
       }
       
@@ -4496,7 +4496,7 @@ const CityExplorer = () => {
       
     } catch (error) {
       console.error('[FETCH_MORE] Error:', error);
-      showToast('שגיאה בהוספת מקומות', 'error');
+      showToast(t('toast.addPlacesError'), 'error');
     } finally {
       setIsGenerating(false);
     }
@@ -4609,7 +4609,7 @@ const CityExplorer = () => {
       }
       
       if (allNewPlaces.length === 0) {
-        showToast('לא נמצאו עוד מקומות', 'warning');
+        showToast(t('places.noMorePlaces'), 'warning');
         return;
       }
       
@@ -4633,7 +4633,7 @@ const CityExplorer = () => {
       
     } catch (error) {
       console.error('[FETCH_MORE_ALL] Error:', error);
-      showToast('שגיאה בהוספת מקומות', 'error');
+      showToast(t('toast.addPlacesError'), 'error');
     } finally {
       setIsGenerating(false);
     }
@@ -4698,7 +4698,7 @@ const CityExplorer = () => {
       localStorage.setItem('bangkok_saved_routes', JSON.stringify(stripped));
     } catch (e) {
       console.error('[STORAGE] Failed to save routes:', e);
-      showToast('שגיאה בשמירה - אחסון מלא. נסה למחוק מסלולים ישנים', 'error');
+      showToast(t('toast.storageFull'), 'error');
     }
   };
 
@@ -4725,18 +4725,18 @@ const CityExplorer = () => {
           setEditingRoute({...savedWithFbId});
           setRouteDialogMode('add');
           setShowRouteDialog(true);
-          showToast('המסלול נשמר!', 'success');
+          showToast(t('route.routeSaved'), 'success');
         })
         .catch((error) => {
           console.error('[FIREBASE] Error saving route:', error);
-          showToast('שגיאה בשמירת מסלול', 'error');
+          showToast(t('toast.routeSaveError'), 'error');
         });
     } else {
       const updated = [routeToSave, ...savedRoutes];
       setSavedRoutes(updated);
       saveRoutesToStorage(updated);
       setRoute(routeToSave);
-      showToast('המסלול נשמר!', 'success');
+      showToast(t('route.routeSaved'), 'success');
       setEditingRoute({...routeToSave});
       setRouteDialogMode('add');
       setShowRouteDialog(true);
@@ -4750,18 +4750,18 @@ const CityExplorer = () => {
         database.ref(`savedRoutes/${routeToDelete.firebaseId}`).remove()
           .then(() => {
             console.log('[FIREBASE] Route deleted');
-            showToast('המסלול נמחק', 'success');
+            showToast(t('route.routeDeleted'), 'success');
           })
           .catch((error) => {
             console.error('[FIREBASE] Error deleting route:', error);
-            showToast('שגיאה במחיקה', 'error');
+            showToast(t('toast.deleteError'), 'error');
           });
       }
     } else {
       const updated = savedRoutes.filter(r => r.id !== routeId);
       setSavedRoutes(updated);
       saveRoutesToStorage(updated);
-      showToast('המסלול נמחק', 'success');
+      showToast(t('route.routeDeleted'), 'success');
     }
   };
 
@@ -4772,18 +4772,18 @@ const CityExplorer = () => {
         database.ref(`savedRoutes/${routeToUpdate.firebaseId}`).update(updates)
           .then(() => {
             console.log('[FIREBASE] Route updated');
-            showToast('המסלול עודכן', 'success');
+            showToast(t('route.routeUpdated'), 'success');
           })
           .catch((error) => {
             console.error('[FIREBASE] Error updating route:', error);
-            showToast('שגיאה בעדכון', 'error');
+            showToast(t('toast.updateError'), 'error');
           });
       }
     } else {
       const updated = savedRoutes.map(r => r.id === routeId ? { ...r, ...updates } : r);
       setSavedRoutes(updated);
       saveRoutesToStorage(updated);
-      showToast('המסלול עודכן', 'success');
+      showToast(t('route.routeUpdated'), 'success');
     }
   };
 
@@ -4793,7 +4793,7 @@ const CityExplorer = () => {
     const coords = savedRoute.startPointCoords || null;
     const validatedAddress = coords?.address || '';
     const startPointText = validatedAddress || 
-      (savedRoute.startPoint !== 'התחלה מהמקום הראשון ברשימה' ? savedRoute.startPoint : '') || 
+      (savedRoute.startPoint !== t('form.startPointFirst') ? savedRoute.startPoint : '') || 
       '';
     setFormData({...savedRoute.preferences, startPoint: startPointText });
     setStartPointCoords(coords);
@@ -4823,12 +4823,12 @@ const CityExplorer = () => {
             if (locationsUsingInterest.length > 0) {
               showToast(`תחום נמחק (${locationsUsingInterest.length} מקומות עדיין משתמשים בו)`, 'success');
             } else {
-              showToast('תחום נמחק!', 'success');
+              showToast(t('interests.interestDeleted'), 'success');
             }
           })
           .catch((error) => {
             console.error('[FIREBASE] Error deleting interest:', error);
-            showToast('שגיאה במחיקה', 'error');
+            showToast(t('toast.deleteError'), 'error');
           });
       }
     } else {
@@ -4840,7 +4840,7 @@ const CityExplorer = () => {
       if (locationsUsingInterest.length > 0) {
         showToast(`תחום נמחק (${locationsUsingInterest.length} מקומות עדיין משתמשים בו)`, 'success');
       } else {
-        showToast('תחום נמחק!', 'success');
+        showToast(t('interests.interestDeleted'), 'success');
       }
     }
   };
@@ -4884,10 +4884,10 @@ const CityExplorer = () => {
         builtInIds.forEach(id => { defaultStatus[id] = true; });
         uncoveredIds.forEach(id => { defaultStatus[id] = false; });
         setInterestStatus({ ...defaultStatus, ...adminData });
-        showToast('התחומים אופסו לברירת מחדל', 'success');
+        showToast(t('interests.interestsReset'), 'success');
       } catch (err) {
         console.error('Error resetting interest status:', err);
-        showToast('שגיאה באיפוס', 'error');
+        showToast(t('toast.resetError'), 'error');
       }
     } else {
       localStorage.removeItem('bangkok_interest_status');
@@ -4897,7 +4897,7 @@ const CityExplorer = () => {
       builtInIds.forEach(id => { defaultStatus[id] = true; });
       uncoveredIds.forEach(id => { defaultStatus[id] = false; });
       setInterestStatus(defaultStatus);
-      showToast('התחומים אופסו לברירת מחדל', 'success');
+      showToast(t('interests.interestsReset'), 'success');
     }
   };
 
@@ -4950,11 +4950,11 @@ const CityExplorer = () => {
         database.ref(`customLocations/${locationToDelete.firebaseId}`).remove()
           .then(() => {
             console.log('[FIREBASE] Location deleted from shared database');
-            showToast('המקום נמחק!', 'success');
+            showToast(t('places.placeDeleted'), 'success');
           })
           .catch((error) => {
             console.error('[FIREBASE] Error deleting location:', error);
-            showToast('שגיאה במחיקה', 'error');
+            showToast(t('toast.deleteError'), 'error');
           });
       }
     } else {
@@ -4962,7 +4962,7 @@ const CityExplorer = () => {
       const updated = customLocations.filter(loc => loc.id !== locationId);
       setCustomLocations(updated);
       localStorage.setItem('bangkok_custom_locations', JSON.stringify(updated));
-      showToast('המקום נמחק!', 'success');
+      showToast(t('places.placeDeleted'), 'success');
     }
   };
   
@@ -5005,7 +5005,7 @@ const CityExplorer = () => {
           })
           .catch((error) => {
             console.error('[FIREBASE] Error updating status:', error);
-            showToast('שגיאה בעדכון', 'error');
+            showToast(t('toast.updateError'), 'error');
           });
       }
     } else {
@@ -5074,7 +5074,7 @@ const CityExplorer = () => {
     const locationToAdd = {
       id: Date.now(),
       name: place.name,
-      description: place.description || 'נוסף מ-Google',
+      description: place.description || t('general.addedFromGoogle'),
       notes: '',
       address: place.address || '',
       area: formData.area,
@@ -5106,7 +5106,7 @@ const CityExplorer = () => {
       } catch (error) {
         console.error('[FIREBASE] Error adding Google place:', error);
         addDebugLog('ERROR', `Failed to add "${place.name}"`, error);
-        showToast('שגיאה בשמירה', 'error');
+        showToast(t('toast.saveError'), 'error');
         setAddingPlaceIds(prev => prev.filter(id => id !== placeId));
         return false;
       }
@@ -5147,7 +5147,7 @@ const CityExplorer = () => {
           })
           .catch((error) => {
             console.error('[FIREBASE] Error updating to blacklist:', error);
-            showToast('שגיאה בעדכון', 'error');
+            showToast(t('toast.updateError'), 'error');
           });
       } else {
         const updated = customLocations.map(loc => {
@@ -5198,7 +5198,7 @@ const CityExplorer = () => {
         })
         .catch((error) => {
           console.error('[FIREBASE] Error adding to blacklist:', error);
-          showToast('שגיאה בשמירה', 'error');
+          showToast(t('toast.saveError'), 'error');
         });
     } else {
       const updated = [...customLocations, locationToAdd];
@@ -5490,7 +5490,7 @@ const CityExplorer = () => {
     }
     
     const totalAdded = addedInterests + addedLocations + addedRoutes + updatedConfigs;
-    showToast(report.join(' | ') || 'לא נמצאו פריטים לייבוא', totalAdded > 0 ? 'success' : 'warning');
+    showToast(report.join(' | ') || t('toast.noImportItems'), totalAdded > 0 ? 'success' : 'warning');
   };
 
   const addCustomLocation = (closeAfter = true) => {
@@ -5532,7 +5532,7 @@ const CityExplorer = () => {
     const locationToAdd = {
       id: newId,
       name: newLocation.name.trim(),
-      description: newLocation.description.trim() || newLocation.notes?.trim() || 'מקום שהוספתי',
+      description: newLocation.description.trim() || newLocation.notes?.trim() || t('general.addedByUser'),
       notes: newLocation.notes?.trim() || '',
       area: (newLocation.areas || [newLocation.area])[0] || 'sukhumvit',
       areas: newLocation.areas || (newLocation.area ? [newLocation.area] : ['sukhumvit']),
@@ -5572,14 +5572,14 @@ const CityExplorer = () => {
         })
         .catch((error) => {
           console.error('[FIREBASE] Error adding location:', error);
-          showToast('שגיאה בשמירה', 'error');
+          showToast(t('toast.saveError'), 'error');
         });
     } else {
       // STATIC MODE: localStorage (local)
       const updated = [...customLocations, locationToAdd];
       setCustomLocations(updated);
       localStorage.setItem('bangkok_custom_locations', JSON.stringify(updated));
-      showToast('המקום נוסף!', 'success');
+      showToast(t('places.placeAdded'), 'success');
       
       // If staying open, switch to edit mode
       if (!closeAfter) {
@@ -5620,7 +5620,7 @@ const CityExplorer = () => {
   // Update existing location
   const updateCustomLocation = (closeAfter = true) => {
     if (!newLocation.name?.trim()) {
-      showToast('אנא הזן שם למקום', 'warning');
+      showToast(t('places.enterPlaceName'), 'warning');
       return;
     }
     
@@ -5702,7 +5702,7 @@ const CityExplorer = () => {
         database.ref(`customLocations/${firebaseId}`).set(locationData)
           .then(() => {
             console.log('[FIREBASE] Location updated in shared database');
-            showToast('המקום עודכן!', 'success');
+            showToast(t('places.placeUpdated'), 'success');
             // Update editingLocation with latest data
             if (!closeAfter) {
               setEditingLocation({ ...updatedLocation, firebaseId });
@@ -5710,7 +5710,7 @@ const CityExplorer = () => {
           })
           .catch((error) => {
             console.error('[FIREBASE] Error updating location:', error);
-            showToast('שגיאה בעדכון', 'error');
+            showToast(t('toast.updateError'), 'error');
           });
       }
     } else {
@@ -5720,7 +5720,7 @@ const CityExplorer = () => {
       );
       setCustomLocations(updated);
       localStorage.setItem('bangkok_custom_locations', JSON.stringify(updated));
-      showToast('המקום עודכן!', 'success');
+      showToast(t('places.placeUpdated'), 'success');
       // Update editingLocation with latest data
       if (!closeAfter) {
         setEditingLocation(updatedLocation);
@@ -5750,11 +5750,11 @@ const CityExplorer = () => {
   // Get current location from GPS
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
-      showToast('הדפדפן שלך לא תומך במיקום GPS', 'error');
+      showToast(t('toast.browserNoGps'), 'error');
       return;
     }
     
-    showToast('מחפש מיקום...', 'info');
+    showToast(t('form.searchingLocation'), 'info');
     
     navigator.geolocation.getCurrentPosition(
       async (position) => {
@@ -5785,17 +5785,17 @@ const CityExplorer = () => {
         }
       },
       (error) => {
-        let errorMessage = 'לא הצלחתי לקבל את המיקום.';
+        let errorMessage = t('toast.locationFailed');
         
         switch(error.code) {
           case error.PERMISSION_DENIED:
-            errorMessage = 'נדרשת הרשאה למיקום. אנא אפשר גישה במיקום בהגדרות הדפדפן.';
+            errorMessage = t('toast.locationNoPermissionBrowser');
             break;
           case error.POSITION_UNAVAILABLE:
-            errorMessage = 'המיקום לא זמין כרגע. נסה שוב.';
+            errorMessage = t('toast.locationNotAvailable');
             break;
           case error.TIMEOUT:
-            errorMessage = 'תם הזמן לקבלת המיקום. נסה שוב.';
+            errorMessage = t('toast.locationTimeout');
             break;
         }
         
@@ -5873,12 +5873,12 @@ const CityExplorer = () => {
   // Search address using Google Places API (instead of Geocoding)
   const geocodeAddress = async (address) => {
     if (!address || !address.trim()) {
-      showToast('אנא הזן כתובת', 'warning');
+      showToast(t('form.enterAddress'), 'warning');
       return;
     }
 
     try {
-      showToast('מחפש כתובת...', 'info');
+      showToast(t('places.searchingAddress'), 'info');
       
       // Add city name if not already included
       const cityName = window.BKK.cityNameForSearch || 'Bangkok';
@@ -5922,11 +5922,11 @@ const CityExplorer = () => {
         
         showToast(`נמצא! ${formattedAddress}`, 'success');
       } else {
-        showToast('לא נמצאה כתובת. נסה כתובת אחרת', 'error');
+        showToast(t('places.addressNotFoundRetry'), 'error');
       }
     } catch (error) {
       console.error('[GEOCODING] Error:', error);
-      showToast('שגיאה בחיפוש הכתובת. נסה באמצעות קישור Google Maps', 'error');
+      showToast(t('toast.addressSearchErrorHint'), 'error');
     }
   };
 
@@ -5960,11 +5960,11 @@ const CityExplorer = () => {
         })));
       } else {
         setLocationSearchResults([]);
-        showToast('לא נמצאו תוצאות', 'warning');
+        showToast(t('places.noPlacesFound'), 'warning');
       }
     } catch (err) {
       console.error('[SEARCH] Error:', err);
-      showToast('שגיאה בחיפוש', 'error');
+      showToast(t('toast.searchError'), 'error');
       setLocationSearchResults(null);
     }
   };
@@ -5972,12 +5972,12 @@ const CityExplorer = () => {
   // Search coordinates by place name
   const geocodeByName = async (name) => {
     if (!name || !name.trim()) {
-      showToast('אנא הזן שם מקום', 'warning');
+      showToast(t('form.enterPlaceName'), 'warning');
       return;
     }
 
     try {
-      showToast('מחפש לפי שם...', 'info');
+      showToast(t('form.searchingByName'), 'info');
       
       // Add city name for better results
       const cityForSearch = window.BKK.cityNameForSearch || 'Bangkok';
@@ -6020,11 +6020,11 @@ const CityExplorer = () => {
         
         showToast(`נמצא: ${place.displayName?.text || name}`, 'success');
       } else {
-        showToast('לא נמצא מקום. נסה שם אחר או כתובת', 'error');
+        showToast(t('places.placeNotFoundRetry'), 'error');
       }
     } catch (error) {
       console.error('[GEOCODE BY NAME] Error:', error);
-      showToast('שגיאה בחיפוש', 'error');
+      showToast(t('toast.searchError'), 'error');
     }
   };
 
@@ -6096,7 +6096,7 @@ const CityExplorer = () => {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-rose-50" dir="rtl">
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-rose-50" dir={window.BKK.i18n.isRTL() ? 'rtl' : 'ltr'}>
       {/* Loading Overlay */}
       {!isDataLoaded && (
         <div className="fixed inset-0 bg-gradient-to-br from-amber-50 to-rose-50 z-[9999] flex flex-col items-center justify-center">
@@ -6108,7 +6108,7 @@ const CityExplorer = () => {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
               </svg>
-              <span className="text-sm">...טוען נתונים</span>
+              <span className="text-sm">{t("general.loading")}</span>
             </div>
           </div>
         </div>
@@ -6159,10 +6159,13 @@ const CityExplorer = () => {
           <div className="view-fade-in">
             {/* Wizard Header */}
             <div style={{ textAlign: 'center', marginBottom: '4px' }}>
-              {/* Advanced mode toggle at top */}
-              <div style={{ textAlign: 'left', marginBottom: '0px' }}>
+              {/* Advanced mode toggle and language toggle at top */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0px' }}>
                 <button onClick={() => { setWizardMode(false); localStorage.setItem('bangkok_wizard_mode', 'false'); }} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '10px', cursor: 'pointer', textDecoration: 'underline' }}>
                   ⚙️ מצב מתקדם
+                </button>
+                <button onClick={() => switchLanguage(currentLang === 'he' ? 'en' : 'he')} style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '2px 8px', color: '#6b7280', fontSize: '10px', cursor: 'pointer' }}>
+                  {currentLang === 'he' ? '🇬🇧 EN' : '🇮🇱 עב'}
                 </button>
               </div>
               <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginBottom: '4px' }}>
@@ -6198,9 +6201,9 @@ const CityExplorer = () => {
                   ))}
                 </div>
 
-                <h2 style={{ textAlign: 'center', fontSize: '16px', fontWeight: 'bold', marginBottom: '1px' }}>📍 איפה מטיילים?</h2>
+                <h2 style={{ textAlign: 'center', fontSize: '16px', fontWeight: 'bold', marginBottom: '1px' }}>{`📍 ${t("wizard.step1Title")}`}</h2>
                 <p style={{ textAlign: 'center', fontSize: '11px', color: '#6b7280', marginBottom: '6px' }}>
-                  בחר אזור ב{window.BKK.selectedCity?.name || 'עיר'}
+                  בחר אזור ב{window.BKK.selectedCity?.name || t('general.city')}
                   <button onClick={() => showHelpFor('main')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', marginRight: '4px', textDecoration: 'underline' }}>
                     איך זה עובד?
                   </button>
@@ -6211,7 +6214,7 @@ const CityExplorer = () => {
                   <button
                     onClick={() => { setMapMode('areas'); setShowMapModal(true); }}
                     style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', borderRadius: '10px', padding: '6px 16px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 2px 6px rgba(5,150,105,0.3)' }}
-                  >🗺️ הצג מפה</button>
+                  >{t("wizard.showMap")}</button>
                 </div>
 
                 {/* Area Grid */}
@@ -6245,10 +6248,10 @@ const CityExplorer = () => {
                     if (navigator.geolocation) {
                       navigator.geolocation.getCurrentPosition(
                         (pos) => {
-                          setFormData({...formData, searchMode: 'radius', radiusMeters: 1000, currentLat: pos.coords.latitude, currentLng: pos.coords.longitude, radiusPlaceName: 'המיקום שלי', radiusSource: 'gps'});
-                          showToast('📍 מיקום נמצא!', 'success');
+                          setFormData({...formData, searchMode: 'radius', radiusMeters: 1000, currentLat: pos.coords.latitude, currentLng: pos.coords.longitude, radiusPlaceName: t('wizard.myLocation'), radiusSource: 'gps'});
+                          showToast(t('wizard.locationFound'), 'success');
                         },
-                        () => showToast('לא ניתן לגשת למיקום', 'warning')
+                        () => showToast(t('toast.locationInaccessible'), 'warning')
                       );
                     }
                   }}
@@ -6293,8 +6296,8 @@ const CityExplorer = () => {
             {/* Step 2: Choose Interests */}
             {wizardStep === 2 && (
               <div className="bg-white rounded-xl shadow-lg p-3">
-                <h2 style={{ textAlign: 'center', fontSize: '17px', fontWeight: 'bold', marginBottom: '2px' }}>⭐ מה מעניין אותך?</h2>
-                <p style={{ textAlign: 'center', fontSize: '11px', color: '#6b7280', marginBottom: '10px' }}>בחר תחום אחד או יותר</p>
+                <h2 style={{ textAlign: 'center', fontSize: '17px', fontWeight: 'bold', marginBottom: '2px' }}>{`⭐ ${t("wizard.step2Title")}`}</h2>
+                <p style={{ textAlign: 'center', fontSize: '11px', color: '#6b7280', marginBottom: '10px' }}>{t("wizard.step2Subtitle")}</p>
                 
                 {/* Interest Grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '12px' }}>
@@ -6415,7 +6418,7 @@ const CityExplorer = () => {
                 <span className="absolute -top-1 left-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-white"></span>
               )}
             </div>
-            <div className="truncate text-center text-[8px]">הגדרות</div>
+            <div className="truncate text-center text-[8px]">{t("settings.title")}</div>
           </button>
         </div>
         )}
@@ -6470,11 +6473,11 @@ const CityExplorer = () => {
               ))}
             </div>
             <div className="flex items-center justify-center gap-2">
-              <h2 className="text-base font-bold text-center">תכנן את הטיול</h2>
+              <h2 className="text-base font-bold text-center">{t("wizard.step1Title")}</h2>
               <button
                 onClick={() => showHelpFor('main')}
                 className="text-gray-400 hover:text-blue-500 text-sm"
-                title="עזרה"
+                title={t("general.help")}
               >
                 עזרה
               </button>
@@ -6484,6 +6487,9 @@ const CityExplorer = () => {
                 title="עבור למצב מהיר"
               >
                 🚀 מצב מהיר
+              </button>
+              <button onClick={() => switchLanguage(currentLang === 'he' ? 'en' : 'he')} style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '2px 8px', color: '#6b7280', fontSize: '10px', cursor: 'pointer' }}>
+                {currentLang === 'he' ? '🇬🇧 EN' : '🇮🇱 עב'}
               </button>
             </div>
 
@@ -6500,7 +6506,7 @@ const CityExplorer = () => {
                   }}
                   className="w-full mb-2 py-1.5 rounded-lg text-[10px] font-bold"
                   style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', boxShadow: '0 2px 4px rgba(5,150,105,0.3)' }}
-                >🗺️ הצג מפה</button>
+                >{t("wizard.showMap")}</button>
 
                 {/* 3-way mode toggle: הכל / איזור / רדיוס */}
                 <div className="flex bg-gray-200 rounded-lg p-0.5 mb-2">
@@ -6634,7 +6640,7 @@ const CityExplorer = () => {
                       <button
                         onClick={() => {
                           if (!navigator.geolocation) {
-                            showToast('הדפדפן לא תומך במיקום', 'error');
+                            showToast(t('toast.browserNoLocation'), 'error');
                             return;
                           }
                           setIsLocating(true);
@@ -6650,12 +6656,12 @@ const CityExplorer = () => {
                                 gpsLat: lat,
                                 gpsLng: lng
                               }));
-                              showToast('📍 מיקום נקלט!', 'success');
+                              showToast(t('form.locationDetectedShort'), 'success');
                               setIsLocating(false);
                             },
                             (error) => {
                               setIsLocating(false);
-                              showToast(error.code === 1 ? 'אין הרשאת מיקום' : 'לא ניתן לאתר מיקום', 'error');
+                              showToast(error.code === 1 ? t('places.noLocationPermission') : t('toast.locationUnavailable'), 'error');
                             },
                             { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
                           );
@@ -6896,7 +6902,7 @@ const CityExplorer = () => {
                   <button
                     onClick={() => showHelpFor('placesListing')}
                     style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline' }}
-                  >עזרה</button>
+                  >{t("general.help")}</button>
                 </div>
                 {/* Help link instead of inline legend */}
                 <div className="max-h-96 overflow-y-auto" style={{ contain: 'content' }}>
@@ -6918,7 +6924,7 @@ const CityExplorer = () => {
                     
                     return Object.entries(groupedStops).map(([interest, stops]) => {
                       const isManualGroup = interest === '_manual';
-                      const interestObj = isManualGroup ? { id: '_manual', label: 'נוספו ידנית', icon: '📍' } : interestMap[interest];
+                      const interestObj = isManualGroup ? { id: '_manual', label: t('general.addedManually'), icon: '📍' } : interestMap[interest];
                       if (!interestObj) return null;
                       
                       // For manual group, filter out stops that now have real interests
@@ -7134,7 +7140,7 @@ const CityExplorer = () => {
                                             setShowImageModal(true);
                                           }}
                                           className="hover:scale-110 transition bg-blue-100 hover:bg-blue-200 rounded px-0.5"
-                                          title="לחץ לצפייה בתמונה"
+                                          title={t("general.clickForImage")}
                                           style={{ fontSize: '11px', cursor: 'pointer' }}
                                         >
                                           🖼️
@@ -7267,7 +7273,7 @@ const CityExplorer = () => {
                           }}
                           style={{ cursor: 'pointer' }}
                         />
-                        <span>מעגלי</span>
+                        <span>{t("route.circular")}</span>
                       </label>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
                         <input
@@ -7535,7 +7541,7 @@ const CityExplorer = () => {
               <button
                 onClick={() => showHelpFor('route')}
                 className="text-gray-400 hover:text-blue-500 text-sm"
-                title="עזרה"
+                title={t("general.help")}
               >
                 עזרה
               </button>
@@ -7712,7 +7718,7 @@ const CityExplorer = () => {
                                     }
                                   }}
                                   className={`${sourceBadge.color} text-white text-[10px] px-2 py-0.5 rounded-full font-bold cursor-pointer hover:opacity-80 transition`}
-                                  title="לחץ לפרטים מלאים"
+                                  title={t("general.clickForDetails")}
                                 >
                                   {sourceBadge.text}
                                 </button>
@@ -7898,7 +7904,7 @@ const CityExplorer = () => {
                       onChange={() => setRouteType('circular')}
                       style={{ cursor: 'pointer' }}
                     />
-                    <span>מעגלי</span>
+                    <span>{t("route.circular")}</span>
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
                     <input
@@ -8000,7 +8006,7 @@ const CityExplorer = () => {
             <div className="mb-4">
               <input
                 type="text"
-                placeholder="חפש בשם, תיאור או הערות..."
+                placeholder={t("places.searchByNameHint")}
                 value={searchQuery}
                 className="w-full p-3 border-3 border-gray-300 rounded-xl text-base focus:border-teal-500 focus:ring-2 focus:ring-teal-200"
                 style={{ textAlign: 'right', direction: 'rtl' }}
@@ -8122,8 +8128,8 @@ const CityExplorer = () => {
                 <button
                   onClick={() => showHelpFor('saved')}
                   className="text-gray-400 hover:text-blue-500 text-sm"
-                  title="עזרה"
-                style={{ background: "none", border: "none", color: "#3b82f6", fontSize: "11px", cursor: "pointer", textDecoration: "underline" }}>עזרה</button>
+                  title={t("general.help")}
+                style={{ background: "none", border: "none", color: "#3b82f6", fontSize: "11px", cursor: "pointer", textDecoration: "underline" }}>{t("general.help")}</button>
               </div>
               <div className="flex items-center gap-2">
                 {/* Sort toggle */}
@@ -8159,7 +8165,7 @@ const CityExplorer = () => {
                   
                   let lastGroup = null;
                   return sorted.map(savedRoute => {
-                    const groupKey = routesSortBy === 'area' ? (savedRoute.areaName || 'ללא איזור') : null;
+                    const groupKey = routesSortBy === 'area' ? (savedRoute.areaName || t('general.noArea')) : null;
                     const showGroupHeader = routesSortBy === 'area' && groupKey !== lastGroup;
                     if (showGroupHeader) lastGroup = groupKey;
                     
@@ -8182,8 +8188,8 @@ const CityExplorer = () => {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1 flex-wrap">
                               <span className="font-medium text-sm truncate">{savedRoute.name}</span>
-                              {savedRoute.locked && isUnlocked && <span title="נעול" style={{ fontSize: '11px' }}>🔒</span>}
-                              {savedRoute.inProgress && <span title="בעבודה" style={{ fontSize: '12px' }}>🛠️</span>}
+                              {savedRoute.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '11px' }}>🔒</span>}
+                              {savedRoute.inProgress && <span title={t("general.inProgress")} style={{ fontSize: '12px' }}>🛠️</span>}
                               {routeInterestIds.slice(0, 5).map((intId, idx) => {
                                 const obj = interestMap[intId];
                                 return obj?.icon ? <span key={idx} title={obj.label} style={{ fontSize: '12px' }}>{obj.icon}</span> : null;
@@ -8223,7 +8229,7 @@ const CityExplorer = () => {
               <button
                 onClick={() => showHelpFor('myPlaces')}
                 className="text-gray-400 hover:text-blue-500 text-sm"
-                title="עזרה"
+                title={t("general.help")}
               >
                 עזרה
               </button>
@@ -8309,8 +8315,8 @@ const CityExplorer = () => {
                                           ) : (
                                             <span className="font-medium text-sm truncate">{loc.name}</span>
                                           )}
-                                          {loc.locked && isUnlocked && <span title="נעול" style={{ fontSize: '12px' }}>🔒</span>}
-                                          {loc.inProgress && <span className="text-orange-600" title="בעבודה" style={{ fontSize: '14px' }}>🛠️</span>}
+                                          {loc.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '12px' }}>🔒</span>}
+                                          {loc.inProgress && <span className="text-orange-600" title={t("general.inProgress")} style={{ fontSize: '14px' }}>🛠️</span>}
                                           {loc.outsideArea && <span className="text-orange-500 text-xs" title="מחוץ לגבולות">🔺</span>}
                                           {loc.missingCoordinates && <span className="text-red-500 text-xs" title="אין מיקום">⚠️</span>}
                                           {!isLocationValid(loc) && <span className="text-red-500 text-[9px]" title="חסרים פרטים (כתובת/קורדינטות/תחום)">❌</span>}
@@ -8355,8 +8361,8 @@ const CityExplorer = () => {
                                         ) : (
                                           <span className="font-medium text-sm truncate">{loc.name}</span>
                                         )}
-                                        {loc.locked && isUnlocked && <span title="נעול" style={{ fontSize: '12px' }}>🔒</span>}
-                                        {loc.inProgress && <span className="text-orange-600" title="בעבודה" style={{ fontSize: '14px' }}>🛠️</span>}
+                                        {loc.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '12px' }}>🔒</span>}
+                                        {loc.inProgress && <span className="text-orange-600" title={t("general.inProgress")} style={{ fontSize: '14px' }}>🛠️</span>}
                                         {!isLocationValid(loc) && <span className="text-red-500 text-[9px]" title="חסרים פרטים">❌</span>}
                                       </div>
                                     </div>
@@ -8408,7 +8414,7 @@ const CityExplorer = () => {
                                     ) : (
                                       <span className="font-medium text-sm truncate">{loc.name}</span>
                                     )}
-                                    {loc.locked && isUnlocked && <span title="נעול" style={{ fontSize: '12px' }}>🔒</span>}
+                                    {loc.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '12px' }}>🔒</span>}
                                     {loc.interests?.map((int, idx) => {
                                       const obj = interestMap[int];
                                       return obj?.icon ? <span key={idx} title={obj.label} style={{ fontSize: '13px' }}>{obj.icon}</span> : null;
@@ -8438,7 +8444,7 @@ const CityExplorer = () => {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold">🏷️ התחומים שלי</h2>
-                <button onClick={() => showHelpFor('myInterests')} className="text-blue-400 hover:text-blue-600 text-sm" title="עזרה"style={{ background: "none", border: "none", color: "#3b82f6", fontSize: "11px", cursor: "pointer", textDecoration: "underline" }}>עזרה</button>
+                <button onClick={() => showHelpFor('myInterests')} className="text-blue-400 hover:text-blue-600 text-sm" title={t("general.help")}style={{ background: "none", border: "none", color: "#3b82f6", fontSize: "11px", cursor: "pointer", textDecoration: "underline" }}>{t("general.help")}</button>
                 <span className="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full">
                   {(window.BKK.interestOptions || []).length + (window.BKK.uncoveredInterests || []).length + (cityCustomInterests || []).length} סה"כ
                 </span>
@@ -8499,10 +8505,10 @@ const CityExplorer = () => {
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <span className="text-lg flex-shrink-0">{interest.icon?.startsWith?.('data:') ? <img src={interest.icon} alt="" className="w-5 h-5 object-contain" /> : interest.icon}</span>
                       <span className={`font-medium text-sm truncate ${!effectiveActive ? 'text-gray-500' : ''}`}>{interest.label || interest.name}</span>
-                      {isCustom && <span className="text-[10px] bg-purple-200 text-purple-800 px-1 py-0.5 rounded flex-shrink-0">מותאם</span>}
-                      {!isValid && <span className="text-red-500 text-xs flex-shrink-0" title="חסר הגדרות חיפוש">⚠️</span>}
-                      {interest.inProgress && <span className="text-orange-600 flex-shrink-0" title="בעבודה" style={{ fontSize: '12px' }}>🛠️</span>}
-                      {interest.locked && isUnlocked && <span title="נעול" style={{ fontSize: '11px' }} className="flex-shrink-0">🔒</span>}
+                      {isCustom && <span className="text-[10px] bg-purple-200 text-purple-800 px-1 py-0.5 rounded flex-shrink-0">{t("general.custom")}</span>}
+                      {!isValid && <span className="text-red-500 text-xs flex-shrink-0" title={t("interests.missingSearchConfig")}>⚠️</span>}
+                      {interest.inProgress && <span className="text-orange-600 flex-shrink-0" title={t("general.inProgress")} style={{ fontSize: '12px' }}>🛠️</span>}
+                      {interest.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '11px' }} className="flex-shrink-0">🔒</span>}
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
                       {/* Toggle button */}
@@ -8514,7 +8520,7 @@ const CityExplorer = () => {
                           : effectiveActive ? 'bg-red-100 text-red-600 hover:bg-red-200' 
                           : 'bg-green-100 text-green-600 hover:bg-green-200'
                         }`}
-                        title={!isValid ? 'תחום לא וולידי' : effectiveActive ? 'השבת' : 'הפעל'}
+                        title={!isValid ? t('interests.interestInvalid') : effectiveActive ? 'השבת' : 'הפעל'}
                       >
                         {effectiveActive ? '⏸️ השבת' : '▶️ הפעל'}
                       </button>
@@ -8583,11 +8589,11 @@ const CityExplorer = () => {
         {currentView === 'settings' && (
           <div className="view-fade-in bg-white rounded-xl shadow-lg p-3">
             <div className="flex items-center gap-2 mb-3">
-              <h2 className="text-lg font-bold">הגדרות</h2>
+              <h2 className="text-lg font-bold">{t("settings.title")}</h2>
               <button
                 onClick={() => showHelpFor('settings')}
                 className="text-gray-400 hover:text-blue-500 text-sm"
-                title="עזרה"
+                title={t("general.help")}
               >
                 עזרה
               </button>
@@ -8618,7 +8624,7 @@ const CityExplorer = () => {
             {/* City & Area Management */}
             <div className="mb-3">
               <div className="bg-gradient-to-r from-rose-50 to-orange-50 border-2 border-rose-400 rounded-lg p-2">
-                <h3 className="text-sm font-bold text-gray-800 mb-2">🌍 ערים ואזורים</h3>
+                <h3 className="text-sm font-bold text-gray-800 mb-2">{`🌍 ${t("settings.title")}`}</h3>
                 
                 {/* City pills - all cities, with active/inactive toggle */}
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
@@ -8794,7 +8800,7 @@ const CityExplorer = () => {
                   }`}
                 >
                   <span className={isRefreshing ? 'animate-spin' : ''}>🔄</span>
-                  <span>{isRefreshing ? 'מרענן...' : 'רענן את כל הנתונים'}</span>
+                  <span>{isRefreshing ? 'מרענן...' : t('settings.refreshData')}</span>
                 </button>
                 <div className="mt-2 text-[10px] text-gray-500 flex flex-wrap gap-1">
                   <span className="bg-cyan-100 px-1.5 py-0.5 rounded">📍 מקומות</span>
@@ -8822,7 +8828,7 @@ const CityExplorer = () => {
                     className="w-5 h-5 rounded border-2 border-gray-400"
                   />
                   <span className="text-sm font-bold">
-                    {debugMode ? '✅ Debug מופעל' : '❌ Debug כבוי'}
+                    {debugMode ? t('toast.debugOn') : t('toast.debugOff')}
                   </span>
                 </label>
                 
@@ -8858,7 +8864,7 @@ const CityExplorer = () => {
                       type="password"
                       value={newAdminPassword}
                       onChange={(e) => setNewAdminPassword(e.target.value)}
-                      placeholder={adminPassword ? 'סיסמה חדשה...' : 'הגדר סיסמה'}
+                      placeholder={adminPassword ? 'סיסמה חדשה...' : t('settings.setPassword')}
                       className="flex-1 p-2 border rounded text-sm"
                     />
                     <button
@@ -8869,15 +8875,15 @@ const CityExplorer = () => {
                               const hashed = await window.BKK.hashPassword(newAdminPassword.trim());
                               await database.ref('settings/adminPassword').set(hashed);
                               setAdminPassword(hashed);
-                              showToast('סיסמה נשמרה!', 'success');
+                              showToast(t('toast.passwordSaved'), 'success');
                             } else {
                               await database.ref('settings/adminPassword').set('');
                               setAdminPassword('');
-                              showToast('סיסמה הוסרה - גישה פתוחה', 'warning');
+                              showToast(t('toast.passwordRemoved'), 'warning');
                             }
                             setNewAdminPassword('');
                           } catch (err) {
-                            showToast('שגיאה בשמירה', 'error');
+                            showToast(t('toast.saveError'), 'error');
                           }
                         }
                       }}
@@ -8912,7 +8918,7 @@ const CityExplorer = () => {
                             onClick={() => {
                               if (isFirebaseAvailable && database) {
                                 database.ref(`settings/adminUsers/${user.oderId}`).remove()
-                                  .then(() => showToast('משתמש הוסר', 'success'))
+                                  .then(() => showToast(t('toast.userRemoved'), 'success'))
                                   .catch(() => showToast('שגיאה', 'error'));
                               }
                             }}
@@ -8997,7 +9003,7 @@ const CityExplorer = () => {
                         showToast(`הקובץ הורד! (${customInterests.length} תחומים מותאמים, ${activeCount} פעילים, ${customLocations.length} מקומות, ${savedRoutes.length} מסלולים)`, 'success');
                       } catch (error) {
                         console.error('[EXPORT] Error:', error);
-                        showToast('שגיאה בייצוא', 'error');
+                        showToast(t('toast.exportError'), 'error');
                       }
                     }}
                     className="w-full bg-blue-500 text-white py-2 px-3 rounded-lg font-bold hover:bg-blue-600 transition text-sm flex items-center justify-center gap-2"
@@ -9031,7 +9037,7 @@ const CityExplorer = () => {
                             setShowImportDialog(true);
                           } catch (error) {
                             console.error('[IMPORT] Error:', error);
-                            showToast('שגיאה בקריאת הקובץ', 'error');
+                            showToast(t('toast.fileReadError'), 'error');
                           }
                         };
                         reader.readAsText(file);
@@ -9070,9 +9076,9 @@ const CityExplorer = () => {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <button
               onClick={() => {
-                const shareData = { title: 'City Explorer', text: 'אפליקציה לתכנון טיולים', url: window.location.href };
+                const shareData = { title: 'City Explorer', text: t('settings.appDescription'), url: window.location.href };
                 if (navigator.share) { navigator.share(shareData).catch(() => {}); }
-                else { try { navigator.clipboard.writeText(window.location.href); showToast('הקישור הועתק! 📋', 'success'); } catch(e) { showToast(window.location.href, 'info'); } }
+                else { try { navigator.clipboard.writeText(window.location.href); showToast(t('route.linkCopied'), 'success'); } catch(e) { showToast(window.location.href, 'info'); } }
               }}
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: '#9ca3af' }}
             >📤 שתף</button>
@@ -9108,7 +9114,7 @@ const CityExplorer = () => {
               >✕</button>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-sm">
-                  {mapMode === 'areas' ? '🗺️ מפת כל האזורים' : '📍 רדיוס חיפוש'}
+                  {mapMode === 'areas' ? t('wizard.allAreasMap') : t('form.searchRadius')}
                 </h3>
               </div>
               <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
@@ -9129,7 +9135,7 @@ const CityExplorer = () => {
                   className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
                     mapMode === 'radius' ? 'bg-rose-500 text-white shadow' : 'text-gray-500 hover:bg-gray-200'
                   } ${!formData.currentLat ? 'opacity-30' : ''}`}
-                  title={!formData.currentLat ? 'צריך להגדיר מיקום GPS קודם' : 'הצג רדיוס חיפוש'}
+                  title={!formData.currentLat ? t('form.needGpsFirst') : 'הצג רדיוס חיפוש'}
                 >📍 רדיוס</button>
               </div>
             </div>
@@ -9140,7 +9146,7 @@ const CityExplorer = () => {
               <p className="text-[9px] text-gray-400">
                 {mapMode === 'areas' 
                   ? `${(window.BKK.areaOptions || []).length} אזורים · לחץ על עיגול לפרטים` 
-                  : `${formData.radiusMeters}מ' מ-${formData.radiusPlaceName || 'מיקום נוכחי'}`
+                  : `${formData.radiusMeters}מ' מ-${formData.radiusPlaceName || t('form.currentLocation')}`
                 }
               </p>
             </div>
@@ -9165,7 +9171,7 @@ const CityExplorer = () => {
                   <button
                     onClick={() => showHelpFor('addLocation')}
                     className="bg-white text-purple-600 hover:bg-purple-100 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shadow"
-                    title="עזרה"
+                    title={t("general.help")}
                   >
                     ?
                   </button>
@@ -9212,7 +9218,7 @@ const CityExplorer = () => {
                               loc.name.toLowerCase() === e.target.value.trim().toLowerCase() &&
                               (!editingLocation || loc.id !== editingLocation.id)
                             );
-                            if (exists) showToast('שם זה כבר קיים', 'warning');
+                            if (exists) showToast(t('places.nameExists'), 'warning');
                           }
                         }}
                         onKeyDown={(e) => { if (e.key === 'Enter' && newLocation.name?.trim()) { e.preventDefault(); searchPlacesByName(newLocation.name); } }}
@@ -9276,10 +9282,10 @@ const CityExplorer = () => {
                               setNewLocation({...newLocation, areas: detected, area: detected[0]});
                               showToast(`זוהו ${detected.length} אזורים`, 'success');
                             } else {
-                              showToast('המיקום לא נמצא בתוך אף אזור מוגדר', 'warning');
+                              showToast(t('places.locationNotInAnyArea'), 'warning');
                             }
                           } else {
-                            showToast('צריך קואורדינטות כדי לזהות אזורים', 'warning');
+                            showToast(t('places.needCoordsForAreas'), 'warning');
                           }
                         }}
                         className="text-[9px] px-2 py-0.5 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 font-bold"
@@ -9614,7 +9620,7 @@ const CityExplorer = () => {
                   <textarea
                     value={newLocation.notes || ''}
                     onChange={(e) => setNewLocation({...newLocation, notes: e.target.value})}
-                    placeholder="הערות..."
+                    placeholder={t("places.notes")}
                     className="w-full p-2 text-xs border border-gray-300 rounded-lg focus:border-purple-500"
                     style={{ direction: 'rtl', minHeight: '50px' }}
                     rows="2"
@@ -9722,11 +9728,11 @@ const CityExplorer = () => {
                 <button
                   onClick={() => {
                     if (!newLocation.name || !newLocation.name.trim()) {
-                      showToast('אנא הזן שם למקום', 'warning');
+                      showToast(t('places.enterPlaceName'), 'warning');
                       return;
                     }
                     if (!newLocation.interests || newLocation.interests.length === 0) {
-                      showToast('אנא בחר לפחות תחום עניין אחד', 'warning');
+                      showToast(t('form.selectAtLeastOneInterest'), 'warning');
                       return;
                     }
                     const exists = customLocations.find(loc => 
@@ -9734,7 +9740,7 @@ const CityExplorer = () => {
                       (!editingLocation || loc.id !== editingLocation.id)
                     );
                     if (exists) {
-                      showToast('מקום עם שם זה כבר קיים', 'error');
+                      showToast(t('places.placeExists'), 'error');
                       return;
                     }
                     if (showEditLocationDialog) {
@@ -9795,7 +9801,7 @@ const CityExplorer = () => {
                   <button
                     onClick={() => showHelpFor('addInterest')}
                     className="bg-white text-purple-600 hover:bg-purple-100 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shadow"
-                    title="עזרה"
+                    title={t("general.help")}
                   >?</button>
                 </div>
                 <button
@@ -10008,7 +10014,7 @@ const CityExplorer = () => {
                                 if (isFirebaseAvailable && database) {
                                   database.ref(`settings/interestConfig/${editingCustomInterest.id}`).remove();
                                 }
-                                showToast('תחום מערכת הוסר', 'success');
+                                showToast(t('interests.builtInRemoved'), 'success');
                               } else {
                                 deleteCustomInterest(editingCustomInterest.id);
                               }
@@ -10092,7 +10098,7 @@ const CityExplorer = () => {
                             }
                           }
                           
-                          showToast('התחום עודכן!', 'success');
+                          showToast(t('interests.interestUpdated'), 'success');
                         } else {
                           // ADD MODE
                           const interestId = 'custom_' + Date.now();
@@ -10118,7 +10124,7 @@ const CityExplorer = () => {
                             localStorage.setItem('bangkok_custom_interests', JSON.stringify(updated));
                           }
                           
-                          showToast('התחום נוסף!', 'success');
+                          showToast(t('interests.interestAdded'), 'success');
                         }
                         
                         setShowAddInterestDialog(false);
@@ -10270,18 +10276,18 @@ const CityExplorer = () => {
                 {accessLogs.length > 0 && (
                   <button
                     onClick={() => {
-                      showConfirm('למחוק את כל לוג הכניסות? פעולה זו בלתי הפיכה.', () => {
+                      showConfirm(t('settings.deleteAllConfirm'), () => {
                         if (isFirebaseAvailable && database) {
                           database.ref('accessLog').remove()
                             .then(() => {
                               setAccessLogs([]);
                               setHasNewEntries(false);
                               localStorage.setItem('bangkok_last_seen', Date.now().toString());
-                              showToast('הלוג נוקה', 'success');
+                              showToast(t('toast.logCleared'), 'success');
                             })
                             .catch(err => {
                               console.error('[ACCESS LOG] Clear error:', err);
-                              showToast('שגיאה בניקוי הלוג', 'error');
+                              showToast(t('toast.logClearError'), 'error');
                             });
                         }
                       });
@@ -10305,7 +10311,7 @@ const CityExplorer = () => {
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-4 py-2.5 rounded-t-xl flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold">{routeDialogMode === 'add' ? '🗺️ הוסף מסלול שמור' : '🗺️ ערוך מסלול שמור'}</h3>
+                <h3 className="text-base font-bold">{routeDialogMode === 'add' ? t('route.addSavedRoute') : t('route.editSavedRoute')}</h3>
               </div>
               <button
                 onClick={() => { setShowRouteDialog(false); setEditingRoute(null); }}
@@ -10323,7 +10329,7 @@ const CityExplorer = () => {
               <div className="bg-blue-50 rounded-lg p-3 space-y-1.5">
                 {/* Area */}
                 <div className="text-xs text-gray-700">
-                  <span className="font-bold">📍 איזור:</span> {editingRoute.areaName || 'ללא איזור'}
+                  <span className="font-bold">📍 איזור:</span> {editingRoute.areaName || t('general.noArea')}
                 </div>
                 {/* Interests */}
                 {(() => {
@@ -10371,7 +10377,7 @@ const CityExplorer = () => {
                 <textarea
                   value={editingRoute.notes || ''}
                   onChange={(e) => setEditingRoute({...editingRoute, notes: e.target.value})}
-                  placeholder="הערות..."
+                  placeholder={t("places.notes")}
                   className="w-full p-2 text-sm border-2 border-gray-300 rounded-lg h-16 resize-none"
                   style={{ direction: 'rtl' }}
                   disabled={editingRoute.locked && !isUnlocked}
@@ -10402,7 +10408,7 @@ const CityExplorer = () => {
                       navigator.share({ title: editingRoute.name, text: shareText });
                     } else {
                       navigator.clipboard.writeText(shareText);
-                      showToast('מסלול הועתק ללוח', 'success');
+                      showToast(t('route.routeCopied'), 'success');
                     }
                   }}
                   className="flex-1 py-2 bg-green-500 text-white rounded-lg text-sm font-bold hover:bg-green-600"
@@ -10426,7 +10432,7 @@ const CityExplorer = () => {
                       navigator.share({ title: `נקודות עניין - ${editingRoute.name}`, text });
                     } else {
                       navigator.clipboard.writeText(text);
-                      showToast('נקודות העניין הועתקו ללוח', 'success');
+                      showToast(t('route.pointsCopied'), 'success');
                     }
                   }}
                   className="flex-1 py-2 bg-indigo-500 text-white rounded-lg text-sm font-bold hover:bg-indigo-600"
@@ -10637,7 +10643,7 @@ const CityExplorer = () => {
                     id="manual-stop-input"
                     type="text"
                     onKeyDown={(e) => { if (e.key === 'Enter') searchManualPlace(); }}
-                    placeholder="הקלד כתובת, שם מקום, מלון..."
+                    placeholder={t("form.typeAddressAlt")}
                     className="flex-1 p-2.5 border border-gray-300 rounded-lg text-sm"
                     style={{ direction: 'rtl' }}
                     autoFocus
@@ -10726,7 +10732,7 @@ const CityExplorer = () => {
                     id="addr-search-input"
                     type="text"
                     onKeyDown={(e) => { if (e.key === 'Enter') searchAddress(); }}
-                    placeholder="הקלד כתובת, שם מלון, מקום..."
+                    placeholder={t("form.typeAddress")}
                     className="flex-1 p-2.5 border border-gray-300 rounded-lg text-sm"
                     style={{ direction: 'rtl' }}
                     autoFocus
@@ -10740,7 +10746,7 @@ const CityExplorer = () => {
                 </div>
                 
                 <p className="text-[11px] text-gray-500">
-                  💡 הקלד כתובת מלאה, שם מלון, תחנת רכבת, או כל מקום ב{window.BKK.selectedCity?.name || 'עיר'}
+                  💡 הקלד כתובת מלאה, שם מלון, תחנת רכבת, או כל מקום ב{window.BKK.selectedCity?.name || t('general.city')}
                 </p>
                 
                 {/* Results container */}
@@ -10779,7 +10785,7 @@ const CityExplorer = () => {
                 className="text-xl hover:bg-white hover:bg-opacity-20 rounded-full w-7 h-7 flex items-center justify-center"
               >✕</button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 text-sm text-gray-700" style={{ direction: 'rtl' }}>
+            <div className="flex-1 overflow-y-auto p-4 text-sm text-gray-700" style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', textAlign: window.BKK.i18n.isRTL() ? 'right' : 'left' }}>
               {helpContent[helpContext]?.content.split('\n').map((line, i) => {
                 // Render inline **bold** anywhere in the line
                 const renderBold = (text) => {
@@ -10789,7 +10795,7 @@ const CityExplorer = () => {
                 if (line.startsWith('**') && line.endsWith('**')) {
                   return <h4 key={i} className="font-bold text-gray-900 mt-3 mb-1">{line.replace(/\*\*/g, '')}</h4>;
                 } else if (line.startsWith('• ')) {
-                  return <p key={i} className="mr-3 mb-0.5">• {renderBold(line.substring(2))}</p>;
+                  return <p key={i} style={{ marginInlineStart: '12px' }} className="mb-0.5">• {renderBold(line.substring(2))}</p>;
                 } else if (line.trim() === '') {
                   return <div key={i} className="h-2" />;
                 }
@@ -10800,7 +10806,7 @@ const CityExplorer = () => {
               <button
                 onClick={() => setShowHelp(false)}
                 className="w-full py-2 rounded-lg bg-blue-500 text-white font-bold hover:bg-blue-600 text-sm"
-              >הבנתי ✓</button>
+              >{t('general.close')} ✓</button>
             </div>
           </div>
         </div>
@@ -10867,7 +10873,7 @@ const CityExplorer = () => {
               <textarea
                 value={feedbackText}
                 onChange={(e) => setFeedbackText(e.target.value)}
-                placeholder="ספר לנו מה חשבת..."
+                placeholder={t("settings.feedbackPlaceholder")}
                 className="w-full p-3 border-2 border-gray-200 rounded-lg text-sm resize-none focus:border-blue-400 focus:outline-none"
                 rows={4}
                 autoFocus
@@ -10900,11 +10906,11 @@ const CityExplorer = () => {
                 {feedbackList.length > 0 && (
                   <button
                     onClick={() => {
-                      showConfirm('למחוק את כל המשובים?', () => {
+                      showConfirm(t('settings.deleteAllFeedback'), () => {
                         if (isFirebaseAvailable && database) {
                           database.ref('feedback').remove().then(() => {
                             setFeedbackList([]);
-                            showToast('כל המשובים נמחקו', 'success');
+                            showToast(t('toast.allFeedbackDeleted'), 'success');
                           });
                         }
                       });
@@ -11077,11 +11083,11 @@ const CityExplorer = () => {
                           setShowPasswordDialog(false);
                           setPasswordInput('');
                           setCurrentView('settings');
-                          showToast('נפתח בהצלחה!', 'success');
+                          showToast(t('route.openedSuccess'), 'success');
                         });
                       }
                     } else {
-                      showToast('סיסמה שגויה', 'error');
+                      showToast(t('settings.wrongPassword'), 'error');
                       setPasswordInput('');
                     }
                   }
@@ -11111,11 +11117,11 @@ const CityExplorer = () => {
                           setShowPasswordDialog(false);
                           setPasswordInput('');
                           setCurrentView('settings');
-                          showToast('נפתח בהצלחה!', 'success');
+                          showToast(t('route.openedSuccess'), 'success');
                         });
                       }
                     } else {
-                      showToast('סיסמה שגויה', 'error');
+                      showToast(t('settings.wrongPassword'), 'error');
                       setPasswordInput('');
                     }
                   }}

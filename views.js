@@ -1,6 +1,6 @@
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-rose-50" dir="rtl">
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-rose-50" dir={window.BKK.i18n.isRTL() ? 'rtl' : 'ltr'}>
       {/* Loading Overlay */}
       {!isDataLoaded && (
         <div className="fixed inset-0 bg-gradient-to-br from-amber-50 to-rose-50 z-[9999] flex flex-col items-center justify-center">
@@ -12,7 +12,7 @@
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
               </svg>
-              <span className="text-sm">...טוען נתונים</span>
+              <span className="text-sm">{t("general.loading")}</span>
             </div>
           </div>
         </div>
@@ -63,10 +63,13 @@
           <div className="view-fade-in">
             {/* Wizard Header */}
             <div style={{ textAlign: 'center', marginBottom: '4px' }}>
-              {/* Advanced mode toggle at top */}
-              <div style={{ textAlign: 'left', marginBottom: '0px' }}>
+              {/* Advanced mode toggle and language toggle at top */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0px' }}>
                 <button onClick={() => { setWizardMode(false); localStorage.setItem('bangkok_wizard_mode', 'false'); }} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '10px', cursor: 'pointer', textDecoration: 'underline' }}>
                   ⚙️ מצב מתקדם
+                </button>
+                <button onClick={() => switchLanguage(currentLang === 'he' ? 'en' : 'he')} style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '2px 8px', color: '#6b7280', fontSize: '10px', cursor: 'pointer' }}>
+                  {currentLang === 'he' ? '🇬🇧 EN' : '🇮🇱 עב'}
                 </button>
               </div>
               <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginBottom: '4px' }}>
@@ -102,9 +105,9 @@
                   ))}
                 </div>
 
-                <h2 style={{ textAlign: 'center', fontSize: '16px', fontWeight: 'bold', marginBottom: '1px' }}>📍 איפה מטיילים?</h2>
+                <h2 style={{ textAlign: 'center', fontSize: '16px', fontWeight: 'bold', marginBottom: '1px' }}>{`📍 ${t("wizard.step1Title")}`}</h2>
                 <p style={{ textAlign: 'center', fontSize: '11px', color: '#6b7280', marginBottom: '6px' }}>
-                  בחר אזור ב{window.BKK.selectedCity?.name || 'עיר'}
+                  בחר אזור ב{window.BKK.selectedCity?.name || t('general.city')}
                   <button onClick={() => showHelpFor('main')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', marginRight: '4px', textDecoration: 'underline' }}>
                     איך זה עובד?
                   </button>
@@ -115,7 +118,7 @@
                   <button
                     onClick={() => { setMapMode('areas'); setShowMapModal(true); }}
                     style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', borderRadius: '10px', padding: '6px 16px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 2px 6px rgba(5,150,105,0.3)' }}
-                  >🗺️ הצג מפה</button>
+                  >{t("wizard.showMap")}</button>
                 </div>
 
                 {/* Area Grid */}
@@ -149,10 +152,10 @@
                     if (navigator.geolocation) {
                       navigator.geolocation.getCurrentPosition(
                         (pos) => {
-                          setFormData({...formData, searchMode: 'radius', radiusMeters: 1000, currentLat: pos.coords.latitude, currentLng: pos.coords.longitude, radiusPlaceName: 'המיקום שלי', radiusSource: 'gps'});
-                          showToast('📍 מיקום נמצא!', 'success');
+                          setFormData({...formData, searchMode: 'radius', radiusMeters: 1000, currentLat: pos.coords.latitude, currentLng: pos.coords.longitude, radiusPlaceName: t('wizard.myLocation'), radiusSource: 'gps'});
+                          showToast(t('wizard.locationFound'), 'success');
                         },
-                        () => showToast('לא ניתן לגשת למיקום', 'warning')
+                        () => showToast(t('toast.locationInaccessible'), 'warning')
                       );
                     }
                   }}
@@ -197,8 +200,8 @@
             {/* Step 2: Choose Interests */}
             {wizardStep === 2 && (
               <div className="bg-white rounded-xl shadow-lg p-3">
-                <h2 style={{ textAlign: 'center', fontSize: '17px', fontWeight: 'bold', marginBottom: '2px' }}>⭐ מה מעניין אותך?</h2>
-                <p style={{ textAlign: 'center', fontSize: '11px', color: '#6b7280', marginBottom: '10px' }}>בחר תחום אחד או יותר</p>
+                <h2 style={{ textAlign: 'center', fontSize: '17px', fontWeight: 'bold', marginBottom: '2px' }}>{`⭐ ${t("wizard.step2Title")}`}</h2>
+                <p style={{ textAlign: 'center', fontSize: '11px', color: '#6b7280', marginBottom: '10px' }}>{t("wizard.step2Subtitle")}</p>
                 
                 {/* Interest Grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '12px' }}>
@@ -319,7 +322,7 @@
                 <span className="absolute -top-1 left-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-white"></span>
               )}
             </div>
-            <div className="truncate text-center text-[8px]">הגדרות</div>
+            <div className="truncate text-center text-[8px]">{t("settings.title")}</div>
           </button>
         </div>
         )}
@@ -374,11 +377,11 @@
               ))}
             </div>
             <div className="flex items-center justify-center gap-2">
-              <h2 className="text-base font-bold text-center">תכנן את הטיול</h2>
+              <h2 className="text-base font-bold text-center">{t("wizard.step1Title")}</h2>
               <button
                 onClick={() => showHelpFor('main')}
                 className="text-gray-400 hover:text-blue-500 text-sm"
-                title="עזרה"
+                title={t("general.help")}
               >
                 עזרה
               </button>
@@ -388,6 +391,9 @@
                 title="עבור למצב מהיר"
               >
                 🚀 מצב מהיר
+              </button>
+              <button onClick={() => switchLanguage(currentLang === 'he' ? 'en' : 'he')} style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '2px 8px', color: '#6b7280', fontSize: '10px', cursor: 'pointer' }}>
+                {currentLang === 'he' ? '🇬🇧 EN' : '🇮🇱 עב'}
               </button>
             </div>
 
@@ -404,7 +410,7 @@
                   }}
                   className="w-full mb-2 py-1.5 rounded-lg text-[10px] font-bold"
                   style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', boxShadow: '0 2px 4px rgba(5,150,105,0.3)' }}
-                >🗺️ הצג מפה</button>
+                >{t("wizard.showMap")}</button>
 
                 {/* 3-way mode toggle: הכל / איזור / רדיוס */}
                 <div className="flex bg-gray-200 rounded-lg p-0.5 mb-2">
@@ -538,7 +544,7 @@
                       <button
                         onClick={() => {
                           if (!navigator.geolocation) {
-                            showToast('הדפדפן לא תומך במיקום', 'error');
+                            showToast(t('toast.browserNoLocation'), 'error');
                             return;
                           }
                           setIsLocating(true);
@@ -554,12 +560,12 @@
                                 gpsLat: lat,
                                 gpsLng: lng
                               }));
-                              showToast('📍 מיקום נקלט!', 'success');
+                              showToast(t('form.locationDetectedShort'), 'success');
                               setIsLocating(false);
                             },
                             (error) => {
                               setIsLocating(false);
-                              showToast(error.code === 1 ? 'אין הרשאת מיקום' : 'לא ניתן לאתר מיקום', 'error');
+                              showToast(error.code === 1 ? t('places.noLocationPermission') : t('toast.locationUnavailable'), 'error');
                             },
                             { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
                           );
@@ -800,7 +806,7 @@
                   <button
                     onClick={() => showHelpFor('placesListing')}
                     style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline' }}
-                  >עזרה</button>
+                  >{t("general.help")}</button>
                 </div>
                 {/* Help link instead of inline legend */}
                 <div className="max-h-96 overflow-y-auto" style={{ contain: 'content' }}>
@@ -822,7 +828,7 @@
                     
                     return Object.entries(groupedStops).map(([interest, stops]) => {
                       const isManualGroup = interest === '_manual';
-                      const interestObj = isManualGroup ? { id: '_manual', label: 'נוספו ידנית', icon: '📍' } : interestMap[interest];
+                      const interestObj = isManualGroup ? { id: '_manual', label: t('general.addedManually'), icon: '📍' } : interestMap[interest];
                       if (!interestObj) return null;
                       
                       // For manual group, filter out stops that now have real interests
@@ -1038,7 +1044,7 @@
                                             setShowImageModal(true);
                                           }}
                                           className="hover:scale-110 transition bg-blue-100 hover:bg-blue-200 rounded px-0.5"
-                                          title="לחץ לצפייה בתמונה"
+                                          title={t("general.clickForImage")}
                                           style={{ fontSize: '11px', cursor: 'pointer' }}
                                         >
                                           🖼️
@@ -1171,7 +1177,7 @@
                           }}
                           style={{ cursor: 'pointer' }}
                         />
-                        <span>מעגלי</span>
+                        <span>{t("route.circular")}</span>
                       </label>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
                         <input
@@ -1439,7 +1445,7 @@
               <button
                 onClick={() => showHelpFor('route')}
                 className="text-gray-400 hover:text-blue-500 text-sm"
-                title="עזרה"
+                title={t("general.help")}
               >
                 עזרה
               </button>
@@ -1616,7 +1622,7 @@
                                     }
                                   }}
                                   className={`${sourceBadge.color} text-white text-[10px] px-2 py-0.5 rounded-full font-bold cursor-pointer hover:opacity-80 transition`}
-                                  title="לחץ לפרטים מלאים"
+                                  title={t("general.clickForDetails")}
                                 >
                                   {sourceBadge.text}
                                 </button>
@@ -1802,7 +1808,7 @@
                       onChange={() => setRouteType('circular')}
                       style={{ cursor: 'pointer' }}
                     />
-                    <span>מעגלי</span>
+                    <span>{t("route.circular")}</span>
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
                     <input
@@ -1904,7 +1910,7 @@
             <div className="mb-4">
               <input
                 type="text"
-                placeholder="חפש בשם, תיאור או הערות..."
+                placeholder={t("places.searchByNameHint")}
                 value={searchQuery}
                 className="w-full p-3 border-3 border-gray-300 rounded-xl text-base focus:border-teal-500 focus:ring-2 focus:ring-teal-200"
                 style={{ textAlign: 'right', direction: 'rtl' }}
@@ -2026,8 +2032,8 @@
                 <button
                   onClick={() => showHelpFor('saved')}
                   className="text-gray-400 hover:text-blue-500 text-sm"
-                  title="עזרה"
-                style={{ background: "none", border: "none", color: "#3b82f6", fontSize: "11px", cursor: "pointer", textDecoration: "underline" }}>עזרה</button>
+                  title={t("general.help")}
+                style={{ background: "none", border: "none", color: "#3b82f6", fontSize: "11px", cursor: "pointer", textDecoration: "underline" }}>{t("general.help")}</button>
               </div>
               <div className="flex items-center gap-2">
                 {/* Sort toggle */}
@@ -2063,7 +2069,7 @@
                   
                   let lastGroup = null;
                   return sorted.map(savedRoute => {
-                    const groupKey = routesSortBy === 'area' ? (savedRoute.areaName || 'ללא איזור') : null;
+                    const groupKey = routesSortBy === 'area' ? (savedRoute.areaName || t('general.noArea')) : null;
                     const showGroupHeader = routesSortBy === 'area' && groupKey !== lastGroup;
                     if (showGroupHeader) lastGroup = groupKey;
                     
@@ -2086,8 +2092,8 @@
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1 flex-wrap">
                               <span className="font-medium text-sm truncate">{savedRoute.name}</span>
-                              {savedRoute.locked && isUnlocked && <span title="נעול" style={{ fontSize: '11px' }}>🔒</span>}
-                              {savedRoute.inProgress && <span title="בעבודה" style={{ fontSize: '12px' }}>🛠️</span>}
+                              {savedRoute.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '11px' }}>🔒</span>}
+                              {savedRoute.inProgress && <span title={t("general.inProgress")} style={{ fontSize: '12px' }}>🛠️</span>}
                               {routeInterestIds.slice(0, 5).map((intId, idx) => {
                                 const obj = interestMap[intId];
                                 return obj?.icon ? <span key={idx} title={obj.label} style={{ fontSize: '12px' }}>{obj.icon}</span> : null;
@@ -2127,7 +2133,7 @@
               <button
                 onClick={() => showHelpFor('myPlaces')}
                 className="text-gray-400 hover:text-blue-500 text-sm"
-                title="עזרה"
+                title={t("general.help")}
               >
                 עזרה
               </button>
@@ -2213,8 +2219,8 @@
                                           ) : (
                                             <span className="font-medium text-sm truncate">{loc.name}</span>
                                           )}
-                                          {loc.locked && isUnlocked && <span title="נעול" style={{ fontSize: '12px' }}>🔒</span>}
-                                          {loc.inProgress && <span className="text-orange-600" title="בעבודה" style={{ fontSize: '14px' }}>🛠️</span>}
+                                          {loc.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '12px' }}>🔒</span>}
+                                          {loc.inProgress && <span className="text-orange-600" title={t("general.inProgress")} style={{ fontSize: '14px' }}>🛠️</span>}
                                           {loc.outsideArea && <span className="text-orange-500 text-xs" title="מחוץ לגבולות">🔺</span>}
                                           {loc.missingCoordinates && <span className="text-red-500 text-xs" title="אין מיקום">⚠️</span>}
                                           {!isLocationValid(loc) && <span className="text-red-500 text-[9px]" title="חסרים פרטים (כתובת/קורדינטות/תחום)">❌</span>}
@@ -2259,8 +2265,8 @@
                                         ) : (
                                           <span className="font-medium text-sm truncate">{loc.name}</span>
                                         )}
-                                        {loc.locked && isUnlocked && <span title="נעול" style={{ fontSize: '12px' }}>🔒</span>}
-                                        {loc.inProgress && <span className="text-orange-600" title="בעבודה" style={{ fontSize: '14px' }}>🛠️</span>}
+                                        {loc.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '12px' }}>🔒</span>}
+                                        {loc.inProgress && <span className="text-orange-600" title={t("general.inProgress")} style={{ fontSize: '14px' }}>🛠️</span>}
                                         {!isLocationValid(loc) && <span className="text-red-500 text-[9px]" title="חסרים פרטים">❌</span>}
                                       </div>
                                     </div>
@@ -2312,7 +2318,7 @@
                                     ) : (
                                       <span className="font-medium text-sm truncate">{loc.name}</span>
                                     )}
-                                    {loc.locked && isUnlocked && <span title="נעול" style={{ fontSize: '12px' }}>🔒</span>}
+                                    {loc.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '12px' }}>🔒</span>}
                                     {loc.interests?.map((int, idx) => {
                                       const obj = interestMap[int];
                                       return obj?.icon ? <span key={idx} title={obj.label} style={{ fontSize: '13px' }}>{obj.icon}</span> : null;
@@ -2342,7 +2348,7 @@
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold">🏷️ התחומים שלי</h2>
-                <button onClick={() => showHelpFor('myInterests')} className="text-blue-400 hover:text-blue-600 text-sm" title="עזרה"style={{ background: "none", border: "none", color: "#3b82f6", fontSize: "11px", cursor: "pointer", textDecoration: "underline" }}>עזרה</button>
+                <button onClick={() => showHelpFor('myInterests')} className="text-blue-400 hover:text-blue-600 text-sm" title={t("general.help")}style={{ background: "none", border: "none", color: "#3b82f6", fontSize: "11px", cursor: "pointer", textDecoration: "underline" }}>{t("general.help")}</button>
                 <span className="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full">
                   {(window.BKK.interestOptions || []).length + (window.BKK.uncoveredInterests || []).length + (cityCustomInterests || []).length} סה"כ
                 </span>
@@ -2403,10 +2409,10 @@
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <span className="text-lg flex-shrink-0">{interest.icon?.startsWith?.('data:') ? <img src={interest.icon} alt="" className="w-5 h-5 object-contain" /> : interest.icon}</span>
                       <span className={`font-medium text-sm truncate ${!effectiveActive ? 'text-gray-500' : ''}`}>{interest.label || interest.name}</span>
-                      {isCustom && <span className="text-[10px] bg-purple-200 text-purple-800 px-1 py-0.5 rounded flex-shrink-0">מותאם</span>}
-                      {!isValid && <span className="text-red-500 text-xs flex-shrink-0" title="חסר הגדרות חיפוש">⚠️</span>}
-                      {interest.inProgress && <span className="text-orange-600 flex-shrink-0" title="בעבודה" style={{ fontSize: '12px' }}>🛠️</span>}
-                      {interest.locked && isUnlocked && <span title="נעול" style={{ fontSize: '11px' }} className="flex-shrink-0">🔒</span>}
+                      {isCustom && <span className="text-[10px] bg-purple-200 text-purple-800 px-1 py-0.5 rounded flex-shrink-0">{t("general.custom")}</span>}
+                      {!isValid && <span className="text-red-500 text-xs flex-shrink-0" title={t("interests.missingSearchConfig")}>⚠️</span>}
+                      {interest.inProgress && <span className="text-orange-600 flex-shrink-0" title={t("general.inProgress")} style={{ fontSize: '12px' }}>🛠️</span>}
+                      {interest.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '11px' }} className="flex-shrink-0">🔒</span>}
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
                       {/* Toggle button */}
@@ -2418,7 +2424,7 @@
                           : effectiveActive ? 'bg-red-100 text-red-600 hover:bg-red-200' 
                           : 'bg-green-100 text-green-600 hover:bg-green-200'
                         }`}
-                        title={!isValid ? 'תחום לא וולידי' : effectiveActive ? 'השבת' : 'הפעל'}
+                        title={!isValid ? t('interests.interestInvalid') : effectiveActive ? 'השבת' : 'הפעל'}
                       >
                         {effectiveActive ? '⏸️ השבת' : '▶️ הפעל'}
                       </button>
@@ -2487,11 +2493,11 @@
         {currentView === 'settings' && (
           <div className="view-fade-in bg-white rounded-xl shadow-lg p-3">
             <div className="flex items-center gap-2 mb-3">
-              <h2 className="text-lg font-bold">הגדרות</h2>
+              <h2 className="text-lg font-bold">{t("settings.title")}</h2>
               <button
                 onClick={() => showHelpFor('settings')}
                 className="text-gray-400 hover:text-blue-500 text-sm"
-                title="עזרה"
+                title={t("general.help")}
               >
                 עזרה
               </button>
@@ -2522,7 +2528,7 @@
             {/* City & Area Management */}
             <div className="mb-3">
               <div className="bg-gradient-to-r from-rose-50 to-orange-50 border-2 border-rose-400 rounded-lg p-2">
-                <h3 className="text-sm font-bold text-gray-800 mb-2">🌍 ערים ואזורים</h3>
+                <h3 className="text-sm font-bold text-gray-800 mb-2">{`🌍 ${t("settings.title")}`}</h3>
                 
                 {/* City pills - all cities, with active/inactive toggle */}
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
@@ -2698,7 +2704,7 @@
                   }`}
                 >
                   <span className={isRefreshing ? 'animate-spin' : ''}>🔄</span>
-                  <span>{isRefreshing ? 'מרענן...' : 'רענן את כל הנתונים'}</span>
+                  <span>{isRefreshing ? 'מרענן...' : t('settings.refreshData')}</span>
                 </button>
                 <div className="mt-2 text-[10px] text-gray-500 flex flex-wrap gap-1">
                   <span className="bg-cyan-100 px-1.5 py-0.5 rounded">📍 מקומות</span>
@@ -2726,7 +2732,7 @@
                     className="w-5 h-5 rounded border-2 border-gray-400"
                   />
                   <span className="text-sm font-bold">
-                    {debugMode ? '✅ Debug מופעל' : '❌ Debug כבוי'}
+                    {debugMode ? t('toast.debugOn') : t('toast.debugOff')}
                   </span>
                 </label>
                 
@@ -2762,7 +2768,7 @@
                       type="password"
                       value={newAdminPassword}
                       onChange={(e) => setNewAdminPassword(e.target.value)}
-                      placeholder={adminPassword ? 'סיסמה חדשה...' : 'הגדר סיסמה'}
+                      placeholder={adminPassword ? 'סיסמה חדשה...' : t('settings.setPassword')}
                       className="flex-1 p-2 border rounded text-sm"
                     />
                     <button
@@ -2773,15 +2779,15 @@
                               const hashed = await window.BKK.hashPassword(newAdminPassword.trim());
                               await database.ref('settings/adminPassword').set(hashed);
                               setAdminPassword(hashed);
-                              showToast('סיסמה נשמרה!', 'success');
+                              showToast(t('toast.passwordSaved'), 'success');
                             } else {
                               await database.ref('settings/adminPassword').set('');
                               setAdminPassword('');
-                              showToast('סיסמה הוסרה - גישה פתוחה', 'warning');
+                              showToast(t('toast.passwordRemoved'), 'warning');
                             }
                             setNewAdminPassword('');
                           } catch (err) {
-                            showToast('שגיאה בשמירה', 'error');
+                            showToast(t('toast.saveError'), 'error');
                           }
                         }
                       }}
@@ -2816,7 +2822,7 @@
                             onClick={() => {
                               if (isFirebaseAvailable && database) {
                                 database.ref(`settings/adminUsers/${user.oderId}`).remove()
-                                  .then(() => showToast('משתמש הוסר', 'success'))
+                                  .then(() => showToast(t('toast.userRemoved'), 'success'))
                                   .catch(() => showToast('שגיאה', 'error'));
                               }
                             }}
@@ -2901,7 +2907,7 @@
                         showToast(`הקובץ הורד! (${customInterests.length} תחומים מותאמים, ${activeCount} פעילים, ${customLocations.length} מקומות, ${savedRoutes.length} מסלולים)`, 'success');
                       } catch (error) {
                         console.error('[EXPORT] Error:', error);
-                        showToast('שגיאה בייצוא', 'error');
+                        showToast(t('toast.exportError'), 'error');
                       }
                     }}
                     className="w-full bg-blue-500 text-white py-2 px-3 rounded-lg font-bold hover:bg-blue-600 transition text-sm flex items-center justify-center gap-2"
@@ -2935,7 +2941,7 @@
                             setShowImportDialog(true);
                           } catch (error) {
                             console.error('[IMPORT] Error:', error);
-                            showToast('שגיאה בקריאת הקובץ', 'error');
+                            showToast(t('toast.fileReadError'), 'error');
                           }
                         };
                         reader.readAsText(file);
@@ -2974,9 +2980,9 @@
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <button
               onClick={() => {
-                const shareData = { title: 'City Explorer', text: 'אפליקציה לתכנון טיולים', url: window.location.href };
+                const shareData = { title: 'City Explorer', text: t('settings.appDescription'), url: window.location.href };
                 if (navigator.share) { navigator.share(shareData).catch(() => {}); }
-                else { try { navigator.clipboard.writeText(window.location.href); showToast('הקישור הועתק! 📋', 'success'); } catch(e) { showToast(window.location.href, 'info'); } }
+                else { try { navigator.clipboard.writeText(window.location.href); showToast(t('route.linkCopied'), 'success'); } catch(e) { showToast(window.location.href, 'info'); } }
               }}
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: '#9ca3af' }}
             >📤 שתף</button>
@@ -3012,7 +3018,7 @@
               >✕</button>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-sm">
-                  {mapMode === 'areas' ? '🗺️ מפת כל האזורים' : '📍 רדיוס חיפוש'}
+                  {mapMode === 'areas' ? t('wizard.allAreasMap') : t('form.searchRadius')}
                 </h3>
               </div>
               <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
@@ -3033,7 +3039,7 @@
                   className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
                     mapMode === 'radius' ? 'bg-rose-500 text-white shadow' : 'text-gray-500 hover:bg-gray-200'
                   } ${!formData.currentLat ? 'opacity-30' : ''}`}
-                  title={!formData.currentLat ? 'צריך להגדיר מיקום GPS קודם' : 'הצג רדיוס חיפוש'}
+                  title={!formData.currentLat ? t('form.needGpsFirst') : 'הצג רדיוס חיפוש'}
                 >📍 רדיוס</button>
               </div>
             </div>
@@ -3044,7 +3050,7 @@
               <p className="text-[9px] text-gray-400">
                 {mapMode === 'areas' 
                   ? `${(window.BKK.areaOptions || []).length} אזורים · לחץ על עיגול לפרטים` 
-                  : `${formData.radiusMeters}מ' מ-${formData.radiusPlaceName || 'מיקום נוכחי'}`
+                  : `${formData.radiusMeters}מ' מ-${formData.radiusPlaceName || t('form.currentLocation')}`
                 }
               </p>
             </div>

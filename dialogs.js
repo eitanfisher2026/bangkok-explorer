@@ -12,7 +12,7 @@
                   <button
                     onClick={() => showHelpFor('addLocation')}
                     className="bg-white text-purple-600 hover:bg-purple-100 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shadow"
-                    title="עזרה"
+                    title={t("general.help")}
                   >
                     ?
                   </button>
@@ -59,7 +59,7 @@
                               loc.name.toLowerCase() === e.target.value.trim().toLowerCase() &&
                               (!editingLocation || loc.id !== editingLocation.id)
                             );
-                            if (exists) showToast('שם זה כבר קיים', 'warning');
+                            if (exists) showToast(t('places.nameExists'), 'warning');
                           }
                         }}
                         onKeyDown={(e) => { if (e.key === 'Enter' && newLocation.name?.trim()) { e.preventDefault(); searchPlacesByName(newLocation.name); } }}
@@ -123,10 +123,10 @@
                               setNewLocation({...newLocation, areas: detected, area: detected[0]});
                               showToast(`זוהו ${detected.length} אזורים`, 'success');
                             } else {
-                              showToast('המיקום לא נמצא בתוך אף אזור מוגדר', 'warning');
+                              showToast(t('places.locationNotInAnyArea'), 'warning');
                             }
                           } else {
-                            showToast('צריך קואורדינטות כדי לזהות אזורים', 'warning');
+                            showToast(t('places.needCoordsForAreas'), 'warning');
                           }
                         }}
                         className="text-[9px] px-2 py-0.5 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 font-bold"
@@ -461,7 +461,7 @@
                   <textarea
                     value={newLocation.notes || ''}
                     onChange={(e) => setNewLocation({...newLocation, notes: e.target.value})}
-                    placeholder="הערות..."
+                    placeholder={t("places.notes")}
                     className="w-full p-2 text-xs border border-gray-300 rounded-lg focus:border-purple-500"
                     style={{ direction: 'rtl', minHeight: '50px' }}
                     rows="2"
@@ -569,11 +569,11 @@
                 <button
                   onClick={() => {
                     if (!newLocation.name || !newLocation.name.trim()) {
-                      showToast('אנא הזן שם למקום', 'warning');
+                      showToast(t('places.enterPlaceName'), 'warning');
                       return;
                     }
                     if (!newLocation.interests || newLocation.interests.length === 0) {
-                      showToast('אנא בחר לפחות תחום עניין אחד', 'warning');
+                      showToast(t('form.selectAtLeastOneInterest'), 'warning');
                       return;
                     }
                     const exists = customLocations.find(loc => 
@@ -581,7 +581,7 @@
                       (!editingLocation || loc.id !== editingLocation.id)
                     );
                     if (exists) {
-                      showToast('מקום עם שם זה כבר קיים', 'error');
+                      showToast(t('places.placeExists'), 'error');
                       return;
                     }
                     if (showEditLocationDialog) {
@@ -642,7 +642,7 @@
                   <button
                     onClick={() => showHelpFor('addInterest')}
                     className="bg-white text-purple-600 hover:bg-purple-100 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shadow"
-                    title="עזרה"
+                    title={t("general.help")}
                   >?</button>
                 </div>
                 <button
@@ -855,7 +855,7 @@
                                 if (isFirebaseAvailable && database) {
                                   database.ref(`settings/interestConfig/${editingCustomInterest.id}`).remove();
                                 }
-                                showToast('תחום מערכת הוסר', 'success');
+                                showToast(t('interests.builtInRemoved'), 'success');
                               } else {
                                 deleteCustomInterest(editingCustomInterest.id);
                               }
@@ -939,7 +939,7 @@
                             }
                           }
                           
-                          showToast('התחום עודכן!', 'success');
+                          showToast(t('interests.interestUpdated'), 'success');
                         } else {
                           // ADD MODE
                           const interestId = 'custom_' + Date.now();
@@ -965,7 +965,7 @@
                             localStorage.setItem('bangkok_custom_interests', JSON.stringify(updated));
                           }
                           
-                          showToast('התחום נוסף!', 'success');
+                          showToast(t('interests.interestAdded'), 'success');
                         }
                         
                         setShowAddInterestDialog(false);
@@ -1117,18 +1117,18 @@
                 {accessLogs.length > 0 && (
                   <button
                     onClick={() => {
-                      showConfirm('למחוק את כל לוג הכניסות? פעולה זו בלתי הפיכה.', () => {
+                      showConfirm(t('settings.deleteAllConfirm'), () => {
                         if (isFirebaseAvailable && database) {
                           database.ref('accessLog').remove()
                             .then(() => {
                               setAccessLogs([]);
                               setHasNewEntries(false);
                               localStorage.setItem('bangkok_last_seen', Date.now().toString());
-                              showToast('הלוג נוקה', 'success');
+                              showToast(t('toast.logCleared'), 'success');
                             })
                             .catch(err => {
                               console.error('[ACCESS LOG] Clear error:', err);
-                              showToast('שגיאה בניקוי הלוג', 'error');
+                              showToast(t('toast.logClearError'), 'error');
                             });
                         }
                       });
@@ -1152,7 +1152,7 @@
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-4 py-2.5 rounded-t-xl flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold">{routeDialogMode === 'add' ? '🗺️ הוסף מסלול שמור' : '🗺️ ערוך מסלול שמור'}</h3>
+                <h3 className="text-base font-bold">{routeDialogMode === 'add' ? t('route.addSavedRoute') : t('route.editSavedRoute')}</h3>
               </div>
               <button
                 onClick={() => { setShowRouteDialog(false); setEditingRoute(null); }}
@@ -1170,7 +1170,7 @@
               <div className="bg-blue-50 rounded-lg p-3 space-y-1.5">
                 {/* Area */}
                 <div className="text-xs text-gray-700">
-                  <span className="font-bold">📍 איזור:</span> {editingRoute.areaName || 'ללא איזור'}
+                  <span className="font-bold">📍 איזור:</span> {editingRoute.areaName || t('general.noArea')}
                 </div>
                 {/* Interests */}
                 {(() => {
@@ -1218,7 +1218,7 @@
                 <textarea
                   value={editingRoute.notes || ''}
                   onChange={(e) => setEditingRoute({...editingRoute, notes: e.target.value})}
-                  placeholder="הערות..."
+                  placeholder={t("places.notes")}
                   className="w-full p-2 text-sm border-2 border-gray-300 rounded-lg h-16 resize-none"
                   style={{ direction: 'rtl' }}
                   disabled={editingRoute.locked && !isUnlocked}
@@ -1249,7 +1249,7 @@
                       navigator.share({ title: editingRoute.name, text: shareText });
                     } else {
                       navigator.clipboard.writeText(shareText);
-                      showToast('מסלול הועתק ללוח', 'success');
+                      showToast(t('route.routeCopied'), 'success');
                     }
                   }}
                   className="flex-1 py-2 bg-green-500 text-white rounded-lg text-sm font-bold hover:bg-green-600"
@@ -1273,7 +1273,7 @@
                       navigator.share({ title: `נקודות עניין - ${editingRoute.name}`, text });
                     } else {
                       navigator.clipboard.writeText(text);
-                      showToast('נקודות העניין הועתקו ללוח', 'success');
+                      showToast(t('route.pointsCopied'), 'success');
                     }
                   }}
                   className="flex-1 py-2 bg-indigo-500 text-white rounded-lg text-sm font-bold hover:bg-indigo-600"
@@ -1484,7 +1484,7 @@
                     id="manual-stop-input"
                     type="text"
                     onKeyDown={(e) => { if (e.key === 'Enter') searchManualPlace(); }}
-                    placeholder="הקלד כתובת, שם מקום, מלון..."
+                    placeholder={t("form.typeAddressAlt")}
                     className="flex-1 p-2.5 border border-gray-300 rounded-lg text-sm"
                     style={{ direction: 'rtl' }}
                     autoFocus
@@ -1573,7 +1573,7 @@
                     id="addr-search-input"
                     type="text"
                     onKeyDown={(e) => { if (e.key === 'Enter') searchAddress(); }}
-                    placeholder="הקלד כתובת, שם מלון, מקום..."
+                    placeholder={t("form.typeAddress")}
                     className="flex-1 p-2.5 border border-gray-300 rounded-lg text-sm"
                     style={{ direction: 'rtl' }}
                     autoFocus
@@ -1587,7 +1587,7 @@
                 </div>
                 
                 <p className="text-[11px] text-gray-500">
-                  💡 הקלד כתובת מלאה, שם מלון, תחנת רכבת, או כל מקום ב{window.BKK.selectedCity?.name || 'עיר'}
+                  💡 הקלד כתובת מלאה, שם מלון, תחנת רכבת, או כל מקום ב{window.BKK.selectedCity?.name || t('general.city')}
                 </p>
                 
                 {/* Results container */}
@@ -1626,7 +1626,7 @@
                 className="text-xl hover:bg-white hover:bg-opacity-20 rounded-full w-7 h-7 flex items-center justify-center"
               >✕</button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 text-sm text-gray-700" style={{ direction: 'rtl' }}>
+            <div className="flex-1 overflow-y-auto p-4 text-sm text-gray-700" style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', textAlign: window.BKK.i18n.isRTL() ? 'right' : 'left' }}>
               {helpContent[helpContext]?.content.split('\n').map((line, i) => {
                 // Render inline **bold** anywhere in the line
                 const renderBold = (text) => {
@@ -1636,7 +1636,7 @@
                 if (line.startsWith('**') && line.endsWith('**')) {
                   return <h4 key={i} className="font-bold text-gray-900 mt-3 mb-1">{line.replace(/\*\*/g, '')}</h4>;
                 } else if (line.startsWith('• ')) {
-                  return <p key={i} className="mr-3 mb-0.5">• {renderBold(line.substring(2))}</p>;
+                  return <p key={i} style={{ marginInlineStart: '12px' }} className="mb-0.5">• {renderBold(line.substring(2))}</p>;
                 } else if (line.trim() === '') {
                   return <div key={i} className="h-2" />;
                 }
@@ -1647,7 +1647,7 @@
               <button
                 onClick={() => setShowHelp(false)}
                 className="w-full py-2 rounded-lg bg-blue-500 text-white font-bold hover:bg-blue-600 text-sm"
-              >הבנתי ✓</button>
+              >{t('general.close')} ✓</button>
             </div>
           </div>
         </div>
@@ -1714,7 +1714,7 @@
               <textarea
                 value={feedbackText}
                 onChange={(e) => setFeedbackText(e.target.value)}
-                placeholder="ספר לנו מה חשבת..."
+                placeholder={t("settings.feedbackPlaceholder")}
                 className="w-full p-3 border-2 border-gray-200 rounded-lg text-sm resize-none focus:border-blue-400 focus:outline-none"
                 rows={4}
                 autoFocus
@@ -1747,11 +1747,11 @@
                 {feedbackList.length > 0 && (
                   <button
                     onClick={() => {
-                      showConfirm('למחוק את כל המשובים?', () => {
+                      showConfirm(t('settings.deleteAllFeedback'), () => {
                         if (isFirebaseAvailable && database) {
                           database.ref('feedback').remove().then(() => {
                             setFeedbackList([]);
-                            showToast('כל המשובים נמחקו', 'success');
+                            showToast(t('toast.allFeedbackDeleted'), 'success');
                           });
                         }
                       });
@@ -1924,11 +1924,11 @@
                           setShowPasswordDialog(false);
                           setPasswordInput('');
                           setCurrentView('settings');
-                          showToast('נפתח בהצלחה!', 'success');
+                          showToast(t('route.openedSuccess'), 'success');
                         });
                       }
                     } else {
-                      showToast('סיסמה שגויה', 'error');
+                      showToast(t('settings.wrongPassword'), 'error');
                       setPasswordInput('');
                     }
                   }
@@ -1958,11 +1958,11 @@
                           setShowPasswordDialog(false);
                           setPasswordInput('');
                           setCurrentView('settings');
-                          showToast('נפתח בהצלחה!', 'success');
+                          showToast(t('route.openedSuccess'), 'success');
                         });
                       }
                     } else {
-                      showToast('סיסמה שגויה', 'error');
+                      showToast(t('settings.wrongPassword'), 'error');
                       setPasswordInput('');
                     }
                   }}
