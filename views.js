@@ -1525,7 +1525,7 @@
                   }}
                   className="bg-teal-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-teal-600"
                 >
-                  ➕ Add place
+                  {t("places.addPlace")}
                 </button>
                 )}
               </div>
@@ -2170,7 +2170,7 @@
                     onClick={() => setShowAddLocationDialog(true)}
                     className="bg-teal-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-teal-600"
                   >
-                    ➕ Add place
+                    {t("places.addPlace")}
                   </button>
                 </div>
               </div>
@@ -2187,7 +2187,7 @@
                   {groupedPlaces.activeCount > 0 && (
                     <div className="mb-3">
                       <h4 className="text-sm font-bold text-green-700 mb-2">
-                        ✅ Included places ({groupedPlaces.activeCount})
+                        {t("places.includedPlaces")} ({groupedPlaces.activeCount})
                       </h4>
                       <div className="max-h-[55vh] overflow-y-auto" style={{ contain: 'content' }}>
                         {groupedPlaces.sortedKeys.map(key => {

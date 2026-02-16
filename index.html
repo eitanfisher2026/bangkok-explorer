@@ -461,6 +461,15 @@ general: {
   searchTip: 'לחץ 🔍 לחיפוש כתובת, 📍 למיקום נוכחי, או 📌 ממקום ברשימה',
   stopsCount: 'תחנות',
   clickToUpload: 'לחץ להעלאה',
+  image: 'תמונה',
+  links: 'קישורים',
+  coordinates: 'קואורדינטות',
+  permissions: 'הרשאות',
+  found: 'נמצא',
+  rating: 'דירוג',
+  area: 'איזור',
+  notesLabel: 'הערות',
+  searchMode: 'סוג חיפוש',
   name: 'שם',
   link: 'קישור',
   location: 'מיקום',
@@ -1030,6 +1039,15 @@ general: {
   searchTip: 'Click 🔍 to search address, 📍 for location, or 📌 from your places',
   stopsCount: 'stops',
   clickToUpload: 'Click to upload',
+  image: 'Image',
+  links: 'Links',
+  coordinates: 'Coordinates',
+  permissions: 'Permissions',
+  found: 'Found',
+  rating: 'Rating',
+  area: 'Area',
+  notesLabel: 'Notes',
+  searchMode: 'Search Mode',
   name: 'Name',
   link: 'Link',
   location: 'Location',
@@ -8037,7 +8055,7 @@ const CityExplorer = () => {
                   }}
                   className="bg-teal-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-teal-600"
                 >
-                  ➕ Add place
+                  {t("places.addPlace")}
                 </button>
                 )}
               </div>
@@ -8682,7 +8700,7 @@ const CityExplorer = () => {
                     onClick={() => setShowAddLocationDialog(true)}
                     className="bg-teal-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-teal-600"
                   >
-                    ➕ Add place
+                    {t("places.addPlace")}
                   </button>
                 </div>
               </div>
@@ -8699,7 +8717,7 @@ const CityExplorer = () => {
                   {groupedPlaces.activeCount > 0 && (
                     <div className="mb-3">
                       <h4 className="text-sm font-bold text-green-700 mb-2">
-                        ✅ Included places ({groupedPlaces.activeCount})
+                        {t("places.includedPlaces")} ({groupedPlaces.activeCount})
                       </h4>
                       <div className="max-h-[55vh] overflow-y-auto" style={{ contain: 'content' }}>
                         {groupedPlaces.sortedKeys.map(key => {
