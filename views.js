@@ -801,10 +801,10 @@
                 </div>
                 {/* Help link instead of inline legend */}
                 {showRoutePreview ? (
-                  /* FLAT ROUTE PREVIEW - Reorderable list */
+                  /* FLAT ROUTE PREVIEW - Drag to reorder */
                   <div className="max-h-96 overflow-y-auto" style={{ contain: 'content' }}>
                     <div className="bg-purple-50 rounded-lg p-2 mb-2 text-center">
-                      <span className="text-xs text-purple-700 font-bold">{t('route.reorderStops')} — {t('route.moveUp')} / {t('route.moveDown')}</span>
+                      <span className="text-xs text-purple-700 font-bold">{"☰ " + t('route.reorderStops') + " — " + t('route.dragToReorder')}</span>
                     </div>
                     {(() => {
                       const activeStops = route.stops.filter(s => 
@@ -814,69 +814,64 @@
                         const hasValidCoords = stop.lat && stop.lng && stop.lat !== 0 && stop.lng !== 0;
                         const originalIdx = route.stops.indexOf(stop);
                         return (
-                          <div key={originalIdx} className="flex items-center gap-2 p-2 mb-1 bg-white rounded-lg border border-gray-200" style={{ direction: 'rtl' }}>
-                            {/* Stop number */}
+                          <div key={originalIdx} 
+                            draggable="true"
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData('text/plain', String(idx));
+                              e.dataTransfer.effectAllowed = 'move';
+                              e.currentTarget.style.opacity = '0.4';
+                            }}
+                            onDragEnd={(e) => { e.currentTarget.style.opacity = '1'; }}
+                            onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#8b5cf6'; }}
+                            onDragLeave={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              e.currentTarget.style.borderColor = '#e5e7eb';
+                              const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
+                              const toIdx = idx;
+                              if (fromIdx === toIdx) return;
+                              const activeIndices = route.stops.map((s, i) => ({ s, i })).filter(x => !disabledStops.includes((x.s.name || '').toLowerCase().trim()));
+                              const newStops = [...route.stops];
+                              const fromOrig = activeIndices[fromIdx].i;
+                              const [moved] = newStops.splice(fromOrig, 1);
+                              const updatedActiveIndices = newStops.map((s, i) => ({ s, i })).filter(x => !disabledStops.includes((x.s.name || '').toLowerCase().trim()));
+                              const targetPos = toIdx < updatedActiveIndices.length ? updatedActiveIndices[toIdx].i : newStops.length;
+                              newStops.splice(targetPos, 0, moved);
+                              setRoute(prev => ({ ...prev, stops: newStops }));
+                            }}
+                            className="flex items-center gap-2 p-2 mb-1 bg-white rounded-lg border-2 border-gray-200 cursor-grab active:cursor-grabbing transition-colors" 
+                            style={{ direction: 'rtl' }}
+                          >
+                            {/* Drag handle + Stop number */}
                             <div style={{ 
-                              width: '28px', height: '28px', borderRadius: '50%', 
+                              width: '32px', height: '32px', borderRadius: '50%', 
                               background: idx === 0 ? '#22c55e' : idx === activeStops.length - 1 ? '#ef4444' : '#8b5cf6',
                               color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              fontSize: '12px', fontWeight: 'bold', flexShrink: 0
+                              fontSize: '13px', fontWeight: 'bold', flexShrink: 0, cursor: 'grab'
                             }}>
                               {idx + 1}
                             </div>
                             
-                            {/* Stop info */}
+                            {/* Stop name as hyperlink to Google Maps */}
                             <div className="flex-1 min-w-0">
-                              <div className="text-sm font-bold text-gray-800 truncate">{stop.name}</div>
+                              {hasValidCoords ? (
+                                <a href={window.BKK.getGoogleMapsUrl(stop)} target="_blank" rel="noopener noreferrer"
+                                  className="text-sm font-bold text-blue-700 hover:text-blue-900 hover:underline truncate block"
+                                  onClick={(e) => e.stopPropagation()}
+                                >{stop.name}</a>
+                              ) : (
+                                <div className="text-sm font-bold text-gray-800 truncate">{stop.name}</div>
+                              )}
                               {stop.description && <div className="text-[10px] text-gray-500 truncate">{stop.description}</div>}
                             </div>
                             
-                            {/* Open in Google */}
-                            {hasValidCoords && (
-                              <a
-                                href={window.BKK.getGoogleMapsUrl(stop)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-[10px] px-2 py-1 rounded bg-green-500 text-white font-bold"
-                                style={{ flexShrink: 0 }}
-                              >
-                                🗺️
-                              </a>
-                            )}
-                            
-                            {/* Move up/down buttons */}
-                            <div className="flex flex-col gap-0.5" style={{ flexShrink: 0 }}>
-                              <button
-                                onClick={() => {
-                                  if (idx === 0) return;
-                                  const newStops = [...route.stops];
-                                  // Find the previous active stop
-                                  const activeIndices = newStops.map((s, i) => ({ s, i })).filter(x => !disabledStops.includes((x.s.name || '').toLowerCase().trim()));
-                                  const prevOrigIdx = activeIndices[idx - 1].i;
-                                  // Swap
-                                  [newStops[originalIdx], newStops[prevOrigIdx]] = [newStops[prevOrigIdx], newStops[originalIdx]];
-                                  setRoute(prev => ({ ...prev, stops: newStops }));
-                                }}
-                                disabled={idx === 0}
-                                className={`text-[10px] px-1.5 py-0.5 rounded ${idx === 0 ? 'bg-gray-100 text-gray-300' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-                              >▲</button>
-                              <button
-                                onClick={() => {
-                                  if (idx === activeStops.length - 1) return;
-                                  const newStops = [...route.stops];
-                                  const activeIndices = newStops.map((s, i) => ({ s, i })).filter(x => !disabledStops.includes((x.s.name || '').toLowerCase().trim()));
-                                  const nextOrigIdx = activeIndices[idx + 1].i;
-                                  [newStops[originalIdx], newStops[nextOrigIdx]] = [newStops[nextOrigIdx], newStops[originalIdx]];
-                                  setRoute(prev => ({ ...prev, stops: newStops }));
-                                }}
-                                disabled={idx === activeStops.length - 1}
-                                className={`text-[10px] px-1.5 py-0.5 rounded ${idx === activeStops.length - 1 ? 'bg-gray-100 text-gray-300' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-                              >▼</button>
-                            </div>
+                            {/* Drag indicator */}
+                            <span style={{ color: '#9ca3af', fontSize: '16px', flexShrink: 0, cursor: 'grab' }}>☰</span>
                           </div>
                         );
                       });
                     })()}
+                  </div>
                   </div>
                 ) : (
                 <div className="max-h-96 overflow-y-auto" style={{ contain: 'content' }}>
