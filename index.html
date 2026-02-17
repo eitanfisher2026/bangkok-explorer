@@ -9192,7 +9192,10 @@ const CityExplorer = () => {
                                     });
                                     window._editMap = map; window._editCircle = circle; window._editMarker = marker;
                                     map.fitBounds(circle.getBounds().pad(0.3));
-                                    setTimeout(() => map.invalidateSize(), 100);
+                                    setTimeout(() => { map.invalidateSize(); map.fitBounds(circle.getBounds().pad(0.3)); }, 100);
+                                    setTimeout(() => { map.invalidateSize(); map.fitBounds(circle.getBounds().pad(0.3)); }, 400);
+                                    setTimeout(() => { map.invalidateSize(); }, 800);
+                                    setTimeout(() => { const el = document.getElementById(`area-edit-map-${area.id}`); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 500);
                                   }, 300);
                                 }}
                                 style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '4px', border: '1px solid #3b82f6', background: '#eff6ff', color: '#2563eb', cursor: 'pointer' }}
