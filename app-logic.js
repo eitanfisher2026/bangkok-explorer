@@ -5,7 +5,7 @@
       if (saved) {
         const prefs = JSON.parse(saved);
         // Add maxStops if not present or upgrade from old default
-        if (!prefs.maxStops || prefs.maxStops === 10) prefs.maxStops = 15;
+        if (!prefs.maxStops) prefs.maxStops = 12;
         // Add fetchMoreCount if not present
         if (!prefs.fetchMoreCount) prefs.fetchMoreCount = 3;
         // Add radius search fields if not present
@@ -24,7 +24,7 @@
       interests: [],
       circular: true,
       startPoint: '',
-      maxStops: 15,
+      maxStops: 12,
       fetchMoreCount: 3,
       searchMode: 'area',
       radiusMeters: 500,
@@ -1192,14 +1192,14 @@
     setSelectedCityId(cityId);
     localStorage.setItem('city_explorer_city', cityId);
     
-    // Reset form data for new city
+    // Reset form data for new city, but preserve user settings
     const firstArea = window.BKK.areaOptions[0]?.id || '';
-    setFormData({
+    setFormData(prev => ({
       hours: 3, area: firstArea, interests: [], circular: true, startPoint: '',
-      maxStops: 15, fetchMoreCount: 3, searchMode: 'area',
-      radiusMeters: 500, radiusSource: 'gps', radiusPlaceId: null, radiusPlaceName: '',
+      maxStops: prev.maxStops || 12, fetchMoreCount: prev.fetchMoreCount || 3, searchMode: 'area',
+      radiusMeters: prev.radiusMeters || 500, radiusSource: 'gps', radiusPlaceId: null, radiusPlaceName: '',
       gpsLat: null, gpsLng: null, currentLat: null, currentLng: null
-    });
+    }));
     setRoute(null);
     setWizardStep(1);
     if (!stayOnView) {
@@ -2221,7 +2221,7 @@
       
       // Calculate stops needed per interest
       const numInterests = formData.interests.length || 1;
-      const maxStops = formData.maxStops || 15;
+      const maxStops = formData.maxStops || 12;
       const stopsPerInterest = Math.ceil(maxStops / numInterests);
       
       // Track results per interest for smart completion

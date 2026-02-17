@@ -3166,7 +3166,7 @@ const CityExplorer = () => {
       if (saved) {
         const prefs = JSON.parse(saved);
         // Add maxStops if not present or upgrade from old default
-        if (!prefs.maxStops || prefs.maxStops === 10) prefs.maxStops = 15;
+        if (!prefs.maxStops) prefs.maxStops = 12;
         // Add fetchMoreCount if not present
         if (!prefs.fetchMoreCount) prefs.fetchMoreCount = 3;
         // Add radius search fields if not present
@@ -3185,7 +3185,7 @@ const CityExplorer = () => {
       interests: [],
       circular: true,
       startPoint: '',
-      maxStops: 15,
+      maxStops: 12,
       fetchMoreCount: 3,
       searchMode: 'area',
       radiusMeters: 500,
@@ -4353,14 +4353,14 @@ const CityExplorer = () => {
     setSelectedCityId(cityId);
     localStorage.setItem('city_explorer_city', cityId);
     
-    // Reset form data for new city
+    // Reset form data for new city, but preserve user settings
     const firstArea = window.BKK.areaOptions[0]?.id || '';
-    setFormData({
+    setFormData(prev => ({
       hours: 3, area: firstArea, interests: [], circular: true, startPoint: '',
-      maxStops: 15, fetchMoreCount: 3, searchMode: 'area',
-      radiusMeters: 500, radiusSource: 'gps', radiusPlaceId: null, radiusPlaceName: '',
+      maxStops: prev.maxStops || 12, fetchMoreCount: prev.fetchMoreCount || 3, searchMode: 'area',
+      radiusMeters: prev.radiusMeters || 500, radiusSource: 'gps', radiusPlaceId: null, radiusPlaceName: '',
       gpsLat: null, gpsLng: null, currentLat: null, currentLng: null
-    });
+    }));
     setRoute(null);
     setWizardStep(1);
     if (!stayOnView) {
@@ -5382,7 +5382,7 @@ const CityExplorer = () => {
       
       // Calculate stops needed per interest
       const numInterests = formData.interests.length || 1;
-      const maxStops = formData.maxStops || 15;
+      const maxStops = formData.maxStops || 12;
       const stopsPerInterest = Math.ceil(maxStops / numInterests);
       
       // Track results per interest for smart completion
@@ -8451,8 +8451,8 @@ const CityExplorer = () => {
                                   borderStyle: isAddedLater ? 'dashed' : 'solid',
                                   backgroundColor: !hasValidCoords ? '#fef2f2' : isAddedLater ? '#eff6ff' : '#fafafa'
                                 }}>
-                                  {/* Action buttons - absolute left */}
-                                  <div className="absolute top-0.5 left-0.5 flex gap-0.5">
+                                  {/* Action buttons - positioned based on language direction */}
+                                  <div style={{ position: 'absolute', top: '2px', display: 'flex', gap: '2px', ...(window.BKK.i18n.isRTL() ? { left: '2px' } : { right: '2px' }) }}>
                                     {/* Set as start point */}
                                     {hasValidCoords && !isDisabled && (
                                       <button
@@ -8561,7 +8561,7 @@ const CityExplorer = () => {
                                     href={window.BKK.getGoogleMapsUrl(stop)}
                                     target={hasValidCoords ? "_blank" : undefined}
                                     rel={hasValidCoords ? "noopener noreferrer" : undefined}
-                                    className="block hover:bg-gray-100 transition pr-2"
+                                    className={`block hover:bg-gray-100 transition ${window.BKK.i18n.isRTL() ? 'pr-2' : 'pl-2'}`}
                                     onClick={(e) => {
                                       if (!hasValidCoords) {
                                         e.preventDefault();

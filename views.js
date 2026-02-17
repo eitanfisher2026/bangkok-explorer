@@ -940,8 +940,8 @@
                                   borderStyle: isAddedLater ? 'dashed' : 'solid',
                                   backgroundColor: !hasValidCoords ? '#fef2f2' : isAddedLater ? '#eff6ff' : '#fafafa'
                                 }}>
-                                  {/* Action buttons - absolute left */}
-                                  <div className="absolute top-0.5 left-0.5 flex gap-0.5">
+                                  {/* Action buttons - positioned based on language direction */}
+                                  <div style={{ position: 'absolute', top: '2px', display: 'flex', gap: '2px', ...(window.BKK.i18n.isRTL() ? { left: '2px' } : { right: '2px' }) }}>
                                     {/* Set as start point */}
                                     {hasValidCoords && !isDisabled && (
                                       <button
@@ -1050,7 +1050,7 @@
                                     href={window.BKK.getGoogleMapsUrl(stop)}
                                     target={hasValidCoords ? "_blank" : undefined}
                                     rel={hasValidCoords ? "noopener noreferrer" : undefined}
-                                    className="block hover:bg-gray-100 transition pr-2"
+                                    className={`block hover:bg-gray-100 transition ${window.BKK.i18n.isRTL() ? 'pr-2' : 'pl-2'}`}
                                     onClick={(e) => {
                                       if (!hasValidCoords) {
                                         e.preventDefault();
