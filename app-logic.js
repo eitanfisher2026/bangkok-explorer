@@ -1160,7 +1160,7 @@
   const areaCoordinates = window.BKK.areaCoordinates;
 
   // Switch city function
-  const switchCity = (cityId) => {
+  const switchCity = (cityId, stayOnView) => {
     if (cityId === selectedCityId) return;
     if (!window.BKK.cities[cityId]) return;
     
@@ -1178,10 +1178,12 @@
     });
     setRoute(null);
     setWizardStep(1);
-    setCurrentView('form');
+    if (!stayOnView) {
+      setCurrentView('form');
+      window.scrollTo(0, 0);
+    }
     setDisabledStops([]);
     setManualStops([]);
-    window.scrollTo(0, 0);
     showToast(window.BKK.selectedCity.icon + ' ' + tLabel(window.BKK.selectedCity), 'success');
   };
 

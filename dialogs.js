@@ -2066,7 +2066,7 @@
                   // Add to registry
                   window.BKK.cityRegistry[generatedCity.id] = {
                     id: generatedCity.id, name: generatedCity.name, nameEn: generatedCity.nameEn,
-                    country: generatedCity.country, icon: generatedCity.icon, file: null
+                    country: generatedCity.country, icon: generatedCity.icon, file: `city-${generatedCity.id}.js`
                   };
                   // Save to localStorage for persistence
                   try {
@@ -2074,6 +2074,9 @@
                     customCities[generatedCity.id] = generatedCity;
                     localStorage.setItem('custom_cities', JSON.stringify(customCities));
                   } catch(e) { console.error('Failed to save city:', e); }
+                  
+                  // Generate and download city JS file
+                  window.BKK.exportCityFile(generatedCity);
                   
                   showToast(`✓ ${generatedCity.nameEn} ${t('settings.cityAdded')}`, 'success');
                   setShowAddCityDialog(false);

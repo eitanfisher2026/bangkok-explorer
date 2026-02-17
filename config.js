@@ -101,6 +101,36 @@ window.BKK.unloadCity = function(cityId) {
 };
 
 /**
+ * Export a city as a downloadable JS file (for GitHub upload).
+ */
+window.BKK.exportCityFile = function(city) {
+  var cityId = city.id;
+  var lines = [];
+  lines.push('// City data: ' + city.nameEn);
+  lines.push('window.BKK.cityData = window.BKK.cityData || {};');
+  lines.push('window.BKK.cityData.' + cityId + ' = ' + JSON.stringify(city, null, 2) + ';');
+  
+  var content = lines.join('\n') + '\n';
+  var blob = new Blob([content], { type: 'text/javascript' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'city-' + cityId + '.js';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  console.log('[CONFIG] Exported city file: city-' + cityId + '.js');
+};
+
+/**
+ * Export config registry snippet for a city (to add to config.js cityRegistry).
+ */
+window.BKK.getCityRegistryEntry = function(city) {
+  return '  ' + city.id + ": { id: '" + city.id + "', name: '" + city.name + "', nameEn: '" + city.nameEn + "', country: '" + (city.country || '') + "', icon: '" + city.icon + "', file: 'city-" + city.id + ".js' }";
+};
+
+/**
  * Select a city and populate all legacy window.BKK.* variables.
  */
 window.BKK.selectCity = function(cityId) {
