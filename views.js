@@ -849,7 +849,7 @@
                               color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
                               fontSize: '13px', fontWeight: 'bold', flexShrink: 0, cursor: 'grab'
                             }}>
-                              {idx + 1}
+                              {String.fromCharCode(65 + idx)}
                             </div>
                             
                             {/* Stop name as hyperlink to Google Maps */}
@@ -1216,7 +1216,7 @@
                       marginBottom: '4px'
                     }}
                   >
-                    {`${t("wizard.showMap")}`}
+                    {`${t("route.showStopsOnMap")} (${route.stops.filter(s => !disabledStops.includes((s.name || '').toLowerCase().trim()) && s.lat && s.lng).length})`}
                   </a>
                   
                   
@@ -1415,7 +1415,7 @@
                           cursor: route?.optimized ? 'pointer' : 'not-allowed'
                         }}
                       >
-                        {`🗺️ Open in Google Maps`}
+                        {`🗺️ ${t('route.openRouteInGoogle')}`}
                       </button>
                       
                       {/* Route Preview / Reorder button */}
@@ -1445,21 +1445,15 @@
                           style={{
                             backgroundColor: '#dcfce7',
                             border: '2px solid #16a34a',
-                            padding: '8px 12px',
+                            padding: '8px 10px',
                             borderRadius: '12px',
-                            fontSize: '13px',
-                            fontWeight: 'bold',
-                            color: '#166534',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
+                            fontSize: '16px',
                             cursor: 'default',
-                            whiteSpace: 'nowrap',
                             flexShrink: 0
                           }}
                           title={`${t("route.savedAs")} ${route.name}`}
                         >
-                          ✅ Saved
+                          ✅
                         </button>
                       ) : (
                         <button
@@ -1467,22 +1461,17 @@
                           style={{
                             background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
                             border: 'none',
-                            padding: '8px 12px',
+                            padding: '8px 10px',
                             borderRadius: '12px',
-                            fontSize: '13px',
-                            fontWeight: 'bold',
+                            fontSize: '16px',
                             color: 'white',
                             cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
                             boxShadow: '0 4px 6px rgba(124, 58, 237, 0.3)',
-                            whiteSpace: 'nowrap',
                             flexShrink: 0
                           }}
                           title={t("route.saveRoute")}
                         >
-                          💾 {t("general.save")}
+                          💾
                         </button>
                       ))}
                     </div>
@@ -1970,7 +1959,7 @@
                     marginBottom: '4px'
                   }}
                 >
-                  {`🗺️ Open in Google Maps`}
+                  {`🗺️ ${t('route.openRouteInGoogle')}`}
                 </a>
                 
               </div>
