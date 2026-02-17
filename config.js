@@ -131,6 +131,60 @@ window.BKK.getCityRegistryEntry = function(city) {
 };
 
 /**
+ * One-time migration: move old flat customLocations to per-city structure.
+ * Old: customLocations/{id} → New: cities/{cityId}/locations/{id}
+ */
+window.BKK.migrateLocationsToPerCity = function(database) {
+  if (!database) return Promise.resolve();
+  var migrated = localStorage.getItem('locations_migrated_v2');
+  if (migrated === 'true') return Promise.resolve();
+  
+  var updates = {};
+  var locCount = 0;
+  var routeCount = 0;
+  
+  return database.ref('customLocations').once('value').then(function(snap) {
+    var data = snap.val();
+    if (data) {
+      Object.keys(data).forEach(function(key) {
+        var loc = data[key];
+        var cityId = loc.cityId || 'bangkok';
+        updates['cities/' + cityId + '/locations/' + key] = loc;
+        locCount++;
+      });
+    }
+    return database.ref('savedRoutes').once('value');
+  }).then(function(snap) {
+    var data = snap.val();
+    if (data) {
+      Object.keys(data).forEach(function(key) {
+        var route = data[key];
+        var cityId = route.cityId || 'bangkok';
+        updates['cities/' + cityId + '/routes/' + key] = route;
+        routeCount++;
+      });
+    }
+    
+    if (locCount === 0 && routeCount === 0) {
+      localStorage.setItem('locations_migrated_v2', 'true');
+      console.log('[MIGRATION] No old data to migrate');
+      return;
+    }
+    
+    // Write all to new paths then remove old
+    return database.ref().update(updates).then(function() {
+      var removals = [];
+      if (locCount > 0) removals.push(database.ref('customLocations').remove());
+      if (routeCount > 0) removals.push(database.ref('savedRoutes').remove());
+      return Promise.all(removals);
+    }).then(function() {
+      localStorage.setItem('locations_migrated_v2', 'true');
+      console.log('[MIGRATION] Migrated ' + locCount + ' locations + ' + routeCount + ' routes to per-city structure');
+    });
+  }).catch(function(err) {
+    console.error('[MIGRATION] Error:', err);
+  });
+};
  * Select a city and populate all legacy window.BKK.* variables.
  */
 window.BKK.selectCity = function(cityId) {

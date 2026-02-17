@@ -469,12 +469,21 @@
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     );
   };
-  // Load saved routes from Firebase (shared)
+  // One-time migration: move old customLocations to per-city structure
   useEffect(() => {
     if (isFirebaseAvailable && database) {
-      const routesRef = database.ref('savedRoutes');
+      window.BKK.migrateLocationsToPerCity(database);
+    }
+  }, []);
+
+  // Load saved routes from Firebase - PER CITY
+  useEffect(() => {
+    if (!selectedCityId) return;
+    
+    if (isFirebaseAvailable && database) {
+      const routesRef = database.ref(`cities/${selectedCityId}/routes`);
       
-      const unsubscribe = routesRef.on('value', (snapshot) => {
+      const onValue = routesRef.on('value', (snapshot) => {
         const data = snapshot.val();
         if (data) {
           const routesArray = Object.keys(data).map(key => ({
@@ -482,33 +491,14 @@
             firebaseId: key
           }));
           setSavedRoutes(routesArray);
-          console.log('[FIREBASE] Loaded', routesArray.length, 'saved routes');
+          console.log('[FIREBASE] Loaded', routesArray.length, 'saved routes for', selectedCityId);
         } else {
           setSavedRoutes([]);
         }
         markLoaded('routes');
       });
       
-      // One-time migration: push localStorage routes to Firebase then clear
-      try {
-        const localRoutes = localStorage.getItem('bangkok_saved_routes');
-        if (localRoutes) {
-          const parsed = JSON.parse(localRoutes);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            console.log('[MIGRATION] Migrating', parsed.length, 'routes from localStorage to Firebase');
-            parsed.forEach(route => {
-              const stripped = stripRouteForStorage(route);
-              database.ref('savedRoutes').push(stripped);
-            });
-            localStorage.removeItem('bangkok_saved_routes');
-            console.log('[MIGRATION] localStorage routes migrated and cleared');
-          }
-        }
-      } catch (e) {
-        console.error('[MIGRATION] Error migrating routes:', e);
-      }
-      
-      return () => routesRef.off('value', unsubscribe);
+      return () => routesRef.off('value', onValue);
     } else {
       try {
         const saved = localStorage.getItem('bangkok_saved_routes');
@@ -520,43 +510,45 @@
       }
       markLoaded('routes');
     }
-  }, []);
+  }, [selectedCityId]);
 
-  // Load custom locations from Firebase
+  // Load custom locations from Firebase - PER CITY
   useEffect(() => {
+    if (!selectedCityId) return;
+    
     if (isFirebaseAvailable && database) {
-      console.log('[DATA] Using Firebase');
-      const locationsRef = database.ref('customLocations');
+      console.log('[DATA] Loading locations for city:', selectedCityId);
+      const locationsRef = database.ref(`cities/${selectedCityId}/locations`);
       
-      const unsubscribe = locationsRef.on('value', (snapshot) => {
+      const onValue = locationsRef.on('value', (snapshot) => {
         const data = snapshot.val();
         if (data) {
           const locationsArray = Object.keys(data).map(key => ({
             ...data[key],
-            firebaseId: key
+            firebaseId: key,
+            cityId: selectedCityId
           }));
           setCustomLocations(locationsArray);
-          console.log('[FIREBASE] Loaded', locationsArray.length, 'locations');
+          console.log('[FIREBASE] Loaded', locationsArray.length, 'locations for', selectedCityId);
         } else {
           setCustomLocations([]);
         }
         markLoaded('locations');
       });
       
-      return () => locationsRef.off('value', unsubscribe);
+      return () => locationsRef.off('value', onValue);
     } else {
       console.log('[DATA] Firebase not available - using localStorage fallback');
       try {
-        const customLocs = localStorage.getItem('bangkok_custom_locations');
-        if (customLocs) {
-          setCustomLocations(JSON.parse(customLocs));
-        }
+        const allLocs = JSON.parse(localStorage.getItem('bangkok_custom_locations') || '[]');
+        const cityLocs = allLocs.filter(l => (l.cityId || 'bangkok') === selectedCityId);
+        setCustomLocations(cityLocs);
       } catch (e) {
         console.error('[LOCALSTORAGE] Error loading locations:', e);
       }
       markLoaded('locations');
     }
-  }, []);
+  }, [selectedCityId]);
 
   // Load custom interests from Firebase
   useEffect(() => {
@@ -758,7 +750,7 @@
       // 1. Saved Routes
       if (isFirebaseAvailable && database) {
         try {
-          const routeSnap = await database.ref('savedRoutes').once('value');
+          const routeSnap = await database.ref(`cities/${selectedCityId}/routes`).once('value');
           const routeData = routeSnap.val();
           if (routeData) {
             const routesArray = Object.keys(routeData).map(key => ({
@@ -788,12 +780,13 @@
       if (isFirebaseAvailable && database) {
         // 2. Custom Locations
         try {
-          const locSnap = await database.ref('customLocations').once('value');
+          const locSnap = await database.ref(`cities/${selectedCityId}/locations`).once('value');
           const locData = locSnap.val();
           if (locData) {
             const locationsArray = Object.keys(locData).map(key => ({
               ...locData[key],
-              firebaseId: key
+              firebaseId: key,
+              cityId: selectedCityId
             }));
             setCustomLocations(locationsArray);
             console.log('[REFRESH] Loaded', locationsArray.length, 'locations');
@@ -1832,7 +1825,7 @@
 
   // City-filtered custom locations and saved routes
   const cityCustomLocations = useMemo(() => {
-    return customLocations.filter(loc => (loc.cityId || 'bangkok') === selectedCityId);
+    return customLocations; // Already filtered per city by Firebase subscription
   }, [customLocations, selectedCityId]);
 
   const citySavedRoutes = useMemo(() => {
@@ -2927,7 +2920,7 @@
 
     if (isFirebaseAvailable && database) {
       const stripped = stripRouteForStorage(routeToSave);
-      database.ref('savedRoutes').push(stripped)
+      database.ref(`cities/${selectedCityId}/routes`).push(stripped)
         .then((ref) => {
           console.log('[FIREBASE] Route saved');
           const savedWithFbId = { ...routeToSave, firebaseId: ref.key };
@@ -2957,7 +2950,7 @@
     if (isFirebaseAvailable && database) {
       const routeToDelete = savedRoutes.find(r => r.id === routeId);
       if (routeToDelete && routeToDelete.firebaseId) {
-        database.ref(`savedRoutes/${routeToDelete.firebaseId}`).remove()
+        database.ref(`cities/${selectedCityId}/routes/${routeToDelete.firebaseId}`).remove()
           .then(() => {
             console.log('[FIREBASE] Route deleted');
             showToast(t('route.routeDeleted'), 'success');
@@ -2979,7 +2972,7 @@
     if (isFirebaseAvailable && database) {
       const routeToUpdate = savedRoutes.find(r => r.id === routeId);
       if (routeToUpdate && routeToUpdate.firebaseId) {
-        database.ref(`savedRoutes/${routeToUpdate.firebaseId}`).update(updates)
+        database.ref(`cities/${selectedCityId}/routes/${routeToUpdate.firebaseId}`).update(updates)
           .then(() => {
             console.log('[FIREBASE] Route updated');
             showToast(t('route.routeUpdated'), 'success');
@@ -3157,7 +3150,7 @@
     if (isFirebaseAvailable && database) {
       // DYNAMIC MODE: Firebase (shared)
       if (locationToDelete && locationToDelete.firebaseId) {
-        database.ref(`customLocations/${locationToDelete.firebaseId}`).remove()
+        database.ref(`cities/${selectedCityId}/locations/${locationToDelete.firebaseId}`).remove()
           .then(() => {
             console.log('[FIREBASE] Location deleted from shared database');
             showToast(t('places.placeDeleted'), 'success');
@@ -3202,7 +3195,7 @@
     if (isFirebaseAvailable && database) {
       // DYNAMIC MODE: Firebase (shared)
       if (location.firebaseId) {
-        database.ref(`customLocations/${location.firebaseId}`).update({
+        database.ref(`cities/${selectedCityId}/locations/${location.firebaseId}`).update({
           status: newStatus,
           inProgress: newInProgress
         })
@@ -3308,7 +3301,7 @@
     // Save to Firebase (or localStorage fallback)
     if (isFirebaseAvailable && database) {
       try {
-        await database.ref('customLocations').push(locationToAdd);
+        await database.ref(`cities/${selectedCityId}/locations`).push(locationToAdd);
         addDebugLog('ADD', `Added "${place.name}" to Firebase`);
         showToast(`"${place.name}" ${t("places.addedToYourList")}`, 'success');
         setAddingPlaceIds(prev => prev.filter(id => id !== placeId));
@@ -3348,7 +3341,7 @@
       const locationId = exists.id;
       
       if (isFirebaseAvailable && database && exists.firebaseId) {
-        database.ref(`customLocations/${exists.firebaseId}`).update({
+        database.ref(`cities/${selectedCityId}/locations/${exists.firebaseId}`).update({
           status: 'blacklist',
           inProgress: false
         })
@@ -3401,7 +3394,7 @@
     
     // Save to Firebase (or localStorage fallback)
     if (isFirebaseAvailable && database) {
-      database.ref('customLocations').push(locationToAdd)
+      database.ref(`cities/${selectedCityId}/locations`).push(locationToAdd)
         .then(() => {
           console.log('[FIREBASE] Place added to blacklist');
           showToast(`"${place.name}" ${t("places.addedToSkipList")}`, 'success');
@@ -3533,7 +3526,7 @@
             addedAt: loc.addedAt || new Date().toISOString()
           };
           
-          await database.ref('customLocations').push(newLocation);
+          await database.ref(`cities/${selectedCityId}/locations`).push(newLocation);
           addedLocations++;
         } catch (error) {
           console.error('[FIREBASE] Error importing location:', error);
@@ -3556,7 +3549,7 @@
             id: route.id || Date.now() + Math.floor(Math.random() * 1000),
             importedAt: new Date().toISOString()
           });
-          await database.ref('savedRoutes').push(routeToSave);
+          await database.ref(`cities/${selectedCityId}/routes`).push(routeToSave);
           addedRoutes++;
         } catch (error) {
           console.error('[FIREBASE] Error importing route:', error);
@@ -3767,7 +3760,7 @@
     // Save to Firebase (or localStorage fallback)
     if (isFirebaseAvailable && database) {
       // DYNAMIC MODE: Firebase (shared)
-      database.ref('customLocations').push(locationToAdd)
+      database.ref(`cities/${selectedCityId}/locations`).push(locationToAdd)
         .then((ref) => {
           console.log('[FIREBASE] Location added to shared database');
           showToast(t('places.placeAddedShared'), 'success');
@@ -3909,7 +3902,7 @@
       const { firebaseId, ...locationData } = updatedLocation;
       
       if (firebaseId) {
-        database.ref(`customLocations/${firebaseId}`).set(locationData)
+        database.ref(`cities/${selectedCityId}/locations/${firebaseId}`).set(locationData)
           .then(() => {
             console.log('[FIREBASE] Location updated in shared database');
             showToast(t('places.placeUpdated'), 'success');
