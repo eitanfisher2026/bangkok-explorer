@@ -9151,11 +9151,15 @@ const CityExplorer = () => {
                           {isUnlocked && (
                             <button
                               onClick={() => {
-                                setEditingArea(wholeCityArea);
+                                try { if (window._editMap) { window._editMap.off(); window._editMap.remove(); } } catch(e) {}
+                                window._editMap = null; window._editCircle = null; window._editMarker = null;
+                                setEditingArea(editingArea?.id === '__whole_city__' ? null : wholeCityArea);
+                                if (editingArea?.id === '__whole_city__') return;
                                 setTimeout(() => {
                                   const container = document.getElementById('area-edit-map-__whole_city__');
                                   if (!container || !window.L) return;
-                                  if (window._editMap) { window._editMap.remove(); }
+                                  container.innerHTML = '';
+                                  container._leaflet_id = null;
                                   const map = L.map(container).setView([wholeCityArea.lat, wholeCityArea.lng], 11);
                                   L.tileLayer('https://{s}.basemaps.cartocdn.com/voyager_labels_under/{z}/{x}/{y}{r}.png', { attribution: '© CartoDB © OSM', maxZoom: 19 }).addTo(map);
                                   const circle = L.circle([wholeCityArea.lat, wholeCityArea.lng], { radius: wholeCityArea.radius, color: '#eab308', fillOpacity: 0.1, weight: 2 }).addTo(map);
@@ -9170,7 +9174,8 @@ const CityExplorer = () => {
                                   });
                                   window._editMap = map; window._editCircle = circle; window._editMarker = marker;
                                   map.fitBounds(circle.getBounds().pad(0.2));
-                                }, 200);
+                                  setTimeout(() => map.invalidateSize(), 100);
+                                }, 300);
                               }}
                               style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '4px', border: '1px solid #eab308', background: '#fefce8', color: '#ca8a04', cursor: 'pointer' }}
                             >🗺️</button>
@@ -9188,7 +9193,7 @@ const CityExplorer = () => {
                         {editingArea?.id === '__whole_city__' && (
                           <div style={{ marginTop: '8px' }}>
                             <div id="area-edit-map-__whole_city__" style={{ height: '250px', borderRadius: '8px', border: '1px solid #d1d5db', marginBottom: '6px' }}></div>
-                            <button onClick={() => { if (window._editMap) window._editMap.remove(); setEditingArea(null); }} className="text-xs text-gray-500 hover:text-red-500">✕ {t('general.close')}</button>
+                            <button onClick={() => { try { if (window._editMap) { window._editMap.off(); window._editMap.remove(); } } catch(e) {} window._editMap = null; setEditingArea(null); }} className="text-xs text-gray-500 hover:text-red-500">✕ {t('general.close')}</button>
                           </div>
                         )}
                       </div>
@@ -9207,11 +9212,15 @@ const CityExplorer = () => {
                           {isUnlocked && (
                             <button
                               onClick={() => {
-                                setEditingArea(area);
+                                try { if (window._editMap) { window._editMap.off(); window._editMap.remove(); } } catch(e) {}
+                                window._editMap = null; window._editCircle = null; window._editMarker = null;
+                                setEditingArea(editingArea?.id === area.id ? null : area);
+                                if (editingArea?.id === area.id) return;
                                 setTimeout(() => {
                                   const container = document.getElementById(`area-edit-map-${area.id}`);
                                   if (!container || !window.L) return;
-                                  if (window._editMap) { window._editMap.remove(); }
+                                  container.innerHTML = '';
+                                  container._leaflet_id = null;
                                   const map = L.map(container).setView([area.lat, area.lng], 13);
                                   L.tileLayer('https://{s}.basemaps.cartocdn.com/voyager_labels_under/{z}/{x}/{y}{r}.png', {
                                     attribution: '© CartoDB © OSM', maxZoom: 19
@@ -9231,7 +9240,8 @@ const CityExplorer = () => {
                                   window._editCircle = circle;
                                   window._editMarker = marker;
                                   map.fitBounds(circle.getBounds().pad(0.3));
-                                }, 200);
+                                  setTimeout(() => map.invalidateSize(), 100);
+                                }, 300);
                               }}
                               style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '4px', border: '1px solid #10b981', background: '#ecfdf5', color: '#059669', cursor: 'pointer' }}
                               title={t('settings.editOnMap')}
@@ -9286,8 +9296,8 @@ const CityExplorer = () => {
                                 />
                                 <span className="font-bold">{area.radius}m</span>
                               </label>
-                              <button onClick={() => { if (window._editMap) window._editMap.remove(); setEditingArea(null); showToast(`${tLabel(area)}: ${area.lat.toFixed(4)}, ${area.lng.toFixed(4)}, ${area.radius}m`, 'success'); }} className="px-2 py-0.5 bg-emerald-500 text-white rounded text-[9px] font-bold">✓ {t('general.save')}</button>
-                              <button onClick={() => { if (window._editMap) window._editMap.remove(); setEditingArea(null); }} className="text-[9px] text-gray-400 hover:text-red-500">✕</button>
+                              <button onClick={() => { try { if (window._editMap) { window._editMap.off(); window._editMap.remove(); } } catch(e) {} window._editMap = null; setEditingArea(null); showToast(`${tLabel(area)}: ${area.lat.toFixed(4)}, ${area.lng.toFixed(4)}, ${area.radius}m`, 'success'); }} className="px-2 py-0.5 bg-emerald-500 text-white rounded text-[9px] font-bold">✓ {t('general.save')}</button>
+                              <button onClick={() => { try { if (window._editMap) { window._editMap.off(); window._editMap.remove(); } } catch(e) {} window._editMap = null; setEditingArea(null); }} className="text-[9px] text-gray-400 hover:text-red-500">✕</button>
                             </div>
                           </div>
                         )}
