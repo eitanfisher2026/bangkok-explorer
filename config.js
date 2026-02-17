@@ -40,7 +40,8 @@ window.BKK.GOOGLE_PLACES_TEXT_SEARCH_URL = 'https://places.googleapis.com/v1/pla
 window.BKK.cityRegistry = {
   bangkok: { id: 'bangkok', name: 'בנגקוק', nameEn: 'Bangkok', country: 'Thailand', icon: '🛺', secondaryIcon: '🍜', file: 'city-bangkok.js' },
   gushdan: { id: 'gushdan', name: 'גוש דן', nameEn: 'Gush Dan', country: 'Israel', icon: '🏖️', secondaryIcon: '☀️', file: 'city-gushdan.js' },
-  singapore: { id: 'singapore', name: 'סינגפור', nameEn: 'Singapore', country: 'Singapore', icon: '🦁', secondaryIcon: '🌿', file: 'city-singapore.js' }
+  singapore: { id: 'singapore', name: 'סינגפור', nameEn: 'Singapore', country: 'Singapore', icon: '🦁', secondaryIcon: '🌿', file: 'city-singapore.js' },
+  malaga: { id: 'malaga', name: 'מלגה', nameEn: 'Malaga', country: 'Spain', icon: '🇪🇸', secondaryIcon: '☀️', file: 'city-malaga.js' }
 };
 
 // Active cities (loaded from localStorage or defaults)

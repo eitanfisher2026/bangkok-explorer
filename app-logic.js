@@ -323,6 +323,7 @@
   const [googleMaxWaypoints, setGoogleMaxWaypoints] = useState(12);
   const [googleMaxMapPoints, setGoogleMaxMapPoints] = useState(10);
   const [cityModified, setCityModified] = useState(false);
+  const [cityEditCounter, setCityEditCounter] = useState(0); // Force re-render on city object mutation
   const [showSettingsMap, setShowSettingsMap] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [newAdminPassword, setNewAdminPassword] = useState(''); // For setting new password in admin panel

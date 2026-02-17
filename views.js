@@ -2596,7 +2596,26 @@
                   const isActive = city.active !== false;
                   return (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', padding: '6px 10px', background: isActive ? '#ecfdf5' : '#fef2f2', borderRadius: '8px', border: `1px solid ${isActive ? '#a7f3d0' : '#fecaca'}`, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '13px', fontWeight: 'bold' }}>{city.icon} {tLabel(city)}</span>
+                      {isUnlocked ? (
+                        <React.Fragment>
+                          <input type="text" value={city.icon || '📍'}
+                            onChange={(e) => { city.icon = e.target.value; if (window.BKK.cityRegistry[city.id]) window.BKK.cityRegistry[city.id].icon = e.target.value; setCityModified(true); setCityEditCounter(c => c + 1); }}
+                            style={{ width: '32px', fontSize: '16px', textAlign: 'center', padding: '1px', border: '1px solid #d1d5db', borderRadius: '6px', background: '#fff' }}
+                          />
+                          <input type="text" value={city.name || ''}
+                            onChange={(e) => { city.name = e.target.value; if (window.BKK.cityRegistry[city.id]) window.BKK.cityRegistry[city.id].name = e.target.value; setCityModified(true); setCityEditCounter(c => c + 1); }}
+                            style={{ width: '70px', fontSize: '12px', padding: '2px 4px', border: '1px solid #d1d5db', borderRadius: '6px', fontWeight: 'bold' }}
+                            placeholder="HE"
+                          />
+                          <input type="text" value={city.nameEn || ''}
+                            onChange={(e) => { city.nameEn = e.target.value; if (window.BKK.cityRegistry[city.id]) window.BKK.cityRegistry[city.id].nameEn = e.target.value; setCityModified(true); setCityEditCounter(c => c + 1); }}
+                            style={{ width: '70px', fontSize: '12px', padding: '2px 4px', border: '1px solid #d1d5db', borderRadius: '6px' }}
+                            placeholder="EN"
+                          />
+                        </React.Fragment>
+                      ) : (
+                        <span style={{ fontSize: '13px', fontWeight: 'bold' }}>{city.icon} {tLabel(city)}</span>
+                      )}
                       <span style={{ fontSize: '10px', color: '#6b7280' }}>{city.areas?.length || 0} {t('general.areas')} · {city.interests?.length || 0} {t('nav.myInterests')}</span>
                           <button onClick={() => {
                             city.active = !isActive;
@@ -2631,23 +2650,22 @@
                 {/* Theme Editor - Color + Icons */}
                 {isUnlocked && window.BKK.selectedCity && (() => {
                   const city = window.BKK.selectedCity;
-                  const theme = city.theme || { color: '#e11d48', iconLeft: '🏙️', iconRight: '🗺️' };
+                  if (!city.theme) city.theme = { color: '#e11d48', iconLeft: '🏙️', iconRight: '🗺️' };
+                  const theme = city.theme;
                   return (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', padding: '6px 10px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569' }}>🎨</span>
                       <input type="color" value={theme.color || '#e11d48'}
                         onChange={(e) => { 
-                          if (!city.theme) city.theme = {};
                           city.theme.color = e.target.value;
-                          setCityModified(true); setFormData(prev => ({...prev}));
+                          setCityModified(true); setCityEditCounter(c => c + 1);
                         }}
                         style={{ width: '28px', height: '22px', border: 'none', cursor: 'pointer', borderRadius: '4px', padding: 0 }}
                       />
                       <input type="text" value={theme.iconLeft || ''} placeholder="◀"
                         onChange={(e) => {
-                          if (!city.theme) city.theme = {};
                           city.theme.iconLeft = e.target.value;
-                          setCityModified(true); setFormData(prev => ({...prev}));
+                          setCityModified(true); setCityEditCounter(c => c + 1);
                         }}
                         style={{ width: '36px', fontSize: '14px', textAlign: 'center', padding: '2px', border: '1px solid #d1d5db', borderRadius: '6px' }}
                       />
@@ -2656,9 +2674,8 @@
                       </div>
                       <input type="text" value={theme.iconRight || ''} placeholder="▶"
                         onChange={(e) => {
-                          if (!city.theme) city.theme = {};
                           city.theme.iconRight = e.target.value;
-                          setCityModified(true); setFormData(prev => ({...prev}));
+                          setCityModified(true); setCityEditCounter(c => c + 1);
                         }}
                         style={{ width: '36px', fontSize: '14px', textAlign: 'center', padding: '2px', border: '1px solid #d1d5db', borderRadius: '6px' }}
                       />
@@ -2712,7 +2729,7 @@
                             area.lat = newLat; area.lng = newLng;
                             c.lat = newLat; c.lng = newLng;
                             circle.setLatLng(pos);
-                            setCityModified(true);
+                            setCityModified(true); setCityEditCounter(c => c + 1);
                             setFormData(prev => ({...prev}));
                           });
                         });
@@ -2740,7 +2757,7 @@
                     city.areas.push(newArea);
                     window.BKK.areaCoordinates[id] = { lat: newArea.lat, lng: newArea.lng, radius: newArea.radius, distanceMultiplier: city.distanceMultiplier || 1.2, size: 'medium', safety: 'safe' };
                     window.BKK.areaOptions.push({ id, label: newArea.label, labelEn: newArea.labelEn, desc: '', descEn: '' });
-                    setCityModified(true);
+                    setCityModified(true); setCityEditCounter(c => c + 1);
                     showToast(`➕ ${name.trim()}`, 'success');
                     setFormData(prev => ({...prev}));
                   }} style={{ fontSize: '10px', padding: '3px 10px', borderRadius: '6px', border: '1.5px dashed #d1d5db', cursor: 'pointer', background: 'white', color: '#6b7280' }}
@@ -2786,7 +2803,7 @@
                                 area.labelEn = newName.trim();
                                 const ao = window.BKK.areaOptions?.find(a => a.id === area.id);
                                 if (ao) { ao.label = area.label; ao.labelEn = area.labelEn; }
-                                setCityModified(true);
+                                setCityModified(true); setCityEditCounter(c => c + 1);
                                 showToast(`✏️ ${newName.trim()}`, 'success');
                                 setFormData(prev => ({...prev}));
                               }} style={{ fontSize: '8px', color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px' }}
@@ -2800,7 +2817,7 @@
                                 city.areas = city.areas.filter(a => a.id !== area.id);
                                 delete window.BKK.areaCoordinates[area.id];
                                 window.BKK.areaOptions = window.BKK.areaOptions.filter(a => a.id !== area.id);
-                                setCityModified(true);
+                                setCityModified(true); setCityEditCounter(c => c + 1);
                                 showToast(`🗑️ ${tLabel(area)}`, 'info');
                                 setFormData(prev => ({...prev}));
                               }} style={{ fontSize: '8px', color: '#d1d5db', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px' }}
@@ -2892,7 +2909,7 @@
                                     try { if (window._editMap) { window._editMap.off(); window._editMap.remove(); } } catch(e) {}
                                     window._editMap = null;
                                     setEditingArea(null);
-                                    setCityModified(true);
+                                    setCityModified(true); setCityEditCounter(c => c + 1);
                                     showToast(`✓ ${tLabel(area)}`, 'success');
                                   }}
                                   className="px-3 py-1 bg-emerald-500 text-white rounded-lg text-xs font-bold hover:bg-emerald-600"
