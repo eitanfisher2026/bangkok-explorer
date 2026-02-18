@@ -282,9 +282,22 @@
   const [helpContext, setHelpContext] = useState('main');
   
   // Debug Mode System
+  // Debug system with categories
+  // Categories: api, firebase, sync, route, interest, location, migration, all
   const [debugMode, setDebugMode] = useState(() => {
     return localStorage.getItem('bangkok_debug_mode') === 'true';
   });
+  const [debugCategories, setDebugCategories] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('bangkok_debug_categories') || '["all"]'); } catch(e) { return ['all']; }
+  });
+  const toggleDebugCategory = (cat) => {
+    setDebugCategories(prev => {
+      if (cat === 'all') return ['all'];
+      const without = prev.filter(c => c !== 'all');
+      const next = without.includes(cat) ? without.filter(c => c !== cat) : [...without, cat];
+      return next.length === 0 ? ['all'] : next;
+    });
+  };
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDataLoaded, setIsDataLoaded] = useState(false); // Tracks initial Firebase/localStorage load
   const dataLoadTracker = React.useRef({ locations: false, interests: false, config: false, status: false, routes: false });
@@ -336,16 +349,21 @@
   const [passwordInput, setPasswordInput] = useState('');
   const [newAdminPassword, setNewAdminPassword] = useState(''); // For setting new password in admin panel
   
-  // Add debug log entry (console only)
+  // Add debug log entry (console only, filtered by category)
   const addDebugLog = (category, message, data = null) => {
     if (!debugMode) return;
+    const cat = category.toLowerCase();
+    if (!debugCategories.includes('all') && !debugCategories.includes(cat)) return;
     console.log(`[${category}] ${message}`, data || '');
   };
   
-  // Save debug mode preference
+  // Save debug preferences
   useEffect(() => {
     localStorage.setItem('bangkok_debug_mode', debugMode.toString());
   }, [debugMode]);
+  useEffect(() => {
+    localStorage.setItem('bangkok_debug_categories', JSON.stringify(debugCategories));
+  }, [debugCategories]);
   
   // Help content - loaded from config.js
   const helpContent = window.BKK.helpContent;
@@ -573,12 +591,18 @@
 
   // Auto-sync when connection is restored
   useEffect(() => {
-    if (firebaseConnected && (pendingLocations.length > 0 || pendingInterests.length > 0) && isFirebaseAvailable && database) {
-      const timer = setTimeout(() => {
-        console.log('[SYNC] Connection restored, syncing', pendingLocations.length, 'pending locations');
-        syncPendingItems();
-      }, 3000);
-      return () => clearTimeout(timer);
+    if (firebaseConnected && isFirebaseAvailable && database) {
+      if (pendingLocations.length > 0 || pendingInterests.length > 0) {
+        const timer = setTimeout(() => {
+          console.log('[SYNC] Connection restored, syncing', pendingLocations.length, 'locations +', pendingInterests.length, 'interests');
+          showToast(`🔄 ${t('toast.connectionRestored')}`, 'info');
+          syncPendingItems();
+        }, 3000);
+        return () => clearTimeout(timer);
+      } else {
+        // No pending items but connection just came back — inform user
+        console.log('[SYNC] Connection restored, no pending items');
+      }
     }
   }, [firebaseConnected]);
 
@@ -1946,19 +1970,20 @@
     });
   }, [interestOptions, uncoveredInterests, cityCustomInterests, interestConfig]);
 
-  // Debug: log custom interests in allInterestOptions
+  // Debug: log custom interests in allInterestOptions (only when debug mode is on)
   useEffect(() => {
-    console.log(`[DEBUG-INTERESTS] allInterestOptions.length=${allInterestOptions.length} cityCustomInterests.length=${(cityCustomInterests||[]).length} customInterests.length=${(customInterests||[]).length}`);
-    console.log(`[DEBUG-INTERESTS] allInterestOptions IDs: ${allInterestOptions.map(o=>o.id).join(', ')}`);
+    if (!debugMode) return;
+    addDebugLog('INTEREST', `allInterestOptions.length=${allInterestOptions.length} cityCustomInterests.length=${(cityCustomInterests||[]).length} customInterests.length=${(customInterests||[]).length}`);
+    addDebugLog('INTEREST', `allInterestOptions IDs: ${allInterestOptions.map(o=>o.id).join(', ')}`);
     const customs = allInterestOptions.filter(o => o.id?.startsWith?.('custom_') || o.custom);
     if (customs.length > 0) {
-      console.log(`[DEBUG-INTERESTS] ${customs.length} custom found in allInterestOptions:`);
-      customs.forEach(c => console.log(`  - ${c.id}: "${c.label}" scope=${c.scope||'?'} privateOnly=${c.privateOnly} valid=${isInterestValid?.(c.id)}`));
+      addDebugLog('INTEREST', `${customs.length} custom found in allInterestOptions:`);
+      customs.forEach(c => addDebugLog('INTEREST', `  - ${c.id}: "${c.label}" scope=${c.scope||'?'} privateOnly=${c.privateOnly} valid=${isInterestValid?.(c.id)}`));
     } else if ((customInterests||[]).length > 0) {
-      console.log('[DEBUG-INTERESTS] BUG: customInterests exist but NOT in allInterestOptions!');
-      console.log('[DEBUG-INTERESTS] cityCustomInterests:', JSON.stringify((cityCustomInterests||[]).map(c=>({id:c.id,label:c.label}))));
+      addDebugLog('INTEREST', 'BUG: customInterests exist but NOT in allInterestOptions!');
+      addDebugLog('INTEREST', 'cityCustomInterests: ' + JSON.stringify((cityCustomInterests||[]).map(c=>({id:c.id,label:c.label}))));
     }
-  }, [customInterests, cityCustomInterests, allInterestOptions]);
+  }, [customInterests, cityCustomInterests, allInterestOptions, debugMode]);
   useEffect(() => {
     // Don't save if data hasn't loaded yet - prevents overwriting saved interests with empty state
     if (!isDataLoaded) return;
@@ -4016,7 +4041,7 @@
     
     // Save to Firebase (or localStorage fallback)
     if (isFirebaseAvailable && database) {
-      // DYNAMIC MODE: Firebase (shared)
+      // DYNAMIC MODE: Firebase (shared) — SDK handles offline caching automatically
       database.ref(`cities/${selectedCityId}/locations`).push(locationToAdd)
         .then(async (ref) => {
           // Firebase push succeeded (may be cached offline - SDK will sync when online)

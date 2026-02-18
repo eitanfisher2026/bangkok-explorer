@@ -724,7 +724,7 @@
                   const scopeOk = !(option.scope === 'local' && option.cityId && option.cityId !== selectedCityId);
                   const statusOk = interestStatus[option.id] !== false;
                   const isCustom = option.id?.startsWith?.('custom_') || option.custom;
-                  if (isCustom || debugMode) {
+                  if (debugMode) {
                     if (!valid || !scopeOk || !statusOk) {
                       console.log(`[INTEREST-FILTER] ${option.id} "${tLabel(option)}" HIDDEN: valid=${valid} scope=${option.scope||'global'}/${scopeOk} status=${interestStatus[option.id]}/${statusOk} privateOnly=${option.privateOnly}`);
                     }
@@ -3220,7 +3220,7 @@
               <div className="bg-gradient-to-r from-gray-50 to-slate-50 border-2 border-gray-400 rounded-xl p-3">
                 <h3 className="text-base font-bold text-gray-800 mb-1">{t("general.debugMode")}</h3>
                 <p className="text-xs text-gray-600 mb-2">
-                  Show activity log for debugging
+                  Show activity log for debugging (console F12)
                 </p>
                 
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -3236,8 +3236,23 @@
                 </label>
                 
                 {debugMode && (
-                  <div className="mt-2 text-xs text-gray-600">
-                    Debug messages will appear in console (F12)
+                  <div className="mt-2">
+                    <p className="text-xs text-gray-500 mb-1">Filter by category:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {['all', 'api', 'firebase', 'sync', 'route', 'interest', 'location', 'migration'].map(cat => (
+                        <button
+                          key={cat}
+                          onClick={() => toggleDebugCategory(cat)}
+                          className={`px-2 py-0.5 rounded text-xs font-bold transition ${
+                            debugCategories.includes(cat) || (cat !== 'all' && debugCategories.includes('all'))
+                              ? 'bg-gray-700 text-white' 
+                              : 'bg-gray-200 text-gray-500'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

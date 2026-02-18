@@ -1002,10 +1002,15 @@
                           
                           // Save in background
                           if (isFirebaseAvailable && database) {
-                            showToast(`✅ ${newInterestData.label} — ${t('interests.interestAdded')}`, 'success');
                             database.ref(`customInterests/${interestId}`).set(newInterestData)
-                              .then(() => console.log(`[INTEREST-SAVE] Saved to Firebase: ${interestId}`))
-                              .catch(e => console.error(`[INTEREST-SAVE] FAILED: ${interestId}`, e));
+                              .then(() => {
+                                console.log(`[INTEREST-SAVE] Saved to Firebase: ${interestId}`);
+                                showToast(`✅ ${newInterestData.label} — ${t('interests.interestAdded')}`, 'success');
+                              })
+                              .catch(e => {
+                                console.error(`[INTEREST-SAVE] FAILED: ${interestId}`, e);
+                                saveToPendingInterest(newInterestData, searchConfig);
+                              });
                             if (Object.keys(searchConfig).length > 0) {
                               database.ref(`settings/interestConfig/${interestId}`).set(searchConfig)
                                 .then(() => console.log(`[INTEREST-SAVE] Config saved: ${interestId}`))

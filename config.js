@@ -8,9 +8,9 @@ window.BKK = window.BKK || {};
 // App Version
 window.BKK.VERSION = '3.0.0';
 
-// Tile URL - English labels for all cities
+// Tile URL - English labels for all cities (Carto Voyager)
 window.BKK.getTileUrl = function() {
-  return 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  return 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
 };
 
 // App Name

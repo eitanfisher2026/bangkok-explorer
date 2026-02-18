@@ -2309,9 +2309,9 @@ window.BKK = window.BKK || {};
 // App Version
 window.BKK.VERSION = '3.0.0';
 
-// Tile URL - English labels for all cities
+// Tile URL - English labels for all cities (Carto Voyager)
 window.BKK.getTileUrl = function() {
-  return 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  return 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
 };
 
 // App Name
@@ -3793,9 +3793,22 @@ const CityExplorer = () => {
   const [helpContext, setHelpContext] = useState('main');
   
   // Debug Mode System
+  // Debug system with categories
+  // Categories: api, firebase, sync, route, interest, location, migration, all
   const [debugMode, setDebugMode] = useState(() => {
     return localStorage.getItem('bangkok_debug_mode') === 'true';
   });
+  const [debugCategories, setDebugCategories] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('bangkok_debug_categories') || '["all"]'); } catch(e) { return ['all']; }
+  });
+  const toggleDebugCategory = (cat) => {
+    setDebugCategories(prev => {
+      if (cat === 'all') return ['all'];
+      const without = prev.filter(c => c !== 'all');
+      const next = without.includes(cat) ? without.filter(c => c !== cat) : [...without, cat];
+      return next.length === 0 ? ['all'] : next;
+    });
+  };
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDataLoaded, setIsDataLoaded] = useState(false); // Tracks initial Firebase/localStorage load
   const dataLoadTracker = React.useRef({ locations: false, interests: false, config: false, status: false, routes: false });
@@ -3847,16 +3860,21 @@ const CityExplorer = () => {
   const [passwordInput, setPasswordInput] = useState('');
   const [newAdminPassword, setNewAdminPassword] = useState(''); // For setting new password in admin panel
   
-  // Add debug log entry (console only)
+  // Add debug log entry (console only, filtered by category)
   const addDebugLog = (category, message, data = null) => {
     if (!debugMode) return;
+    const cat = category.toLowerCase();
+    if (!debugCategories.includes('all') && !debugCategories.includes(cat)) return;
     console.log(`[${category}] ${message}`, data || '');
   };
   
-  // Save debug mode preference
+  // Save debug preferences
   useEffect(() => {
     localStorage.setItem('bangkok_debug_mode', debugMode.toString());
   }, [debugMode]);
+  useEffect(() => {
+    localStorage.setItem('bangkok_debug_categories', JSON.stringify(debugCategories));
+  }, [debugCategories]);
   
   // Help content - loaded from config.js
   const helpContent = window.BKK.helpContent;
@@ -4084,12 +4102,18 @@ const CityExplorer = () => {
 
   // Auto-sync when connection is restored
   useEffect(() => {
-    if (firebaseConnected && (pendingLocations.length > 0 || pendingInterests.length > 0) && isFirebaseAvailable && database) {
-      const timer = setTimeout(() => {
-        console.log('[SYNC] Connection restored, syncing', pendingLocations.length, 'pending locations');
-        syncPendingItems();
-      }, 3000);
-      return () => clearTimeout(timer);
+    if (firebaseConnected && isFirebaseAvailable && database) {
+      if (pendingLocations.length > 0 || pendingInterests.length > 0) {
+        const timer = setTimeout(() => {
+          console.log('[SYNC] Connection restored, syncing', pendingLocations.length, 'locations +', pendingInterests.length, 'interests');
+          showToast(`🔄 ${t('toast.connectionRestored')}`, 'info');
+          syncPendingItems();
+        }, 3000);
+        return () => clearTimeout(timer);
+      } else {
+        // No pending items but connection just came back — inform user
+        console.log('[SYNC] Connection restored, no pending items');
+      }
     }
   }, [firebaseConnected]);
 
@@ -5457,19 +5481,20 @@ const CityExplorer = () => {
     });
   }, [interestOptions, uncoveredInterests, cityCustomInterests, interestConfig]);
 
-  // Debug: log custom interests in allInterestOptions
+  // Debug: log custom interests in allInterestOptions (only when debug mode is on)
   useEffect(() => {
-    console.log(`[DEBUG-INTERESTS] allInterestOptions.length=${allInterestOptions.length} cityCustomInterests.length=${(cityCustomInterests||[]).length} customInterests.length=${(customInterests||[]).length}`);
-    console.log(`[DEBUG-INTERESTS] allInterestOptions IDs: ${allInterestOptions.map(o=>o.id).join(', ')}`);
+    if (!debugMode) return;
+    addDebugLog('INTEREST', `allInterestOptions.length=${allInterestOptions.length} cityCustomInterests.length=${(cityCustomInterests||[]).length} customInterests.length=${(customInterests||[]).length}`);
+    addDebugLog('INTEREST', `allInterestOptions IDs: ${allInterestOptions.map(o=>o.id).join(', ')}`);
     const customs = allInterestOptions.filter(o => o.id?.startsWith?.('custom_') || o.custom);
     if (customs.length > 0) {
-      console.log(`[DEBUG-INTERESTS] ${customs.length} custom found in allInterestOptions:`);
-      customs.forEach(c => console.log(`  - ${c.id}: "${c.label}" scope=${c.scope||'?'} privateOnly=${c.privateOnly} valid=${isInterestValid?.(c.id)}`));
+      addDebugLog('INTEREST', `${customs.length} custom found in allInterestOptions:`);
+      customs.forEach(c => addDebugLog('INTEREST', `  - ${c.id}: "${c.label}" scope=${c.scope||'?'} privateOnly=${c.privateOnly} valid=${isInterestValid?.(c.id)}`));
     } else if ((customInterests||[]).length > 0) {
-      console.log('[DEBUG-INTERESTS] BUG: customInterests exist but NOT in allInterestOptions!');
-      console.log('[DEBUG-INTERESTS] cityCustomInterests:', JSON.stringify((cityCustomInterests||[]).map(c=>({id:c.id,label:c.label}))));
+      addDebugLog('INTEREST', 'BUG: customInterests exist but NOT in allInterestOptions!');
+      addDebugLog('INTEREST', 'cityCustomInterests: ' + JSON.stringify((cityCustomInterests||[]).map(c=>({id:c.id,label:c.label}))));
     }
-  }, [customInterests, cityCustomInterests, allInterestOptions]);
+  }, [customInterests, cityCustomInterests, allInterestOptions, debugMode]);
   useEffect(() => {
     // Don't save if data hasn't loaded yet - prevents overwriting saved interests with empty state
     if (!isDataLoaded) return;
@@ -7527,7 +7552,7 @@ const CityExplorer = () => {
     
     // Save to Firebase (or localStorage fallback)
     if (isFirebaseAvailable && database) {
-      // DYNAMIC MODE: Firebase (shared)
+      // DYNAMIC MODE: Firebase (shared) — SDK handles offline caching automatically
       database.ref(`cities/${selectedCityId}/locations`).push(locationToAdd)
         .then(async (ref) => {
           // Firebase push succeeded (may be cached offline - SDK will sync when online)
@@ -8808,7 +8833,7 @@ const CityExplorer = () => {
                   const scopeOk = !(option.scope === 'local' && option.cityId && option.cityId !== selectedCityId);
                   const statusOk = interestStatus[option.id] !== false;
                   const isCustom = option.id?.startsWith?.('custom_') || option.custom;
-                  if (isCustom || debugMode) {
+                  if (debugMode) {
                     if (!valid || !scopeOk || !statusOk) {
                       console.log(`[INTEREST-FILTER] ${option.id} "${tLabel(option)}" HIDDEN: valid=${valid} scope=${option.scope||'global'}/${scopeOk} status=${interestStatus[option.id]}/${statusOk} privateOnly=${option.privateOnly}`);
                     }
@@ -11304,7 +11329,7 @@ const CityExplorer = () => {
               <div className="bg-gradient-to-r from-gray-50 to-slate-50 border-2 border-gray-400 rounded-xl p-3">
                 <h3 className="text-base font-bold text-gray-800 mb-1">{t("general.debugMode")}</h3>
                 <p className="text-xs text-gray-600 mb-2">
-                  Show activity log for debugging
+                  Show activity log for debugging (console F12)
                 </p>
                 
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -11320,8 +11345,23 @@ const CityExplorer = () => {
                 </label>
                 
                 {debugMode && (
-                  <div className="mt-2 text-xs text-gray-600">
-                    Debug messages will appear in console (F12)
+                  <div className="mt-2">
+                    <p className="text-xs text-gray-500 mb-1">Filter by category:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {['all', 'api', 'firebase', 'sync', 'route', 'interest', 'location', 'migration'].map(cat => (
+                        <button
+                          key={cat}
+                          onClick={() => toggleDebugCategory(cat)}
+                          className={`px-2 py-0.5 rounded text-xs font-bold transition ${
+                            debugCategories.includes(cat) || (cat !== 'all' && debugCategories.includes('all'))
+                              ? 'bg-gray-700 text-white' 
+                              : 'bg-gray-200 text-gray-500'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -12718,10 +12758,15 @@ const CityExplorer = () => {
                           
                           // Save in background
                           if (isFirebaseAvailable && database) {
-                            showToast(`✅ ${newInterestData.label} — ${t('interests.interestAdded')}`, 'success');
                             database.ref(`customInterests/${interestId}`).set(newInterestData)
-                              .then(() => console.log(`[INTEREST-SAVE] Saved to Firebase: ${interestId}`))
-                              .catch(e => console.error(`[INTEREST-SAVE] FAILED: ${interestId}`, e));
+                              .then(() => {
+                                console.log(`[INTEREST-SAVE] Saved to Firebase: ${interestId}`);
+                                showToast(`✅ ${newInterestData.label} — ${t('interests.interestAdded')}`, 'success');
+                              })
+                              .catch(e => {
+                                console.error(`[INTEREST-SAVE] FAILED: ${interestId}`, e);
+                                saveToPendingInterest(newInterestData, searchConfig);
+                              });
                             if (Object.keys(searchConfig).length > 0) {
                               database.ref(`settings/interestConfig/${interestId}`).set(searchConfig)
                                 .then(() => console.log(`[INTEREST-SAVE] Config saved: ${interestId}`))
