@@ -561,18 +561,36 @@ window.BKK.buildGoogleMapsUrls = (stops, origin, isCircular, maxPoints) => {
  * @returns {Promise<string[]>} - Array of 3 emoji suggestions
  */
 window.BKK.suggestEmojis = async function(description) {
-  if (!description || !description.trim()) return ['📍', '⭐', '🏷️'];
+  if (!description || !description.trim()) return ['📍', '⭐', '🏷️', '🔖', '📌', '🗂️'];
+  
+  // Track previous suggestions to avoid duplicates on "more"
+  const prevKey = '_lastEmojiSuggestions';
+  const prev = window[prevKey] || [];
   
   // Try Gemini API first
   try {
-    const result = await window.BKK._suggestEmojisGemini(description);
-    if (result && result.length >= 3) return result.slice(0, 3);
+    const avoidText = prev.length > 0 ? ` Do NOT use these: ${prev.join(' ')}` : '';
+    const result = await window.BKK._suggestEmojisGemini(description + avoidText);
+    if (result && result.length >= 3) {
+      const final = result.filter(e => !prev.includes(e)).slice(0, 6);
+      // Pad if filtered too many
+      if (final.length < 6) {
+        result.forEach(e => { if (!final.includes(e) && final.length < 6) final.push(e); });
+      }
+      window[prevKey] = final;
+      return final;
+    }
   } catch (e) {
     console.log('[EMOJI] Gemini failed, using local fallback:', e.message);
   }
   
-  // Fallback: local keyword mapping
-  return window.BKK._suggestEmojisLocal(description);
+  // Fallback: local keyword mapping with shuffle to get variety on "more"
+  const all = window.BKK._suggestEmojisLocal(description, true); // get all matches
+  // Filter out previously shown
+  const fresh = all.filter(e => !prev.includes(e));
+  const result = fresh.length >= 6 ? fresh.slice(0, 6) : all.sort(() => Math.random() - 0.5).slice(0, 6);
+  window[prevKey] = result;
+  return result;
 };
 
 /**
@@ -614,7 +632,7 @@ window.BKK._suggestEmojisGemini = async function(description) {
 /**
  * Local keyword-based emoji suggestion (offline fallback)
  */
-window.BKK._suggestEmojisLocal = function(description) {
+window.BKK._suggestEmojisLocal = function(description, returnAll) {
   const desc = description.toLowerCase();
   
   const mapping = [
@@ -648,13 +666,13 @@ window.BKK._suggestEmojisLocal = function(description) {
     { keys: ['קניות','shopping','mall','קניון'], emojis: ['🛍️','🏬','💳'] },
     { keys: ['שוק','market','bazaar','שוק פשפשים'], emojis: ['🏪','🧺','🏬'] },
     // Services & Public
-    { keys: ['שירות','service','ציבורי','public','municipal','עירי'], emojis: ['🏛️','🏥','📋','🔧'] },
+    { keys: ['שירות','שרות','service','ציבורי','public','municipal','עירי','ממשל','government','עירייה','רשות'], emojis: ['🏛️','🏥','📋','🏢','🔧','⚖️'] },
     { keys: ['בית חולים','hospital','health','בריאות','medical','רפואי'], emojis: ['🏥','⚕️','💊'] },
     { keys: ['police','משטרה','emergency','חירום'], emojis: ['🚔','🚨','👮'] },
     { keys: ['school','בית ספר','education','חינוך','university','אוניברסיטה'], emojis: ['🏫','📚','🎓'] },
     { keys: ['transport','תחבורה','bus','אוטובוס','train','רכבת','metro'], emojis: ['🚌','🚆','🚇','🚊'] },
     { keys: ['parking','חני','חנייה'], emojis: ['🅿️','🚗','🏎️'] },
-    { keys: ['toilet','שירותים','wc','restroom','bathroom'], emojis: ['🚻','🚽','🧻'] },
+    { keys: ['toilet','שירותים','שרותים','שרותיים','wc','restroom','bathroom','נוחיות'], emojis: ['🚻','🚽','🧻','🚾'] },
     // Sports & Activities
     { keys: ['sport','ספורט','gym','חדר כושר','fitness'], emojis: ['⚽','🏋️','🤸'] },
     { keys: ['yoga','יוגה','meditation','מדיטציה','wellness','spa'], emojis: ['🧘','💆','🧖'] },
@@ -694,11 +712,24 @@ window.BKK._suggestEmojisLocal = function(description) {
     { keys: ['celebration','חגיגה','party','מסיבה','birthday','יום הולדת'], emojis: ['🎉','🎊','🥳'] },
   ];
   
-  // Score each mapping entry
+  // Score each mapping entry - use prefix matching for Hebrew morphology
   const scored = mapping.map(entry => {
     let score = 0;
     entry.keys.forEach(key => {
-      if (desc.includes(key)) score += key.length; // longer match = higher score
+      // Exact substring match
+      if (desc.includes(key)) {
+        score += key.length * 2;
+      } else if (key.length >= 3) {
+        // Prefix match: "ציבורי" matches "ציבוריים", "שירות" matches "שירותים"
+        const keyRoot = key.substring(0, Math.max(3, Math.ceil(key.length * 0.7)));
+        const descWords = desc.split(/[\s,;.]+/);
+        for (const word of descWords) {
+          if (word.startsWith(keyRoot) || keyRoot.startsWith(word.substring(0, 3))) {
+            score += key.length;
+            break;
+          }
+        }
+      }
     });
     return { ...entry, score };
   }).filter(e => e.score > 0).sort((a, b) => b.score - a.score);
@@ -711,7 +742,7 @@ window.BKK._suggestEmojisLocal = function(description) {
       if (!seen.has(emoji)) {
         seen.add(emoji);
         result.push(emoji);
-        if (result.length >= 6) return result;
+        if (!returnAll && result.length >= 6) return result;
       }
     }
   }

@@ -489,9 +489,16 @@
   };
   // Monitor Firebase connection state
   useEffect(() => {
-    const handler = (e) => setFirebaseConnected(e.detail.connected);
+    let wasDisconnected = false;
+    const handler = (e) => {
+      const connected = e.detail.connected;
+      if (connected && wasDisconnected) {
+        showToast(`✅ ${t('toast.connectionRestored')}`, 'success');
+      }
+      wasDisconnected = !connected;
+      setFirebaseConnected(connected);
+    };
     window.addEventListener('firebase-connection', handler);
-    // Set initial state
     setFirebaseConnected(!!window.BKK.firebaseConnected);
     return () => window.removeEventListener('firebase-connection', handler);
   }, []);
@@ -3546,8 +3553,8 @@
           addDebugLog('ADD', `Added "${place.name}" to Firebase (server verified)`);
           showToast(`✅ "${place.name}" ${t("places.addedToYourList")}`, 'success');
         } catch (e) {
-          // Server unreachable — save to pending
-          saveToPending(locationToAdd);
+          // Firebase SDK has it cached, will auto-sync
+          showToast(`💾 "${place.name}" — ${t('toast.savedWillSync')}`, 'warning', 'sticky');
         }
         setAddingPlaceIds(prev => prev.filter(id => id !== placeId));
         return true;
@@ -3970,7 +3977,7 @@
       if (outsideArea) {
         const areaNames = selectedAreas.map(aId => areaOptions.find(a => a.id === aId)).filter(Boolean).map(a => tLabel(a)).join(', ');
         showToast(
-          `${t("toast.outsideAreaWarning")} (${areaNames})`,
+          `⚠️ ${locationToAdd.name} — ${t("toast.outsideAreaWarning")} (${areaNames})`,
           'warning'
         );
       }
@@ -4007,7 +4014,7 @@
       // DYNAMIC MODE: Firebase (shared)
       database.ref(`cities/${selectedCityId}/locations`).push(locationToAdd)
         .then(async (ref) => {
-          // Verify REAL server save by writing a server timestamp (can't be faked by cache)
+          // Firebase push succeeded (may be cached offline - SDK will sync when online)
           try {
             const verifyRef = database.ref(`_verify/${ref.key}`);
             await Promise.race([
@@ -4017,9 +4024,9 @@
             console.log('[FIREBASE] Location VERIFIED on server:', ref.key);
             showToast(`✅ ${locationToAdd.name} — ${t('places.placeAddedShared')}`, 'success');
           } catch (verifyErr) {
-            // Server unreachable — save to pending queue
-            console.warn('[FIREBASE] Server unreachable, saving to pending:', verifyErr.message);
-            saveToPending(locationToAdd);
+            // Server unreachable but Firebase SDK has the data cached - it WILL sync when online
+            console.warn('[FIREBASE] Saved to Firebase cache (will auto-sync):', verifyErr.message);
+            showToast(`💾 ${locationToAdd.name} — ${t('toast.savedWillSync')}`, 'warning', 'sticky');
           }
           
           // If staying open, switch to edit mode
@@ -4031,8 +4038,8 @@
           }
         })
         .catch((error) => {
-          // Firebase push itself failed — save to pending queue
-          console.error('[FIREBASE] Error adding location, saving to pending:', error);
+          // Firebase push itself failed — this shouldn't happen even offline, but save to pending as safety net
+          console.error('[FIREBASE] Push failed completely, saving to pending:', error);
           saveToPending(locationToAdd);
         });
     } else {
@@ -4137,7 +4144,7 @@
       if (outsideArea) {
         const areaNames = selectedAreas.map(aId => areaOptions.find(a => a.id === aId)).filter(Boolean).map(a => tLabel(a)).join(', ');
         showToast(
-          `${t("toast.outsideAreaWarning")} (${areaNames})`,
+          `⚠️ ${locationToAdd.name} — ${t("toast.outsideAreaWarning")} (${areaNames})`,
           'warning'
         );
       }
@@ -4172,7 +4179,7 @@
               console.log('[FIREBASE] Location update VERIFIED on server');
               showToast(`✅ ${updatedLocation.name} — ${t('places.placeUpdated')}`, 'success');
             } catch (e) {
-              showToast(`⚠️ ${updatedLocation.name} — ${t('toast.savedLocalOnly')}`, 'warning', 'sticky');
+              showToast(`💾 ${updatedLocation.name} — ${t('toast.savedWillSync')}`, 'warning', 'sticky');
             }
             if (!closeAfter) {
               setEditingLocation({ ...updatedLocation, firebaseId });

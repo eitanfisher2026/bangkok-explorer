@@ -780,48 +780,47 @@
                       style={{ direction: 'ltr' }}
                     />
                   </div>
-                  
-                  {/* Private Only toggle - only for custom interests */}
-                  {!newInterest.builtIn && (
-                  <div className="mt-2 pt-2 border-t border-blue-200 space-y-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={newInterest.privateOnly || false}
-                        onChange={(e) => setNewInterest({...newInterest, privateOnly: e.target.checked})}
-                        className="rounded" style={{ accentColor: "#7c3aed", width: "16px", height: "16px" }}
-                      />
-                      <span className="text-xs font-bold text-blue-800">{`🔒 ${t("interests.privateInterest")}`}</span>
-                      <span className="text-[9px] text-gray-500">{`— ${t("interests.myPlacesOnly")}`}</span>
-                    </label>
-                    
-                    {/* Scope: global / local */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-blue-800">🌍</span>
-                      <select
-                        value={newInterest.scope || 'global'}
-                        onChange={(e) => setNewInterest({...newInterest, scope: e.target.value, cityId: e.target.value === 'local' ? selectedCityId : ''})}
-                        className="p-1 text-xs border rounded flex-1"
-                      >
-                        <option value="global">{t('interests.scopeGlobal')}</option>
-                        <option value="local">{t('interests.scopeLocal')}</option>
-                      </select>
-                      {newInterest.scope === 'local' && (
-                        <select
-                          value={newInterest.cityId || selectedCityId}
-                          onChange={(e) => setNewInterest({...newInterest, cityId: e.target.value})}
-                          className="p-1 text-xs border rounded"
-                        >
-                          {Object.values(window.BKK.cities || {}).map(city => (
-                            <option key={city.id} value={city.id}>{city.icon} {tLabel(city)}</option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-                  </div>
-                  )}
                 </div>
                 </div>{/* close inner wrapper */}
+
+                {/* Private Only toggle + Scope - OUTSIDE search config, always editable */}
+                {!newInterest.builtIn && (
+                <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <button type="button"
+                      onClick={() => setNewInterest({...newInterest, privateOnly: !newInterest.privateOnly})}
+                      className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border transition-all ${newInterest.privateOnly ? 'border-purple-400 bg-purple-100 text-purple-800' : 'border-gray-200 bg-white text-gray-400'}`}
+                    >
+                      {newInterest.privateOnly ? '✏️' : '○'} {t("interests.privateInterest")}
+                    </button>
+                    <span className="text-[9px] text-gray-500">{newInterest.privateOnly ? t("interests.myPlacesOnly") : t("interests.searchesGoogle")}</span>
+                  </div>
+                  
+                  {/* Scope: global / local */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-purple-800">🌍</span>
+                    <select
+                      value={newInterest.scope || 'global'}
+                      onChange={(e) => setNewInterest({...newInterest, scope: e.target.value, cityId: e.target.value === 'local' ? selectedCityId : ''})}
+                      className="p-1 text-xs border rounded flex-1"
+                    >
+                      <option value="global">{t('interests.scopeGlobal')}</option>
+                      <option value="local">{t('interests.scopeLocal')}</option>
+                    </select>
+                    {newInterest.scope === 'local' && (
+                      <select
+                        value={newInterest.cityId || selectedCityId}
+                        onChange={(e) => setNewInterest({...newInterest, cityId: e.target.value})}
+                        className="p-1 text-xs border rounded"
+                      >
+                        {Object.values(window.BKK.cities || {}).map(city => (
+                          <option key={city.id} value={city.id}>{city.icon} {tLabel(city)}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                </div>
+                )}
 
                 {/* Status toggles - hidden for locked non-admin */}
                 {!(editingCustomInterest?.locked && !isUnlocked) && (
@@ -903,6 +902,9 @@
                     <button
                       onClick={async () => {
                         if (!newInterest.label.trim()) return;
+                        // Prevent double-click
+                        if (window._savingInterest) return;
+                        window._savingInterest = true;
                         
                         const searchConfig = {};
                         if (newInterest.searchMode === 'text' && newInterest.textSearch) {
@@ -961,13 +963,22 @@
                           
                           showToast(t('interests.interestUpdated'), 'success');
                         } else {
-                          // ADD MODE
+                          // ADD MODE - check for duplicate name
+                          const dupCheck = customInterests.find(i => 
+                            i.label?.toLowerCase().trim() === newInterest.label.toLowerCase().trim() ||
+                            i.name?.toLowerCase().trim() === newInterest.label.toLowerCase().trim()
+                          );
+                          if (dupCheck) {
+                            showToast(`⚠️ "${newInterest.label}" ${t('interests.alreadyExists')}`, 'warning');
+                            return;
+                          }
                           const interestId = 'custom_' + Date.now();
                           const newInterestData = {
                             id: interestId,
                             label: newInterest.label.trim(),
                             name: newInterest.label.trim(),
                             icon: newInterest.icon || '📍',
+                            custom: true,
                             privateOnly: newInterest.privateOnly || false,
                             inProgress: newInterest.inProgress || false,
                             locked: newInterest.locked || false,
@@ -975,36 +986,50 @@
                             cityId: newInterest.scope === 'local' ? (newInterest.cityId || selectedCityId) : ''
                           };
                           
+                          // Close dialog immediately
+                          setShowAddInterestDialog(false);
+                          setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, inProgress: false, locked: false, scope: 'global' });
+                          setEditingCustomInterest(null);
+                          
+                          // Add to local state immediately so it shows in UI
+                          setCustomInterests(prev => {
+                            if (prev.some(i => i.id === interestId)) return prev;
+                            return [...prev, newInterestData];
+                          });
+                          
+                          // Save in background
                           if (isFirebaseAvailable && database) {
-                            try {
-                              await database.ref(`customInterests/${interestId}`).set(newInterestData);
-                              if (Object.keys(searchConfig).length > 0) {
-                                await database.ref(`settings/interestConfig/${interestId}`).set(searchConfig);
+                            (async () => {
+                              try {
+                                await database.ref(`customInterests/${interestId}`).set(newInterestData);
+                                if (Object.keys(searchConfig).length > 0) {
+                                  await database.ref(`settings/interestConfig/${interestId}`).set(searchConfig);
+                                }
+                                const verifyRef = database.ref(`_verify/${interestId}`);
+                                await Promise.race([
+                                  verifyRef.set(firebase.database.ServerValue.TIMESTAMP).then(() => verifyRef.remove()),
+                                  new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000))
+                                ]);
+                                showToast(`✅ ${newInterestData.label} — ${t('toast.interestAdded')}`, 'success');
+                              } catch(e) {
+                                // Firebase SDK has it cached, will auto-sync when online
+                                console.warn('[FIREBASE] Interest saved to cache (will auto-sync):', e.message);
+                                showToast(`💾 ${newInterestData.label} — ${t('toast.savedWillSync')}`, 'warning', 'sticky');
                               }
-                              // Verify server save
-                              const verifyRef = database.ref(`_verify/${interestId}`);
-                              await Promise.race([
-                                verifyRef.set(firebase.database.ServerValue.TIMESTAMP).then(() => verifyRef.remove()),
-                                new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000))
-                              ]);
-                              showToast(`✅ ${newInterestData.label} — ${t('toast.interestAdded')}`, 'success');
-                            } catch(e) {
-                              console.warn('[FIREBASE] Interest save failed, saving to pending:', e.message);
-                              saveToPendingInterest(newInterestData, searchConfig);
-                            }
+                            })();
                           } else {
                             const updated = [...customInterests, newInterestData];
                             setCustomInterests(updated);
                             localStorage.setItem('bangkok_custom_interests', JSON.stringify(updated));
+                            showToast(`✅ ${newInterestData.label} — ${t('toast.interestAdded')}`, 'success');
                           }
-                          
-                          showToast(t('interests.interestAdded'), 'success');
+                          return; // Skip the setShow/setNew below since we already did it
                         }
                         
                         setShowAddInterestDialog(false);
-                        showToast(editingCustomInterest ? t('toast.interestUpdated') : t('toast.interestAdded'), 'success');
                         setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, inProgress: false, locked: false, scope: 'global' });
                         setEditingCustomInterest(null);
+                        window._savingInterest = false;
                       }}
                       disabled={!newInterest.label?.trim()}
                       className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${

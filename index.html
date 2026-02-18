@@ -711,6 +711,7 @@ interests: {
   addInterest: 'הוסף תחום עניין',
   interestName: 'שם התחום',
   interestAdded: 'התחום נוסף!',
+  alreadyExists: 'כבר קיים!',
   interestUpdated: 'התחום עודכן!',
   interestDeleted: 'תחום נמחק!',
   interestInvalid: 'תחום לא וולידי',
@@ -724,10 +725,11 @@ interests: {
   customCount: 'תחומים מותאמים',
   activeInterests: 'תחומים פעילים',
   disabledInterests: 'תחומים מושבתים',
-  privateInterest: 'תחום פרטי',
+  privateInterest: 'ידני',
   scopeGlobal: 'גלובלי — כל הערים',
   scopeLocal: 'מקומי — עיר ספציפית',
-  myPlacesOnly: 'רק מקומות שלי, בלי פנייה לגוגל',
+  myPlacesOnly: 'רק מקומות שהוספת ידנית',
+  searchesGoogle: 'מחפש גם בגוגל',
   interestStatus: 'סטטוס תחומים',
   categorySearch: 'חיפוש קטגוריה (types)',
   textSearch: 'חיפוש טקסט (query)',
@@ -745,6 +747,8 @@ toast: {
   offlineSaveWarning: 'אין חיבור לשרת! המקום יישמר רק מקומית ויאבד בסגירה',
   offline: 'אין חיבור לשרת',
   savedPending: 'נשמר מקומית — יסונכרן כשהחיבור יחזור',
+  savedWillSync: 'נשמר — יסונכרן אוטומטית כשהחיבור יחזור',
+  connectionRestored: 'החיבור לשרת חזר — הנתונים מסונכרנים',
   syncedPending: '{count} מקומות סונכרנו בהצלחה לשרת',
   stillPending: 'מקומות עדיין ממתינים לסנכרון',
   pendingSync: 'מקומות ממתינים לסנכרון',
@@ -903,7 +907,7 @@ help: {
   emoji: {
     suggestTitle: 'הצע אייקון',
     suggest: 'הצע',
-    describePlaceholder: 'תאר מה האייקון צריך לייצג...',
+    describePlaceholder: 'תאר באנגלית, לדוגמה: public toilet, street food...',
     searching: 'מחפש',
     typeAndSearch: 'הקלד תיאור ולחץ חיפוש',
     moreOptions: 'הבא עוד',
@@ -1357,6 +1361,7 @@ interests: {
   addInterest: 'Add interest',
   interestName: 'Interest name',
   interestAdded: 'Interest added!',
+  alreadyExists: 'already exists!',
   interestUpdated: 'Interest updated!',
   interestDeleted: 'Interest deleted!',
   interestInvalid: 'Invalid interest',
@@ -1370,10 +1375,11 @@ interests: {
   customCount: 'Custom interests',
   activeInterests: 'Active interests',
   disabledInterests: 'Disabled interests',
-  privateInterest: 'Private interest',
+  privateInterest: 'Manual',
   scopeGlobal: 'Global — all cities',
   scopeLocal: 'Local — specific city',
-  myPlacesOnly: 'My places only, no Google',
+  myPlacesOnly: 'Only manually added places',
+  searchesGoogle: 'Also searches Google',
   interestStatus: 'Interest status',
   categorySearch: 'Category Search (types)',
   textSearch: 'Text Search (query)',
@@ -1390,6 +1396,8 @@ toast: {
   offlineSaveWarning: 'No server connection! Place will be saved locally only and lost on close',
   offline: 'No server connection',
   savedPending: 'Saved locally — will sync when connection returns',
+  savedWillSync: 'Saved — will auto-sync when connection returns',
+  connectionRestored: 'Server connection restored — data syncing',
   syncedPending: '{count} places synced to server',
   stillPending: 'places still waiting to sync',
   pendingSync: 'places waiting to sync',
@@ -3147,18 +3155,36 @@ window.BKK.buildGoogleMapsUrls = (stops, origin, isCircular, maxPoints) => {
  * @returns {Promise<string[]>} - Array of 3 emoji suggestions
  */
 window.BKK.suggestEmojis = async function(description) {
-  if (!description || !description.trim()) return ['📍', '⭐', '🏷️'];
+  if (!description || !description.trim()) return ['📍', '⭐', '🏷️', '🔖', '📌', '🗂️'];
+  
+  // Track previous suggestions to avoid duplicates on "more"
+  const prevKey = '_lastEmojiSuggestions';
+  const prev = window[prevKey] || [];
   
   // Try Gemini API first
   try {
-    const result = await window.BKK._suggestEmojisGemini(description);
-    if (result && result.length >= 3) return result.slice(0, 3);
+    const avoidText = prev.length > 0 ? ` Do NOT use these: ${prev.join(' ')}` : '';
+    const result = await window.BKK._suggestEmojisGemini(description + avoidText);
+    if (result && result.length >= 3) {
+      const final = result.filter(e => !prev.includes(e)).slice(0, 6);
+      // Pad if filtered too many
+      if (final.length < 6) {
+        result.forEach(e => { if (!final.includes(e) && final.length < 6) final.push(e); });
+      }
+      window[prevKey] = final;
+      return final;
+    }
   } catch (e) {
     console.log('[EMOJI] Gemini failed, using local fallback:', e.message);
   }
   
-  // Fallback: local keyword mapping
-  return window.BKK._suggestEmojisLocal(description);
+  // Fallback: local keyword mapping with shuffle to get variety on "more"
+  const all = window.BKK._suggestEmojisLocal(description, true); // get all matches
+  // Filter out previously shown
+  const fresh = all.filter(e => !prev.includes(e));
+  const result = fresh.length >= 6 ? fresh.slice(0, 6) : all.sort(() => Math.random() - 0.5).slice(0, 6);
+  window[prevKey] = result;
+  return result;
 };
 
 /**
@@ -3200,7 +3226,7 @@ window.BKK._suggestEmojisGemini = async function(description) {
 /**
  * Local keyword-based emoji suggestion (offline fallback)
  */
-window.BKK._suggestEmojisLocal = function(description) {
+window.BKK._suggestEmojisLocal = function(description, returnAll) {
   const desc = description.toLowerCase();
   
   const mapping = [
@@ -3234,13 +3260,13 @@ window.BKK._suggestEmojisLocal = function(description) {
     { keys: ['קניות','shopping','mall','קניון'], emojis: ['🛍️','🏬','💳'] },
     { keys: ['שוק','market','bazaar','שוק פשפשים'], emojis: ['🏪','🧺','🏬'] },
     // Services & Public
-    { keys: ['שירות','service','ציבורי','public','municipal','עירי'], emojis: ['🏛️','🏥','📋','🔧'] },
+    { keys: ['שירות','שרות','service','ציבורי','public','municipal','עירי','ממשל','government','עירייה','רשות'], emojis: ['🏛️','🏥','📋','🏢','🔧','⚖️'] },
     { keys: ['בית חולים','hospital','health','בריאות','medical','רפואי'], emojis: ['🏥','⚕️','💊'] },
     { keys: ['police','משטרה','emergency','חירום'], emojis: ['🚔','🚨','👮'] },
     { keys: ['school','בית ספר','education','חינוך','university','אוניברסיטה'], emojis: ['🏫','📚','🎓'] },
     { keys: ['transport','תחבורה','bus','אוטובוס','train','רכבת','metro'], emojis: ['🚌','🚆','🚇','🚊'] },
     { keys: ['parking','חני','חנייה'], emojis: ['🅿️','🚗','🏎️'] },
-    { keys: ['toilet','שירותים','wc','restroom','bathroom'], emojis: ['🚻','🚽','🧻'] },
+    { keys: ['toilet','שירותים','שרותים','שרותיים','wc','restroom','bathroom','נוחיות'], emojis: ['🚻','🚽','🧻','🚾'] },
     // Sports & Activities
     { keys: ['sport','ספורט','gym','חדר כושר','fitness'], emojis: ['⚽','🏋️','🤸'] },
     { keys: ['yoga','יוגה','meditation','מדיטציה','wellness','spa'], emojis: ['🧘','💆','🧖'] },
@@ -3280,11 +3306,24 @@ window.BKK._suggestEmojisLocal = function(description) {
     { keys: ['celebration','חגיגה','party','מסיבה','birthday','יום הולדת'], emojis: ['🎉','🎊','🥳'] },
   ];
   
-  // Score each mapping entry
+  // Score each mapping entry - use prefix matching for Hebrew morphology
   const scored = mapping.map(entry => {
     let score = 0;
     entry.keys.forEach(key => {
-      if (desc.includes(key)) score += key.length; // longer match = higher score
+      // Exact substring match
+      if (desc.includes(key)) {
+        score += key.length * 2;
+      } else if (key.length >= 3) {
+        // Prefix match: "ציבורי" matches "ציבוריים", "שירות" matches "שירותים"
+        const keyRoot = key.substring(0, Math.max(3, Math.ceil(key.length * 0.7)));
+        const descWords = desc.split(/[\s,;.]+/);
+        for (const word of descWords) {
+          if (word.startsWith(keyRoot) || keyRoot.startsWith(word.substring(0, 3))) {
+            score += key.length;
+            break;
+          }
+        }
+      }
     });
     return { ...entry, score };
   }).filter(e => e.score > 0).sort((a, b) => b.score - a.score);
@@ -3297,7 +3336,7 @@ window.BKK._suggestEmojisLocal = function(description) {
       if (!seen.has(emoji)) {
         seen.add(emoji);
         result.push(emoji);
-        if (result.length >= 6) return result;
+        if (!returnAll && result.length >= 6) return result;
       }
     }
   }
@@ -3883,9 +3922,16 @@ const CityExplorer = () => {
   };
   // Monitor Firebase connection state
   useEffect(() => {
-    const handler = (e) => setFirebaseConnected(e.detail.connected);
+    let wasDisconnected = false;
+    const handler = (e) => {
+      const connected = e.detail.connected;
+      if (connected && wasDisconnected) {
+        showToast(`✅ ${t('toast.connectionRestored')}`, 'success');
+      }
+      wasDisconnected = !connected;
+      setFirebaseConnected(connected);
+    };
     window.addEventListener('firebase-connection', handler);
-    // Set initial state
     setFirebaseConnected(!!window.BKK.firebaseConnected);
     return () => window.removeEventListener('firebase-connection', handler);
   }, []);
@@ -6940,8 +6986,8 @@ const CityExplorer = () => {
           addDebugLog('ADD', `Added "${place.name}" to Firebase (server verified)`);
           showToast(`✅ "${place.name}" ${t("places.addedToYourList")}`, 'success');
         } catch (e) {
-          // Server unreachable — save to pending
-          saveToPending(locationToAdd);
+          // Firebase SDK has it cached, will auto-sync
+          showToast(`💾 "${place.name}" — ${t('toast.savedWillSync')}`, 'warning', 'sticky');
         }
         setAddingPlaceIds(prev => prev.filter(id => id !== placeId));
         return true;
@@ -7364,7 +7410,7 @@ const CityExplorer = () => {
       if (outsideArea) {
         const areaNames = selectedAreas.map(aId => areaOptions.find(a => a.id === aId)).filter(Boolean).map(a => tLabel(a)).join(', ');
         showToast(
-          `${t("toast.outsideAreaWarning")} (${areaNames})`,
+          `⚠️ ${locationToAdd.name} — ${t("toast.outsideAreaWarning")} (${areaNames})`,
           'warning'
         );
       }
@@ -7401,7 +7447,7 @@ const CityExplorer = () => {
       // DYNAMIC MODE: Firebase (shared)
       database.ref(`cities/${selectedCityId}/locations`).push(locationToAdd)
         .then(async (ref) => {
-          // Verify REAL server save by writing a server timestamp (can't be faked by cache)
+          // Firebase push succeeded (may be cached offline - SDK will sync when online)
           try {
             const verifyRef = database.ref(`_verify/${ref.key}`);
             await Promise.race([
@@ -7411,9 +7457,9 @@ const CityExplorer = () => {
             console.log('[FIREBASE] Location VERIFIED on server:', ref.key);
             showToast(`✅ ${locationToAdd.name} — ${t('places.placeAddedShared')}`, 'success');
           } catch (verifyErr) {
-            // Server unreachable — save to pending queue
-            console.warn('[FIREBASE] Server unreachable, saving to pending:', verifyErr.message);
-            saveToPending(locationToAdd);
+            // Server unreachable but Firebase SDK has the data cached - it WILL sync when online
+            console.warn('[FIREBASE] Saved to Firebase cache (will auto-sync):', verifyErr.message);
+            showToast(`💾 ${locationToAdd.name} — ${t('toast.savedWillSync')}`, 'warning', 'sticky');
           }
           
           // If staying open, switch to edit mode
@@ -7425,8 +7471,8 @@ const CityExplorer = () => {
           }
         })
         .catch((error) => {
-          // Firebase push itself failed — save to pending queue
-          console.error('[FIREBASE] Error adding location, saving to pending:', error);
+          // Firebase push itself failed — this shouldn't happen even offline, but save to pending as safety net
+          console.error('[FIREBASE] Push failed completely, saving to pending:', error);
           saveToPending(locationToAdd);
         });
     } else {
@@ -7531,7 +7577,7 @@ const CityExplorer = () => {
       if (outsideArea) {
         const areaNames = selectedAreas.map(aId => areaOptions.find(a => a.id === aId)).filter(Boolean).map(a => tLabel(a)).join(', ');
         showToast(
-          `${t("toast.outsideAreaWarning")} (${areaNames})`,
+          `⚠️ ${locationToAdd.name} — ${t("toast.outsideAreaWarning")} (${areaNames})`,
           'warning'
         );
       }
@@ -7566,7 +7612,7 @@ const CityExplorer = () => {
               console.log('[FIREBASE] Location update VERIFIED on server');
               showToast(`✅ ${updatedLocation.name} — ${t('places.placeUpdated')}`, 'success');
             } catch (e) {
-              showToast(`⚠️ ${updatedLocation.name} — ${t('toast.savedLocalOnly')}`, 'warning', 'sticky');
+              showToast(`💾 ${updatedLocation.name} — ${t('toast.savedWillSync')}`, 'warning', 'sticky');
             }
             if (!closeAfter) {
               setEditingLocation({ ...updatedLocation, firebaseId });
@@ -12301,48 +12347,47 @@ const CityExplorer = () => {
                       style={{ direction: 'ltr' }}
                     />
                   </div>
-                  
-                  {/* Private Only toggle - only for custom interests */}
-                  {!newInterest.builtIn && (
-                  <div className="mt-2 pt-2 border-t border-blue-200 space-y-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={newInterest.privateOnly || false}
-                        onChange={(e) => setNewInterest({...newInterest, privateOnly: e.target.checked})}
-                        className="rounded" style={{ accentColor: "#7c3aed", width: "16px", height: "16px" }}
-                      />
-                      <span className="text-xs font-bold text-blue-800">{`🔒 ${t("interests.privateInterest")}`}</span>
-                      <span className="text-[9px] text-gray-500">{`— ${t("interests.myPlacesOnly")}`}</span>
-                    </label>
-                    
-                    {/* Scope: global / local */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-blue-800">🌍</span>
-                      <select
-                        value={newInterest.scope || 'global'}
-                        onChange={(e) => setNewInterest({...newInterest, scope: e.target.value, cityId: e.target.value === 'local' ? selectedCityId : ''})}
-                        className="p-1 text-xs border rounded flex-1"
-                      >
-                        <option value="global">{t('interests.scopeGlobal')}</option>
-                        <option value="local">{t('interests.scopeLocal')}</option>
-                      </select>
-                      {newInterest.scope === 'local' && (
-                        <select
-                          value={newInterest.cityId || selectedCityId}
-                          onChange={(e) => setNewInterest({...newInterest, cityId: e.target.value})}
-                          className="p-1 text-xs border rounded"
-                        >
-                          {Object.values(window.BKK.cities || {}).map(city => (
-                            <option key={city.id} value={city.id}>{city.icon} {tLabel(city)}</option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-                  </div>
-                  )}
                 </div>
                 </div>{/* close inner wrapper */}
+
+                {/* Private Only toggle + Scope - OUTSIDE search config, always editable */}
+                {!newInterest.builtIn && (
+                <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <button type="button"
+                      onClick={() => setNewInterest({...newInterest, privateOnly: !newInterest.privateOnly})}
+                      className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border transition-all ${newInterest.privateOnly ? 'border-purple-400 bg-purple-100 text-purple-800' : 'border-gray-200 bg-white text-gray-400'}`}
+                    >
+                      {newInterest.privateOnly ? '✏️' : '○'} {t("interests.privateInterest")}
+                    </button>
+                    <span className="text-[9px] text-gray-500">{newInterest.privateOnly ? t("interests.myPlacesOnly") : t("interests.searchesGoogle")}</span>
+                  </div>
+                  
+                  {/* Scope: global / local */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-purple-800">🌍</span>
+                    <select
+                      value={newInterest.scope || 'global'}
+                      onChange={(e) => setNewInterest({...newInterest, scope: e.target.value, cityId: e.target.value === 'local' ? selectedCityId : ''})}
+                      className="p-1 text-xs border rounded flex-1"
+                    >
+                      <option value="global">{t('interests.scopeGlobal')}</option>
+                      <option value="local">{t('interests.scopeLocal')}</option>
+                    </select>
+                    {newInterest.scope === 'local' && (
+                      <select
+                        value={newInterest.cityId || selectedCityId}
+                        onChange={(e) => setNewInterest({...newInterest, cityId: e.target.value})}
+                        className="p-1 text-xs border rounded"
+                      >
+                        {Object.values(window.BKK.cities || {}).map(city => (
+                          <option key={city.id} value={city.id}>{city.icon} {tLabel(city)}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                </div>
+                )}
 
                 {/* Status toggles - hidden for locked non-admin */}
                 {!(editingCustomInterest?.locked && !isUnlocked) && (
@@ -12424,6 +12469,9 @@ const CityExplorer = () => {
                     <button
                       onClick={async () => {
                         if (!newInterest.label.trim()) return;
+                        // Prevent double-click
+                        if (window._savingInterest) return;
+                        window._savingInterest = true;
                         
                         const searchConfig = {};
                         if (newInterest.searchMode === 'text' && newInterest.textSearch) {
@@ -12482,13 +12530,22 @@ const CityExplorer = () => {
                           
                           showToast(t('interests.interestUpdated'), 'success');
                         } else {
-                          // ADD MODE
+                          // ADD MODE - check for duplicate name
+                          const dupCheck = customInterests.find(i => 
+                            i.label?.toLowerCase().trim() === newInterest.label.toLowerCase().trim() ||
+                            i.name?.toLowerCase().trim() === newInterest.label.toLowerCase().trim()
+                          );
+                          if (dupCheck) {
+                            showToast(`⚠️ "${newInterest.label}" ${t('interests.alreadyExists')}`, 'warning');
+                            return;
+                          }
                           const interestId = 'custom_' + Date.now();
                           const newInterestData = {
                             id: interestId,
                             label: newInterest.label.trim(),
                             name: newInterest.label.trim(),
                             icon: newInterest.icon || '📍',
+                            custom: true,
                             privateOnly: newInterest.privateOnly || false,
                             inProgress: newInterest.inProgress || false,
                             locked: newInterest.locked || false,
@@ -12496,36 +12553,50 @@ const CityExplorer = () => {
                             cityId: newInterest.scope === 'local' ? (newInterest.cityId || selectedCityId) : ''
                           };
                           
+                          // Close dialog immediately
+                          setShowAddInterestDialog(false);
+                          setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, inProgress: false, locked: false, scope: 'global' });
+                          setEditingCustomInterest(null);
+                          
+                          // Add to local state immediately so it shows in UI
+                          setCustomInterests(prev => {
+                            if (prev.some(i => i.id === interestId)) return prev;
+                            return [...prev, newInterestData];
+                          });
+                          
+                          // Save in background
                           if (isFirebaseAvailable && database) {
-                            try {
-                              await database.ref(`customInterests/${interestId}`).set(newInterestData);
-                              if (Object.keys(searchConfig).length > 0) {
-                                await database.ref(`settings/interestConfig/${interestId}`).set(searchConfig);
+                            (async () => {
+                              try {
+                                await database.ref(`customInterests/${interestId}`).set(newInterestData);
+                                if (Object.keys(searchConfig).length > 0) {
+                                  await database.ref(`settings/interestConfig/${interestId}`).set(searchConfig);
+                                }
+                                const verifyRef = database.ref(`_verify/${interestId}`);
+                                await Promise.race([
+                                  verifyRef.set(firebase.database.ServerValue.TIMESTAMP).then(() => verifyRef.remove()),
+                                  new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000))
+                                ]);
+                                showToast(`✅ ${newInterestData.label} — ${t('toast.interestAdded')}`, 'success');
+                              } catch(e) {
+                                // Firebase SDK has it cached, will auto-sync when online
+                                console.warn('[FIREBASE] Interest saved to cache (will auto-sync):', e.message);
+                                showToast(`💾 ${newInterestData.label} — ${t('toast.savedWillSync')}`, 'warning', 'sticky');
                               }
-                              // Verify server save
-                              const verifyRef = database.ref(`_verify/${interestId}`);
-                              await Promise.race([
-                                verifyRef.set(firebase.database.ServerValue.TIMESTAMP).then(() => verifyRef.remove()),
-                                new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000))
-                              ]);
-                              showToast(`✅ ${newInterestData.label} — ${t('toast.interestAdded')}`, 'success');
-                            } catch(e) {
-                              console.warn('[FIREBASE] Interest save failed, saving to pending:', e.message);
-                              saveToPendingInterest(newInterestData, searchConfig);
-                            }
+                            })();
                           } else {
                             const updated = [...customInterests, newInterestData];
                             setCustomInterests(updated);
                             localStorage.setItem('bangkok_custom_interests', JSON.stringify(updated));
+                            showToast(`✅ ${newInterestData.label} — ${t('toast.interestAdded')}`, 'success');
                           }
-                          
-                          showToast(t('interests.interestAdded'), 'success');
+                          return; // Skip the setShow/setNew below since we already did it
                         }
                         
                         setShowAddInterestDialog(false);
-                        showToast(editingCustomInterest ? t('toast.interestUpdated') : t('toast.interestAdded'), 'success');
                         setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, inProgress: false, locked: false, scope: 'global' });
                         setEditingCustomInterest(null);
+                        window._savingInterest = false;
                       }}
                       disabled={!newInterest.label?.trim()}
                       className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${
