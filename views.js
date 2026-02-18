@@ -720,11 +720,18 @@
                 <div className="grid grid-cols-3 gap-2 border border-gray-200 rounded-lg p-2">
                 {allInterestOptions.filter(option => {
                   if (!option || !option.id) return false;
-                  if (!isInterestValid(option.id)) return false;
-                  // Respect scope: local interests only show in their city
-                  if (option.scope === 'local' && option.cityId && option.cityId !== selectedCityId) return false;
-                  // Respect disabled status
-                  return interestStatus[option.id] !== false;
+                  const valid = isInterestValid(option.id);
+                  const scopeOk = !(option.scope === 'local' && option.cityId && option.cityId !== selectedCityId);
+                  const statusOk = interestStatus[option.id] !== false;
+                  const isCustom = option.id?.startsWith?.('custom_') || option.custom;
+                  if (isCustom || debugMode) {
+                    if (!valid || !scopeOk || !statusOk) {
+                      console.log(`[INTEREST-FILTER] ${option.id} "${tLabel(option)}" HIDDEN: valid=${valid} scope=${option.scope||'global'}/${scopeOk} status=${interestStatus[option.id]}/${statusOk} privateOnly=${option.privateOnly}`);
+                    }
+                  }
+                  if (!valid) return false;
+                  if (!scopeOk) return false;
+                  return statusOk;
                 }).map(option => {
                   const tooltip = interestTooltips[option.id] || tLabel(option);
                   const customInterest = cityCustomInterests.find(ci => ci.id === option.id);

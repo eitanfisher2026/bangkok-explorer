@@ -3402,13 +3402,19 @@ function initFirebase() {
       firebaseApp = firebase.initializeApp(cfg);
       database = firebase.database();
       
-      // Monitor Firebase connection state
+      // Monitor Firebase connection state (debounced to prevent flapping)
       window.BKK.firebaseConnected = false;
+      var _connTimer = null;
       database.ref('.info/connected').on('value', function(snap) {
-        window.BKK.firebaseConnected = snap.val() === true;
-        console.log('[FIREBASE] Connection:', window.BKK.firebaseConnected ? 'ONLINE' : 'OFFLINE');
-        // Dispatch event so React can react
-        window.dispatchEvent(new CustomEvent('firebase-connection', { detail: { connected: window.BKK.firebaseConnected } }));
+        var isConnected = snap.val() === true;
+        if (isConnected === window.BKK.firebaseConnected) return; // No change
+        clearTimeout(_connTimer);
+        _connTimer = setTimeout(function() {
+          if (isConnected === window.BKK.firebaseConnected) return;
+          window.BKK.firebaseConnected = isConnected;
+          console.log('[FIREBASE] Connection:', isConnected ? 'ONLINE' : 'OFFLINE');
+          window.dispatchEvent(new CustomEvent('firebase-connection', { detail: { connected: isConnected } }));
+        }, isConnected ? 500 : 2000); // Quick online, slow offline (avoid flap)
       });
       if (firebase.storage) {
         storage = firebase.storage();
@@ -5369,7 +5375,15 @@ const CityExplorer = () => {
     };
   });
 
-  // Save preferences whenever they change
+  // Debug: log custom interests in allInterestOptions
+  useEffect(() => {
+    const customs = allInterestOptions.filter(o => o.id?.startsWith?.('custom_') || o.custom);
+    if (customs.length > 0) {
+      console.log(`[DEBUG-INTERESTS] allInterestOptions has ${allInterestOptions.length} total, ${customs.length} custom:`);
+      customs.forEach(c => console.log(`  - ${c.id}: "${c.label}" scope=${c.scope||'?'} privateOnly=${c.privateOnly} valid=${isInterestValid?.(c.id)}`));
+    }
+    console.log(`[DEBUG-INTERESTS] cityCustomInterests: ${(cityCustomInterests||[]).length}, customInterests: ${(customInterests||[]).length}`);
+  }, [allInterestOptions.length, cityCustomInterests?.length]);
   useEffect(() => {
     // Don't save if data hasn't loaded yet - prevents overwriting saved interests with empty state
     if (!isDataLoaded) return;
@@ -8714,11 +8728,18 @@ const CityExplorer = () => {
                 <div className="grid grid-cols-3 gap-2 border border-gray-200 rounded-lg p-2">
                 {allInterestOptions.filter(option => {
                   if (!option || !option.id) return false;
-                  if (!isInterestValid(option.id)) return false;
-                  // Respect scope: local interests only show in their city
-                  if (option.scope === 'local' && option.cityId && option.cityId !== selectedCityId) return false;
-                  // Respect disabled status
-                  return interestStatus[option.id] !== false;
+                  const valid = isInterestValid(option.id);
+                  const scopeOk = !(option.scope === 'local' && option.cityId && option.cityId !== selectedCityId);
+                  const statusOk = interestStatus[option.id] !== false;
+                  const isCustom = option.id?.startsWith?.('custom_') || option.custom;
+                  if (isCustom || debugMode) {
+                    if (!valid || !scopeOk || !statusOk) {
+                      console.log(`[INTEREST-FILTER] ${option.id} "${tLabel(option)}" HIDDEN: valid=${valid} scope=${option.scope||'global'}/${scopeOk} status=${interestStatus[option.id]}/${statusOk} privateOnly=${option.privateOnly}`);
+                    }
+                  }
+                  if (!valid) return false;
+                  if (!scopeOk) return false;
+                  return statusOk;
                 }).map(option => {
                   const tooltip = interestTooltips[option.id] || tLabel(option);
                   const customInterest = cityCustomInterests.find(ci => ci.id === option.id);

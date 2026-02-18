@@ -1936,7 +1936,15 @@
     };
   });
 
-  // Save preferences whenever they change
+  // Debug: log custom interests in allInterestOptions
+  useEffect(() => {
+    const customs = allInterestOptions.filter(o => o.id?.startsWith?.('custom_') || o.custom);
+    if (customs.length > 0) {
+      console.log(`[DEBUG-INTERESTS] allInterestOptions has ${allInterestOptions.length} total, ${customs.length} custom:`);
+      customs.forEach(c => console.log(`  - ${c.id}: "${c.label}" scope=${c.scope||'?'} privateOnly=${c.privateOnly} valid=${isInterestValid?.(c.id)}`));
+    }
+    console.log(`[DEBUG-INTERESTS] cityCustomInterests: ${(cityCustomInterests||[]).length}, customInterests: ${(customInterests||[]).length}`);
+  }, [allInterestOptions.length, cityCustomInterests?.length]);
   useEffect(() => {
     // Don't save if data hasn't loaded yet - prevents overwriting saved interests with empty state
     if (!isDataLoaded) return;
