@@ -719,12 +719,8 @@
                 <div className="grid grid-cols-3 gap-2 border border-gray-200 rounded-lg p-2">
                 {allInterestOptions.filter(option => {
                   if (!option || !option.id) return false;
-                  // Must be valid (have search config)
                   if (!isInterestValid(option.id)) return false;
-                  // Custom interests also check status (respect disabled)
-                  const isCustom = cityCustomInterests.some(ci => ci.id === option.id);
-                  if (isCustom) return interestStatus[option.id] !== false;
-                  // Built-in/uncovered shown only if active
+                  // Respect disabled status
                   return interestStatus[option.id] !== false;
                 }).map(option => {
                   const tooltip = interestTooltips[option.id] || tLabel(option);
@@ -2471,7 +2467,7 @@
                 <button
                   onClick={() => {
                     setEditingCustomInterest(null);
-                    setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: false, inProgress: true, locked: false, builtIn: false });
+                    setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, inProgress: false, locked: false, builtIn: false });
                     setShowAddInterestDialog(true);
                   }}
                   className="bg-purple-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-purple-600"

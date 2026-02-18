@@ -482,14 +482,14 @@
                 <div className="flex gap-3 px-4 py-2 bg-gray-50 border-t border-gray-100">
                   <button type="button"
                     onClick={() => setNewLocation({...newLocation, inProgress: !newLocation.inProgress})}
-                    className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border transition-all ${newLocation.inProgress ? 'border-gray-400 bg-gray-100 text-gray-800' : 'border-gray-200 bg-white text-gray-400'}`}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${newLocation.inProgress ? 'border-amber-500 bg-amber-500 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-amber-300'}`}
                   >
                     {newLocation.inProgress ? '⏳' : '○'} {t("general.inProgress")}
                   </button>
                   {isUnlocked && (
                     <button type="button"
                       onClick={() => setNewLocation({...newLocation, locked: !newLocation.locked})}
-                      className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border transition-all ${newLocation.locked ? 'border-gray-400 bg-gray-100 text-gray-800' : 'border-gray-200 bg-white text-gray-400'}`}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${newLocation.locked ? 'border-gray-600 bg-gray-600 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-gray-400'}`}
                     >
                       {newLocation.locked ? '🔒' : '○'} {t("general.locked")}
                     </button>
@@ -789,7 +789,7 @@
                   <div className="flex items-center gap-2">
                     <button type="button"
                       onClick={() => setNewInterest({...newInterest, privateOnly: !newInterest.privateOnly})}
-                      className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border transition-all ${newInterest.privateOnly ? 'border-purple-400 bg-purple-100 text-purple-800' : 'border-gray-200 bg-white text-gray-400'}`}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${newInterest.privateOnly ? 'border-purple-500 bg-purple-500 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-purple-300'}`}
                     >
                       {newInterest.privateOnly ? '✏️' : '○'} {t("interests.privateInterest")}
                     </button>
@@ -827,14 +827,14 @@
                 <div className="flex gap-3 px-4 py-2 bg-gray-50 border-t border-gray-100">
                   <button type="button"
                     onClick={() => setNewInterest({...newInterest, inProgress: !newInterest.inProgress})}
-                    className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border transition-all ${newInterest.inProgress ? 'border-gray-400 bg-gray-100 text-gray-800' : 'border-gray-200 bg-white text-gray-400'}`}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${newInterest.inProgress ? 'border-amber-500 bg-amber-500 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-amber-300'}`}
                   >
                     {newInterest.inProgress ? '⏳' : '○'} {t("general.inProgress")}
                   </button>
                   {isUnlocked && (
                     <button type="button"
                       onClick={() => setNewInterest({...newInterest, locked: !newInterest.locked})}
-                      className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border transition-all ${newInterest.locked ? 'border-gray-400 bg-gray-100 text-gray-800' : 'border-gray-200 bg-white text-gray-400'}`}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${newInterest.locked ? 'border-gray-600 bg-gray-600 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-gray-400'}`}
                     >
                       {newInterest.locked ? '🔒' : '○'} {t("general.locked")}
                     </button>
@@ -999,22 +999,23 @@
                           
                           // Save in background
                           if (isFirebaseAvailable && database) {
+                            showToast(`✅ ${newInterestData.label} — ${t('toast.interestAdded')}`, 'success');
                             (async () => {
                               try {
                                 await database.ref(`customInterests/${interestId}`).set(newInterestData);
                                 if (Object.keys(searchConfig).length > 0) {
                                   await database.ref(`settings/interestConfig/${interestId}`).set(searchConfig);
                                 }
+                                // Silent verify - no toast needed, Firebase SDK handles sync
                                 const verifyRef = database.ref(`_verify/${interestId}`);
                                 await Promise.race([
                                   verifyRef.set(firebase.database.ServerValue.TIMESTAMP).then(() => verifyRef.remove()),
                                   new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000))
                                 ]);
-                                showToast(`✅ ${newInterestData.label} — ${t('toast.interestAdded')}`, 'success');
+                                console.log('[FIREBASE] Interest verified on server:', interestId);
                               } catch(e) {
-                                // Firebase SDK has it cached, will auto-sync when online
                                 console.warn('[FIREBASE] Interest saved to cache (will auto-sync):', e.message);
-                                showToast(`💾 ${newInterestData.label} — ${t('toast.savedWillSync')}`, 'warning', 'sticky');
+                              }
                               }
                             })();
                           } else {
@@ -1346,14 +1347,14 @@
               <div className="flex gap-3 px-4 py-2 bg-gray-50 border-t border-gray-100">
                 <button type="button"
                   onClick={() => setEditingRoute({...editingRoute, inProgress: !editingRoute.inProgress})}
-                  className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border transition-all ${editingRoute.inProgress ? 'border-gray-400 bg-gray-100 text-gray-800' : 'border-gray-200 bg-white text-gray-400'}`}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${editingRoute.inProgress ? 'border-amber-500 bg-amber-500 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-amber-300'}`}
                 >
                   {editingRoute.inProgress ? '⏳' : '○'} {t("general.inProgress")}
                 </button>
                 {isUnlocked && (
                   <button type="button"
                     onClick={() => setEditingRoute({...editingRoute, locked: !editingRoute.locked})}
-                    className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border transition-all ${editingRoute.locked ? 'border-gray-400 bg-gray-100 text-gray-800' : 'border-gray-200 bg-white text-gray-400'}`}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${editingRoute.locked ? 'border-gray-600 bg-gray-600 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-gray-400'}`}
                   >
                     {editingRoute.locked ? '🔒' : '○'} {t("general.locked")}
                   </button>

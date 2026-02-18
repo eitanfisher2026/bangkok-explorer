@@ -489,15 +489,7 @@
   };
   // Monitor Firebase connection state
   useEffect(() => {
-    let wasDisconnected = false;
-    const handler = (e) => {
-      const connected = e.detail.connected;
-      if (connected && wasDisconnected) {
-        showToast(`✅ ${t('toast.connectionRestored')}`, 'success');
-      }
-      wasDisconnected = !connected;
-      setFirebaseConnected(connected);
-    };
+    const handler = (e) => setFirebaseConnected(e.detail.connected);
     window.addEventListener('firebase-connection', handler);
     setFirebaseConnected(!!window.BKK.firebaseConnected);
     return () => window.removeEventListener('firebase-connection', handler);
@@ -3348,24 +3340,22 @@
 
   // Check if interest has valid search config
   const isInterestValid = (interestId) => {
-    // Private interests are always valid (no Google search needed)
+  const isInterestValid = (interestId) => {
+    // 1. Manual (privateOnly) interests are ALWAYS valid - no search config needed
     const interestObj = allInterestOptions.find(o => o.id === interestId);
     if (interestObj?.privateOnly) return true;
-    // Also check raw customInterests in case not yet in allInterestOptions
     const rawCustom = customInterests.find(o => o.id === interestId);
     if (rawCustom?.privateOnly) return true;
     
-    // Custom interests are always valid (may be used for manual places even without search config)
-    if (interestId?.startsWith?.('custom_') || rawCustom || interestObj?.custom) return true;
-    
+    // 2. Non-manual interests need search config (types or textSearch)
+    // Check custom interestConfig
     const config = interestConfig[interestId];
     if (config) {
-      // Valid if has textSearch OR has types array with items
       if (config.textSearch && config.textSearch.trim()) return true;
       if (config.types && Array.isArray(config.types) && config.types.length > 0) return true;
     }
     
-    // Fallback: check city's built-in interestToGooglePlaces or textSearchInterests
+    // Check city's built-in search config
     const cityPlaces = window.BKK.interestToGooglePlaces || {};
     const cityTextSearch = window.BKK.textSearchInterests || {};
     if (cityPlaces[interestId] && cityPlaces[interestId].length > 0) return true;

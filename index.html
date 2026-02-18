@@ -3922,15 +3922,7 @@ const CityExplorer = () => {
   };
   // Monitor Firebase connection state
   useEffect(() => {
-    let wasDisconnected = false;
-    const handler = (e) => {
-      const connected = e.detail.connected;
-      if (connected && wasDisconnected) {
-        showToast(`✅ ${t('toast.connectionRestored')}`, 'success');
-      }
-      wasDisconnected = !connected;
-      setFirebaseConnected(connected);
-    };
+    const handler = (e) => setFirebaseConnected(e.detail.connected);
     window.addEventListener('firebase-connection', handler);
     setFirebaseConnected(!!window.BKK.firebaseConnected);
     return () => window.removeEventListener('firebase-connection', handler);
@@ -6781,24 +6773,22 @@ const CityExplorer = () => {
 
   // Check if interest has valid search config
   const isInterestValid = (interestId) => {
-    // Private interests are always valid (no Google search needed)
+  const isInterestValid = (interestId) => {
+    // 1. Manual (privateOnly) interests are ALWAYS valid - no search config needed
     const interestObj = allInterestOptions.find(o => o.id === interestId);
     if (interestObj?.privateOnly) return true;
-    // Also check raw customInterests in case not yet in allInterestOptions
     const rawCustom = customInterests.find(o => o.id === interestId);
     if (rawCustom?.privateOnly) return true;
     
-    // Custom interests are always valid (may be used for manual places even without search config)
-    if (interestId?.startsWith?.('custom_') || rawCustom || interestObj?.custom) return true;
-    
+    // 2. Non-manual interests need search config (types or textSearch)
+    // Check custom interestConfig
     const config = interestConfig[interestId];
     if (config) {
-      // Valid if has textSearch OR has types array with items
       if (config.textSearch && config.textSearch.trim()) return true;
       if (config.types && Array.isArray(config.types) && config.types.length > 0) return true;
     }
     
-    // Fallback: check city's built-in interestToGooglePlaces or textSearchInterests
+    // Check city's built-in search config
     const cityPlaces = window.BKK.interestToGooglePlaces || {};
     const cityTextSearch = window.BKK.textSearchInterests || {};
     if (cityPlaces[interestId] && cityPlaces[interestId].length > 0) return true;
@@ -8722,12 +8712,8 @@ const CityExplorer = () => {
                 <div className="grid grid-cols-3 gap-2 border border-gray-200 rounded-lg p-2">
                 {allInterestOptions.filter(option => {
                   if (!option || !option.id) return false;
-                  // Must be valid (have search config)
                   if (!isInterestValid(option.id)) return false;
-                  // Custom interests also check status (respect disabled)
-                  const isCustom = cityCustomInterests.some(ci => ci.id === option.id);
-                  if (isCustom) return interestStatus[option.id] !== false;
-                  // Built-in/uncovered shown only if active
+                  // Respect disabled status
                   return interestStatus[option.id] !== false;
                 }).map(option => {
                   const tooltip = interestTooltips[option.id] || tLabel(option);
@@ -10474,7 +10460,7 @@ const CityExplorer = () => {
                 <button
                   onClick={() => {
                     setEditingCustomInterest(null);
-                    setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: false, inProgress: true, locked: false, builtIn: false });
+                    setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, inProgress: false, locked: false, builtIn: false });
                     setShowAddInterestDialog(true);
                   }}
                   className="bg-purple-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-purple-600"
@@ -12049,14 +12035,14 @@ const CityExplorer = () => {
                 <div className="flex gap-3 px-4 py-2 bg-gray-50 border-t border-gray-100">
                   <button type="button"
                     onClick={() => setNewLocation({...newLocation, inProgress: !newLocation.inProgress})}
-                    className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border transition-all ${newLocation.inProgress ? 'border-gray-400 bg-gray-100 text-gray-800' : 'border-gray-200 bg-white text-gray-400'}`}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${newLocation.inProgress ? 'border-amber-500 bg-amber-500 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-amber-300'}`}
                   >
                     {newLocation.inProgress ? '⏳' : '○'} {t("general.inProgress")}
                   </button>
                   {isUnlocked && (
                     <button type="button"
                       onClick={() => setNewLocation({...newLocation, locked: !newLocation.locked})}
-                      className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border transition-all ${newLocation.locked ? 'border-gray-400 bg-gray-100 text-gray-800' : 'border-gray-200 bg-white text-gray-400'}`}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${newLocation.locked ? 'border-gray-600 bg-gray-600 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-gray-400'}`}
                     >
                       {newLocation.locked ? '🔒' : '○'} {t("general.locked")}
                     </button>
@@ -12356,7 +12342,7 @@ const CityExplorer = () => {
                   <div className="flex items-center gap-2">
                     <button type="button"
                       onClick={() => setNewInterest({...newInterest, privateOnly: !newInterest.privateOnly})}
-                      className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border transition-all ${newInterest.privateOnly ? 'border-purple-400 bg-purple-100 text-purple-800' : 'border-gray-200 bg-white text-gray-400'}`}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${newInterest.privateOnly ? 'border-purple-500 bg-purple-500 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-purple-300'}`}
                     >
                       {newInterest.privateOnly ? '✏️' : '○'} {t("interests.privateInterest")}
                     </button>
@@ -12394,14 +12380,14 @@ const CityExplorer = () => {
                 <div className="flex gap-3 px-4 py-2 bg-gray-50 border-t border-gray-100">
                   <button type="button"
                     onClick={() => setNewInterest({...newInterest, inProgress: !newInterest.inProgress})}
-                    className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border transition-all ${newInterest.inProgress ? 'border-gray-400 bg-gray-100 text-gray-800' : 'border-gray-200 bg-white text-gray-400'}`}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${newInterest.inProgress ? 'border-amber-500 bg-amber-500 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-amber-300'}`}
                   >
                     {newInterest.inProgress ? '⏳' : '○'} {t("general.inProgress")}
                   </button>
                   {isUnlocked && (
                     <button type="button"
                       onClick={() => setNewInterest({...newInterest, locked: !newInterest.locked})}
-                      className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border transition-all ${newInterest.locked ? 'border-gray-400 bg-gray-100 text-gray-800' : 'border-gray-200 bg-white text-gray-400'}`}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${newInterest.locked ? 'border-gray-600 bg-gray-600 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-gray-400'}`}
                     >
                       {newInterest.locked ? '🔒' : '○'} {t("general.locked")}
                     </button>
@@ -12566,22 +12552,23 @@ const CityExplorer = () => {
                           
                           // Save in background
                           if (isFirebaseAvailable && database) {
+                            showToast(`✅ ${newInterestData.label} — ${t('toast.interestAdded')}`, 'success');
                             (async () => {
                               try {
                                 await database.ref(`customInterests/${interestId}`).set(newInterestData);
                                 if (Object.keys(searchConfig).length > 0) {
                                   await database.ref(`settings/interestConfig/${interestId}`).set(searchConfig);
                                 }
+                                // Silent verify - no toast needed, Firebase SDK handles sync
                                 const verifyRef = database.ref(`_verify/${interestId}`);
                                 await Promise.race([
                                   verifyRef.set(firebase.database.ServerValue.TIMESTAMP).then(() => verifyRef.remove()),
                                   new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000))
                                 ]);
-                                showToast(`✅ ${newInterestData.label} — ${t('toast.interestAdded')}`, 'success');
+                                console.log('[FIREBASE] Interest verified on server:', interestId);
                               } catch(e) {
-                                // Firebase SDK has it cached, will auto-sync when online
                                 console.warn('[FIREBASE] Interest saved to cache (will auto-sync):', e.message);
-                                showToast(`💾 ${newInterestData.label} — ${t('toast.savedWillSync')}`, 'warning', 'sticky');
+                              }
                               }
                             })();
                           } else {
@@ -12913,14 +12900,14 @@ const CityExplorer = () => {
               <div className="flex gap-3 px-4 py-2 bg-gray-50 border-t border-gray-100">
                 <button type="button"
                   onClick={() => setEditingRoute({...editingRoute, inProgress: !editingRoute.inProgress})}
-                  className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border transition-all ${editingRoute.inProgress ? 'border-gray-400 bg-gray-100 text-gray-800' : 'border-gray-200 bg-white text-gray-400'}`}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${editingRoute.inProgress ? 'border-amber-500 bg-amber-500 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-amber-300'}`}
                 >
                   {editingRoute.inProgress ? '⏳' : '○'} {t("general.inProgress")}
                 </button>
                 {isUnlocked && (
                   <button type="button"
                     onClick={() => setEditingRoute({...editingRoute, locked: !editingRoute.locked})}
-                    className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border transition-all ${editingRoute.locked ? 'border-gray-400 bg-gray-100 text-gray-800' : 'border-gray-200 bg-white text-gray-400'}`}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${editingRoute.locked ? 'border-gray-600 bg-gray-600 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-gray-400'}`}
                   >
                     {editingRoute.locked ? '🔒' : '○'} {t("general.locked")}
                   </button>
