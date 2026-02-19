@@ -4,9 +4,10 @@
       const saved = localStorage.getItem('bangkok_preferences');
       if (saved) {
         const prefs = JSON.parse(saved);
-        // Admin-controlled defaults (will be overridden by Firebase on load)
-        if (!prefs.maxStops) prefs.maxStops = 10;
-        if (!prefs.fetchMoreCount) prefs.fetchMoreCount = 3;
+        // Admin-controlled settings: always use defaults (Firebase will override on load)
+        // Don't trust localStorage values since admin may have changed them
+        prefs.maxStops = 10;
+        prefs.fetchMoreCount = prefs.fetchMoreCount || 3;
         // User-specific settings preserved from last session
         if (!prefs.searchMode) prefs.searchMode = 'area';
         if (prefs.searchMode === 'radius' && prefs.radiusMeters === 15000 && prefs.radiusPlaceName === t('general.allCity')) prefs.searchMode = 'all';

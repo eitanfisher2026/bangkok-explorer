@@ -253,6 +253,26 @@
             {/* Step 2: Choose Interests */}
             {wizardStep === 2 && (
               <div className="bg-white rounded-xl shadow-lg p-3">
+                {/* Breadcrumb: back + area selection */}
+                <div style={{ 
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+                  fontSize: '11px', color: '#9ca3af', marginBottom: '6px'
+                }}>
+                  <span
+                    onClick={() => { setWizardStep(1); window.scrollTo(0, 0); }}
+                    style={{ cursor: 'pointer', color: '#3b82f6', fontWeight: '600', textDecoration: 'underline' }}
+                  >{currentLang === 'he' ? '→' : '←'} {t("general.back")}</span>
+                  <span style={{ color: '#d1d5db' }}>|</span>
+                  <span
+                    onClick={() => { setWizardStep(1); window.scrollTo(0, 0); }}
+                    style={{ cursor: 'pointer' }}
+                  >📍 {(() => {
+                    if (formData.searchMode === 'all') return t('wizard.allCity');
+                    if (formData.searchMode === 'radius') return t('form.radius');
+                    const area = (window.BKK.areaOptions || []).find(a => a.id === formData.area);
+                    return area ? tLabel(area) : '';
+                  })()}</span>
+                </div>
                 <h2 style={{ textAlign: 'center', fontSize: '17px', fontWeight: 'bold', marginBottom: '2px' }}>{`⭐ ${t("wizard.step2Title")}`}</h2>
                 <p style={{ textAlign: 'center', fontSize: '11px', color: '#6b7280', marginBottom: '10px' }}>{t("wizard.step2Subtitle")}</p>
                 
@@ -287,12 +307,8 @@
                   })}
                 </div>
 
-                {/* Selected count + buttons */}
+                {/* Search button */}
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                  <button
-                    onClick={() => { setWizardStep(1); window.scrollTo(0, 0); }}
-                    style={{ flex: '0 0 auto', padding: '12px 20px', borderRadius: '12px', border: '2px solid #e5e7eb', background: 'white', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', color: '#6b7280' }}
-                  >{t("general.back")}</button>
                   <button
                     onClick={() => { generateRoute(); setWizardStep(3); window.scrollTo(0, 0); }}
                     disabled={formData.interests.length === 0}
@@ -393,14 +409,20 @@
               style={{ cursor: 'pointer', color: '#3b82f6', fontWeight: '600', textDecoration: 'underline' }}
             >{currentLang === 'he' ? '→' : '←'} {t("general.back")}</span>
             <span style={{ color: '#d1d5db' }}>|</span>
-            <span>📍 {(() => {
+            <span
+              onClick={() => { setWizardStep(1); setRoute(null); setCurrentView('form'); window.scrollTo(0, 0); }}
+              style={{ cursor: 'pointer', textDecoration: 'underline', textDecorationColor: '#d1d5db' }}
+            >📍 {(() => {
               if (formData.searchMode === 'all') return t('wizard.allCity');
               if (formData.searchMode === 'radius') return t('form.radius');
               const area = (window.BKK.areaOptions || []).find(a => a.id === formData.area);
               return area ? tLabel(area) : '';
             })()}</span>
             <span style={{ color: '#d1d5db' }}>|</span>
-            <span>⭐ {formData.interests.slice(0, 3).map(id => {
+            <span
+              onClick={() => { setWizardStep(2); setRoute(null); setCurrentView('form'); window.scrollTo(0, 0); }}
+              style={{ cursor: 'pointer', textDecoration: 'underline', textDecorationColor: '#d1d5db' }}
+            >⭐ {formData.interests.slice(0, 3).map(id => {
               const opt = allInterestOptions.find(o => o.id === id);
               return opt ? tLabel(opt) : id;
             }).join(', ')}{formData.interests.length > 3 ? ` +${formData.interests.length - 3}` : ''}</span>
