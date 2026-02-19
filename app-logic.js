@@ -291,6 +291,7 @@
           
           leafletMapRef.current = map;
         }
+      } catch(err) {
         console.error('[MAP]', err);
       }
     }, 150);
