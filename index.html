@@ -9785,24 +9785,29 @@ const CityExplorer = () => {
                                       })()
                                     )}
                                     
-                                    {isCustom && !wizardMode && (
-                                      <button
-                                        onClick={() => {
-                                          const customLoc = customLocations.find(loc => loc.name === stop.name);
-                                          if (customLoc) {
-                                            if (customLoc.locked && !isUnlocked) {
-                                              openReviewDialog(customLoc);
-                                            } else {
-                                              handleEditLocation(customLoc);
-                                            }
-                                          }
-                                        }}
-                                        className="text-[9px] px-1 py-0.5 rounded bg-blue-500 text-white hover:bg-blue-600"
-                                        title={(() => { const cl = customLocations.find(loc => loc.name === stop.name); return cl?.locked && !isUnlocked ? t("reviews.title") : t("general.edit"); })()}
-                                      >
-                                        {(() => { const cl = customLocations.find(loc => loc.name === stop.name); return cl?.locked && !isUnlocked ? '👁️' : '✏️'; })()}
-                                      </button>
-                                    )}
+                                    {/* Review button for locked custom places - visible to all */}
+                                    {isCustom && !wizardMode && (() => {
+                                      const cl = customLocations.find(loc => loc.name === stop.name);
+                                      return cl?.locked ? (
+                                        <button
+                                          onClick={() => openReviewDialog(cl)}
+                                          className="text-[9px] px-1 py-0.5 rounded bg-amber-500 text-white hover:bg-amber-600"
+                                          title={t("reviews.title")}
+                                        >👁️</button>
+                                      ) : null;
+                                    })()}
+                                    {/* Edit button for custom places - admin or unlocked only */}
+                                    {isCustom && !wizardMode && (() => {
+                                      const cl = customLocations.find(loc => loc.name === stop.name);
+                                      if (cl?.locked && !isUnlocked) return null; // locked, non-admin: no edit
+                                      return (
+                                        <button
+                                          onClick={() => { if (cl) handleEditLocation(cl); }}
+                                          className="text-[9px] px-1 py-0.5 rounded bg-blue-500 text-white hover:bg-blue-600"
+                                          title={t("general.edit")}
+                                        >✏️</button>
+                                      );
+                                    })()}
                                   </div>
                                   
                                   <a
@@ -10487,7 +10492,7 @@ const CityExplorer = () => {
                         </button>
                         
                         {/* Review button for locked custom places */}
-                        {stop.custom && stop.locked && !isUnlocked && (
+                        {stop.custom && stop.locked && (
                           <button
                             onClick={() => openReviewDialog(stop)}
                             className="text-xs px-2 py-1 rounded bg-amber-500 text-white hover:bg-amber-600"
