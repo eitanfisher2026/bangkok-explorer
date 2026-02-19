@@ -9445,7 +9445,7 @@ const CityExplorer = () => {
                       >
                         <svg width="18" height="18" viewBox="0 0 24 24" fill={route?.optimized ? 'white' : '#9ca3af'}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" stroke={route?.optimized ? 'white' : '#9ca3af'} strokeWidth="2"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" stroke={route?.optimized ? 'white' : '#9ca3af'} strokeWidth="2"/></svg>
                       </button>
-                      {!wizardMode && (route.name ? (
+                      {route.name ? (
                         <button
                           disabled
                           style={{ width: '42px', height: '42px', borderRadius: '12px', backgroundColor: '#dcfce7', border: '2px solid #16a34a', fontSize: '16px', cursor: 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -9455,17 +9455,14 @@ const CityExplorer = () => {
                         </button>
                       ) : (
                         <button
-                          onClick={() => quickSaveRoute()}
-                          disabled={!route?.optimized}
+                          onClick={() => route?.optimized && quickSaveRoute()}
                           style={{ width: '42px', height: '42px', borderRadius: '12px', border: 'none', background: route?.optimized ? 'linear-gradient(135deg, #8b5cf6, #7c3aed)' : '#e5e7eb', color: route?.optimized ? 'white' : '#9ca3af', cursor: route?.optimized ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: route?.optimized ? '0 4px 6px rgba(124, 58, 237, 0.3)' : 'none' }}
                           title={t("route.saveRoute")}
                         >
                           <svg width="18" height="18" viewBox="0 0 24 24" fill={route?.optimized ? 'white' : '#9ca3af'}><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/><path d="M12 6v8M8 12l4 4 4-4" stroke={route?.optimized ? 'white' : '#9ca3af'} strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
                         </button>
-                      ))}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {!wizardMode && <span style={{ display: 'none' }} />}
-                      </div>
+                      )}
+                      <div style={{ width: '42px', height: '42px' }} />
                       {(() => {
                         const activeStops = route?.optimized ? route.stops.filter((stop) => {
                           const isActive = !disabledStops.includes((stop.name || '').toLowerCase().trim());
