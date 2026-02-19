@@ -281,7 +281,7 @@
           // Draw route line
           if (stops.length > 1) {
             const latlngs = stops.map(s => [s.lat, s.lng]);
-            L.polyline(latlngs, { color: '#3b82f6', weight: 2, opacity: 0.5, dashArray: '6,8' }).addTo(map);
+            L.polyline(latlngs, { color: '#94a3b8', weight: 1.5, opacity: 0.35, dashArray: '4,6' }).addTo(map);
           }
           
           if (markers.length > 0) {
