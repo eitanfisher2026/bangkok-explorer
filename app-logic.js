@@ -189,7 +189,7 @@
           }
           
           leafletMapRef.current = map;
-        } else {
+        } else if (mapMode === 'radius') {
           // Radius mode
           const lat = formData.currentLat;
           const lng = formData.currentLng;
