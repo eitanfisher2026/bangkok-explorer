@@ -1381,10 +1381,8 @@
                     </div>
                     
                     {/* Start Point + Calc Route + Google Maps - aligned grid */}
-                    <div>
-                      <label className="text-xs font-bold text-gray-700 mb-1 block">{`📍 ${t("route.startPoint")}`}</label>
-                    </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'auto auto auto 1fr', gap: '4px', alignItems: 'center' }}>
+                      <label className="text-xs font-bold text-gray-700" style={{ gridColumn: '1 / -1', marginBottom: '-2px' }}>{`📍 ${t("route.startPoint")}`}</label>
                       {/* Row 1: Start Point */}
                       <button
                         onClick={getMyLocation}
@@ -1509,7 +1507,7 @@
                           <svg width="18" height="18" viewBox="0 0 24 24" fill={route?.optimized ? 'white' : '#9ca3af'}><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/><path d="M12 6v8M8 12l4 4 4-4" stroke={route?.optimized ? 'white' : '#9ca3af'} strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
                         </button>
                       )}
-                      <div style={{ width: '42px', height: '42px' }} />
+                      <div style={{ width: '42px', height: '42px' }}></div>
                       {(() => {
                         const activeStops = route?.optimized ? route.stops.filter((stop) => {
                           const isActive = !disabledStops.includes((stop.name || '').toLowerCase().trim());
