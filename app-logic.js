@@ -3337,7 +3337,8 @@
     setStartPointCoords(coords);
     // Restore route type (circular/linear)
     setRouteType(savedRoute.circular ? 'circular' : 'linear');
-    setCurrentView('route');
+    setCurrentView('form');
+    window.scrollTo(0, 0);
   };
 
   // NOTE: addCustomInterest logic is now inline in the dialog footer (see Add Interest Dialog)
