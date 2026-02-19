@@ -3465,22 +3465,7 @@ window.BKK.suggestEmojis = async function(description) {
   const prevKey = '_lastEmojiSuggestions';
   const prev = window[prevKey] || [];
   
-  try {
-    const avoidText = prev.length > 0 ? ` Do NOT use these: ${prev.join(' ')}` : '';
-    const result = await window.BKK._suggestEmojisGemini(description + avoidText);
-    if (result && result.length >= 3) {
-      const final = result.filter(e => !prev.includes(e)).slice(0, 6);
-      if (final.length < 6) {
-        result.forEach(e => { if (!final.includes(e) && final.length < 6) final.push(e); });
-      }
-      window[prevKey] = final;
-      return final;
-    }
-  } catch (e) {
-    console.error('[EMOJI] Gemini failed:', e.message);
-  }
-  
-  const all = window.BKK._suggestEmojisLocal(description, true); // get all matches
+  const all = window.BKK._suggestEmojisLocal(description, true);
   const fresh = all.filter(e => !prev.includes(e));
   const result = fresh.length >= 6 ? fresh.slice(0, 6) : all.sort(() => Math.random() - 0.5).slice(0, 6);
   window[prevKey] = result;
@@ -3488,59 +3473,7 @@ window.BKK.suggestEmojis = async function(description) {
 };
 
 /**
- * Gemini API emoji suggestion
- */
-window.BKK._suggestEmojisGemini = async function(description) {
-  const apiKey = window.BKK.GOOGLE_PLACES_API_KEY;
-  if (!apiKey) throw new Error('No API key');
-  
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-  
-  console.error('[EMOJI] Calling Gemini API for:', description.substring(0, 30));
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{
-        parts: [{
-          text: `You are an emoji expert for a city exploration app. The user wants an icon for a category/interest called "${description}".
-
-Return EXACTLY 6 emoji that best represent "${description}" as a PLACE CATEGORY or ACTIVITY in a city.
-
-CRITICAL RULES:
-- Think about what "${description}" looks like as a PLACE or ACTIVITY someone visits
-- "narrow street" → 🏘️🏚️🛤️🚶🏙️🏗️ (streets, walking, buildings)
-- "coffee" → ☕🫖🍵☕️🧋🥤 (drinks, cups)
-- "temples" → 🛕⛩️🕌🏛️🙏📿 (religious buildings)
-- "nightlife" → 🌃🎵🍸💃🪩🎶 (night, music, drinks)
-- Do NOT return food emoji for non-food categories
-- Do NOT return random/generic emoji
-- Return ONLY the 6 emoji separated by spaces, nothing else`
-        }]
-      }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 50 }
-    })
-  });
-  
-  if (!resp.ok) {
-    const errorBody = await resp.text().catch(() => '');
-    console.error('[EMOJI] Gemini API error:', resp.status, errorBody.substring(0, 200));
-    throw new Error(`Gemini API error: ${resp.status} - ${errorBody.substring(0, 100)}`);
-  }
-  
-  const data = await resp.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  
-  const emojiRegex = /\p{Extended_Pictographic}(\u200D\p{Extended_Pictographic})*/gu;
-  const matches = text.match(emojiRegex) || [];
-  const emojis = [...new Set(matches)];
-  
-  if (emojis.length < 3) throw new Error('Not enough emojis in response: ' + text);
-  return emojis.slice(0, 6);
-};
-
-/**
- * Local keyword-based emoji suggestion (offline fallback)
+ * Local keyword-based emoji suggestion
  */
 window.BKK._suggestEmojisLocal = function(description, returnAll) {
   const desc = description.toLowerCase();
