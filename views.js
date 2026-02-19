@@ -1840,6 +1840,21 @@
                           {isDisabled ? '⏸️' : '✕'}
                         </button>
                         
+                        {/* Review button for locked custom places */}
+                        {(() => {
+                          const customLoc = customLocations.find(loc => loc.name === stop.name);
+                          if (customLoc?.locked && !isUnlocked) {
+                            return (
+                              <button
+                                onClick={() => openReviewDialog(customLoc)}
+                                className="text-xs px-2 py-1 rounded bg-amber-500 text-white hover:bg-amber-600"
+                                title={t('reviews.title')}
+                              >👁️</button>
+                            );
+                          }
+                          return null;
+                        })()}
+                        
                         {(() => {
                           // Check if this place is in blacklist
                           const blacklisted = customLocations.find(loc => 
