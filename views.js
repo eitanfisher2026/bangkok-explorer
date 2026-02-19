@@ -1149,11 +1149,15 @@
                                         onClick={() => {
                                           const customLoc = customLocations.find(loc => loc.name === stop.name);
                                           if (customLoc) {
-                                            handleEditLocation(customLoc);
+                                            if (customLoc.locked && !isUnlocked) {
+                                              openReviewDialog(customLoc);
+                                            } else {
+                                              handleEditLocation(customLoc);
+                                            }
                                           }
                                         }}
                                         className="text-[9px] px-1 py-0.5 rounded bg-blue-500 text-white hover:bg-blue-600"
-                                        title={(() => { const cl = customLocations.find(loc => loc.name === stop.name); return cl?.locked && !isUnlocked ? t("general.viewOnly") : t("general.edit"); })()}
+                                        title={(() => { const cl = customLocations.find(loc => loc.name === stop.name); return cl?.locked && !isUnlocked ? t("reviews.title") : t("general.edit"); })()}
                                       >
                                         {(() => { const cl = customLocations.find(loc => loc.name === stop.name); return cl?.locked && !isUnlocked ? '👁️' : '✏️'; })()}
                                       </button>
@@ -1841,19 +1845,13 @@
                         </button>
                         
                         {/* Review button for locked custom places */}
-                        {(() => {
-                          const customLoc = customLocations.find(loc => loc.name === stop.name);
-                          if (customLoc?.locked && !isUnlocked) {
-                            return (
-                              <button
-                                onClick={() => openReviewDialog(customLoc)}
-                                className="text-xs px-2 py-1 rounded bg-amber-500 text-white hover:bg-amber-600"
-                                title={t('reviews.title')}
-                              >👁️</button>
-                            );
-                          }
-                          return null;
-                        })()}
+                        {stop.custom && stop.locked && !isUnlocked && (
+                          <button
+                            onClick={() => openReviewDialog(stop)}
+                            className="text-xs px-2 py-1 rounded bg-amber-500 text-white hover:bg-amber-600"
+                            title={t('reviews.title')}
+                          >👁️</button>
+                        )}
                         
                         {(() => {
                           // Check if this place is in blacklist
