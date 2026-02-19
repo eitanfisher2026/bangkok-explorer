@@ -9336,31 +9336,29 @@ const CityExplorer = () => {
                     {/* Start Point Input with GPS + validate buttons */}
                     <div>
                       <label className="text-xs font-bold text-gray-700 mb-1 block">{`📍 ${t("route.startPoint")}`}</label>
-                      <div className="flex gap-1 items-center">
-                        <div className="flex-1 relative">
-                          <input
-                            type="text"
-                            value={formData.startPoint}
-                            readOnly
-                            onClick={() => setShowAddressDialog(true)}
-                            placeholder={t("form.selectStartPoint")}
-                            className="w-full border border-gray-300 rounded-lg text-xs cursor-pointer hover:border-blue-400"
-                            style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', padding: '8px', height: '42px', backgroundColor: startPointCoords ? '#f0fdf4' : '#fff' }}
-                          />
-                        </div>
-                        {(formData.startPoint?.trim() || startPointCoords) && (
-                          <button
-                            onClick={() => {
+                      <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          value={formData.startPoint}
+                          readOnly
+                          onClick={() => setShowAddressDialog(true)}
+                          placeholder={t("form.selectStartPoint")}
+                          className="border border-gray-300 rounded-lg text-xs cursor-pointer hover:border-blue-400"
+                          style={{ flex: 1, direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', padding: '0 8px', height: '42px', backgroundColor: startPointCoords ? '#f0fdf4' : '#fff', minWidth: 0 }}
+                        />
+                        <button
+                          onClick={() => {
+                            if (formData.startPoint?.trim() || startPointCoords) {
                               setFormData({...formData, startPoint: ''});
                               setStartPointCoords(null);
                               if (route?.optimized) setRoute(prev => prev ? {...prev, optimized: false} : prev);
-                            }}
-                            style={{ width: '42px', height: '42px', borderRadius: '12px', border: 'none', backgroundColor: '#9ca3af', color: 'white', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                            title={t("general.clear")}
-                          >
-                            ✕
-                          </button>
-                        )}
+                            }
+                          }}
+                          style={{ width: '42px', height: '42px', borderRadius: '12px', border: 'none', backgroundColor: (formData.startPoint?.trim() || startPointCoords) ? '#ef4444' : '#e5e7eb', color: (formData.startPoint?.trim() || startPointCoords) ? 'white' : '#9ca3af', fontSize: '12px', fontWeight: 'bold', cursor: (formData.startPoint?.trim() || startPointCoords) ? 'pointer' : 'default', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          title={t("general.clear")}
+                        >
+                          ✕
+                        </button>
                         <button
                           onClick={() => setShowAddressDialog(true)}
                           style={{ width: '42px', height: '42px', borderRadius: '12px', border: 'none', backgroundColor: '#22c55e', color: 'white', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
