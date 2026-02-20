@@ -633,6 +633,76 @@
           </div>
         )}
 
+        {/* QUICK LAUNCH — "Yalla" fast path, shown in wizard step 3 when route is loaded */}
+        {wizardMode && wizardStep === 3 && !isGenerating && route && !activeTrail && (
+          <div style={{ background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', borderRadius: '16px', padding: '14px', marginBottom: '10px', border: '2px solid #86efac', boxShadow: '0 2px 8px rgba(34,197,94,0.15)' }}>
+            <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+              <span style={{ fontSize: '14px', fontWeight: 'bold' }}>{`🐾 ${route.stops.length} ${t('wizard.placesFound')}`}</span>
+            </div>
+            <button
+              onClick={() => {
+                // Auto-pick start point based on search mode
+                let autoStart = null;
+                if (formData.searchMode === 'radius' && formData.gpsLat && formData.gpsLng) {
+                  autoStart = { lat: formData.gpsLat, lng: formData.gpsLng, address: t('wizard.myLocation') };
+                } else {
+                  // Use first stop as start point
+                  const firstWithCoords = route.stops.find(s => s.lat && s.lng);
+                  if (firstWithCoords) autoStart = { lat: firstWithCoords.lat, lng: firstWithCoords.lng, address: firstWithCoords.name };
+                }
+                if (!autoStart) {
+                  showToast(t('form.chooseStartBeforeCalc'), 'warning');
+                  return;
+                }
+                // Set start point in form
+                setFormData(prev => ({...prev, startPoint: `${autoStart.lat},${autoStart.lng}`}));
+
+                // Optimize route
+                const isCircular = routeType === 'circular';
+                const activeStops = route.stops.filter(s => !disabledStops.includes((s.name || '').toLowerCase().trim()) && s.lat && s.lng);
+                if (activeStops.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
+                
+                const optimized = optimizeStopOrder(activeStops, autoStart, isCircular);
+                const inactiveStops = route.stops.filter(s => disabledStops.includes((s.name || '').toLowerCase().trim()));
+                const newRoute = { ...route, stops: [...optimized, ...inactiveStops], circular: isCircular, optimized: true, startPoint: autoStart.address, startPointCoords: autoStart };
+                setRoute(newRoute);
+
+                // Build Google Maps URLs and open
+                const urls = window.BKK.buildGoogleMapsUrls(
+                  optimized.map(s => ({ lat: s.lat, lng: s.lng, name: s.name })),
+                  `${autoStart.lat},${autoStart.lng}`,
+                  isCircular,
+                  window.BKK.googleMaxWaypoints || 12
+                );
+                
+                startActiveTrail(optimized, formData.interests, formData.area);
+                if (urls.length > 0) window.open(urls[0].url, 'city_explorer_map');
+                showToast(`🚀 ${optimized.length} ${t('route.stops')}`, 'success');
+              }}
+              style={{
+                width: '100%', padding: '16px', border: 'none', borderRadius: '14px',
+                background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white',
+                fontSize: '18px', fontWeight: 'bold', cursor: 'pointer',
+                boxShadow: '0 4px 15px rgba(34,197,94,0.4)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+              }}
+            >
+              <span>🚀</span>
+              <span>{t('wizard.yallaGo')}</span>
+            </button>
+            <button
+              onClick={() => window.scrollTo({ top: document.getElementById('route-results')?.offsetTop - 80 || 600, behavior: 'smooth' })}
+              style={{
+                width: '100%', marginTop: '6px', padding: '8px',
+                background: 'none', border: 'none', borderRadius: '8px',
+                fontSize: '11px', color: '#6b7280', cursor: 'pointer', textDecoration: 'underline'
+              }}
+            >
+              {`⚙️ ${t('wizard.customizeRoute')}`}
+            </button>
+          </div>
+        )}
+
         {/* Form View */}
 
         {/* === VIEWS (from views.js) === */}

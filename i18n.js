@@ -356,6 +356,9 @@ wizard: {
   findPlacesCount: '🔍 מצא נקודות עניין ({count} מקומות)',
   showMap: 'הצג מפה',
   allAreasMap: '🗺️ מפת כל האזורים',
+  placesFound: 'מקומות נמצאו!',
+  yallaGo: 'יאללה לדרך!',
+  customizeRoute: 'כוונן מסלול ידנית',
 },
 
 // --- Form / Search ---
@@ -1044,6 +1047,9 @@ wizard: {
   findPlacesCount: '🔍 Find points of interest ({count} places)',
   showMap: 'Show map',
   allAreasMap: '🗺️ All areas map',
+  placesFound: 'places found!',
+  yallaGo: 'Let\'s Go!',
+  customizeRoute: 'Customize route manually',
 },
 
 form: {
