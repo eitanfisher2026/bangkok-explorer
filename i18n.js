@@ -586,6 +586,7 @@ trail: {
   saveAndContinue: 'שמור והמשך בטיול',
   detectingLocation: 'מזהה מיקום',
   nearStop: 'ליד:',
+  gpsBlocked: 'לא הצלחנו לזהות מיקום — המקום יישמר בלי קואורדינטות',
 },
 
 // --- Toasts & Messages ---
@@ -1272,6 +1273,7 @@ trail: {
   saveAndContinue: 'Save & Continue Walking',
   detectingLocation: 'Detecting location',
   nearStop: 'Near:',
+  gpsBlocked: 'Could not detect location — place will be saved without coordinates',
 },
 
 toast: {

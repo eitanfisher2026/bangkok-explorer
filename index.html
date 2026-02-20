@@ -759,6 +759,7 @@ trail: {
   saveAndContinue: 'שמור והמשך בטיול',
   detectingLocation: 'מזהה מיקום',
   nearStop: 'ליד:',
+  gpsBlocked: 'לא הצלחנו לזהות מיקום — המקום יישמר בלי קואורדינטות',
 },
 
 // --- Toasts & Messages ---
@@ -1445,6 +1446,7 @@ trail: {
   saveAndContinue: 'Save & Continue Walking',
   detectingLocation: 'Detecting location',
   nearStop: 'Near:',
+  gpsBlocked: 'Could not detect location — place will be saved without coordinates',
 },
 
 toast: {
@@ -8464,8 +8466,10 @@ const FouFouApp = () => {
                         ...prev, lat, lng, nearestStop: nearest, gpsLoading: false, ...areaUpdates
                       }));
                     },
-                    () => setNewLocation(prev => ({...prev, gpsLoading: false})),
-                    { enableHighAccuracy: true, timeout: 5000 }
+                    () => {
+                      setNewLocation(prev => ({...prev, gpsLoading: false, gpsBlocked: true}));
+                    },
+                    { enableHighAccuracy: true, timeout: 8000 }
                   );
                 }
               }}
@@ -14147,6 +14151,11 @@ const FouFouApp = () => {
                 {!newLocation.nearestStop && !newLocation.gpsLoading && newLocation.lat && (
                   <div style={{ padding: '6px 10px', background: '#f0fdf4', borderRadius: '8px', marginBottom: '8px', fontSize: '11px', color: '#16a34a', textAlign: 'center' }}>
                     📍 GPS ✓
+                  </div>
+                )}
+                {newLocation.gpsBlocked && (
+                  <div style={{ padding: '6px 10px', background: '#fef3c7', borderRadius: '8px', marginBottom: '8px', fontSize: '11px', color: '#92400e', textAlign: 'center' }}>
+                    📍 {t('trail.gpsBlocked')}
                   </div>
                 )}
                 {newLocation.uploadedImage ? (

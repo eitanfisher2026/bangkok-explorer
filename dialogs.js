@@ -2480,6 +2480,11 @@
                     📍 GPS ✓
                   </div>
                 )}
+                {newLocation.gpsBlocked && (
+                  <div style={{ padding: '6px 10px', background: '#fef3c7', borderRadius: '8px', marginBottom: '8px', fontSize: '11px', color: '#92400e', textAlign: 'center' }}>
+                    📍 {t('trail.gpsBlocked')}
+                  </div>
+                )}
                 {newLocation.uploadedImage ? (
                   <div style={{ position: 'relative', marginBottom: '10px' }}>
                     <img src={newLocation.uploadedImage} alt="" style={{ width: '100%', maxHeight: '180px', objectFit: 'cover', borderRadius: '12px' }} />

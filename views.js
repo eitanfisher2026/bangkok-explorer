@@ -180,8 +180,10 @@
                         ...prev, lat, lng, nearestStop: nearest, gpsLoading: false, ...areaUpdates
                       }));
                     },
-                    () => setNewLocation(prev => ({...prev, gpsLoading: false})),
-                    { enableHighAccuracy: true, timeout: 5000 }
+                    () => {
+                      setNewLocation(prev => ({...prev, gpsLoading: false, gpsBlocked: true}));
+                    },
+                    { enableHighAccuracy: true, timeout: 8000 }
                   );
                 }
               }}
