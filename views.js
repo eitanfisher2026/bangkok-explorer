@@ -142,16 +142,48 @@
             {/* Big Camera Button */}
             <button
               onClick={() => {
-                // Reset newLocation for quick capture with trail defaults
-                setNewLocation({
+                // Pre-select interests from trail (or last used interest)
+                const defaultInterests = activeTrail.lastInterest 
+                  ? [activeTrail.lastInterest] 
+                  : (activeTrail.interests || []).slice(0, 1);
+                const initLocation = {
                   name: '', description: '', notes: '',
                   area: activeTrail.area || formData.area,
                   areas: activeTrail.area ? [activeTrail.area] : [formData.area],
-                  interests: [],
+                  interests: defaultInterests,
                   lat: null, lng: null, mapsUrl: '', address: '',
-                  uploadedImage: null, imageUrls: [], inProgress: true
-                });
+                  uploadedImage: null, imageUrls: [], inProgress: true,
+                  nearestStop: null, gpsLoading: true
+                };
+                setNewLocation(initLocation);
                 setShowQuickCapture(true);
+                // Request browser GPS immediately
+                if (navigator.geolocation) {
+                  navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                      const lat = pos.coords.latitude;
+                      const lng = pos.coords.longitude;
+                      // Find nearest trail stop
+                      let nearest = null;
+                      let minDist = Infinity;
+                      (activeTrail.stops || []).forEach((stop, idx) => {
+                        if (!stop.lat || !stop.lng) return;
+                        const dlat = (lat - stop.lat) * 111320;
+                        const dlng = (lng - stop.lng) * 111320 * Math.cos(lat * Math.PI / 180);
+                        const dist = Math.sqrt(dlat * dlat + dlng * dlng);
+                        if (dist < minDist) { minDist = dist; nearest = { ...stop, idx, dist: Math.round(dist) }; }
+                      });
+                      // Auto-detect area from GPS
+                      const detected = window.BKK.getAreasForCoordinates(lat, lng);
+                      const areaUpdates = detected.length > 0 ? { areas: detected, area: detected[0] } : {};
+                      setNewLocation(prev => ({
+                        ...prev, lat, lng, nearestStop: nearest, gpsLoading: false, ...areaUpdates
+                      }));
+                    },
+                    () => setNewLocation(prev => ({...prev, gpsLoading: false})),
+                    { enableHighAccuracy: true, timeout: 5000 }
+                  );
+                }
               }}
               style={{
                 width: '100%', padding: '20px', marginBottom: '12px',

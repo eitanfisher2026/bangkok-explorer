@@ -757,6 +757,8 @@ trail: {
   photoRequired: 'צלם תמונה קודם',
   saved: 'המקום נשמר!',
   saveAndContinue: 'שמור והמשך בטיול',
+  detectingLocation: 'מזהה מיקום',
+  nearStop: 'ליד:',
 },
 
 // --- Toasts & Messages ---
@@ -1441,6 +1443,8 @@ trail: {
   photoRequired: 'Take a photo first',
   saved: 'Place saved!',
   saveAndContinue: 'Save & Continue Walking',
+  detectingLocation: 'Detecting location',
+  nearStop: 'Near:',
 },
 
 toast: {
@@ -8426,15 +8430,44 @@ const FouFouApp = () => {
             {/* Big Camera Button */}
             <button
               onClick={() => {
-                setNewLocation({
+                const defaultInterests = activeTrail.lastInterest 
+                  ? [activeTrail.lastInterest] 
+                  : (activeTrail.interests || []).slice(0, 1);
+                const initLocation = {
                   name: '', description: '', notes: '',
                   area: activeTrail.area || formData.area,
                   areas: activeTrail.area ? [activeTrail.area] : [formData.area],
-                  interests: [],
+                  interests: defaultInterests,
                   lat: null, lng: null, mapsUrl: '', address: '',
-                  uploadedImage: null, imageUrls: [], inProgress: true
-                });
+                  uploadedImage: null, imageUrls: [], inProgress: true,
+                  nearestStop: null, gpsLoading: true
+                };
+                setNewLocation(initLocation);
                 setShowQuickCapture(true);
+                if (navigator.geolocation) {
+                  navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                      const lat = pos.coords.latitude;
+                      const lng = pos.coords.longitude;
+                      let nearest = null;
+                      let minDist = Infinity;
+                      (activeTrail.stops || []).forEach((stop, idx) => {
+                        if (!stop.lat || !stop.lng) return;
+                        const dlat = (lat - stop.lat) * 111320;
+                        const dlng = (lng - stop.lng) * 111320 * Math.cos(lat * Math.PI / 180);
+                        const dist = Math.sqrt(dlat * dlat + dlng * dlng);
+                        if (dist < minDist) { minDist = dist; nearest = { ...stop, idx, dist: Math.round(dist) }; }
+                      });
+                      const detected = window.BKK.getAreasForCoordinates(lat, lng);
+                      const areaUpdates = detected.length > 0 ? { areas: detected, area: detected[0] } : {};
+                      setNewLocation(prev => ({
+                        ...prev, lat, lng, nearestStop: nearest, gpsLoading: false, ...areaUpdates
+                      }));
+                    },
+                    () => setNewLocation(prev => ({...prev, gpsLoading: false})),
+                    { enableHighAccuracy: true, timeout: 5000 }
+                  );
+                }
               }}
               style={{
                 width: '100%', padding: '20px', marginBottom: '12px',
@@ -14092,7 +14125,30 @@ const FouFouApp = () => {
               </div>
 
               <div style={{ padding: '12px 16px' }}>
-                {/* Photo — camera only */}
+                {/* Nearest stop indicator */}
+                {newLocation.gpsLoading && (
+                  <div style={{ padding: '6px 10px', background: '#f0fdf4', borderRadius: '8px', marginBottom: '8px', fontSize: '11px', color: '#6b7280', textAlign: 'center' }}>
+                    📍 {t('trail.detectingLocation')}...
+                  </div>
+                )}
+                {newLocation.nearestStop && !newLocation.gpsLoading && (
+                  <div style={{ padding: '6px 10px', background: '#f0fdf4', borderRadius: '8px', marginBottom: '8px', fontSize: '12px', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#22c55e', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 'bold', flexShrink: 0 }}>
+                      {String.fromCharCode(65 + newLocation.nearestStop.idx)}
+                    </span>
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {t('trail.nearStop')} <b>{newLocation.nearestStop.name}</b>
+                    </span>
+                    <span style={{ fontSize: '10px', color: '#9ca3af', flexShrink: 0 }}>
+                      {newLocation.nearestStop.dist < 1000 ? `${newLocation.nearestStop.dist}m` : `${(newLocation.nearestStop.dist/1000).toFixed(1)}km`}
+                    </span>
+                  </div>
+                )}
+                {!newLocation.nearestStop && !newLocation.gpsLoading && newLocation.lat && (
+                  <div style={{ padding: '6px 10px', background: '#f0fdf4', borderRadius: '8px', marginBottom: '8px', fontSize: '11px', color: '#16a34a', textAlign: 'center' }}>
+                    📍 GPS ✓
+                  </div>
+                )}
                 {newLocation.uploadedImage ? (
                   <div style={{ position: 'relative', marginBottom: '10px' }}>
                     <img src={newLocation.uploadedImage} alt="" style={{ width: '100%', maxHeight: '180px', objectFit: 'cover', borderRadius: '12px' }} />
@@ -14145,6 +14201,11 @@ const FouFouApp = () => {
                           );
                           if (result.name) updates.name = result.name;
                           setNewLocation(updates);
+                          if (activeTrail) {
+                            const updatedTrail = { ...activeTrail, lastInterest: option.id };
+                            setActiveTrail(updatedTrail);
+                            localStorage.setItem('foufou_active_trail', JSON.stringify(updatedTrail));
+                          }
                         }}
                         className={`p-1.5 rounded-lg text-[10px] font-bold transition-all ${
                           (newLocation.interests || []).includes(option.id)

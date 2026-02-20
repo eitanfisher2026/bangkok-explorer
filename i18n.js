@@ -584,6 +584,8 @@ trail: {
   photoRequired: 'צלם תמונה קודם',
   saved: 'המקום נשמר!',
   saveAndContinue: 'שמור והמשך בטיול',
+  detectingLocation: 'מזהה מיקום',
+  nearStop: 'ליד:',
 },
 
 // --- Toasts & Messages ---
@@ -1268,6 +1270,8 @@ trail: {
   photoRequired: 'Take a photo first',
   saved: 'Place saved!',
   saveAndContinue: 'Save & Continue Walking',
+  detectingLocation: 'Detecting location',
+  nearStop: 'Near:',
 },
 
 toast: {

@@ -2456,7 +2456,30 @@
               </div>
 
               <div style={{ padding: '12px 16px' }}>
-                {/* Photo — camera only */}
+                {/* Nearest stop indicator */}
+                {newLocation.gpsLoading && (
+                  <div style={{ padding: '6px 10px', background: '#f0fdf4', borderRadius: '8px', marginBottom: '8px', fontSize: '11px', color: '#6b7280', textAlign: 'center' }}>
+                    📍 {t('trail.detectingLocation')}...
+                  </div>
+                )}
+                {newLocation.nearestStop && !newLocation.gpsLoading && (
+                  <div style={{ padding: '6px 10px', background: '#f0fdf4', borderRadius: '8px', marginBottom: '8px', fontSize: '12px', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#22c55e', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 'bold', flexShrink: 0 }}>
+                      {String.fromCharCode(65 + newLocation.nearestStop.idx)}
+                    </span>
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {t('trail.nearStop')} <b>{newLocation.nearestStop.name}</b>
+                    </span>
+                    <span style={{ fontSize: '10px', color: '#9ca3af', flexShrink: 0 }}>
+                      {newLocation.nearestStop.dist < 1000 ? `${newLocation.nearestStop.dist}m` : `${(newLocation.nearestStop.dist/1000).toFixed(1)}km`}
+                    </span>
+                  </div>
+                )}
+                {!newLocation.nearestStop && !newLocation.gpsLoading && newLocation.lat && (
+                  <div style={{ padding: '6px 10px', background: '#f0fdf4', borderRadius: '8px', marginBottom: '8px', fontSize: '11px', color: '#16a34a', textAlign: 'center' }}>
+                    📍 GPS ✓
+                  </div>
+                )}
                 {newLocation.uploadedImage ? (
                   <div style={{ position: 'relative', marginBottom: '10px' }}>
                     <img src={newLocation.uploadedImage} alt="" style={{ width: '100%', maxHeight: '180px', objectFit: 'cover', borderRadius: '12px' }} />
@@ -2509,6 +2532,12 @@
                           );
                           if (result.name) updates.name = result.name;
                           setNewLocation(updates);
+                          // Remember last interest for next quick capture
+                          if (activeTrail) {
+                            const updatedTrail = { ...activeTrail, lastInterest: option.id };
+                            setActiveTrail(updatedTrail);
+                            localStorage.setItem('foufou_active_trail', JSON.stringify(updatedTrail));
+                          }
                         }}
                         className={`p-1.5 rounded-lg text-[10px] font-bold transition-all ${
                           (newLocation.interests || []).includes(option.id)
