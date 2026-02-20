@@ -590,7 +590,7 @@
         {/* Form View */}
 
         {/* === VIEWS (from views.js) === */}
-        {currentView === 'form' && (!wizardMode || wizardStep === 3) && (
+        {currentView === 'form' && (!wizardMode || wizardStep === 3) && !activeTrail && (
           <div className="view-fade-in bg-white rounded-xl shadow-lg p-3 space-y-3">
             {/* Form inputs - hidden in wizard step 3 */}
             {!wizardMode && (<>
