@@ -1094,6 +1094,9 @@
                             return [...prev, newInterestData];
                           });
                           
+                          // Enable the new interest in interestStatus
+                          setInterestStatus(prev => ({ ...prev, [interestId]: true }));
+                          
                           // Save in background
                           if (isFirebaseAvailable && database) {
                             database.ref(`customInterests/${interestId}`).set(newInterestData)
@@ -1105,6 +1108,11 @@
                                 console.error(`[INTEREST-SAVE] FAILED: ${interestId}`, e);
                                 saveToPendingInterest(newInterestData, searchConfig);
                               });
+                            // Enable interest status in Firebase
+                            const userId = localStorage.getItem('bangkok_user_id') || 'unknown';
+                            database.ref(`users/${userId}/interestStatus/${interestId}`).set(true).catch(() => {});
+                            // Also save admin-level status
+                            database.ref(`settings/interestStatus/${interestId}`).set(true).catch(() => {});
                             if (Object.keys(searchConfig).length > 0) {
                               database.ref(`settings/interestConfig/${interestId}`).set(searchConfig)
                                 .then(() => console.log(`[INTEREST-SAVE] Config saved: ${interestId}`))

@@ -3363,7 +3363,7 @@ window.BKK.buildMapsUrl = (stops, circular = false) => {
   if (middlePoints) {
     mapUrl += `&waypoints=${middlePoints}`;
   }
-  mapUrl += '&travelmode=walking&dir_action=navigate';
+  mapUrl += '&travelmode=walking';
   
   return mapUrl;
 };
@@ -3436,7 +3436,7 @@ window.BKK.buildGoogleMapsUrls = (stops, origin, isCircular, maxPoints) => {
   if (stops.length === 0) return [];
   
   if (stops.length === 1) {
-    let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${stops[0].lat},${stops[0].lng}&travelmode=walking&dir_action=navigate`;
+    let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${stops[0].lat},${stops[0].lng}&travelmode=walking`;
     return [{ url, fromIndex: 0, toIndex: 0, part: 1, total: 1 }];
   }
   
@@ -3453,7 +3453,7 @@ window.BKK.buildGoogleMapsUrls = (stops, origin, isCircular, maxPoints) => {
     }
     let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
     if (waypointsArr.length > 0) url += `&waypoints=${waypointsArr.join('|')}`;
-    url += '&travelmode=walking&dir_action=navigate';
+    url += '&travelmode=walking';
     return [{ url, fromIndex: 0, toIndex: stops.length - 1, part: 1, total: 1 }];
   }
   
@@ -3474,7 +3474,7 @@ window.BKK.buildGoogleMapsUrls = (stops, origin, isCircular, maxPoints) => {
         const wps = segmentStops.map(s => `${s.lat},${s.lng}`);
         let url = `https://www.google.com/maps/dir/?api=1&origin=${currentOrigin}&destination=${destination}`;
         if (wps.length > 0) url += `&waypoints=${wps.join('|')}`;
-        url += '&travelmode=walking&dir_action=navigate';
+        url += '&travelmode=walking';
         urls.push({ url, fromIndex: currentIndex, toIndex: stops.length - 1, part: urls.length + 1, total: 0 });
         break;
       } else if (isCircular) {
@@ -3482,7 +3482,7 @@ window.BKK.buildGoogleMapsUrls = (stops, origin, isCircular, maxPoints) => {
         const wps = segmentStops.map(s => `${s.lat},${s.lng}`);
         let url = `https://www.google.com/maps/dir/?api=1&origin=${currentOrigin}&destination=${destination}`;
         if (wps.length > 0) url += `&waypoints=${wps.join('|')}`;
-        url += '&travelmode=walking&dir_action=navigate';
+        url += '&travelmode=walking';
         urls.push({ url, fromIndex: currentIndex, toIndex: stops.length - 1, part: urls.length + 1, total: 0 });
         break;
       } else {
@@ -3490,7 +3490,7 @@ window.BKK.buildGoogleMapsUrls = (stops, origin, isCircular, maxPoints) => {
         const wps = segmentStops.slice(0, -1).map(s => `${s.lat},${s.lng}`);
         let url = `https://www.google.com/maps/dir/?api=1&origin=${currentOrigin}&destination=${destination}`;
         if (wps.length > 0) url += `&waypoints=${wps.join('|')}`;
-        url += '&travelmode=walking&dir_action=navigate';
+        url += '&travelmode=walking';
         urls.push({ url, fromIndex: currentIndex, toIndex: stops.length - 1, part: urls.length + 1, total: 0 });
         break;
       }
@@ -3500,7 +3500,7 @@ window.BKK.buildGoogleMapsUrls = (stops, origin, isCircular, maxPoints) => {
       const wps = segmentStops.slice(0, -1).map(s => `${s.lat},${s.lng}`);
       let url = `https://www.google.com/maps/dir/?api=1&origin=${currentOrigin}&destination=${destination}`;
       if (wps.length > 0) url += `&waypoints=${wps.join('|')}`;
-      url += '&travelmode=walking&dir_action=navigate';
+      url += '&travelmode=walking';
       urls.push({ url, fromIndex: currentIndex, toIndex: currentIndex + segmentStops.length - 1, part: urls.length + 1, total: 0 });
       
       currentOrigin = destination;
@@ -8929,7 +8929,7 @@ const FouFouApp = () => {
         )}
 
         {/* QUICK LAUNCH — "Yalla" fast path, shown in wizard step 3 when route is loaded, hidden after manual config */}
-        {wizardMode && wizardStep === 3 && !isGenerating && route && route.stops?.length > 0 && !activeTrail && !route.optimized && (
+        {wizardMode && wizardStep === 3 && !isGenerating && route && route.stops?.length > 0 && !activeTrail && !route.optimized && disabledStops.length === 0 && (
           <div style={{ background: 'white', borderRadius: '16px', padding: '14px', marginBottom: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
             <div style={{ textAlign: 'center', marginBottom: '10px' }}>
               <span style={{ fontSize: '15px', fontWeight: 'bold' }}>{`🐾 ${route.stops.length} ${t('wizard.placesFound')}`}</span>
@@ -12865,6 +12865,8 @@ const FouFouApp = () => {
                             return [...prev, newInterestData];
                           });
                           
+                          setInterestStatus(prev => ({ ...prev, [interestId]: true }));
+                          
                           if (isFirebaseAvailable && database) {
                             database.ref(`customInterests/${interestId}`).set(newInterestData)
                               .then(() => {
@@ -12874,6 +12876,9 @@ const FouFouApp = () => {
                                 console.error(`[INTEREST-SAVE] FAILED: ${interestId}`, e);
                                 saveToPendingInterest(newInterestData, searchConfig);
                               });
+                            const userId = localStorage.getItem('bangkok_user_id') || 'unknown';
+                            database.ref(`users/${userId}/interestStatus/${interestId}`).set(true).catch(() => {});
+                            database.ref(`settings/interestStatus/${interestId}`).set(true).catch(() => {});
                             if (Object.keys(searchConfig).length > 0) {
                               database.ref(`settings/interestConfig/${interestId}`).set(searchConfig)
                                 .catch(e => console.error(`[INTEREST-SAVE] Config FAILED: ${interestId}`, e));

@@ -616,7 +616,7 @@
         )}
 
         {/* QUICK LAUNCH — "Yalla" fast path, shown in wizard step 3 when route is loaded, hidden after manual config */}
-        {wizardMode && wizardStep === 3 && !isGenerating && route && route.stops?.length > 0 && !activeTrail && !route.optimized && (
+        {wizardMode && wizardStep === 3 && !isGenerating && route && route.stops?.length > 0 && !activeTrail && !route.optimized && disabledStops.length === 0 && (
           <div style={{ background: 'white', borderRadius: '16px', padding: '14px', marginBottom: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
             <div style={{ textAlign: 'center', marginBottom: '10px' }}>
               <span style={{ fontSize: '15px', fontWeight: 'bold' }}>{`🐾 ${route.stops.length} ${t('wizard.placesFound')}`}</span>
