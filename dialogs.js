@@ -176,12 +176,33 @@
                         key={option.id}
                         onClick={() => {
                           const current = newLocation.interests || [];
-                          setNewLocation({
-                            ...newLocation,
-                            interests: current.includes(option.id)
-                              ? current.filter(i => i !== option.id)
-                              : [...current, option.id]
-                          });
+                          const isAdding = !current.includes(option.id);
+                          const updatedInterests = isAdding
+                            ? [...current, option.id]
+                            : current.filter(i => i !== option.id);
+                          
+                          const updates = { ...newLocation, interests: updatedInterests };
+                          
+                          // Auto-generate name when first interest selected and name is empty
+                          if (isAdding && !newLocation.name.trim()) {
+                            const result = window.BKK.generateLocationName(
+                              option.id, newLocation.lat, newLocation.lng,
+                              interestCounters, allInterestOptions, areaOptions
+                            );
+                            if (result.name) {
+                              updates.name = result.name;
+                              // Auto-detect areas too
+                              if (newLocation.lat && newLocation.lng) {
+                                const detected = window.BKK.getAreasForCoordinates(newLocation.lat, newLocation.lng);
+                                if (detected.length > 0) {
+                                  updates.areas = detected;
+                                  updates.area = detected[0];
+                                }
+                              }
+                            }
+                          }
+                          
+                          setNewLocation(updates);
                         }}
                         className={`p-1.5 rounded-lg text-[10px] font-bold transition-all ${
                           (newLocation.interests || []).includes(option.id)
@@ -210,7 +231,7 @@
                   />
                 </div>
 
-                {/* Image - Compact */}
+                {/* Image - with Camera & EXIF GPS */}
                 <div>
                   <label className="block text-xs font-bold mb-1">{`📷 ${t("general.image")}`}</label>
                   {newLocation.uploadedImage ? (
@@ -234,23 +255,71 @@
                       )}
                     </div>
                   ) : (
-                    <label className="block w-full p-3 border-2 border-dashed border-purple-300 rounded-lg text-center cursor-pointer hover:bg-purple-50">
-                      <span className="text-2xl">📸</span>
-                      <div className="text-xs text-gray-600 mt-1">{t("general.clickToUpload")}</div>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = () => setNewLocation({...newLocation, uploadedImage: reader.result});
-                            reader.readAsDataURL(file);
+                    <div className="flex gap-2">
+                      {/* Camera button */}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const result = await window.BKK.openCamera();
+                          if (!result) return;
+                          setNewLocation(prev => ({...prev, uploadedImage: result.dataUrl}));
+                          // Save to device
+                          const locName = newLocation.label?.en || newLocation.label?.he || 'photo';
+                          const safeName = locName.replace(/[^a-zA-Z0-9\u0590-\u05FF]/g, '_').slice(0, 30);
+                          window.BKK.saveImageToDevice(result.dataUrl, `foufou_${safeName}_${Date.now()}.jpg`);
+                          // Extract GPS from camera photo
+                          const gps = await window.BKK.extractGpsFromImage(result.file);
+                          if (gps && (!newLocation.lat || !newLocation.lng)) {
+                            const updates = { uploadedImage: result.dataUrl, lat: gps.lat, lng: gps.lng };
+                            // Auto-detect areas from GPS
+                            const detected = window.BKK.getAreasForCoordinates(gps.lat, gps.lng);
+                            if (detected.length > 0) {
+                              updates.areas = detected;
+                              updates.area = detected[0];
+                            }
+                            setNewLocation(prev => ({...prev, ...updates}));
+                            showToast('📍 ' + t('general.gpsExtracted'), 'success');
                           }
                         }}
-                        className="hidden"
-                      />
-                    </label>
+                        className="flex-1 p-3 border-2 border-dashed border-green-400 rounded-lg text-center cursor-pointer hover:bg-green-50"
+                      >
+                        <span className="text-2xl">📸</span>
+                        <div className="text-xs text-green-700 mt-1 font-bold">{t('general.takePhoto')}</div>
+                      </button>
+                      {/* Gallery upload */}
+                      <label className="flex-1 p-3 border-2 border-dashed border-purple-300 rounded-lg text-center cursor-pointer hover:bg-purple-50 block">
+                        <span className="text-2xl">🖼️</span>
+                        <div className="text-xs text-gray-600 mt-1">{t("general.clickToUpload")}</div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = async () => {
+                              const dataUrl = reader.result;
+                              setNewLocation(prev => ({...prev, uploadedImage: dataUrl}));
+                              // Extract GPS from uploaded photo
+                              const gps = await window.BKK.extractGpsFromImage(file);
+                              if (gps && (!newLocation.lat || !newLocation.lng)) {
+                                const updates = { uploadedImage: dataUrl, lat: gps.lat, lng: gps.lng };
+                                // Auto-detect areas from GPS
+                                const detected = window.BKK.getAreasForCoordinates(gps.lat, gps.lng);
+                                if (detected.length > 0) {
+                                  updates.areas = detected;
+                                  updates.area = detected[0];
+                                }
+                                setNewLocation(prev => ({...prev, ...updates}));
+                                showToast('📍 ' + t('general.gpsExtracted'), 'success');
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
                   )}
                 </div>
 
@@ -573,8 +642,7 @@
                       (!editingLocation || loc.id !== editingLocation.id)
                     );
                     if (exists) {
-                      showToast(t('places.placeExists'), 'error');
-                      return;
+                      showToast(`⚠️ ${t('places.placeExists')}`, 'warning');
                     }
                     if (showEditLocationDialog) {
                       updateCustomLocation(false);

@@ -1,5 +1,5 @@
 // ============================================================================
-// Bangkok Explorer - Utility Functions
+// FouFou — City Trail Generator - Utility Functions
 // Copyright © 2026 Eitan Fisher. All Rights Reserved.
 // Pure functions - no React state dependency
 // ============================================================================
@@ -710,4 +710,193 @@ window.BKK._suggestEmojisLocal = function(description, returnAll) {
   }
   
   return result.slice(0, 6);
+};
+
+// ============================================================================
+// EXIF GPS Extraction — reads GPS coordinates from photo EXIF data
+// ============================================================================
+window.BKK.extractGpsFromImage = (file) => {
+  return new Promise((resolve) => {
+    if (!file || !file.type.startsWith('image/')) return resolve(null);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const view = new DataView(e.target.result);
+        // Check JPEG SOI marker
+        if (view.getUint16(0) !== 0xFFD8) return resolve(null);
+        let offset = 2;
+        while (offset < view.byteLength - 1) {
+          const marker = view.getUint16(offset);
+          if (marker === 0xFFE1) { // APP1 (EXIF)
+            const exifData = parseExif(view, offset + 4);
+            return resolve(exifData);
+          }
+          // Skip to next marker
+          const len = view.getUint16(offset + 2);
+          offset += 2 + len;
+        }
+        resolve(null);
+      } catch (err) {
+        console.warn('EXIF parse error:', err);
+        resolve(null);
+      }
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsArrayBuffer(file.slice(0, 256 * 1024)); // Read first 256KB only
+  });
+};
+
+function parseExif(view, tiffOffset) {
+  // Check "Exif\0\0" header
+  const exifHeader = String.fromCharCode(view.getUint8(tiffOffset), view.getUint8(tiffOffset+1), view.getUint8(tiffOffset+2), view.getUint8(tiffOffset+3));
+  if (exifHeader !== 'Exif') return null;
+  
+  const tiffStart = tiffOffset + 6;
+  const byteOrder = view.getUint16(tiffStart);
+  const littleEndian = byteOrder === 0x4949; // 'II'
+  
+  const get16 = (o) => view.getUint16(o, littleEndian);
+  const get32 = (o) => view.getUint32(o, littleEndian);
+  
+  // Verify TIFF magic
+  if (get16(tiffStart + 2) !== 0x002A) return null;
+  
+  // Find GPS IFD
+  let ifdOffset = tiffStart + get32(tiffStart + 4);
+  let gpsIfdOffset = null;
+  
+  // Search IFD0 for GPS IFD pointer (tag 0x8825)
+  const entryCount = get16(ifdOffset);
+  for (let i = 0; i < entryCount; i++) {
+    const entryOffset = ifdOffset + 2 + i * 12;
+    const tag = get16(entryOffset);
+    if (tag === 0x8825) { // GPSInfo
+      gpsIfdOffset = tiffStart + get32(entryOffset + 8);
+      break;
+    }
+  }
+  
+  if (!gpsIfdOffset) return null;
+  
+  // Parse GPS IFD
+  const gpsEntries = get16(gpsIfdOffset);
+  const gps = {};
+  
+  for (let i = 0; i < gpsEntries; i++) {
+    const entryOffset = gpsIfdOffset + 2 + i * 12;
+    const tag = get16(entryOffset);
+    const type = get16(entryOffset + 2);
+    const numValues = get32(entryOffset + 4);
+    const valueOffset = (type === 5 && numValues > 0) ? tiffStart + get32(entryOffset + 8) : entryOffset + 8;
+    
+    if (type === 5) { // RATIONAL
+      const readRational = (o) => {
+        const num = get32(o);
+        const den = get32(o + 4);
+        return den === 0 ? 0 : num / den;
+      };
+      
+      if (tag === 2 && numValues === 3) { // GPSLatitude
+        gps.lat = readRational(valueOffset) + readRational(valueOffset + 8) / 60 + readRational(valueOffset + 16) / 3600;
+      } else if (tag === 4 && numValues === 3) { // GPSLongitude
+        gps.lng = readRational(valueOffset) + readRational(valueOffset + 8) / 60 + readRational(valueOffset + 16) / 3600;
+      }
+    } else if (type === 2) { // ASCII
+      const charCode = view.getUint8(entryOffset + 8);
+      if (tag === 1) gps.latRef = String.fromCharCode(charCode); // N or S
+      if (tag === 3) gps.lngRef = String.fromCharCode(charCode); // E or W
+    }
+  }
+  
+  if (gps.lat != null && gps.lng != null) {
+    if (gps.latRef === 'S') gps.lat = -gps.lat;
+    if (gps.lngRef === 'W') gps.lng = -gps.lng;
+    // Sanity check
+    if (Math.abs(gps.lat) <= 90 && Math.abs(gps.lng) <= 180 && (gps.lat !== 0 || gps.lng !== 0)) {
+      return { lat: Math.round(gps.lat * 1000000) / 1000000, lng: Math.round(gps.lng * 1000000) / 1000000 };
+    }
+  }
+  return null;
+}
+
+// ============================================================================
+// Camera capture — opens camera, returns { file, dataUrl }
+// ============================================================================
+window.BKK.openCamera = () => {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment'; // Back camera
+    input.onchange = (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return resolve(null);
+      const reader = new FileReader();
+      reader.onload = () => resolve({ file, dataUrl: reader.result });
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    };
+    input.click();
+  });
+};
+
+// ============================================================================
+// Save image to device — triggers download of a data URL
+// ============================================================================
+window.BKK.saveImageToDevice = (dataUrl, filename) => {
+  try {
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = filename || 'foufou-photo.jpg';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    return true;
+  } catch (err) {
+    console.warn('Save image error:', err);
+    return false;
+  }
+};
+
+// ============================================================================
+// Auto-name generation — "Graffiti Chinatown #3"
+// ============================================================================
+window.BKK.generateLocationName = (interestId, lat, lng, counters, allInterests, areaOptions) => {
+  // Get interest English label
+  const interest = allInterests.find(i => i.id === interestId);
+  const interestName = interest?.labelEn || interest?.label || interestId;
+  
+  // Get area from coordinates
+  let areaName = '';
+  if (lat && lng) {
+    const detectedAreas = window.BKK.getAreasForCoordinates(lat, lng);
+    if (detectedAreas.length > 0) {
+      const area = areaOptions.find(a => a.id === detectedAreas[0]);
+      if (area) {
+        // Use English label, shorten if too long
+        let aName = area.labelEn || area.label || '';
+        // Take first part before "&" or "and" if too long
+        if (aName.length > 18) {
+          const parts = aName.split(/\s*[&]\s*|\s+and\s+/i);
+          aName = parts[0].trim();
+        }
+        // Still too long? Take first 2 words
+        if (aName.length > 18) {
+          aName = aName.split(/\s+/).slice(0, 2).join(' ');
+        }
+        areaName = aName;
+      }
+    }
+  }
+  
+  // Get next counter
+  const currentCount = counters[interestId] || 0;
+  const nextNum = currentCount + 1;
+  
+  // Build name: "Graffiti Chinatown #3" or "Graffiti #4" (no area)
+  const name = areaName 
+    ? `${interestName} ${areaName} #${nextNum}`
+    : `${interestName} #${nextNum}`;
+  
+  return { name, nextNum, interestId };
 };

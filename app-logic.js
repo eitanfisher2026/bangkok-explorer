@@ -99,6 +99,7 @@
   
   // Interest search configuration (editable)
   const [interestConfig, setInterestConfig] = useState({});
+  const [interestCounters, setInterestCounters] = useState({}); // { interestId: nextNumber }
   const [googlePlaceInfo, setGooglePlaceInfo] = useState(null);
   const [loadingGoogleInfo, setLoadingGoogleInfo] = useState(false);
   const [locationSearchResults, setLocationSearchResults] = useState(null); // null=hidden, []=no results, [...]= results
@@ -924,6 +925,18 @@
       markLoaded('config');
     }
   }, []);
+
+  // Load interest counters (for auto-naming: "Graffiti Chinatown #3")
+  useEffect(() => {
+    if (isFirebaseAvailable && database && selectedCityId) {
+      const countersRef = database.ref(`cities/${selectedCityId}/interestCounters`);
+      countersRef.on('value', (snapshot) => {
+        const data = snapshot.val() || {};
+        setInterestCounters(data);
+      });
+      return () => countersRef.off();
+    }
+  }, [selectedCityId]);
 
   // Load interest active/inactive status (per-user with admin defaults)
   useEffect(() => {
@@ -4163,13 +4176,12 @@
       return; // Just don't add if validation fails
     }
     
-    // Check for duplicate name
+    // Check for duplicate name (warn only, don't block — auto-generated names may collide)
     const exists = customLocations.find(loc => 
       loc.name.toLowerCase().trim() === newLocation.name.toLowerCase().trim()
     );
     if (exists) {
-      showToast(`"${newLocation.name}" ${t("places.alreadyInList")}`, 'warning');
-      return;
+      showToast(`⚠️ "${newLocation.name}" ${t("places.alreadyInList")}`, 'warning');
     }
     
     // Use provided coordinates (can be null)
@@ -4219,9 +4231,26 @@
       cityId: selectedCityId
     };
     
+    // Increment interest counters for auto-naming (if name matches "#N" pattern)
+    const incrementCounters = () => {
+      if (isFirebaseAvailable && database && locationToAdd.interests?.length > 0) {
+        const nameMatch = locationToAdd.name.match(/#(\d+)$/);
+        if (nameMatch) {
+          const num = parseInt(nameMatch[1]);
+          locationToAdd.interests.forEach(interestId => {
+            const current = interestCounters[interestId] || 0;
+            if (num > current) {
+              database.ref(`cities/${selectedCityId}/interestCounters/${interestId}`).set(num);
+            }
+          });
+        }
+      }
+    };
+    
     // Save to Firebase (or localStorage fallback)
     if (isFirebaseAvailable && database) {
       // DYNAMIC MODE: Firebase (shared) — SDK handles offline caching automatically
+      incrementCounters();
       database.ref(`cities/${selectedCityId}/locations`).push(locationToAdd)
         .then(async (ref) => {
           // Firebase push succeeded (may be cached offline - SDK will sync when online)
@@ -4301,14 +4330,13 @@
       return;
     }
     
-    // Check for duplicate name (exclude current location)
+    // Check for duplicate name (warn only, don't block)
     const exists = customLocations.find(loc => 
       loc.name.toLowerCase().trim() === newLocation.name.toLowerCase().trim() &&
       loc.id !== editingLocation.id
     );
     if (exists) {
-      showToast(`"${newLocation.name}" ${t("places.alreadyInList")}`, 'warning');
-      return;
+      showToast(`⚠️ "${newLocation.name}" ${t("places.alreadyInList")}`, 'warning');
     }
     
     // Check if anything actually changed (normalize null/undefined)
