@@ -1233,7 +1233,9 @@
                       stopCounter++;
                     });
                     
-                    return Object.entries(groupedStops).map(([interest, stops]) => {
+                    return Object.entries(groupedStops)
+                      .filter(([interest]) => interest === '_manual' || formData.interests.includes(interest))
+                      .map(([interest, stops]) => {
                       const isManualGroup = interest === '_manual';
                       const interestObj = isManualGroup ? { id: '_manual', label: t('general.addedManually'), icon: '📍' } : interestMap[interest];
                       if (!interestObj) return null;
