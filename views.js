@@ -121,8 +121,135 @@
           </button>
         </div>
       )}      <div className="max-w-4xl mx-auto p-2 sm:p-4 pb-32">
+        {/* ACTIVE TRAIL MODE — shown when user opened Google Maps route */}
+        {activeTrail && wizardMode && wizardStep < 3 && (
+          <div className="view-fade-in">
+            <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <button onClick={() => switchLanguage(currentLang === 'he' ? 'en' : 'he')} style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '2px 8px', color: '#6b7280', fontSize: '10px', cursor: 'pointer' }}>
+                  {currentLang === 'he' ? '🇬🇧 EN' : '🇮🇱 עב'}
+                </button>
+                <span style={{ fontSize: '10px', color: '#9ca3af' }}>
+                  {(() => { const mins = Math.round((Date.now() - activeTrail.startedAt) / 60000); return mins < 60 ? `${mins}m` : `${Math.floor(mins/60)}h ${mins%60}m`; })()}
+                </span>
+              </div>
+              
+              <div style={{ fontSize: '20px', marginBottom: '2px' }}>🐾</div>
+              <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 4px 0' }}>{t('trail.activeTitle')}</h2>
+              <p style={{ fontSize: '11px', color: '#6b7280', margin: '0 0 12px 0' }}>{t('trail.activeDesc')}</p>
+            </div>
+
+            {/* Big Camera Button */}
+            <button
+              onClick={() => {
+                // Reset newLocation for quick capture with trail defaults
+                setNewLocation({
+                  name: '', description: '', notes: '',
+                  area: activeTrail.area || formData.area,
+                  areas: activeTrail.area ? [activeTrail.area] : [formData.area],
+                  interests: [],
+                  lat: null, lng: null, mapsUrl: '', address: '',
+                  uploadedImage: null, imageUrls: [], inProgress: true
+                });
+                setShowQuickCapture(true);
+              }}
+              style={{
+                width: '100%', padding: '20px', marginBottom: '12px',
+                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                color: 'white', border: 'none', borderRadius: '16px',
+                fontSize: '18px', fontWeight: 'bold', cursor: 'pointer',
+                boxShadow: '0 4px 15px rgba(34,197,94,0.4)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px'
+              }}
+            >
+              <span style={{ fontSize: '32px' }}>📸</span>
+              <span>{t('trail.capturePlace')}</span>
+            </button>
+
+            {/* Trail Stops */}
+            {activeTrail.stops?.length > 0 && (
+              <div style={{ background: 'white', borderRadius: '12px', padding: '10px', marginBottom: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#6b7280', marginBottom: '6px' }}>
+                  {`📍 ${t('trail.stops')} (${activeTrail.stops.length})`}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {activeTrail.stops.slice(0, 10).map((stop, idx) => (
+                    <div key={idx} style={{
+                      display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px',
+                      background: '#f9fafb', borderRadius: '8px', fontSize: '12px'
+                    }}>
+                      <span style={{
+                        width: '22px', height: '22px', borderRadius: '50%',
+                        background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '10px', fontWeight: 'bold', color: '#6b7280', flexShrink: 0
+                      }}>{String.fromCharCode(65 + idx)}</span>
+                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {stop.name}
+                      </span>
+                    </div>
+                  ))}
+                  {activeTrail.stops.length > 10 && (
+                    <div style={{ fontSize: '10px', color: '#9ca3af', textAlign: 'center' }}>
+                      +{activeTrail.stops.length - 10} more
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => {
+                  // Reopen Google Maps with the route
+                  if (activeTrail.stops?.length >= 2) {
+                    const coords = activeTrail.stops.map(s => `${s.lat},${s.lng}`).join('/');
+                    window.open(`https://www.google.com/maps/dir/${coords}`, 'city_explorer_map');
+                  }
+                }}
+                style={{
+                  flex: 1, padding: '10px', background: '#2563eb', color: 'white',
+                  border: 'none', borderRadius: '12px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer'
+                }}
+              >
+                {`🗺️ ${t('trail.backToMaps')}`}
+              </button>
+              <button
+                onClick={() => {
+                  endActiveTrail();
+                  showToast(t('trail.ended'), 'success');
+                }}
+                style={{
+                  padding: '10px 16px', background: '#f3f4f6', color: '#6b7280',
+                  border: 'none', borderRadius: '12px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer'
+                }}
+              >
+                {t('trail.end')}
+              </button>
+            </div>
+
+            {/* New trail button */}
+            <button
+              onClick={() => {
+                endActiveTrail();
+                setRoute(null);
+                setWizardStep(1);
+                setCurrentView('form');
+                window.scrollTo(0, 0);
+              }}
+              style={{
+                width: '100%', marginTop: '8px', padding: '8px',
+                background: 'none', border: '1px dashed #d1d5db', borderRadius: '12px',
+                fontSize: '11px', color: '#9ca3af', cursor: 'pointer'
+              }}
+            >
+              {`🔄 ${t('trail.newTrail')}`}
+            </button>
+          </div>
+        )}
+
         {/* WIZARD MODE */}
-        {wizardMode && (
+        {wizardMode && (!activeTrail || wizardStep >= 3) && (
           <div className={wizardStep < 3 ? "view-fade-in" : ""}>
             {/* Wizard Header — shown on all steps */}
             <div style={{ textAlign: 'center', marginBottom: '4px' }}>
@@ -1554,6 +1681,9 @@
                               const mapUrl = urls.length === 1 ? urls[0].url : (activeStops.length === 1 && !hasStartPoint ? window.BKK.getGoogleMapsUrl(activeStops[0]) : '#');
                               if (mapUrl.length > 2000) showToast(`${t('toast.urlTooLong')} (${mapUrl.length})`, 'warning');
                               else if (isCircular) showToast(t('route.circularDesc'), 'info');
+                              // Save active trail before opening Google Maps
+                              startActiveTrail(activeStops, formData.interests, formData.area);
+                              showToast(`📸 ${t('trail.started')}`, 'success');
                               window.open(mapUrl, 'city_explorer_map');
                             }}
                           >
@@ -1567,6 +1697,8 @@
                               id={idx === 0 ? "open-google-maps-btn" : undefined}
                               onClick={() => {
                                 if (urlInfo.url.length > 2000) showToast(`${t('toast.urlTooLong')} (${urlInfo.url.length})`, 'warning');
+                                // Save active trail on first part click
+                                if (idx === 0) startActiveTrail(activeStops, formData.interests, formData.area);
                                 window.open(urlInfo.url, 'city_explorer_map');
                               }}
                               style={{

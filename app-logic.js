@@ -56,6 +56,22 @@
   const [showRoutePreview, setShowRoutePreview] = useState(false); // Route stop reorder view
   const [manualStops, setManualStops] = useState([]); // Manually added stops (session only)
   const [showManualAddDialog, setShowManualAddDialog] = useState(false);
+  const [activeTrail, setActiveTrail] = useState(() => {
+    try {
+      const saved = localStorage.getItem('foufou_active_trail');
+      if (saved) {
+        const trail = JSON.parse(saved);
+        // Auto-expire after 8 hours
+        if (trail.startedAt && (Date.now() - trail.startedAt) > 8 * 60 * 60 * 1000) {
+          localStorage.removeItem('foufou_active_trail');
+          return null;
+        }
+        return trail;
+      }
+    } catch(e) {}
+    return null;
+  });
+  const [showQuickCapture, setShowQuickCapture] = useState(false);
   const [routeType, setRouteType] = useState(() => {
     // Load from localStorage or default to 'circular'
     const saved = localStorage.getItem('bangkok_route_type');
@@ -1460,6 +1476,7 @@
     }));
     setRoute(null);
     setWizardStep(1);
+    endActiveTrail(); // End any active trail when starting new wizard
     if (!stayOnView) {
       setCurrentView('form');
       window.scrollTo(0, 0);
@@ -4169,6 +4186,24 @@
     
     const totalAdded = addedInterests + addedLocations + addedRoutes + updatedConfigs;
     showToast(report.join(' | ') || t('toast.noImportItems'), totalAdded > 0 ? 'success' : 'warning');
+  };
+
+  // ===== Active Trail Management =====
+  const startActiveTrail = (stops, interests, area) => {
+    const trail = {
+      stops: stops.map(s => ({ name: s.name, lat: s.lat, lng: s.lng, interest: s.interest || s.interests?.[0] })),
+      interests: interests || formData.interests || [],
+      area: area || formData.area || '',
+      cityId: selectedCityId,
+      startedAt: Date.now()
+    };
+    setActiveTrail(trail);
+    localStorage.setItem('foufou_active_trail', JSON.stringify(trail));
+  };
+
+  const endActiveTrail = () => {
+    setActiveTrail(null);
+    localStorage.removeItem('foufou_active_trail');
   };
 
   const addCustomLocation = (closeAfter = true) => {

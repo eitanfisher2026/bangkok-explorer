@@ -185,15 +185,18 @@
                           
                           // Auto-generate name when first interest selected and name is empty
                           if (isAdding && !newLocation.name.trim()) {
+                            // Use lat/lng from current state (may have been set by camera/GPS)
+                            const lat = newLocation.lat;
+                            const lng = newLocation.lng;
                             const result = window.BKK.generateLocationName(
-                              option.id, newLocation.lat, newLocation.lng,
+                              option.id, lat, lng,
                               interestCounters, allInterestOptions, areaOptions
                             );
                             if (result.name) {
                               updates.name = result.name;
-                              // Auto-detect areas too
-                              if (newLocation.lat && newLocation.lng) {
-                                const detected = window.BKK.getAreasForCoordinates(newLocation.lat, newLocation.lng);
+                              // Auto-detect areas too if not already set
+                              if (lat && lng && (!newLocation.areas || newLocation.areas.length === 0 || (newLocation.areas.length === 1 && newLocation.areas[0] === formData.area))) {
+                                const detected = window.BKK.getAreasForCoordinates(lat, lng);
                                 if (detected.length > 0) {
                                   updates.areas = detected;
                                   updates.area = detected[0];
@@ -262,7 +265,8 @@
                         onClick={async () => {
                           const result = await window.BKK.openCamera();
                           if (!result) return;
-                          setNewLocation(prev => ({...prev, uploadedImage: result.dataUrl}));
+                          const compressed = await window.BKK.compressImage(result.dataUrl);
+                          setNewLocation(prev => ({...prev, uploadedImage: compressed}));
                           // Save to device
                           const locName = newLocation.label?.en || newLocation.label?.he || 'photo';
                           const safeName = locName.replace(/[^a-zA-Z0-9\u0590-\u05FF]/g, '_').slice(0, 30);
@@ -270,7 +274,7 @@
                           // Extract GPS from camera photo
                           const gps = await window.BKK.extractGpsFromImage(result.file);
                           if (gps && (!newLocation.lat || !newLocation.lng)) {
-                            const updates = { uploadedImage: result.dataUrl, lat: gps.lat, lng: gps.lng };
+                            const updates = { uploadedImage: compressed, lat: gps.lat, lng: gps.lng };
                             // Auto-detect areas from GPS
                             const detected = window.BKK.getAreasForCoordinates(gps.lat, gps.lng);
                             if (detected.length > 0) {
@@ -298,12 +302,12 @@
                             if (!file) return;
                             const reader = new FileReader();
                             reader.onload = async () => {
-                              const dataUrl = reader.result;
-                              setNewLocation(prev => ({...prev, uploadedImage: dataUrl}));
+                              const compressed = await window.BKK.compressImage(reader.result);
+                              setNewLocation(prev => ({...prev, uploadedImage: compressed}));
                               // Extract GPS from uploaded photo
                               const gps = await window.BKK.extractGpsFromImage(file);
                               if (gps && (!newLocation.lat || !newLocation.lng)) {
-                                const updates = { uploadedImage: dataUrl, lat: gps.lat, lng: gps.lng };
+                                const updates = { uploadedImage: compressed, lat: gps.lat, lng: gps.lng };
                                 // Auto-detect areas from GPS
                                 const detected = window.BKK.getAreasForCoordinates(gps.lat, gps.lng);
                                 if (detected.length > 0) {
@@ -670,9 +674,9 @@
                       lat: null, lng: null, mapsUrl: '', address: '', uploadedImage: null, imageUrls: [], inProgress: true
                     });
                   }}
-                  className="px-5 py-2.5 rounded-lg bg-green-500 text-white text-sm font-bold hover:bg-green-600"
+                  className="px-5 py-2.5 rounded-lg bg-gray-400 text-white text-sm font-bold hover:bg-gray-500"
                 >
-                  {`✓ ${t("general.close")}`}
+                  {`✕ ${t("general.close")}`}
                 </button>
               </div>
                 );
@@ -2440,3 +2444,129 @@
           </div>
         );
       })()}
+
+        {/* ===== QUICK CAPTURE DIALOG (Light) ===== */}
+        {showQuickCapture && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowQuickCapture(false); }}>
+            <div className="bg-white rounded-t-2xl w-full max-w-lg shadow-2xl" style={{ maxHeight: '85vh', overflow: 'auto' }}>
+              {/* Header */}
+              <div style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)', padding: '12px 16px', borderRadius: '16px 16px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'white', fontWeight: 'bold', fontSize: '16px' }}>📸 {t('trail.capturePlace')}</span>
+                <button onClick={() => setShowQuickCapture(false)} style={{ color: 'white', background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>
+              </div>
+
+              <div style={{ padding: '12px 16px' }}>
+                {/* Photo — camera only */}
+                {newLocation.uploadedImage ? (
+                  <div style={{ position: 'relative', marginBottom: '10px' }}>
+                    <img src={newLocation.uploadedImage} alt="" style={{ width: '100%', maxHeight: '180px', objectFit: 'cover', borderRadius: '12px' }} />
+                    <button
+                      onClick={() => setNewLocation(prev => ({...prev, uploadedImage: null, lat: null, lng: null}))}
+                      style={{ position: 'absolute', top: '6px', right: '6px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '28px', height: '28px', fontSize: '14px', cursor: 'pointer' }}
+                    >✕</button>
+                    {newLocation.lat && newLocation.lng && (
+                      <div style={{ position: 'absolute', bottom: '6px', left: '6px', background: 'rgba(0,0,0,0.7)', color: '#22c55e', padding: '2px 8px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold' }}>
+                        📍 GPS ✓
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      const result = await window.BKK.openCamera();
+                      if (!result) return;
+                      const compressed = await window.BKK.compressImage(result.dataUrl);
+                      const updates = { uploadedImage: compressed };
+                      const gps = await window.BKK.extractGpsFromImage(result.file);
+                      if (gps && gps.lat !== 0 && gps.lng !== 0) {
+                        updates.lat = gps.lat;
+                        updates.lng = gps.lng;
+                        const detected = window.BKK.getAreasForCoordinates(gps.lat, gps.lng);
+                        if (detected.length > 0) { updates.areas = detected; updates.area = detected[0]; }
+                      }
+                      setNewLocation(prev => ({...prev, ...updates}));
+                      window.BKK.saveImageToDevice(result.dataUrl, `foufou_quick_${Date.now()}.jpg`);
+                    }}
+                    style={{ width: '100%', padding: '24px', border: '2px dashed #22c55e', borderRadius: '12px', background: '#f0fdf4', cursor: 'pointer', textAlign: 'center', marginBottom: '10px' }}
+                  >
+                    <span style={{ fontSize: '40px', display: 'block' }}>📸</span>
+                    <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#16a34a' }}>{t('general.takePhoto')}</span>
+                  </button>
+                )}
+
+                {/* Interest Selection — pick one */}
+                <div style={{ marginBottom: '10px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', color: '#374151' }}>{t('trail.whatDidYouSee')}</div>
+                  <div className="grid grid-cols-6 gap-1.5">
+                    {allInterestOptions.map(option => (
+                      <button
+                        key={option.id}
+                        onClick={() => {
+                          const updates = { ...newLocation, interests: [option.id] };
+                          const result = window.BKK.generateLocationName(
+                            option.id, newLocation.lat, newLocation.lng,
+                            interestCounters, allInterestOptions, areaOptions
+                          );
+                          if (result.name) updates.name = result.name;
+                          setNewLocation(updates);
+                        }}
+                        className={`p-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                          (newLocation.interests || []).includes(option.id)
+                            ? 'bg-green-500 text-white shadow-md'
+                            : 'bg-white border border-gray-300'
+                        }`}
+                      >
+                        <span className="text-lg block">{option.icon?.startsWith?.('data:') ? <img src={option.icon} alt="" className="w-5 h-5 object-contain mx-auto" /> : option.icon}</span>
+                        <span className="text-[7px] block truncate leading-tight mt-0.5">{tLabel(option)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Auto-generated name (info only) */}
+                {newLocation.name && (
+                  <div style={{ padding: '6px 10px', background: '#f3f4f6', borderRadius: '8px', marginBottom: '10px', fontSize: '12px', color: '#6b7280' }}>
+                    📝 {newLocation.name}
+                  </div>
+                )}
+
+                {/* Save Button */}
+                <button
+                  onClick={() => {
+                    if (!newLocation.uploadedImage) {
+                      showToast('📸 ' + t('trail.photoRequired'), 'warning');
+                      return;
+                    }
+                    // Default interest if none selected
+                    if (!newLocation.interests || newLocation.interests.length === 0) {
+                      const defaultInterest = activeTrail?.interests?.[0] || 'spotted';
+                      newLocation.interests = [defaultInterest];
+                    }
+                    // Generate name if empty
+                    if (!newLocation.name.trim()) {
+                      const result = window.BKK.generateLocationName(
+                        newLocation.interests[0], newLocation.lat, newLocation.lng,
+                        interestCounters, allInterestOptions, areaOptions
+                      );
+                      newLocation.name = result?.name || ('Spotted #' + Date.now().toString().slice(-4));
+                    }
+                    addCustomLocation(true);
+                    setShowQuickCapture(false);
+                    showToast('✅ ' + t('trail.saved'), 'success');
+                  }}
+                  disabled={!newLocation.uploadedImage}
+                  style={{
+                    width: '100%', padding: '14px', border: 'none', borderRadius: '12px',
+                    fontSize: '16px', fontWeight: 'bold',
+                    cursor: newLocation.uploadedImage ? 'pointer' : 'not-allowed',
+                    background: newLocation.uploadedImage ? 'linear-gradient(135deg, #22c55e, #16a34a)' : '#e5e7eb',
+                    color: newLocation.uploadedImage ? 'white' : '#9ca3af',
+                    boxShadow: newLocation.uploadedImage ? '0 4px 15px rgba(34,197,94,0.4)' : 'none'
+                  }}
+                >
+                  {`✅ ${t('trail.saveAndContinue')}`}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}

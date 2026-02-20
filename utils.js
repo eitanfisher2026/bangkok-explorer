@@ -906,6 +906,42 @@ window.BKK.openCamera = () => {
 };
 
 // ============================================================================
+// Compress image — resize + JPEG quality reduction via Canvas
+// Input: dataUrl (string) or File/Blob
+// Output: Promise<string> compressed dataUrl
+// ============================================================================
+window.BKK.compressImage = (input, maxWidth = 1200, quality = 0.7) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width;
+      let h = img.height;
+      // Only downscale, never upscale
+      if (w > maxWidth) {
+        h = Math.round(h * (maxWidth / w));
+        w = maxWidth;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      const compressed = canvas.toDataURL('image/jpeg', quality);
+      resolve(compressed);
+    };
+    img.onerror = () => resolve(typeof input === 'string' ? input : null);
+    // Handle both dataUrl strings and File/Blob objects
+    if (typeof input === 'string') {
+      img.src = input;
+    } else {
+      const reader = new FileReader();
+      reader.onload = () => { img.src = reader.result; };
+      reader.readAsDataURL(input);
+    }
+  });
+};
+
+// ============================================================================
 // Save image to device — triggers download of a data URL
 // ============================================================================
 window.BKK.saveImageToDevice = (dataUrl, filename) => {

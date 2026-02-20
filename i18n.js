@@ -569,9 +569,25 @@ interests: {
   blacklistWords: 'מילות סינון (מופרדות בפסיק)',
 },
 
+// --- Active Trail ---
+trail: {
+  started: 'מסלול פעיל! חזור לצלם מקומות חדשים',
+  activeTitle: 'מסלול פעיל 🐾',
+  activeDesc: 'ראית משהו מגניב? צלם והוסף למערכת!',
+  capturePlace: 'צלם מקום חדש',
+  whatDidYouSee: 'מה ראית?',
+  stops: 'עצירות במסלול',
+  backToMaps: 'חזרה למפות',
+  end: 'סיים',
+  ended: 'המסלול הסתיים',
+  newTrail: 'התחל מסלול חדש',
+  photoRequired: 'צלם תמונה קודם',
+  saved: 'המקום נשמר!',
+  saveAndContinue: 'שמור והמשך בטיול',
+},
+
 // --- Toasts & Messages ---
 toast: {
-  saveError: 'שגיאה בשמירה',
   saveNotVerified: 'השמירה לא אומתה — בדוק שהמקום נשמר!',
   savedLocalOnly: 'נשמר מקומית בלבד! אין חיבור לשרת — יאבד בסגירת הדף',
   offlineSaveWarning: 'אין חיבור לשרת! המקום יישמר רק מקומית ויאבד בסגירה',
@@ -1236,6 +1252,22 @@ interests: {
   placeTypes: 'Place Types (comma separated)',
   seeTypesList: 'See types list',
   blacklistWords: 'Blacklist Words (comma separated)',
+},
+
+trail: {
+  started: 'Trail active! Come back to capture new places',
+  activeTitle: 'Active Trail 🐾',
+  activeDesc: 'Spotted something cool? Snap a photo and add it!',
+  capturePlace: 'Capture New Place',
+  whatDidYouSee: 'What did you see?',
+  stops: 'Trail Stops',
+  backToMaps: 'Back to Maps',
+  end: 'End',
+  ended: 'Trail ended',
+  newTrail: 'Start new trail',
+  photoRequired: 'Take a photo first',
+  saved: 'Place saved!',
+  saveAndContinue: 'Save & Continue Walking',
 },
 
 toast: {
