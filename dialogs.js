@@ -891,6 +891,28 @@
                   </div>
                 </div>
 
+                {/* Counter for auto-naming (#️⃣ Next: #7) — only in edit mode */}
+                {editingCustomInterest && (
+                <div className="flex items-center gap-2 px-1">
+                  <span className="text-xs font-bold text-gray-600">#️⃣</span>
+                  <span className="text-[10px] text-gray-500">Next #:</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={(interestCounters[editingCustomInterest.id] || 0) + 1}
+                    onChange={(e) => {
+                      const val = Math.max(0, parseInt(e.target.value) || 0);
+                      const newCounter = Math.max(0, val - 1);
+                      if (isFirebaseAvailable && database) {
+                        database.ref(`cities/${selectedCityId}/interestCounters/${editingCustomInterest.id}`).set(newCounter);
+                      }
+                    }}
+                    className="w-16 p-1 text-xs border rounded text-center"
+                  />
+                  <span className="text-[9px] text-gray-400">({editingCustomInterest.labelEn || editingCustomInterest.label} {'{Area}'} #{(interestCounters[editingCustomInterest.id] || 0) + 1})</span>
+                </div>
+                )}
+
                 {/* Status toggles - hidden for locked non-admin */}
                 {!(editingCustomInterest?.locked && !isUnlocked) && (
                 <div className="flex gap-3 px-4 py-2 bg-gray-50 border-t border-gray-100">

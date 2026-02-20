@@ -3603,86 +3603,128 @@ window.BKK._suggestEmojisLocal = function(description, returnAll) {
 // ============================================================================
 window.BKK.extractGpsFromImage = (file) => {
   return new Promise((resolve) => {
-    if (!file || !file.type.startsWith('image/')) return resolve(null);
+    if (!file) { console.log('[EXIF] No file'); return resolve(null); }
+    if (!file.type?.startsWith('image/')) { console.log('[EXIF] Not an image:', file.type); return resolve(null); }
+    
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const view = new DataView(e.target.result);
-        if (view.getUint16(0) !== 0xFFD8) return resolve(null);
-        let offset = 2;
-        while (offset < view.byteLength - 1) {
-          const marker = view.getUint16(offset);
-          if (marker === 0xFFE1) { // APP1 (EXIF)
-            const exifData = parseExif(view, offset + 4);
-            return resolve(exifData);
-          }
-          const len = view.getUint16(offset + 2);
-          offset += 2 + len;
+        const buf = e.target.result;
+        const view = new DataView(buf);
+        
+        if (view.getUint16(0) !== 0xFFD8) {
+          return resolve(null);
         }
+        
+        let offset = 2;
+        let found = false;
+        while (offset < view.byteLength - 4) {
+          const marker = view.getUint16(offset);
+          
+          if ((marker & 0xFF00) !== 0xFF00) {
+            break;
+          }
+          
+          const segLen = view.getUint16(offset + 2);
+          
+          if (marker === 0xFFE1) { // APP1 (EXIF)
+            found = true;
+            const result = parseExifGps(view, offset + 4, buf.byteLength);
+            return resolve(result);
+          }
+          
+          if (marker === 0xFFDA) break;
+          
+          offset += 2 + segLen;
+        }
+        
+        if (!found) console.log('[EXIF] No APP1/EXIF marker found');
         resolve(null);
       } catch (err) {
         resolve(null);
       }
     };
-    reader.onerror = () => resolve(null);
-    reader.readAsArrayBuffer(file.slice(0, 256 * 1024)); // Read first 256KB only
+    reader.onerror = () => { console.warn('[EXIF] FileReader error'); resolve(null); };
+    reader.readAsArrayBuffer(file.slice(0, 512 * 1024)); // Read first 512KB
   });
 };
 
-function parseExif(view, tiffOffset) {
-  const exifHeader = String.fromCharCode(view.getUint8(tiffOffset), view.getUint8(tiffOffset+1), view.getUint8(tiffOffset+2), view.getUint8(tiffOffset+3));
-  if (exifHeader !== 'Exif') return null;
+function parseExifGps(view, segStart, totalLen) {
+  const e0 = view.getUint8(segStart), e1 = view.getUint8(segStart+1), e2 = view.getUint8(segStart+2), e3 = view.getUint8(segStart+3);
+  const hdr = String.fromCharCode(e0, e1, e2, e3);
+  if (hdr !== 'Exif') {
+    return null;
+  }
   
-  const tiffStart = tiffOffset + 6;
+  const tiffStart = segStart + 6;
+  if (tiffStart + 8 > totalLen) return null;
+  
   const byteOrder = view.getUint16(tiffStart);
-  const littleEndian = byteOrder === 0x4949; // 'II'
+  const littleEndian = byteOrder === 0x4949; // 'II' = Intel = little endian
   
-  const get16 = (o) => view.getUint16(o, littleEndian);
-  const get32 = (o) => view.getUint32(o, littleEndian);
+  const get16 = (o) => o + 2 <= totalLen ? view.getUint16(o, littleEndian) : 0;
+  const get32 = (o) => o + 4 <= totalLen ? view.getUint32(o, littleEndian) : 0;
   
-  if (get16(tiffStart + 2) !== 0x002A) return null;
+  if (get16(tiffStart + 2) !== 0x002A) {
+    return null;
+  }
   
-  let ifdOffset = tiffStart + get32(tiffStart + 4);
-  let gpsIfdOffset = null;
+  const ifd0Offset = tiffStart + get32(tiffStart + 4);
+  if (ifd0Offset + 2 > totalLen) return null;
   
-  const entryCount = get16(ifdOffset);
-  for (let i = 0; i < entryCount; i++) {
-    const entryOffset = ifdOffset + 2 + i * 12;
-    const tag = get16(entryOffset);
-    if (tag === 0x8825) { // GPSInfo
-      gpsIfdOffset = tiffStart + get32(entryOffset + 8);
+  const entryCount = get16(ifd0Offset);
+  
+  let gpsIfdPointer = null;
+  
+  for (let i = 0; i < entryCount && i < 100; i++) {
+    const entryOff = ifd0Offset + 2 + i * 12;
+    if (entryOff + 12 > totalLen) break;
+    const tag = get16(entryOff);
+    
+    if (tag === 0x8825) { // GPSInfo IFD pointer
+      gpsIfdPointer = get32(entryOff + 8);
       break;
     }
   }
   
-  if (!gpsIfdOffset) return null;
+  if (gpsIfdPointer === null) {
+    return null;
+  }
+  
+  const gpsIfdOffset = tiffStart + gpsIfdPointer;
+  if (gpsIfdOffset + 2 > totalLen) return null;
   
   const gpsEntries = get16(gpsIfdOffset);
+  
   const gps = {};
   
-  for (let i = 0; i < gpsEntries; i++) {
-    const entryOffset = gpsIfdOffset + 2 + i * 12;
-    const tag = get16(entryOffset);
-    const type = get16(entryOffset + 2);
-    const numValues = get32(entryOffset + 4);
-    const valueOffset = (type === 5 && numValues > 0) ? tiffStart + get32(entryOffset + 8) : entryOffset + 8;
+  const readRational = (o) => {
+    if (o + 8 > totalLen) return 0;
+    const num = get32(o);
+    const den = get32(o + 4);
+    return den === 0 ? 0 : num / den;
+  };
+  
+  for (let i = 0; i < gpsEntries && i < 50; i++) {
+    const entryOff = gpsIfdOffset + 2 + i * 12;
+    if (entryOff + 12 > totalLen) break;
     
-    if (type === 5) { // RATIONAL
-      const readRational = (o) => {
-        const num = get32(o);
-        const den = get32(o + 4);
-        return den === 0 ? 0 : num / den;
-      };
-      
-      if (tag === 2 && numValues === 3) { // GPSLatitude
-        gps.lat = readRational(valueOffset) + readRational(valueOffset + 8) / 60 + readRational(valueOffset + 16) / 3600;
-      } else if (tag === 4 && numValues === 3) { // GPSLongitude
-        gps.lng = readRational(valueOffset) + readRational(valueOffset + 8) / 60 + readRational(valueOffset + 16) / 3600;
-      }
-    } else if (type === 2) { // ASCII
-      const charCode = view.getUint8(entryOffset + 8);
-      if (tag === 1) gps.latRef = String.fromCharCode(charCode); // N or S
-      if (tag === 3) gps.lngRef = String.fromCharCode(charCode); // E or W
+    const tag = get16(entryOff);
+    const type = get16(entryOff + 2);
+    const count = get32(entryOff + 4);
+    
+    const dataOffset = (type === 5 || type === 10) 
+      ? tiffStart + get32(entryOff + 8) 
+      : entryOff + 8;
+    
+    if (tag === 1) { // GPSLatitudeRef (N/S) — type can be ASCII(2) or BYTE(1)
+      gps.latRef = String.fromCharCode(view.getUint8(entryOff + 8));
+    } else if (tag === 2 && count === 3 && (type === 5 || type === 10)) { // GPSLatitude
+      gps.lat = readRational(dataOffset) + readRational(dataOffset + 8) / 60 + readRational(dataOffset + 16) / 3600;
+    } else if (tag === 3) { // GPSLongitudeRef (E/W)
+      gps.lngRef = String.fromCharCode(view.getUint8(entryOff + 8));
+    } else if (tag === 4 && count === 3 && (type === 5 || type === 10)) { // GPSLongitude
+      gps.lng = readRational(dataOffset) + readRational(dataOffset + 8) / 60 + readRational(dataOffset + 16) / 3600;
     }
   }
   
@@ -3690,8 +3732,10 @@ function parseExif(view, tiffOffset) {
     if (gps.latRef === 'S') gps.lat = -gps.lat;
     if (gps.lngRef === 'W') gps.lng = -gps.lng;
     if (Math.abs(gps.lat) <= 90 && Math.abs(gps.lng) <= 180 && (gps.lat !== 0 || gps.lng !== 0)) {
-      return { lat: Math.round(gps.lat * 1000000) / 1000000, lng: Math.round(gps.lng * 1000000) / 1000000 };
+      const result = { lat: Math.round(gps.lat * 1000000) / 1000000, lng: Math.round(gps.lng * 1000000) / 1000000 };
+      return result;
     }
+  } else {
   }
   return null;
 }
@@ -12255,6 +12299,28 @@ const FouFouApp = () => {
                     )}
                   </div>
                 </div>
+
+                {/* Counter for auto-naming (#️⃣ Next: #7) — only in edit mode */}
+                {editingCustomInterest && (
+                <div className="flex items-center gap-2 px-1">
+                  <span className="text-xs font-bold text-gray-600">#️⃣</span>
+                  <span className="text-[10px] text-gray-500">Next #:</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={(interestCounters[editingCustomInterest.id] || 0) + 1}
+                    onChange={(e) => {
+                      const val = Math.max(0, parseInt(e.target.value) || 0);
+                      const newCounter = Math.max(0, val - 1);
+                      if (isFirebaseAvailable && database) {
+                        database.ref(`cities/${selectedCityId}/interestCounters/${editingCustomInterest.id}`).set(newCounter);
+                      }
+                    }}
+                    className="w-16 p-1 text-xs border rounded text-center"
+                  />
+                  <span className="text-[9px] text-gray-400">({editingCustomInterest.labelEn || editingCustomInterest.label} {'{Area}'} #{(interestCounters[editingCustomInterest.id] || 0) + 1})</span>
+                </div>
+                )}
 
                 {/* Status toggles - hidden for locked non-admin */}
                 {!(editingCustomInterest?.locked && !isUnlocked) && (
