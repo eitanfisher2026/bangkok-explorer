@@ -147,7 +147,7 @@
   const [locationSearchResults, setLocationSearchResults] = useState(null); // null=hidden, []=no results, [...]= results
   const [editingCustomInterest, setEditingCustomInterest] = useState(null);
   const [showAddInterestDialog, setShowAddInterestDialog] = useState(false);
-  const [newInterest, setNewInterest] = useState({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, inProgress: false, locked: false, scope: 'global', category: 'attraction', maxStops: 3 });
+  const [newInterest, setNewInterest] = useState({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, inProgress: false, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1 });
   const [iconPickerConfig, setIconPickerConfig] = useState(null); // { description: '', callback: fn, suggestions: [], loading: false }
   const [showEditLocationDialog, setShowEditLocationDialog] = useState(false);
   const [editingLocation, setEditingLocation] = useState(null);
@@ -2068,7 +2068,8 @@
         scope: config.scope || opt.scope || 'global',
         cityId: config.cityId || opt.cityId || '',
         category: config.category || opt.category || 'attraction',
-        maxStops: config.maxStops || opt.maxStops || 3
+        weight: config.weight || opt.weight || 3,
+        minStops: config.minStops != null ? config.minStops : (opt.minStops != null ? opt.minStops : 1)
       };
     });
   }, [interestOptions, uncoveredInterests, cityCustomInterests, interestConfig]);
@@ -2370,25 +2371,49 @@
   };
 
   // ========== SMART STOP SELECTION (for Yalla and "Help me plan") ==========
-  // Returns { selected: [...], disabled: [...] } based on category/maxStops config
+  // Returns { selected: [...], disabled: [...] } based on category/weight/minStops config
   const smartSelectStops = (stops, selectedInterests, maxTotal) => {
     maxTotal = maxTotal || formData.maxStops || 10;
     
-    // Build per-interest limits from config
-    const limits = {};
-    let totalRequested = 0;
+    // Build per-interest config
+    const config = {};
+    let totalWeight = 0;
+    let totalMin = 0;
     for (const interestId of selectedInterests) {
       const interestObj = allInterestOptions.find(o => o.id === interestId);
-      const limit = interestObj?.maxStops || 3;
-      limits[interestId] = { max: limit, category: interestObj?.category || 'attraction' };
-      totalRequested += limit;
+      const weight = interestObj?.weight || 2;
+      const minStops = interestObj?.minStops != null ? interestObj.minStops : 1;
+      config[interestId] = { weight, minStops, category: interestObj?.category || 'attraction', allocated: 0 };
+      totalWeight += weight;
+      totalMin += minStops;
     }
     
-    // Scale down proportionally if total exceeds maxTotal
-    if (totalRequested > maxTotal) {
-      const scale = maxTotal / totalRequested;
+    // Step 1: Guarantee minimums
+    const limits = {};
+    let allocated = 0;
+    for (const id of selectedInterests) {
+      const min = Math.min(config[id].minStops, maxTotal - allocated);
+      limits[id] = { max: min, category: config[id].category };
+      allocated += min;
+    }
+    
+    // Step 2: Distribute remaining slots by weight
+    let remaining = maxTotal - allocated;
+    if (remaining > 0 && totalWeight > 0) {
+      // First pass: proportional allocation
+      const extraPerInterest = {};
       for (const id of selectedInterests) {
-        limits[id].max = Math.max(1, Math.round(limits[id].max * scale));
+        extraPerInterest[id] = Math.floor((config[id].weight / totalWeight) * remaining);
+        limits[id].max += extraPerInterest[id];
+        allocated += extraPerInterest[id];
+      }
+      // Second pass: distribute leftover from rounding (give to highest weight first)
+      remaining = maxTotal - allocated;
+      const sorted = [...selectedInterests].sort((a, b) => config[b].weight - config[a].weight);
+      for (const id of sorted) {
+        if (remaining <= 0) break;
+        limits[id].max += 1;
+        remaining -= 1;
       }
     }
     
@@ -2669,21 +2694,41 @@
       // Calculate stops needed per interest using category-based maxStops
       const maxStops = formData.maxStops || 10;
       
-      // Build per-interest stop limits from config
+      // Build per-interest stop limits using weight + minStops
       const interestLimits = {};
-      let totalRequested = 0;
+      let totalWeight = 0;
+      let totalMin = 0;
       for (const interest of formData.interests) {
         const interestObj = allInterestOptions.find(o => o.id === interest);
-        const limit = interestObj?.maxStops || 3;
-        interestLimits[interest] = limit;
-        totalRequested += limit;
+        const weight = interestObj?.weight || 2;
+        const minStops = interestObj?.minStops != null ? interestObj.minStops : 1;
+        interestLimits[interest] = minStops;
+        totalWeight += weight;
+        totalMin += minStops;
       }
       
-      // If total requested exceeds maxStops, scale down proportionally
-      if (totalRequested > maxStops) {
-        const scale = maxStops / totalRequested;
+      // Distribute remaining slots by weight
+      let remaining = maxStops - totalMin;
+      if (remaining > 0 && totalWeight > 0) {
+        let allocated = 0;
         for (const interest of formData.interests) {
-          interestLimits[interest] = Math.max(1, Math.round(interestLimits[interest] * scale));
+          const interestObj = allInterestOptions.find(o => o.id === interest);
+          const weight = interestObj?.weight || 2;
+          const extra = Math.floor((weight / totalWeight) * remaining);
+          interestLimits[interest] += extra;
+          allocated += extra;
+        }
+        // Leftover from rounding → highest weight first
+        let leftover = remaining - allocated;
+        const sorted = [...formData.interests].sort((a, b) => {
+          const wA = allInterestOptions.find(o => o.id === a)?.weight || 2;
+          const wB = allInterestOptions.find(o => o.id === b)?.weight || 2;
+          return wB - wA;
+        });
+        for (const interest of sorted) {
+          if (leftover <= 0) break;
+          interestLimits[interest] += 1;
+          leftover -= 1;
         }
       }
       
