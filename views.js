@@ -1750,21 +1750,24 @@
                       </button>
                       </div>
 
-                      {/* Row 1.5: Smart Select - "Help me plan" */}
-                      {route.stops.length > 0 && !route.optimized && (
+                      {/* Row 1.5: Smart Select - "Help me plan" — always available */}
+                      {route.stops.length > 0 && (
                       <button
                         onClick={() => {
                           const allStopsWithCoords = route.stops.filter(s => s.lat && s.lng);
                           if (allStopsWithCoords.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
                           
-                          // 1. Smart select stops
+                          // 1. Reset optimized state so we re-plan from scratch
+                          setDisabledStops([]);
+                          
+                          // 2. Smart select stops
                           const { selected, disabled } = smartSelectStops(allStopsWithCoords, formData.interests);
                           const newDisabled = disabled.map(s => (s.name || '').toLowerCase().trim());
                           setDisabledStops(newDisabled);
                           
                           if (selected.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
                           
-                          // 2. Auto-detect start point
+                          // 3. Auto-detect start point
                           const isCircular = formData.searchMode === 'radius';
                           setRouteType(isCircular ? 'circular' : 'linear');
                           let autoStart = null;
@@ -1779,10 +1782,10 @@
                           setFormData(prev => ({...prev, startPoint: `${autoStart.lat},${autoStart.lng}`}));
                           setStartPointCoords(autoStart);
                           
-                          // 3. Optimize geographic order
+                          // 4. Optimize geographic order
                           const optimized = optimizeStopOrder(selected, autoStart, isCircular);
                           
-                          // 4. Update route as optimized
+                          // 5. Update route as optimized
                           setRoute({ ...route, stops: [...optimized, ...disabled], circular: isCircular, optimized: true, startPoint: autoStart.address, startPointCoords: autoStart });
                           
                           showToast(`🧠 ${t('route.smartSelected', { selected: optimized.length, disabled: disabled.length })}`, 'success');

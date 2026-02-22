@@ -6230,12 +6230,14 @@ const FouFouApp = () => {
                       </button>
                       </div>
 
-                      {/* Row 1.5: Smart Select - "Help me plan" */}
-                      {route.stops.length > 0 && !route.optimized && (
+                      {/* Row 1.5: Smart Select - "Help me plan" — always available */}
+                      {route.stops.length > 0 && (
                       <button
                         onClick={() => {
                           const allStopsWithCoords = route.stops.filter(s => s.lat && s.lng);
                           if (allStopsWithCoords.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
+                          
+                          setDisabledStops([]);
                           
                           const { selected, disabled } = smartSelectStops(allStopsWithCoords, formData.interests);
                           const newDisabled = disabled.map(s => (s.name || '').toLowerCase().trim());
