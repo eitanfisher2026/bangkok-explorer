@@ -5156,8 +5156,8 @@ const FouFouApp = () => {
         {/* === VIEWS (from views.js) === */}
         {currentView === 'form' && !activeTrail && (!wizardMode || (wizardStep === 3 && (routeChoiceMade === 'manual' || route?.optimized))) && (
           <div className="view-fade-in bg-white rounded-xl shadow-lg p-3 space-y-3">
-            {/* Form inputs - shown in advanced mode OR manual mode */}
-            {(!wizardMode || routeChoiceMade === 'manual') && (<>
+            {/* Form inputs - advanced mode only */}
+            {!wizardMode && (<>
             {/* City selector - only in advanced mode */}
             {!wizardMode && Object.values(window.BKK.cities || {}).filter(c => c.active !== false).length > 1 && (
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2px' }}>
@@ -5172,8 +5172,7 @@ const FouFouApp = () => {
                 </select>
               </div>
             )}
-            {/* Header - different for advanced vs manual mode */}
-            {!wizardMode ? (
+            {/* Header - advanced mode */}
             <div className="flex items-center justify-center gap-2">
               <h2 className="text-base font-bold text-center">{t("wizard.step1Title")}</h2>
               <button
@@ -5194,18 +5193,6 @@ const FouFouApp = () => {
                 {currentLang === 'he' ? '🇬🇧 EN' : '🇮🇱 עב'}
               </button>
             </div>
-            ) : (
-            <div className="flex items-center justify-center gap-2">
-              <h2 className="text-sm font-bold text-center text-purple-700">🛠️ {t('wizard.manualMode')}</h2>
-              <button
-                onClick={() => showHelpFor('main')}
-                className="text-gray-400 hover:text-blue-500 text-sm"
-                title={t("general.help")}
-              >
-                {t("general.help")}
-              </button>
-            </div>
-            )}
 
             {/* Split Layout: Mode selector + content (right) | Interests (left) */}
             <div className="flex gap-0 items-start" style={{ paddingBottom: '60px' }}>
@@ -5595,6 +5582,14 @@ const FouFouApp = () => {
             )}
 
             </>)}
+
+            {/* Manual mode header — shown in wizard manual mode */}
+            {wizardMode && routeChoiceMade === 'manual' && route && (
+              <div className="text-center pb-2">
+                <h3 className="text-sm font-bold text-purple-700">🛠️ {t('wizard.manualMode')}</h3>
+                <p className="text-[10px] text-gray-500">{t('wizard.manualDesc')}</p>
+              </div>
+            )}
 
             {/* Show stops list ONLY after route is calculated */}
             {route && (
