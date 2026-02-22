@@ -8,7 +8,6 @@
 -->
 <html lang="he" dir="rtl">
 <script>
-// Set language direction before page renders to avoid flash
 (function() {
   var lang = localStorage.getItem('city_explorer_lang') || 'he';
   var dir = lang === 'he' ? 'rtl' : 'ltr';
@@ -33,13 +32,14 @@
     <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
-    <!-- NO blocking <script src> in head — CDN loads dynamically after splash renders -->
+    <!-- ZERO blocking scripts in <head> — splash renders first -->
     <style>
       html, body { overscroll-behavior: none; }
       @keyframes slideUp { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
       @keyframes slideDown { from { transform: translateY(-30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
       @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
       @keyframes headerShimmer { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+      @keyframes spin { to { transform: rotate(360deg); } }
       .view-fade-in { animation: fadeIn 0.2s ease-out; }
       .overflow-y-auto::-webkit-scrollbar { width: 6px; }
       .overflow-y-auto::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
@@ -55,7 +55,7 @@
     </style>
 </head>
 <body>
-    <!-- ======== SPLASH — renders IMMEDIATELY, zero dependencies ======== -->
+    <!-- ======== SPLASH — renders IMMEDIATELY (no scripts in <head>) ======== -->
     <div id="root">
       <div id="splash" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:12px;background:linear-gradient(135deg,#E17055 0%,#FDCB6E 100%)">
         <svg viewBox="0 0 200 200" width="80" height="80" style="filter:drop-shadow(0 2px 8px rgba(0,0,0,0.2))">
@@ -75,31 +75,20 @@
         </svg>
         <div style="color:white;font-size:20px;font-weight:bold;font-family:system-ui;text-shadow:0 1px 3px rgba(0,0,0,0.15)">FouFou</div>
         <div style="color:rgba(255,255,255,0.85);font-size:11px;font-family:system-ui">City Trail Generator 🍜🏛️🎭</div>
-        <div style="width:160px;height:4px;background:rgba(255,255,255,0.25);border-radius:4px;margin-top:8px;overflow:hidden">
-          <div id="splash-progress" style="width:5%;height:100%;background:white;border-radius:4px;transition:width 0.3s ease"></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+          <div style="width:24px;height:24px;border:3px solid rgba(255,255,255,0.3);border-top:3px solid white;border-radius:50%;animation:spin 0.8s linear infinite"></div>
+          <span id="splash-status" style="color:rgba(255,255,255,0.7);font-size:11px;font-family:system-ui">Loading...</span>
         </div>
-        <div id="splash-status" style="color:rgba(255,255,255,0.7);font-size:11px;font-family:system-ui">Loading...</div>
       </div>
     </div>
 
-    <!-- ======== SETUP — lightweight inline scripts, no network ======== -->
+    <!-- ======== INLINE DATA — no network, executes instantly ======== -->
     <script>
-    window.__sp = function(pct, msg) {
-      var bar = document.getElementById('splash-progress');
+    window.__splashProgress = function(pct, msg) {
       var txt = document.getElementById('splash-status');
-      if (bar) bar.style.width = pct + '%';
       if (txt) txt.textContent = msg;
     };
-    window.__splashProgress = window.__sp;
-    window.__loadJS = function(url) {
-      return new Promise(function(resolve) {
-        var s = document.createElement('script');
-        s.src = url; s.crossOrigin = '';
-        s.onload = resolve;
-        s.onerror = function() { console.warn('[LOAD] Failed: ' + url); resolve(); };
-        document.head.appendChild(s);
-      });
-    };
+    window.__sp = window.__splashProgress;
     window.BKK = window.BKK || {};
     window.__leafletReady = null;
     window.__leafletLoading = false;
@@ -133,8 +122,39 @@
 // __INSERT_UTILS__
     </script>
 
-    <!-- ======== APP SOURCE — stored as text, compiled after Babel loads ======== -->
-    <script type="text/plain" id="app-source">
+    <!-- ======== CDN SCRIPTS — after splash, so splash is visible while these load ======== -->
+    <script>window.__sp(0, 'Loading libraries...');</script>
+    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      if (window.tailwind) {
+        tailwind.config = { theme: { extend: { borderWidth: { '3': '3px', '4': '4px' } } } };
+      }
+    </script>
+    <script>window.__sp(0, 'Loading compiler...');</script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+    <script>
+    // Firebase loads in parallel (non-blocking)
+    window.__firebaseReady = new Promise(function(resolve) {
+      var libs = ['firebase-app-compat.js','firebase-database-compat.js','firebase-storage-compat.js'];
+      var loaded = 0, failed = false;
+      function loadNext() {
+        if (failed || loaded >= libs.length) { resolve(!failed); return; }
+        var s = document.createElement('script');
+        s.src = 'https://www.gstatic.com/firebasejs/9.22.0/' + libs[loaded];
+        s.onload = function() { loaded++; loadNext(); };
+        s.onerror = function() { failed = true; resolve(false); };
+        document.head.appendChild(s);
+      }
+      loadNext();
+      setTimeout(function() { if (loaded < libs.length && !failed) resolve(false); }, 15000);
+    });
+    </script>
+
+    <!-- ======== APP CODE — compiled by Babel ======== -->
+    <script>window.__sp(0, 'Starting app...');</script>
+    <script type="text/babel">
 const { useState, useEffect, useMemo, useCallback } = React;
 
 const firebaseConfig = window.BKK.firebaseConfig;
@@ -191,9 +211,8 @@ const FouFouApp = () => {
   );
 };
 
-window.__sp(85, 'Connecting...');
+// Wait for Firebase SDK, then init and render
 window.__firebaseReady.then(function(sdkLoaded) {
-  window.__sp(90, 'Initializing...');
   if (sdkLoaded) initFirebase();
   window.addEventListener('beforeunload', function(e) { e.preventDefault(); e.returnValue = ''; return ''; });
   window.BKK._navHistory = [];
@@ -219,73 +238,8 @@ window.__firebaseReady.then(function(sdkLoaded) {
   window.history.pushState({ appNav: true, depth: 1, cushion: true }, '', window.location.href);
   window.history.pushState({ appNav: true, depth: 2, cushion: true }, '', window.location.href);
   window.BKK._historyDepth = 2;
-  window.__sp(95, 'Starting...');
-  ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(FouFouApp));
+  ReactDOM.createRoot(document.getElementById('root')).render(<FouFouApp />);
 });
-    </script>
-
-    <!-- ======== DYNAMIC LOADER — CDN scripts load AFTER splash is visible ======== -->
-    <script>
-    (function() {
-      var t0 = Date.now();
-      window.__sp(10, 'Loading...');
-
-      // Phase 1: React (small ~170KB, needed first)
-      window.__loadJS('https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js')
-      .then(function() { return window.__loadJS('https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js'); })
-      .then(function() {
-        window.__sp(25, 'Loading UI...');
-
-        // Phase 2: Babel + Tailwind + Firebase — ALL IN PARALLEL
-        var firebaseP = new Promise(function(resolve) {
-          var libs = ['firebase-app-compat.js','firebase-database-compat.js','firebase-storage-compat.js'];
-          var loaded = 0, failed = false;
-          function loadNext() {
-            if (failed || loaded >= libs.length) { resolve(!failed); return; }
-            var s = document.createElement('script');
-            s.src = 'https://www.gstatic.com/firebasejs/9.22.0/' + libs[loaded];
-            s.onload = function() { loaded++; loadNext(); };
-            s.onerror = function() { failed = true; resolve(false); };
-            document.head.appendChild(s);
-          }
-          loadNext();
-          setTimeout(function() { if (loaded < libs.length && !failed) resolve(false); }, 15000);
-        });
-        window.__firebaseReady = firebaseP;
-
-        return Promise.all([
-          window.__loadJS('https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js'),
-          window.__loadJS('https://cdn.tailwindcss.com'),
-          firebaseP
-        ]);
-      })
-      .then(function() {
-        window.__sp(65, 'Compiling...');
-
-        // Configure Tailwind
-        if (window.tailwind) {
-          tailwind.config = { theme: { extend: { borderWidth: { '3': '3px', '4': '4px' } } } };
-        }
-
-        // Compile JSX and inject
-        var source = document.getElementById('app-source');
-        if (source && window.Babel) {
-          try {
-            var compiled = Babel.transform(source.textContent, { presets: ['react'], filename: 'app.jsx' }).code;
-            window.__sp(80, 'Starting...');
-            var s = document.createElement('script');
-            s.textContent = compiled;
-            document.body.appendChild(s);
-            console.log('[BOOT] App ready in ' + (Date.now() - t0) + 'ms');
-          } catch(err) {
-            console.error('[BABEL]', err);
-            document.getElementById('splash-status').textContent = 'Error: ' + err.message;
-          }
-        } else {
-          document.getElementById('splash-status').textContent = 'Failed to load. Refresh page.';
-        }
-      });
-    })();
     </script>
 </body>
 </html>
