@@ -2,17 +2,13 @@
 <!--
   FouFou — City Trail Generator
   Copyright © 2026 Eitan Fisher. All Rights Reserved.
-  
-  This application and its source code are protected by copyright.
-  Unauthorized copying, distribution, or modification is prohibited.
 -->
 <html lang="he" dir="rtl">
 <script>
 (function() {
   var lang = localStorage.getItem('city_explorer_lang') || 'he';
-  var dir = lang === 'he' ? 'rtl' : 'ltr';
   document.documentElement.lang = lang;
-  document.documentElement.dir = dir;
+  document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
 })();
 </script>
 <head>
@@ -32,14 +28,21 @@
     <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
-    <!-- ZERO blocking scripts in <head> — splash renders first -->
+    <!-- Preload app files so they download in parallel with CDN -->
+    <link rel="preload" href="app-data.js?v=__VERSION__" as="script">
+    <link rel="preload" href="app-code.js?v=__VERSION__" as="fetch" crossorigin="anonymous">
     <style>
-      html, body { overscroll-behavior: none; }
+      html, body { overscroll-behavior: none; margin: 0; }
       @keyframes slideUp { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
       @keyframes slideDown { from { transform: translateY(-30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
       @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
       @keyframes headerShimmer { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
       @keyframes spin { to { transform: rotate(360deg); } }
+      @keyframes catBounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+      @keyframes glassesUp { 0%,70% { transform: translateY(0); } 80% { transform: translateY(-7px); } 92%,100% { transform: translateY(0); } }
+      @keyframes winkRight { 0%,82% { transform: scaleY(1); } 87% { transform: scaleY(0.1); } 92%,100% { transform: scaleY(1); } }
+      @keyframes tailWag { 0%,100% { transform: rotate(0deg); } 25% { transform: rotate(12deg); } 75% { transform: rotate(-8deg); } }
+      @keyframes dotPulse { 0%,80%,100% { opacity: 0.3; } 40% { opacity: 1; } }
       .view-fade-in { animation: fadeIn 0.2s ease-out; }
       .overflow-y-auto::-webkit-scrollbar { width: 6px; }
       .overflow-y-auto::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
@@ -55,75 +58,90 @@
     </style>
 </head>
 <body>
-    <!-- ======== SPLASH — renders IMMEDIATELY (no scripts in <head>) ======== -->
+    <!-- ============================================================ -->
+    <!-- ANIMATED SPLASH — ~6KB, renders in <100ms                    -->
+    <!-- ============================================================ -->
     <div id="root">
-      <div id="splash" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:12px;background:linear-gradient(135deg,#E17055 0%,#FDCB6E 100%)">
-        <svg viewBox="0 0 200 200" width="80" height="80" style="filter:drop-shadow(0 2px 8px rgba(0,0,0,0.2))">
-          <circle cx="100" cy="108" r="52" fill="#FFE8D6"/>
-          <polygon points="62,72 50,28 82,58" fill="#FFE8D6"/>
-          <polygon points="138,72 150,28 118,58" fill="#FFE8D6"/>
-          <polygon points="64,70 54,34 80,58" fill="#FFCBA4"/>
-          <polygon points="136,70 146,34 120,58" fill="#FFCBA4"/>
-          <rect x="68" y="94" width="26" height="19" rx="6" fill="#2D2D2D" opacity="0.9"/>
-          <rect x="106" y="94" width="26" height="19" rx="6" fill="#2D2D2D" opacity="0.9"/>
-          <line x1="94" y1="103" x2="106" y2="103" stroke="#2D2D2D" stroke-width="3"/>
-          <line x1="68" y1="100" x2="56" y2="95" stroke="#2D2D2D" stroke-width="2.5" stroke-linecap="round"/>
-          <line x1="132" y1="100" x2="144" y2="95" stroke="#2D2D2D" stroke-width="2.5" stroke-linecap="round"/>
-          <path d="M95,120 L100,125 L105,120 Z" fill="#FF8C94"/>
-          <path d="M90,130 Q100,138 110,130" fill="none" stroke="#8B6F5E" stroke-width="2.5" stroke-linecap="round"/>
-          <path d="M148,140 Q170,125 165,100" fill="none" stroke="#FFE8D6" stroke-width="10" stroke-linecap="round"/>
-        </svg>
-        <div style="color:white;font-size:20px;font-weight:bold;font-family:system-ui;text-shadow:0 1px 3px rgba(0,0,0,0.15)">FouFou</div>
-        <div style="color:rgba(255,255,255,0.85);font-size:11px;font-family:system-ui">City Trail Generator 🍜🏛️🎭</div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
-          <div style="width:24px;height:24px;border:3px solid rgba(255,255,255,0.3);border-top:3px solid white;border-radius:50%;animation:spin 0.8s linear infinite"></div>
-          <span id="splash-status" style="color:rgba(255,255,255,0.7);font-size:11px;font-family:system-ui">Loading...</span>
+      <div id="splash" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:14px;background:linear-gradient(135deg,#E17055 0%,#FDCB6E 100%)">
+        <div style="animation:catBounce 2s ease-in-out infinite">
+          <svg viewBox="0 0 200 200" width="100" height="100" style="filter:drop-shadow(0 4px 12px rgba(0,0,0,0.2))">
+            <!-- Face -->
+            <circle cx="100" cy="108" r="52" fill="#FFE8D6"/>
+            <!-- Ears outer -->
+            <polygon points="62,72 50,28 82,58" fill="#FFE8D6"/>
+            <polygon points="138,72 150,28 118,58" fill="#FFE8D6"/>
+            <!-- Ears inner -->
+            <polygon points="64,70 54,34 80,58" fill="#FFCBA4"/>
+            <polygon points="136,70 146,34 120,58" fill="#FFCBA4"/>
+            <!-- Eyes (behind glasses, visible during peek) -->
+            <circle cx="81" cy="103" r="4" fill="#5D4037" opacity="0.4"/>
+            <circle cx="119" cy="103" r="4" fill="#5D4037" opacity="0.4"/>
+            <circle cx="82" cy="102" r="1.5" fill="white" opacity="0.4"/>
+            <circle cx="120" cy="102" r="1.5" fill="white" opacity="0.4"/>
+            <!-- Sunglasses (peek up animation) -->
+            <g style="animation:glassesUp 3.5s ease-in-out infinite;transform-origin:100px 100px">
+              <rect x="68" y="94" width="26" height="19" rx="6" fill="#2D2D2D" opacity="0.92"/>
+              <g style="animation:winkRight 4.5s ease-in-out infinite;transform-origin:119px 103px">
+                <rect x="106" y="94" width="26" height="19" rx="6" fill="#2D2D2D" opacity="0.92"/>
+              </g>
+              <line x1="94" y1="103" x2="106" y2="103" stroke="#2D2D2D" stroke-width="3"/>
+              <line x1="68" y1="100" x2="56" y2="95" stroke="#2D2D2D" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="132" y1="100" x2="144" y2="95" stroke="#2D2D2D" stroke-width="2.5" stroke-linecap="round"/>
+            </g>
+            <!-- Nose -->
+            <path d="M95,120 L100,125 L105,120 Z" fill="#FF8C94"/>
+            <!-- Mouth -->
+            <path d="M90,130 Q100,138 110,130" fill="none" stroke="#8B6F5E" stroke-width="2.5" stroke-linecap="round"/>
+            <!-- Tail (wags) -->
+            <g style="animation:tailWag 1s ease-in-out infinite;transform-origin:148px 145px">
+              <path d="M148,140 Q170,125 165,100" fill="none" stroke="#FFE8D6" stroke-width="10" stroke-linecap="round"/>
+            </g>
+          </svg>
+        </div>
+        <div style="color:white;font-size:22px;font-weight:bold;font-family:system-ui;text-shadow:0 2px 4px rgba(0,0,0,0.2)">FouFou</div>
+        <div style="color:rgba(255,255,255,0.9);font-size:12px;font-family:system-ui">🍜🏛️🎭 City Trail Generator</div>
+        <div style="margin-top:10px;display:flex;align-items:center;gap:4px">
+          <span id="splash-status" style="color:rgba(255,255,255,0.75);font-size:12px;font-family:system-ui">Loading</span>
+          <span style="color:rgba(255,255,255,0.75);font-size:12px;font-family:system-ui">
+            <span style="animation:dotPulse 1.4s infinite;animation-delay:0s">.</span><span style="animation:dotPulse 1.4s infinite;animation-delay:0.2s">.</span><span style="animation:dotPulse 1.4s infinite;animation-delay:0.4s">.</span>
+          </span>
         </div>
       </div>
     </div>
 
-    <!-- ======== INLINE DATA — no network, executes instantly ======== -->
+    <!-- ============================================================ -->
+    <!-- BOOT — inline setup + load external files                    -->
+    <!-- ============================================================ -->
     <script>
-    window.__splashProgress = function(pct, msg) {
-      var txt = document.getElementById('splash-status');
-      if (txt) txt.textContent = msg;
+    window.__sp = function(p, msg) {
+      var t = document.getElementById('splash-status');
+      if (t) t.textContent = msg;
     };
-    window.__sp = window.__splashProgress;
+    window.__splashProgress = window.__sp;
     window.BKK = window.BKK || {};
     window.__leafletReady = null;
-    window.__leafletLoading = false;
     window.BKK.loadLeaflet = function() {
       if (window.__leafletReady) return window.__leafletReady;
       if (typeof L !== 'undefined') return Promise.resolve(true);
-      window.__leafletLoading = true;
       window.__leafletReady = new Promise(function(resolve) {
         var css = document.createElement('link');
         css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
         document.head.appendChild(css);
         var js = document.createElement('script');
         js.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-        js.onload = function() { window.__leafletLoading = false; resolve(true); };
-        js.onerror = function() { window.__leafletLoading = false; resolve(false); };
+        js.onload = function() { resolve(true); };
+        js.onerror = function() { resolve(false); };
         document.head.appendChild(js);
       });
       return window.__leafletReady;
     };
     </script>
-    <script>
-// __INSERT_I18N__
-    </script>
-    <script>
-// __INSERT_CITY_DATA__
-    </script>
-    <script>
-// __INSERT_CONFIG__
-    </script>
-    <script>
-// __INSERT_UTILS__
-    </script>
 
-    <!-- ======== CDN SCRIPTS — after splash, so splash is visible while these load ======== -->
-    <script>window.__sp(0, 'Loading libraries...');</script>
+    <!-- App data: i18n + cities + config + utils (preloaded, separate cache) -->
+    <script src="app-data.js?v=__VERSION__"></script>
+
+    <!-- CDN libraries -->
+    <script>window.__sp(0, 'Loading UI...');</script>
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -132,10 +150,11 @@
         tailwind.config = { theme: { extend: { borderWidth: { '3': '3px', '4': '4px' } } } };
       }
     </script>
-    <script>window.__sp(0, 'Loading compiler...');</script>
+    <script>window.__sp(0, 'Compiling...');</script>
     <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+
+    <!-- Firebase (non-blocking, parallel) -->
     <script>
-    // Firebase loads in parallel (non-blocking)
     window.__firebaseReady = new Promise(function(resolve) {
       var libs = ['firebase-app-compat.js','firebase-database-compat.js','firebase-storage-compat.js'];
       var loaded = 0, failed = false;
@@ -152,94 +171,22 @@
     });
     </script>
 
-    <!-- ======== APP CODE — compiled by Babel ======== -->
-    <script>window.__sp(0, 'Starting app...');</script>
-    <script type="text/babel">
-const { useState, useEffect, useMemo, useCallback } = React;
-
-const firebaseConfig = window.BKK.firebaseConfig;
-
-let firebaseApp = null;
-let database = null;
-let storage = null;
-let isFirebaseAvailable = false;
-
-function initFirebase() {
-  try {
-    if (typeof firebase !== 'undefined') {
-      const cfg = window.BKK.firebaseConfig;
-      if (!cfg || !cfg.apiKey) { console.error('[FIREBASE] Config not found'); return; }
-      firebaseApp = firebase.initializeApp(cfg);
-      database = firebase.database();
-      window.BKK.firebaseConnected = false;
-      var _connTimer = null;
-      database.ref('.info/connected').on('value', function(snap) {
-        var isConnected = snap.val() === true;
-        if (isConnected === window.BKK.firebaseConnected) return;
-        clearTimeout(_connTimer);
-        _connTimer = setTimeout(function() {
-          if (isConnected === window.BKK.firebaseConnected) return;
-          window.BKK.firebaseConnected = isConnected;
-          console.log('[FIREBASE] Connection:', isConnected ? 'ONLINE' : 'OFFLINE');
-          window.dispatchEvent(new CustomEvent('firebase-connection', { detail: { connected: isConnected } }));
-        }, isConnected ? 500 : 2000);
-      });
-      if (firebase.storage) { storage = firebase.storage(); }
-      isFirebaseAvailable = true;
-      console.log('[FIREBASE] Initialized');
-    }
-  } catch (error) {
-    console.error('[FIREBASE] Init failed:', error);
-  }
-}
-
-const GOOGLE_PLACES_API_KEY = window.BKK.GOOGLE_PLACES_API_KEY;
-const GOOGLE_PLACES_API_URL = window.BKK.GOOGLE_PLACES_API_URL;
-
-const FouFouApp = () => {
-
-// __INSERT_APP_LOGIC__
-
-// __INSERT_VIEWS__
-
-// __INSERT_DIALOGS__
-
-
-
-      </div>
-    </div>
-  );
-};
-
-// Wait for Firebase SDK, then init and render
-window.__firebaseReady.then(function(sdkLoaded) {
-  if (sdkLoaded) initFirebase();
-  window.addEventListener('beforeunload', function(e) { e.preventDefault(); e.returnValue = ''; return ''; });
-  window.BKK._navHistory = [];
-  window.BKK._historyDepth = 0;
-  window.BKK.pushNavState = function(state) {
-    var last = window.BKK._navHistory[window.BKK._navHistory.length - 1];
-    if (last && last.view === state.view && last.wizardStep === state.wizardStep && last.wizardMode === state.wizardMode) return;
-    window.BKK._navHistory.push(state);
-    window.BKK._historyDepth++;
-    window.history.pushState({ appNav: true, depth: window.BKK._historyDepth }, '', window.location.href);
-  };
-  window.BKK.getNavBack = function() {
-    if (window.BKK._navHistory.length > 1) { window.BKK._navHistory.pop(); return window.BKK._navHistory[window.BKK._navHistory.length - 1]; }
-    return null;
-  };
-  window.addEventListener('popstate', function(e) {
-    window.BKK._historyDepth = Math.max(0, window.BKK._historyDepth - 1);
-    var prev = window.BKK.getNavBack();
-    if (prev) window.dispatchEvent(new CustomEvent('app-nav-back', { detail: prev }));
-    while (window.BKK._historyDepth < 2) { window.BKK._historyDepth++; window.history.pushState({ appNav: true, depth: window.BKK._historyDepth, cushion: true }, '', window.location.href); }
-  });
-  window.history.replaceState({ appNav: true, depth: 0 }, '', window.location.href);
-  window.history.pushState({ appNav: true, depth: 1, cushion: true }, '', window.location.href);
-  window.history.pushState({ appNav: true, depth: 2, cushion: true }, '', window.location.href);
-  window.BKK._historyDepth = 2;
-  ReactDOM.createRoot(document.getElementById('root')).render(<FouFouApp />);
-});
+    <!-- Fetch + compile + run the JSX app code -->
+    <script>
+    window.__sp(0, 'Starting...');
+    fetch('app-code.js?v=__VERSION__').then(function(r) { return r.text(); }).then(function(jsx) {
+      try {
+        var compiled = Babel.transform(jsx, { presets: ['react'], filename: 'app.jsx' }).code;
+        var s = document.createElement('script');
+        s.textContent = compiled;
+        document.body.appendChild(s);
+      } catch(err) {
+        console.error('[BABEL]', err);
+        document.getElementById('splash-status').textContent = 'Error: ' + err.message;
+      }
+    }).catch(function(err) {
+      document.getElementById('splash-status').textContent = 'Network error. Refresh page.';
+    });
     </script>
 </body>
 </html>
