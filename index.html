@@ -3879,6 +3879,40 @@ window.BKK.compressImage = (input, maxWidth = 1200, quality = 0.7) => {
   });
 };
 
+window.BKK.compressIcon = (input, maxSize = 64) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width;
+      let h = img.height;
+      if (w > maxSize || h > maxSize) {
+        const scale = maxSize / Math.max(w, h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, w, h); // transparent background
+      ctx.drawImage(img, 0, 0, w, h);
+      let result = canvas.toDataURL('image/webp', 0.85);
+      if (!result || result.length < 10 || result.startsWith('data:image/png')) {
+        result = canvas.toDataURL('image/png');
+      }
+      resolve(result);
+    };
+    img.onerror = () => resolve(typeof input === 'string' ? input : null);
+    if (typeof input === 'string') {
+      img.src = input;
+    } else {
+      const reader = new FileReader();
+      reader.onload = () => { img.src = reader.result; };
+      reader.readAsDataURL(input);
+    }
+  });
+};
+
 // ============================================================================
 // ============================================================================
 window.BKK.saveImageToDevice = (dataUrl, filename) => {
@@ -4169,7 +4203,6 @@ const FouFouApp = () => {
     address: '',  // Address for geocoding
     uploadedImage: null,  // Base64 image data
     imageUrls: [],  // Array of URL strings
-    inProgress: true  // Auto-check for new locations
   });
   const [customInterests, setCustomInterests] = useState([]);
   const [interestStatus, setInterestStatus] = useState({}); // { interestId: true/false }
@@ -4181,7 +4214,7 @@ const FouFouApp = () => {
   const [locationSearchResults, setLocationSearchResults] = useState(null); // null=hidden, []=no results, [...]= results
   const [editingCustomInterest, setEditingCustomInterest] = useState(null);
   const [showAddInterestDialog, setShowAddInterestDialog] = useState(false);
-  const [newInterest, setNewInterest] = useState({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, inProgress: false, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
+  const [newInterest, setNewInterest] = useState({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
   const [iconPickerConfig, setIconPickerConfig] = useState(null); // { description: '', callback: fn, suggestions: [], loading: false }
   const [showEditLocationDialog, setShowEditLocationDialog] = useState(false);
   const [editingLocation, setEditingLocation] = useState(null);
@@ -5857,7 +5890,6 @@ const FouFouApp = () => {
         ...opt,
         label: config.labelOverride || opt.label, labelEn: config.labelOverrideEn || opt.labelEn,
         icon: config.iconOverride || opt.icon,
-        inProgress: config.inProgress !== undefined ? config.inProgress : opt.inProgress,
         locked: config.locked !== undefined ? config.locked : opt.locked,
         scope: config.scope || opt.scope || 'global',
         cityId: config.cityId || opt.cityId || '',
@@ -5939,7 +5971,6 @@ const FouFouApp = () => {
         address: editingLocation.address || '',
         uploadedImage: editingLocation.uploadedImage || null,
         imageUrls: editingLocation.imageUrls || [],
-        inProgress: editingLocation.inProgress || false,
         locked: editingLocation.locked || false,
         areas: editingLocation.areas || (editingLocation.area ? [editingLocation.area] : [])
       });
@@ -7116,7 +7147,6 @@ const FouFouApp = () => {
       name: name,
       notes: '',
       savedAt: new Date().toISOString(),
-      inProgress: true,
       locked: false,
       cityId: selectedCityId
     };
@@ -7342,24 +7372,19 @@ const FouFouApp = () => {
     if (!location) return;
     
     let newStatus = location.status;
-    let newInProgress = location.inProgress;
     
     if (location.status === 'blacklist') {
       newStatus = 'review';
-      newInProgress = true;
     } else if (location.status === 'review') {
       newStatus = 'active';
-      newInProgress = false;
     } else {
       newStatus = 'blacklist';
-      newInProgress = false;
     }
     
     if (isFirebaseAvailable && database) {
       if (location.firebaseId) {
         database.ref(`cities/${selectedCityId}/locations/${location.firebaseId}`).update({
-          status: newStatus,
-          inProgress: newInProgress
+          status: newStatus
         })
           .then(() => {
             const statusText = 
@@ -7376,7 +7401,7 @@ const FouFouApp = () => {
     } else {
       const updated = customLocations.map(loc => {
         if (loc.id === locationId) {
-          return { ...loc, status: newStatus, inProgress: newInProgress };
+          return { ...loc, status: newStatus };
         }
         return loc;
       });
@@ -7517,7 +7542,6 @@ const FouFouApp = () => {
       address: loc.address || '',
       uploadedImage: loc.uploadedImage || null,
       imageUrls: loc.imageUrls || [],
-      inProgress: !!loc.inProgress,
       locked: !!loc.locked
     };
     
@@ -7560,7 +7584,6 @@ const FouFouApp = () => {
       duration: 45,
       custom: true,
       status: 'active',
-      inProgress: false,
       addedAt: new Date().toISOString(),
       fromGoogle: true, // Mark as added from Google
       cityId: selectedCityId // Associate with current city
@@ -7612,7 +7635,6 @@ const FouFouApp = () => {
       if (isFirebaseAvailable && database && exists.firebaseId) {
         database.ref(`cities/${selectedCityId}/locations/${exists.firebaseId}`).update({
           status: 'blacklist',
-          inProgress: false
         })
           .then(() => {
             showToast(`"${place.name}" ${t("places.addedToSkipList")}`, 'success');
@@ -7624,7 +7646,7 @@ const FouFouApp = () => {
       } else {
         const updated = customLocations.map(loc => {
           if (loc.id === locationId) {
-            return { ...loc, status: 'blacklist', inProgress: false };
+            return { ...loc, status: 'blacklist' };
           }
           return loc;
         });
@@ -7653,7 +7675,6 @@ const FouFouApp = () => {
       duration: 45,
       custom: true,
       status: 'blacklist', // Start as blacklisted!
-      inProgress: false,
       addedAt: new Date().toISOString(),
       fromGoogle: true,
       cityId: selectedCityId
@@ -7713,7 +7734,6 @@ const FouFouApp = () => {
             label: label,
             name: label,
             icon: interest.icon || '📍',
-            inProgress: !!interest.inProgress,
             locked: !!interest.locked
           };
           await database.ref(`customInterests/${interestId}`).set(newInterest);
@@ -7774,7 +7794,6 @@ const FouFouApp = () => {
             duration: loc.duration || 45,
             custom: true,
             status: loc.status || 'active',
-            inProgress: !!loc.inProgress,
             locked: !!loc.locked,
             rating: loc.rating || null,
             ratingCount: loc.ratingCount || null,
@@ -7833,7 +7852,6 @@ const FouFouApp = () => {
           label: label,
           name: label,
           icon: interest.icon || '📍',
-          inProgress: !!interest.inProgress,
           locked: !!interest.locked
         });
         addedInterests++;
@@ -7881,7 +7899,6 @@ const FouFouApp = () => {
           duration: loc.duration || 45,
           custom: true,
           status: loc.status || 'active',
-          inProgress: !!loc.inProgress,
           locked: !!loc.locked,
           rating: loc.rating || null,
           ratingCount: loc.ratingCount || null,
@@ -8013,7 +8030,6 @@ const FouFouApp = () => {
       duration: 45,
       custom: true,
       status: 'active',
-      inProgress: newLocation.inProgress || false,
       locked: newLocation.locked || false,
       addedAt: new Date().toISOString(),
       cityId: selectedCityId
@@ -8126,7 +8142,6 @@ const FouFouApp = () => {
       if (nn(n.lat) !== nn(e.lat) || nn(n.lng) !== nn(e.lng)) return true;
       if (s(n.mapsUrl) !== s(e.mapsUrl)) return true;
       if (s(n.address) !== s(e.address)) return true;
-      if (!!n.inProgress !== !!e.inProgress) return true;
       if (!!n.locked !== !!e.locked) return true;
       if (nn(n.uploadedImage) !== nn(e.uploadedImage)) return true;
       return false;
@@ -8159,7 +8174,7 @@ const FouFouApp = () => {
     }
     
     const updatedLocation = { 
-      ...editingLocation, // Keep existing fields like status, inProgress
+      ...editingLocation, // Keep existing fields like status
       ...newLocation, // Override with edited fields
       area: (newLocation.areas || [newLocation.area])[0] || editingLocation.area || 'sukhumvit',
       areas: newLocation.areas || (newLocation.area ? [newLocation.area] : editingLocation.areas || ['sukhumvit']),
@@ -8609,7 +8624,7 @@ const FouFouApp = () => {
                   areas: activeTrail.area ? [activeTrail.area] : [formData.area],
                   interests: defaultInterests,
                   lat: null, lng: null, mapsUrl: '', address: '',
-                  uploadedImage: null, imageUrls: [], inProgress: true,
+                  uploadedImage: null, imageUrls: [],
                   nearestStop: null, gpsLoading: true
                 };
                 setNewLocation(initLocation);
@@ -10370,7 +10385,7 @@ const FouFouApp = () => {
                       <img 
                         src={loc.uploadedImage} 
                         alt={loc.name}
-                        className="w-full max-max-h-32 object-contain rounded-lg mt-2 cursor-pointer border-2 border-green-300"
+                        className="w-full max-h-32 object-contain rounded-lg mt-2 cursor-pointer border-2 border-green-300"
                         onClick={() => {
                           setModalImage(loc.uploadedImage);
                           setShowImageModal(true);
@@ -10486,9 +10501,7 @@ const FouFouApp = () => {
                           </div>
                         )}
                         <div
-                          className={`flex items-center justify-between gap-2 rounded-lg p-2 border ${
-                            savedRoute.inProgress ? 'border-orange-300 bg-orange-50' : 'border-gray-200 bg-white'
-                          } hover:bg-blue-50 cursor-pointer`}
+                          className={`flex items-center justify-between gap-2 rounded-lg p-2 border border-gray-200 bg-white hover:bg-blue-50 cursor-pointer`}
                           style={{ overflow: 'hidden' }}
                           onClick={() => loadSavedRoute(savedRoute)}
                         >
@@ -10496,7 +10509,6 @@ const FouFouApp = () => {
                             <div className="flex items-center gap-1 flex-wrap">
                               <span className="font-medium text-sm truncate">{savedRoute.name}</span>
                               {savedRoute.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '11px' }}>🔒</span>}
-                              {savedRoute.inProgress && <span title={t("general.inProgress")} style={{ fontSize: '12px' }}>🛠️</span>}
                               {routeInterestIds.slice(0, 5).map((intId, idx) => {
                                 const obj = interestMap[intId];
                                 if (!obj?.icon) return null;
@@ -10579,7 +10591,7 @@ const FouFouApp = () => {
                         areas: formData.area ? [formData.area] : [],
                         interests: [],
                         lat: null, lng: null, mapsUrl: '', address: '',
-                        uploadedImage: null, imageUrls: [], inProgress: true,
+                        uploadedImage: null, imageUrls: [],
                         nearestStop: null, gpsLoading: true
                       };
                       setNewLocation(initLocation);
@@ -10806,7 +10818,7 @@ const FouFouApp = () => {
                 <button
                   onClick={() => {
                     setEditingCustomInterest(null);
-                    setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, inProgress: false, locked: false, builtIn: false });
+                    setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, builtIn: false });
                     setShowAddInterestDialog(true);
                   }}
                   className="bg-purple-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-purple-600"
@@ -10830,7 +10842,6 @@ const FouFouApp = () => {
                   textSearch: config.textSearch || '',
                   blacklist: (config.blacklist || []).join(', '),
                   privateOnly: interest.privateOnly || false,
-                  inProgress: interest.inProgress || false,
                   locked: interest.locked || false,
                   builtIn: !isCustom,
                   scope: config.scope || interest.scope || 'global',
@@ -10857,7 +10868,6 @@ const FouFouApp = () => {
                       <span className={`font-medium text-sm truncate ${!effectiveActive ? 'text-gray-500' : ''}`}>{tLabel(interest)}</span>
                       {isCustom && <span className="text-[10px] bg-purple-200 text-purple-800 px-1 py-0.5 rounded flex-shrink-0">{t("general.custom")}</span>}
                       {!isValid && <span className="text-red-500 text-xs flex-shrink-0" title={t("interests.missingSearchConfig")}>⚠️</span>}
-                      {interest.inProgress && <span className="text-orange-600 flex-shrink-0" title={t("general.inProgress")} style={{ fontSize: '12px' }}>🛠️</span>}
                       {interest.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '11px' }} className="flex-shrink-0">🔒</span>}
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
@@ -10887,12 +10897,12 @@ const FouFouApp = () => {
               const overriddenBuiltIn = interestOptions.map(i => {
                 const cfg = interestConfig[i.id];
                 if (!cfg) return i;
-                return { ...i, label: cfg.labelOverride || i.label, icon: cfg.iconOverride || i.icon, inProgress: cfg.inProgress !== undefined ? cfg.inProgress : i.inProgress, locked: cfg.locked !== undefined ? cfg.locked : i.locked };
+                return { ...i, label: cfg.labelOverride || i.label, icon: cfg.iconOverride || i.icon, locked: cfg.locked !== undefined ? cfg.locked : i.locked };
               });
               const overriddenUncovered = uncoveredInterests.map(i => {
                 const cfg = interestConfig[i.id];
                 if (!cfg) return i;
-                return { ...i, label: cfg.labelOverride || i.label, icon: cfg.iconOverride || i.icon, inProgress: cfg.inProgress !== undefined ? cfg.inProgress : i.inProgress, locked: cfg.locked !== undefined ? cfg.locked : i.locked };
+                return { ...i, label: cfg.labelOverride || i.label, icon: cfg.iconOverride || i.icon, locked: cfg.locked !== undefined ? cfg.locked : i.locked };
               });
               const activeBuiltIn = overriddenBuiltIn.filter(i => isInterestValid(i.id) && interestStatus[i.id] !== false);
               const activeUncovered = overriddenUncovered.filter(i => isInterestValid(i.id) && interestStatus[i.id] === true);
@@ -11983,7 +11993,7 @@ const FouFouApp = () => {
                     setEditingLocation(null);
                     setNewLocation({ 
                       name: '', description: '', notes: '', area: formData.area, interests: [], 
-                      lat: null, lng: null, mapsUrl: '', address: '', uploadedImage: null, imageUrls: [], inProgress: true
+                      lat: null, lng: null, mapsUrl: '', address: '', uploadedImage: null, imageUrls: []
                     });
                   }}
                   className="text-xl hover:bg-white hover:bg-opacity-20 rounded-full w-7 h-7 flex items-center justify-center"
@@ -12007,7 +12017,7 @@ const FouFouApp = () => {
                   {/* Name - full width with search */}
                   <div>
                     <label className="block text-xs font-bold mb-1">
-                      Name <span className="text-red-500">*</span>
+                      {t("places.placeName")} <span className="text-red-500">*</span>
                     </label>
                     <div style={{ display: 'flex', gap: '4px' }}>
                       <input
@@ -12103,27 +12113,7 @@ const FouFouApp = () => {
                   
                   {/* Areas - full width multi-select */}
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-bold">{t("general.areas")}</label>
-                      <button
-                        onClick={() => {
-                          const lat = newLocation.lat;
-                          const lng = newLocation.lng;
-                          if (lat && lng) {
-                            const detected = window.BKK.getAreasForCoordinates(lat, lng);
-                            if (detected.length > 0) {
-                              setNewLocation({...newLocation, areas: detected, area: detected[0]});
-                              showToast(`${detected.length} ${t("toast.detectedAreas")}`, 'success');
-                            } else {
-                              showToast(t('places.locationNotInAnyArea'), 'warning');
-                            }
-                          } else {
-                            showToast(t('places.needCoordsForAreas'), 'warning');
-                          }
-                        }}
-                        className="text-[9px] px-2 py-0.5 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 font-bold"
-                      >{`📍 ${t('form.autoDetect')}`}</button>
-                    </div>
+                    <label className="block text-xs font-bold mb-1">{t("general.areas")}</label>
                     <div className="grid grid-cols-6 gap-1 p-1.5 bg-gray-50 rounded-lg overflow-y-auto border-2 border-gray-300" style={{ maxHeight: '120px' }}>
                       {areaOptions.map(area => {
                         const isSelected = (newLocation.areas || [newLocation.area]).includes(area.id);
@@ -12322,61 +12312,56 @@ const FouFouApp = () => {
                 <div className="bg-blue-50 border border-blue-300 rounded-lg p-2">
                   <div className="mb-1.5">
                     <label className="block text-xs font-bold mb-1">{`🏠 ${t("places.address")}`}</label>
-                    <input
-                      type="text"
-                      value={newLocation.address || ''}
-                      onChange={(e) => setNewLocation({...newLocation, address: e.target.value})}
-                      placeholder={t("places.address")}
-                      className="w-full p-1.5 text-xs border border-gray-300 rounded-lg focus:border-purple-500"
-                      style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}
-                    />
+                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                      <button
+                        onClick={() => geocodeAddress(newLocation.address || newLocation.name)}
+                        disabled={!newLocation.address?.trim() && !newLocation.name?.trim()}
+                        style={{
+                          padding: '4px 8px', borderRadius: '6px', border: 'none', cursor: (newLocation.address?.trim() || newLocation.name?.trim()) ? 'pointer' : 'not-allowed',
+                          background: (newLocation.address?.trim() || newLocation.name?.trim()) ? '#8b5cf6' : '#d1d5db', color: 'white', fontSize: '14px', flexShrink: 0
+                        }}
+                        title={t("form.searchByAddress")}
+                      >🏠</button>
+                      <input
+                        type="text"
+                        value={newLocation.address || ''}
+                        onChange={(e) => setNewLocation({...newLocation, address: e.target.value})}
+                        placeholder={t("places.address")}
+                        className="flex-1 p-1.5 text-xs border border-gray-300 rounded-lg focus:border-purple-500"
+                        style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}
+                      />
+                    </div>
                   </div>
                   
-                  <label className="block text-xs font-bold mb-1.5">{`📍 ${t("general.coordinates")}`}</label>
+                  <label className="block text-xs font-bold mb-1">{`📍 ${t("general.coordinates")}`}</label>
                   
-                  {/* Lat/Lng Inputs */}
-                  <div className="grid grid-cols-2 gap-1.5 mb-1.5">
-                    <input
-                      type="number"
-                      step="0.000001"
-                      value={newLocation.lat || ''}
-                      onChange={(e) => setNewLocation({...newLocation, lat: parseFloat(e.target.value) || null})}
-                      placeholder="Lat"
-                      className="w-full p-1.5 text-xs border border-gray-300 rounded-lg"
-                    />
+                  {/* Lat/Lng Inputs with GPS button */}
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <button
+                      onClick={getCurrentLocation}
+                      style={{
+                        padding: '4px 8px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                        background: '#22c55e', color: 'white', fontSize: '14px', flexShrink: 0
+                      }}
+                      title={t("form.gps")}
+                    >📍</button>
                     <input
                       type="number"
                       step="0.000001"
                       value={newLocation.lng || ''}
                       onChange={(e) => setNewLocation({...newLocation, lng: parseFloat(e.target.value) || null})}
                       placeholder="Lng"
-                      className="w-full p-1.5 text-xs border border-gray-300 rounded-lg"
+                      className="flex-1 p-1.5 text-xs border border-gray-300 rounded-lg"
                     />
-                  </div>
-
-                  {/* Calculate Buttons - Address + GPS */}
-                  <div className="grid grid-cols-2 gap-1">
-                    <button
-                      onClick={() => geocodeAddress(newLocation.address || newLocation.name)}
-                      disabled={!newLocation.address?.trim() && !newLocation.name?.trim()}
-                      className={`p-1.5 rounded-lg text-[9px] font-bold flex flex-col items-center ${
-                        (newLocation.address?.trim() || newLocation.name?.trim())
-                          ? 'bg-purple-500 text-white hover:bg-purple-600'
-                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      }`}
-                      title={t("form.searchByAddress")}
-                    >
-                      <span className="text-sm">🏠</span>
-                      <span>{t("places.address")}</span>
-                    </button>
-                    <button
-                      onClick={getCurrentLocation}
-                      className="p-1.5 rounded-lg text-[9px] font-bold bg-green-500 text-white hover:bg-green-600 flex flex-col items-center"
-                      title={t("form.gps")}
-                    >
-                      <span className="text-sm">📍</span>
-                      <span>{t("general.location")}</span>
-                    </button>
+                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>⇄</span>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={newLocation.lat || ''}
+                      onChange={(e) => setNewLocation({...newLocation, lat: parseFloat(e.target.value) || null})}
+                      placeholder="Lat"
+                      className="flex-1 p-1.5 text-xs border border-gray-300 rounded-lg"
+                    />
                   </div>
                 </div>
 
@@ -12469,10 +12454,6 @@ const FouFouApp = () => {
                       {editingLocation.status === 'blacklist' ? (
                         <button
                           onClick={() => {
-                            const loc = customLocations.find(l => l.id === editingLocation.id);
-                            if (loc && isFirebaseAvailable && database) {
-                              database.ref(`customLocations/${loc.firebaseId || loc.id}`).update({ inProgress: true });
-                            }
                             toggleLocationStatus(editingLocation.id);
                             setShowEditLocationDialog(false);
                             setEditingLocation(null);
@@ -12563,7 +12544,7 @@ const FouFouApp = () => {
                     setEditingLocation(null);
                     setNewLocation({ 
                       name: '', description: '', notes: '', area: formData.area, areas: [formData.area], interests: [], 
-                      lat: null, lng: null, mapsUrl: '', address: '', uploadedImage: null, imageUrls: [], inProgress: true
+                      lat: null, lng: null, mapsUrl: '', address: '', uploadedImage: null, imageUrls: []
                     });
                   }}
                   className="px-5 py-2.5 rounded-lg bg-gray-400 text-white text-sm font-bold hover:bg-gray-500"
@@ -12604,7 +12585,7 @@ const FouFouApp = () => {
                 <button
                   onClick={() => {
                     setShowAddInterestDialog(false);
-                    setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, inProgress: false, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
+                    setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
                     setEditingCustomInterest(null);
                   }}
                   className="text-xl hover:bg-white hover:bg-opacity-20 rounded-full w-7 h-7 flex items-center justify-center"
@@ -12661,12 +12642,13 @@ const FouFouApp = () => {
                         <input
                           type="file"
                           accept="image/*"
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                              const reader = new FileReader();
-                              reader.onload = () => setNewInterest({...newInterest, icon: reader.result});
-                              reader.readAsDataURL(file);
+                              const compressed = await window.BKK.compressIcon(file, 64);
+                              if (compressed) {
+                                setNewInterest({...newInterest, icon: compressed});
+                              }
                             }
                           }}
                           className="hidden"
@@ -12859,23 +12841,15 @@ const FouFouApp = () => {
                 </div>
                 )}
 
-                {/* Status toggles - hidden for locked non-admin */}
-                {!(editingCustomInterest?.locked && !isUnlocked) && (
+                {/* Status toggle - locked (admin only) */}
+                {isUnlocked && (
                 <div className="flex gap-3 px-4 py-2 bg-gray-50 border-t border-gray-100">
                   <button type="button"
-                    onClick={() => setNewInterest({...newInterest, inProgress: !newInterest.inProgress})}
-                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${newInterest.inProgress ? 'border-amber-500 bg-amber-500 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-amber-300'}`}
+                    onClick={() => setNewInterest({...newInterest, locked: !newInterest.locked})}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${newInterest.locked ? 'border-gray-600 bg-gray-600 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-gray-400'}`}
                   >
-                    {newInterest.inProgress ? '⏳' : '○'} {t("general.inProgress")}
+                    {newInterest.locked ? '🔒' : '○'} {t("general.locked")}
                   </button>
-                  {isUnlocked && (
-                    <button type="button"
-                      onClick={() => setNewInterest({...newInterest, locked: !newInterest.locked})}
-                      className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${newInterest.locked ? 'border-gray-600 bg-gray-600 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-gray-400'}`}
-                    >
-                      {newInterest.locked ? '🔒' : '○'} {t("general.locked")}
-                    </button>
-                  )}
                 </div>
                 )}
 
@@ -12966,7 +12940,6 @@ const FouFouApp = () => {
                             if (isUnlocked) {
                               configData.labelOverride = newInterest.label.trim();
                               configData.iconOverride = newInterest.icon || '';
-                              configData.inProgress = newInterest.inProgress || false;
                               configData.locked = newInterest.locked || false;
                             }
                             if (isFirebaseAvailable && database) {
@@ -12981,7 +12954,6 @@ const FouFouApp = () => {
                               name: newInterest.label.trim(),
                               icon: newInterest.icon || '📍',
                               privateOnly: newInterest.privateOnly || false,
-                              inProgress: newInterest.inProgress || false,
                               locked: newInterest.locked || false,
                               scope: newInterest.scope || 'global',
                               cityId: newInterest.scope === 'local' ? (newInterest.cityId || selectedCityId) : '',
@@ -13006,7 +12978,7 @@ const FouFouApp = () => {
                           
                           showToast(t('interests.interestUpdated'), 'success');
                           setShowAddInterestDialog(false);
-                          setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, inProgress: false, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
+                          setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
                           setEditingCustomInterest(null);
                           window._savingInterest = false;
                           return;
@@ -13028,7 +13000,6 @@ const FouFouApp = () => {
                             icon: newInterest.icon || '📍',
                             custom: true,
                             privateOnly: newInterest.privateOnly || false,
-                            inProgress: newInterest.inProgress || false,
                             locked: newInterest.locked || false,
                             scope: newInterest.scope || 'global',
                             cityId: newInterest.scope === 'local' ? (newInterest.cityId || selectedCityId) : '',
@@ -13039,7 +13010,7 @@ const FouFouApp = () => {
                           };
                           
                           setShowAddInterestDialog(false);
-                          setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, inProgress: false, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
+                          setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
                           setEditingCustomInterest(null);
                           
                           setCustomInterests(prev => {
@@ -13076,7 +13047,7 @@ const FouFouApp = () => {
                         }
                         
                         setShowAddInterestDialog(false);
-                        setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, inProgress: false, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
+                        setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
                         setEditingCustomInterest(null);
                         window._savingInterest = false;
                       }}
@@ -13094,7 +13065,7 @@ const FouFouApp = () => {
                 <button
                   onClick={() => {
                     setShowAddInterestDialog(false);
-                    setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, inProgress: false, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
+                    setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
                     setEditingCustomInterest(null);
                   }}
                   className="px-5 py-2.5 rounded-lg bg-green-500 text-white text-sm font-bold hover:bg-green-600"
@@ -13203,23 +13174,15 @@ const FouFouApp = () => {
               </div>
               </div>{/* close inner wrapper */}
 
-              {/* Status toggles - hidden for locked non-admin */}
-              {!(editingRoute.locked && !isUnlocked) && (
+              {/* Status toggle - locked (admin only) */}
+              {isUnlocked && (
               <div className="flex gap-3 px-4 py-2 bg-gray-50 border-t border-gray-100">
                 <button type="button"
-                  onClick={() => setEditingRoute({...editingRoute, inProgress: !editingRoute.inProgress})}
-                  className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${editingRoute.inProgress ? 'border-amber-500 bg-amber-500 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-amber-300'}`}
+                  onClick={() => setEditingRoute({...editingRoute, locked: !editingRoute.locked})}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${editingRoute.locked ? 'border-gray-600 bg-gray-600 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-gray-400'}`}
                 >
-                  {editingRoute.inProgress ? '⏳' : '○'} {t("general.inProgress")}
+                  {editingRoute.locked ? '🔒' : '○'} {t("general.locked")}
                 </button>
-                {isUnlocked && (
-                  <button type="button"
-                    onClick={() => setEditingRoute({...editingRoute, locked: !editingRoute.locked})}
-                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${editingRoute.locked ? 'border-gray-600 bg-gray-600 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-gray-400'}`}
-                  >
-                    {editingRoute.locked ? '🔒' : '○'} {t("general.locked")}
-                  </button>
-                )}
               </div>
               )}
 
@@ -13268,7 +13231,6 @@ const FouFouApp = () => {
                           updateRoute(editingRoute.id, {
                             name: editingRoute.name,
                             notes: editingRoute.notes,
-                            inProgress: editingRoute.inProgress,
                             locked: editingRoute.locked
                           });
                           setShowRouteDialog(false);

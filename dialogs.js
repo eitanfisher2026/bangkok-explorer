@@ -24,7 +24,7 @@
                     setEditingLocation(null);
                     setNewLocation({ 
                       name: '', description: '', notes: '', area: formData.area, interests: [], 
-                      lat: null, lng: null, mapsUrl: '', address: '', uploadedImage: null, imageUrls: [], inProgress: true
+                      lat: null, lng: null, mapsUrl: '', address: '', uploadedImage: null, imageUrls: []
                     });
                   }}
                   className="text-xl hover:bg-white hover:bg-opacity-20 rounded-full w-7 h-7 flex items-center justify-center"
@@ -48,7 +48,7 @@
                   {/* Name - full width with search */}
                   <div>
                     <label className="block text-xs font-bold mb-1">
-                      Name <span className="text-red-500">*</span>
+                      {t("places.placeName")} <span className="text-red-500">*</span>
                     </label>
                     <div style={{ display: 'flex', gap: '4px' }}>
                       <input
@@ -145,27 +145,7 @@
                   
                   {/* Areas - full width multi-select */}
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-bold">{t("general.areas")}</label>
-                      <button
-                        onClick={() => {
-                          const lat = newLocation.lat;
-                          const lng = newLocation.lng;
-                          if (lat && lng) {
-                            const detected = window.BKK.getAreasForCoordinates(lat, lng);
-                            if (detected.length > 0) {
-                              setNewLocation({...newLocation, areas: detected, area: detected[0]});
-                              showToast(`${detected.length} ${t("toast.detectedAreas")}`, 'success');
-                            } else {
-                              showToast(t('places.locationNotInAnyArea'), 'warning');
-                            }
-                          } else {
-                            showToast(t('places.needCoordsForAreas'), 'warning');
-                          }
-                        }}
-                        className="text-[9px] px-2 py-0.5 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 font-bold"
-                      >{`📍 ${t('form.autoDetect')}`}</button>
-                    </div>
+                    <label className="block text-xs font-bold mb-1">{t("general.areas")}</label>
                     <div className="grid grid-cols-6 gap-1 p-1.5 bg-gray-50 rounded-lg overflow-y-auto border-2 border-gray-300" style={{ maxHeight: '120px' }}>
                       {areaOptions.map(area => {
                         const isSelected = (newLocation.areas || [newLocation.area]).includes(area.id);
@@ -367,61 +347,56 @@
                 <div className="bg-blue-50 border border-blue-300 rounded-lg p-2">
                   <div className="mb-1.5">
                     <label className="block text-xs font-bold mb-1">{`🏠 ${t("places.address")}`}</label>
-                    <input
-                      type="text"
-                      value={newLocation.address || ''}
-                      onChange={(e) => setNewLocation({...newLocation, address: e.target.value})}
-                      placeholder={t("places.address")}
-                      className="w-full p-1.5 text-xs border border-gray-300 rounded-lg focus:border-purple-500"
-                      style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}
-                    />
+                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                      <button
+                        onClick={() => geocodeAddress(newLocation.address || newLocation.name)}
+                        disabled={!newLocation.address?.trim() && !newLocation.name?.trim()}
+                        style={{
+                          padding: '4px 8px', borderRadius: '6px', border: 'none', cursor: (newLocation.address?.trim() || newLocation.name?.trim()) ? 'pointer' : 'not-allowed',
+                          background: (newLocation.address?.trim() || newLocation.name?.trim()) ? '#8b5cf6' : '#d1d5db', color: 'white', fontSize: '14px', flexShrink: 0
+                        }}
+                        title={t("form.searchByAddress")}
+                      >🏠</button>
+                      <input
+                        type="text"
+                        value={newLocation.address || ''}
+                        onChange={(e) => setNewLocation({...newLocation, address: e.target.value})}
+                        placeholder={t("places.address")}
+                        className="flex-1 p-1.5 text-xs border border-gray-300 rounded-lg focus:border-purple-500"
+                        style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}
+                      />
+                    </div>
                   </div>
                   
-                  <label className="block text-xs font-bold mb-1.5">{`📍 ${t("general.coordinates")}`}</label>
+                  <label className="block text-xs font-bold mb-1">{`📍 ${t("general.coordinates")}`}</label>
                   
-                  {/* Lat/Lng Inputs */}
-                  <div className="grid grid-cols-2 gap-1.5 mb-1.5">
-                    <input
-                      type="number"
-                      step="0.000001"
-                      value={newLocation.lat || ''}
-                      onChange={(e) => setNewLocation({...newLocation, lat: parseFloat(e.target.value) || null})}
-                      placeholder="Lat"
-                      className="w-full p-1.5 text-xs border border-gray-300 rounded-lg"
-                    />
+                  {/* Lat/Lng Inputs with GPS button */}
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <button
+                      onClick={getCurrentLocation}
+                      style={{
+                        padding: '4px 8px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                        background: '#22c55e', color: 'white', fontSize: '14px', flexShrink: 0
+                      }}
+                      title={t("form.gps")}
+                    >📍</button>
                     <input
                       type="number"
                       step="0.000001"
                       value={newLocation.lng || ''}
                       onChange={(e) => setNewLocation({...newLocation, lng: parseFloat(e.target.value) || null})}
                       placeholder="Lng"
-                      className="w-full p-1.5 text-xs border border-gray-300 rounded-lg"
+                      className="flex-1 p-1.5 text-xs border border-gray-300 rounded-lg"
                     />
-                  </div>
-
-                  {/* Calculate Buttons - Address + GPS */}
-                  <div className="grid grid-cols-2 gap-1">
-                    <button
-                      onClick={() => geocodeAddress(newLocation.address || newLocation.name)}
-                      disabled={!newLocation.address?.trim() && !newLocation.name?.trim()}
-                      className={`p-1.5 rounded-lg text-[9px] font-bold flex flex-col items-center ${
-                        (newLocation.address?.trim() || newLocation.name?.trim())
-                          ? 'bg-purple-500 text-white hover:bg-purple-600'
-                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      }`}
-                      title={t("form.searchByAddress")}
-                    >
-                      <span className="text-sm">🏠</span>
-                      <span>{t("places.address")}</span>
-                    </button>
-                    <button
-                      onClick={getCurrentLocation}
-                      className="p-1.5 rounded-lg text-[9px] font-bold bg-green-500 text-white hover:bg-green-600 flex flex-col items-center"
-                      title={t("form.gps")}
-                    >
-                      <span className="text-sm">📍</span>
-                      <span>{t("general.location")}</span>
-                    </button>
+                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>⇄</span>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={newLocation.lat || ''}
+                      onChange={(e) => setNewLocation({...newLocation, lat: parseFloat(e.target.value) || null})}
+                      placeholder="Lat"
+                      className="flex-1 p-1.5 text-xs border border-gray-300 rounded-lg"
+                    />
                   </div>
                 </div>
 
@@ -514,10 +489,6 @@
                       {editingLocation.status === 'blacklist' ? (
                         <button
                           onClick={() => {
-                            const loc = customLocations.find(l => l.id === editingLocation.id);
-                            if (loc && isFirebaseAvailable && database) {
-                              database.ref(`customLocations/${loc.firebaseId || loc.id}`).update({ inProgress: true });
-                            }
                             toggleLocationStatus(editingLocation.id);
                             setShowEditLocationDialog(false);
                             setEditingLocation(null);
@@ -608,7 +579,7 @@
                     setEditingLocation(null);
                     setNewLocation({ 
                       name: '', description: '', notes: '', area: formData.area, areas: [formData.area], interests: [], 
-                      lat: null, lng: null, mapsUrl: '', address: '', uploadedImage: null, imageUrls: [], inProgress: true
+                      lat: null, lng: null, mapsUrl: '', address: '', uploadedImage: null, imageUrls: []
                     });
                   }}
                   className="px-5 py-2.5 rounded-lg bg-gray-400 text-white text-sm font-bold hover:bg-gray-500"
@@ -649,7 +620,7 @@
                 <button
                   onClick={() => {
                     setShowAddInterestDialog(false);
-                    setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, inProgress: false, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
+                    setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
                     setEditingCustomInterest(null);
                   }}
                   className="text-xl hover:bg-white hover:bg-opacity-20 rounded-full w-7 h-7 flex items-center justify-center"
@@ -706,12 +677,13 @@
                         <input
                           type="file"
                           accept="image/*"
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                              const reader = new FileReader();
-                              reader.onload = () => setNewInterest({...newInterest, icon: reader.result});
-                              reader.readAsDataURL(file);
+                              const compressed = await window.BKK.compressIcon(file, 64);
+                              if (compressed) {
+                                setNewInterest({...newInterest, icon: compressed});
+                              }
                             }
                           }}
                           className="hidden"
@@ -904,23 +876,15 @@
                 </div>
                 )}
 
-                {/* Status toggles - hidden for locked non-admin */}
-                {!(editingCustomInterest?.locked && !isUnlocked) && (
+                {/* Status toggle - locked (admin only) */}
+                {isUnlocked && (
                 <div className="flex gap-3 px-4 py-2 bg-gray-50 border-t border-gray-100">
                   <button type="button"
-                    onClick={() => setNewInterest({...newInterest, inProgress: !newInterest.inProgress})}
-                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${newInterest.inProgress ? 'border-amber-500 bg-amber-500 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-amber-300'}`}
+                    onClick={() => setNewInterest({...newInterest, locked: !newInterest.locked})}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${newInterest.locked ? 'border-gray-600 bg-gray-600 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-gray-400'}`}
                   >
-                    {newInterest.inProgress ? '⏳' : '○'} {t("general.inProgress")}
+                    {newInterest.locked ? '🔒' : '○'} {t("general.locked")}
                   </button>
-                  {isUnlocked && (
-                    <button type="button"
-                      onClick={() => setNewInterest({...newInterest, locked: !newInterest.locked})}
-                      className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${newInterest.locked ? 'border-gray-600 bg-gray-600 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-gray-400'}`}
-                    >
-                      {newInterest.locked ? '🔒' : '○'} {t("general.locked")}
-                    </button>
-                  )}
                 </div>
                 )}
 
@@ -1014,7 +978,6 @@
                             if (isUnlocked) {
                               configData.labelOverride = newInterest.label.trim();
                               configData.iconOverride = newInterest.icon || '';
-                              configData.inProgress = newInterest.inProgress || false;
                               configData.locked = newInterest.locked || false;
                             }
                             if (isFirebaseAvailable && database) {
@@ -1030,7 +993,6 @@
                               name: newInterest.label.trim(),
                               icon: newInterest.icon || '📍',
                               privateOnly: newInterest.privateOnly || false,
-                              inProgress: newInterest.inProgress || false,
                               locked: newInterest.locked || false,
                               scope: newInterest.scope || 'global',
                               cityId: newInterest.scope === 'local' ? (newInterest.cityId || selectedCityId) : '',
@@ -1055,7 +1017,7 @@
                           
                           showToast(t('interests.interestUpdated'), 'success');
                           setShowAddInterestDialog(false);
-                          setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, inProgress: false, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
+                          setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
                           setEditingCustomInterest(null);
                           window._savingInterest = false;
                           return;
@@ -1078,7 +1040,6 @@
                             icon: newInterest.icon || '📍',
                             custom: true,
                             privateOnly: newInterest.privateOnly || false,
-                            inProgress: newInterest.inProgress || false,
                             locked: newInterest.locked || false,
                             scope: newInterest.scope || 'global',
                             cityId: newInterest.scope === 'local' ? (newInterest.cityId || selectedCityId) : '',
@@ -1090,7 +1051,7 @@
                           
                           // Close dialog immediately
                           setShowAddInterestDialog(false);
-                          setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, inProgress: false, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
+                          setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
                           setEditingCustomInterest(null);
                           
                           // Add to local state immediately so it shows in UI
@@ -1134,7 +1095,7 @@
                         }
                         
                         setShowAddInterestDialog(false);
-                        setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, inProgress: false, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
+                        setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
                         setEditingCustomInterest(null);
                         window._savingInterest = false;
                       }}
@@ -1152,7 +1113,7 @@
                 <button
                   onClick={() => {
                     setShowAddInterestDialog(false);
-                    setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, inProgress: false, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
+                    setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
                     setEditingCustomInterest(null);
                   }}
                   className="px-5 py-2.5 rounded-lg bg-green-500 text-white text-sm font-bold hover:bg-green-600"
@@ -1261,23 +1222,15 @@
               </div>
               </div>{/* close inner wrapper */}
 
-              {/* Status toggles - hidden for locked non-admin */}
-              {!(editingRoute.locked && !isUnlocked) && (
+              {/* Status toggle - locked (admin only) */}
+              {isUnlocked && (
               <div className="flex gap-3 px-4 py-2 bg-gray-50 border-t border-gray-100">
                 <button type="button"
-                  onClick={() => setEditingRoute({...editingRoute, inProgress: !editingRoute.inProgress})}
-                  className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${editingRoute.inProgress ? 'border-amber-500 bg-amber-500 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-amber-300'}`}
+                  onClick={() => setEditingRoute({...editingRoute, locked: !editingRoute.locked})}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${editingRoute.locked ? 'border-gray-600 bg-gray-600 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-gray-400'}`}
                 >
-                  {editingRoute.inProgress ? '⏳' : '○'} {t("general.inProgress")}
+                  {editingRoute.locked ? '🔒' : '○'} {t("general.locked")}
                 </button>
-                {isUnlocked && (
-                  <button type="button"
-                    onClick={() => setEditingRoute({...editingRoute, locked: !editingRoute.locked})}
-                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${editingRoute.locked ? 'border-gray-600 bg-gray-600 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-gray-400'}`}
-                  >
-                    {editingRoute.locked ? '🔒' : '○'} {t("general.locked")}
-                  </button>
-                )}
               </div>
               )}
 
@@ -1326,7 +1279,6 @@
                           updateRoute(editingRoute.id, {
                             name: editingRoute.name,
                             notes: editingRoute.notes,
-                            inProgress: editingRoute.inProgress,
                             locked: editingRoute.locked
                           });
                           setShowRouteDialog(false);

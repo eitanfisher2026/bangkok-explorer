@@ -910,6 +910,44 @@ window.BKK.compressImage = (input, maxWidth = 1200, quality = 0.7) => {
   });
 };
 
+// Compress icon to small PNG (64x64 max, preserves transparency)
+window.BKK.compressIcon = (input, maxSize = 64) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width;
+      let h = img.height;
+      // Scale to fit in maxSize box
+      if (w > maxSize || h > maxSize) {
+        const scale = maxSize / Math.max(w, h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, w, h); // transparent background
+      ctx.drawImage(img, 0, 0, w, h);
+      // Try WebP first (smaller), fall back to PNG (transparency)
+      let result = canvas.toDataURL('image/webp', 0.85);
+      if (!result || result.length < 10 || result.startsWith('data:image/png')) {
+        // Browser doesn't support WebP, use PNG
+        result = canvas.toDataURL('image/png');
+      }
+      resolve(result);
+    };
+    img.onerror = () => resolve(typeof input === 'string' ? input : null);
+    if (typeof input === 'string') {
+      img.src = input;
+    } else {
+      const reader = new FileReader();
+      reader.onload = () => { img.src = reader.result; };
+      reader.readAsDataURL(input);
+    }
+  });
+};
+
 // ============================================================================
 // Save image to device — triggers download of a data URL
 // ============================================================================

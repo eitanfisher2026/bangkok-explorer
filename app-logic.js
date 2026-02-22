@@ -134,7 +134,6 @@
     address: '',  // Address for geocoding
     uploadedImage: null,  // Base64 image data
     imageUrls: [],  // Array of URL strings
-    inProgress: true  // Auto-check for new locations
   });
   const [customInterests, setCustomInterests] = useState([]);
   const [interestStatus, setInterestStatus] = useState({}); // { interestId: true/false }
@@ -147,7 +146,7 @@
   const [locationSearchResults, setLocationSearchResults] = useState(null); // null=hidden, []=no results, [...]= results
   const [editingCustomInterest, setEditingCustomInterest] = useState(null);
   const [showAddInterestDialog, setShowAddInterestDialog] = useState(false);
-  const [newInterest, setNewInterest] = useState({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, inProgress: false, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
+  const [newInterest, setNewInterest] = useState({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
   const [iconPickerConfig, setIconPickerConfig] = useState(null); // { description: '', callback: fn, suggestions: [], loading: false }
   const [showEditLocationDialog, setShowEditLocationDialog] = useState(false);
   const [editingLocation, setEditingLocation] = useState(null);
@@ -2070,7 +2069,6 @@
         ...opt,
         label: config.labelOverride || opt.label, labelEn: config.labelOverrideEn || opt.labelEn,
         icon: config.iconOverride || opt.icon,
-        inProgress: config.inProgress !== undefined ? config.inProgress : opt.inProgress,
         locked: config.locked !== undefined ? config.locked : opt.locked,
         scope: config.scope || opt.scope || 'global',
         cityId: config.cityId || opt.cityId || '',
@@ -2168,7 +2166,6 @@
         address: editingLocation.address || '',
         uploadedImage: editingLocation.uploadedImage || null,
         imageUrls: editingLocation.imageUrls || [],
-        inProgress: editingLocation.inProgress || false,
         locked: editingLocation.locked || false,
         areas: editingLocation.areas || (editingLocation.area ? [editingLocation.area] : [])
       });
@@ -3537,7 +3534,6 @@
       name: name,
       notes: '',
       savedAt: new Date().toISOString(),
-      inProgress: true,
       locked: false,
       cityId: selectedCityId
     };
@@ -3796,20 +3792,13 @@
     if (!location) return;
     
     let newStatus = location.status;
-    let newInProgress = location.inProgress;
     
     if (location.status === 'blacklist') {
-      // From blacklist → review (with inProgress badge)
       newStatus = 'review';
-      newInProgress = true;
     } else if (location.status === 'review') {
-      // From review → active (remove badge)
       newStatus = 'active';
-      newInProgress = false;
     } else {
-      // From active → blacklist
       newStatus = 'blacklist';
-      newInProgress = false;
     }
     
     // Update in Firebase (or localStorage fallback)
@@ -3817,8 +3806,7 @@
       // DYNAMIC MODE: Firebase (shared)
       if (location.firebaseId) {
         database.ref(`cities/${selectedCityId}/locations/${location.firebaseId}`).update({
-          status: newStatus,
-          inProgress: newInProgress
+          status: newStatus
         })
           .then(() => {
             const statusText = 
@@ -3836,7 +3824,7 @@
       // STATIC MODE: localStorage (local)
       const updated = customLocations.map(loc => {
         if (loc.id === locationId) {
-          return { ...loc, status: newStatus, inProgress: newInProgress };
+          return { ...loc, status: newStatus };
         }
         return loc;
       });
@@ -3987,7 +3975,6 @@
       address: loc.address || '',
       uploadedImage: loc.uploadedImage || null,
       imageUrls: loc.imageUrls || [],
-      inProgress: !!loc.inProgress,
       locked: !!loc.locked
     };
     
@@ -4033,7 +4020,6 @@
       duration: 45,
       custom: true,
       status: 'active',
-      inProgress: false,
       addedAt: new Date().toISOString(),
       fromGoogle: true, // Mark as added from Google
       cityId: selectedCityId // Associate with current city
@@ -4094,7 +4080,6 @@
       if (isFirebaseAvailable && database && exists.firebaseId) {
         database.ref(`cities/${selectedCityId}/locations/${exists.firebaseId}`).update({
           status: 'blacklist',
-          inProgress: false
         })
           .then(() => {
             showToast(`"${place.name}" ${t("places.addedToSkipList")}`, 'success');
@@ -4106,7 +4091,7 @@
       } else {
         const updated = customLocations.map(loc => {
           if (loc.id === locationId) {
-            return { ...loc, status: 'blacklist', inProgress: false };
+            return { ...loc, status: 'blacklist' };
           }
           return loc;
         });
@@ -4137,7 +4122,6 @@
       duration: 45,
       custom: true,
       status: 'blacklist', // Start as blacklisted!
-      inProgress: false,
       addedAt: new Date().toISOString(),
       fromGoogle: true,
       cityId: selectedCityId
@@ -4205,7 +4189,6 @@
             label: label,
             name: label,
             icon: interest.icon || '📍',
-            inProgress: !!interest.inProgress,
             locked: !!interest.locked
           };
           await database.ref(`customInterests/${interestId}`).set(newInterest);
@@ -4269,7 +4252,6 @@
             duration: loc.duration || 45,
             custom: true,
             status: loc.status || 'active',
-            inProgress: !!loc.inProgress,
             locked: !!loc.locked,
             rating: loc.rating || null,
             ratingCount: loc.ratingCount || null,
@@ -4331,7 +4313,6 @@
           label: label,
           name: label,
           icon: interest.icon || '📍',
-          inProgress: !!interest.inProgress,
           locked: !!interest.locked
         });
         addedInterests++;
@@ -4382,7 +4363,6 @@
           duration: loc.duration || 45,
           custom: true,
           status: loc.status || 'active',
-          inProgress: !!loc.inProgress,
           locked: !!loc.locked,
           rating: loc.rating || null,
           ratingCount: loc.ratingCount || null,
@@ -4519,7 +4499,6 @@
       duration: 45,
       custom: true,
       status: 'active',
-      inProgress: newLocation.inProgress || false,
       locked: newLocation.locked || false,
       addedAt: new Date().toISOString(),
       cityId: selectedCityId
@@ -4647,7 +4626,6 @@
       if (nn(n.lat) !== nn(e.lat) || nn(n.lng) !== nn(e.lng)) return true;
       if (s(n.mapsUrl) !== s(e.mapsUrl)) return true;
       if (s(n.address) !== s(e.address)) return true;
-      if (!!n.inProgress !== !!e.inProgress) return true;
       if (!!n.locked !== !!e.locked) return true;
       if (nn(n.uploadedImage) !== nn(e.uploadedImage)) return true;
       return false;
@@ -4682,7 +4660,7 @@
     }
     
     const updatedLocation = { 
-      ...editingLocation, // Keep existing fields like status, inProgress
+      ...editingLocation, // Keep existing fields like status
       ...newLocation, // Override with edited fields
       area: (newLocation.areas || [newLocation.area])[0] || editingLocation.area || 'sukhumvit',
       areas: newLocation.areas || (newLocation.area ? [newLocation.area] : editingLocation.areas || ['sukhumvit']),

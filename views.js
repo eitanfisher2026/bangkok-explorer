@@ -162,7 +162,7 @@
                   areas: activeTrail.area ? [activeTrail.area] : [formData.area],
                   interests: defaultInterests,
                   lat: null, lng: null, mapsUrl: '', address: '',
-                  uploadedImage: null, imageUrls: [], inProgress: true,
+                  uploadedImage: null, imageUrls: [],
                   nearestStop: null, gpsLoading: true
                 };
                 setNewLocation(initLocation);
@@ -1939,7 +1939,7 @@
                       <img 
                         src={loc.uploadedImage} 
                         alt={loc.name}
-                        className="w-full max-max-h-32 object-contain rounded-lg mt-2 cursor-pointer border-2 border-green-300"
+                        className="w-full max-h-32 object-contain rounded-lg mt-2 cursor-pointer border-2 border-green-300"
                         onClick={() => {
                           setModalImage(loc.uploadedImage);
                           setShowImageModal(true);
@@ -2056,9 +2056,7 @@
                           </div>
                         )}
                         <div
-                          className={`flex items-center justify-between gap-2 rounded-lg p-2 border ${
-                            savedRoute.inProgress ? 'border-orange-300 bg-orange-50' : 'border-gray-200 bg-white'
-                          } hover:bg-blue-50 cursor-pointer`}
+                          className={`flex items-center justify-between gap-2 rounded-lg p-2 border border-gray-200 bg-white hover:bg-blue-50 cursor-pointer`}
                           style={{ overflow: 'hidden' }}
                           onClick={() => loadSavedRoute(savedRoute)}
                         >
@@ -2066,7 +2064,6 @@
                             <div className="flex items-center gap-1 flex-wrap">
                               <span className="font-medium text-sm truncate">{savedRoute.name}</span>
                               {savedRoute.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '11px' }}>🔒</span>}
-                              {savedRoute.inProgress && <span title={t("general.inProgress")} style={{ fontSize: '12px' }}>🛠️</span>}
                               {routeInterestIds.slice(0, 5).map((intId, idx) => {
                                 const obj = interestMap[intId];
                                 if (!obj?.icon) return null;
@@ -2149,7 +2146,7 @@
                         areas: formData.area ? [formData.area] : [],
                         interests: [],
                         lat: null, lng: null, mapsUrl: '', address: '',
-                        uploadedImage: null, imageUrls: [], inProgress: true,
+                        uploadedImage: null, imageUrls: [],
                         nearestStop: null, gpsLoading: true
                       };
                       setNewLocation(initLocation);
@@ -2376,7 +2373,7 @@
                 <button
                   onClick={() => {
                     setEditingCustomInterest(null);
-                    setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, inProgress: false, locked: false, builtIn: false });
+                    setNewInterest({ label: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, builtIn: false });
                     setShowAddInterestDialog(true);
                   }}
                   className="bg-purple-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-purple-600"
@@ -2401,7 +2398,6 @@
                   textSearch: config.textSearch || '',
                   blacklist: (config.blacklist || []).join(', '),
                   privateOnly: interest.privateOnly || false,
-                  inProgress: interest.inProgress || false,
                   locked: interest.locked || false,
                   builtIn: !isCustom,
                   scope: config.scope || interest.scope || 'global',
@@ -2429,7 +2425,6 @@
                       <span className={`font-medium text-sm truncate ${!effectiveActive ? 'text-gray-500' : ''}`}>{tLabel(interest)}</span>
                       {isCustom && <span className="text-[10px] bg-purple-200 text-purple-800 px-1 py-0.5 rounded flex-shrink-0">{t("general.custom")}</span>}
                       {!isValid && <span className="text-red-500 text-xs flex-shrink-0" title={t("interests.missingSearchConfig")}>⚠️</span>}
-                      {interest.inProgress && <span className="text-orange-600 flex-shrink-0" title={t("general.inProgress")} style={{ fontSize: '12px' }}>🛠️</span>}
                       {interest.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '11px' }} className="flex-shrink-0">🔒</span>}
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
@@ -2460,12 +2455,12 @@
               const overriddenBuiltIn = interestOptions.map(i => {
                 const cfg = interestConfig[i.id];
                 if (!cfg) return i;
-                return { ...i, label: cfg.labelOverride || i.label, icon: cfg.iconOverride || i.icon, inProgress: cfg.inProgress !== undefined ? cfg.inProgress : i.inProgress, locked: cfg.locked !== undefined ? cfg.locked : i.locked };
+                return { ...i, label: cfg.labelOverride || i.label, icon: cfg.iconOverride || i.icon, locked: cfg.locked !== undefined ? cfg.locked : i.locked };
               });
               const overriddenUncovered = uncoveredInterests.map(i => {
                 const cfg = interestConfig[i.id];
                 if (!cfg) return i;
-                return { ...i, label: cfg.labelOverride || i.label, icon: cfg.iconOverride || i.icon, inProgress: cfg.inProgress !== undefined ? cfg.inProgress : i.inProgress, locked: cfg.locked !== undefined ? cfg.locked : i.locked };
+                return { ...i, label: cfg.labelOverride || i.label, icon: cfg.iconOverride || i.icon, locked: cfg.locked !== undefined ? cfg.locked : i.locked };
               });
               const activeBuiltIn = overriddenBuiltIn.filter(i => isInterestValid(i.id) && interestStatus[i.id] !== false);
               const activeUncovered = overriddenUncovered.filter(i => isInterestValid(i.id) && interestStatus[i.id] === true);
