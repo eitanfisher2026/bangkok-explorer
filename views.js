@@ -370,10 +370,13 @@
                   <button
                     onClick={() => {
                       if (formData.searchMode !== 'radius') {
+                        // Switch tab immediately
+                        setFormData({...formData, searchMode: 'radius', radiusMeters: formData.radiusMeters || 1000});
+                        // Then request GPS async
                         if (navigator.geolocation) {
                           navigator.geolocation.getCurrentPosition(
                             (pos) => {
-                              setFormData({...formData, searchMode: 'radius', radiusMeters: formData.radiusMeters || 1000, currentLat: pos.coords.latitude, currentLng: pos.coords.longitude, radiusPlaceName: t('wizard.myLocation'), radiusSource: 'gps'});
+                              setFormData(prev => ({...prev, currentLat: pos.coords.latitude, currentLng: pos.coords.longitude, radiusPlaceName: t('wizard.myLocation'), radiusSource: 'gps'}));
                               showToast(t('wizard.locationFound'), 'success');
                             },
                             () => showToast(t('toast.locationInaccessible'), 'warning')
@@ -462,8 +465,14 @@
                         </div>
                       </>
                     ) : (
-                      <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                        ⏳ {t('form.waitingForGps')}
+                      <div style={{ padding: '20px 0' }}>
+                        <div className="animate-spin" style={{ width: '28px', height: '28px', border: '3px solid #e5e7eb', borderTopColor: '#2563eb', borderRadius: '50%', margin: '0 auto 8px' }}></div>
+                        <div style={{ fontSize: '13px', color: '#374151', fontWeight: 'bold' }}>
+                          📍 {t('form.waitingForGps')}
+                        </div>
+                        <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '4px' }}>
+                          {t('form.allowLocationAccess')}
+                        </div>
                       </div>
                     )}
                   </div>

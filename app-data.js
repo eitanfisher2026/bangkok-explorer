@@ -418,6 +418,7 @@ form: {
   useGpsForRadius: '📍 לחץ GPS או הגדר מיקום כדי להשתמש במצב רדיוס',
 },
   waitingForGps: 'ממתין לאיתור מיקום...',
+  allowLocationAccess: 'אשר גישה למיקום בדפדפן',
 
 // --- Route ---
 route: {
@@ -1148,6 +1149,7 @@ form: {
   gpsRadiusHint: 'Search by GPS (1 km)',
   useGpsForRadius: '📍 Press GPS or set location to use radius mode',
   waitingForGps: 'Waiting for location...',
+  allowLocationAccess: 'Allow location access in your browser',
 },
 
 route: {
