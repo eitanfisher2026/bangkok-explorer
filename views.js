@@ -371,7 +371,7 @@
                     onClick={() => {
                       if (formData.searchMode !== 'radius') {
                         // Switch tab immediately
-                        setFormData({...formData, searchMode: 'radius', radiusMeters: formData.radiusMeters || 1000});
+                        setFormData({...formData, searchMode: 'radius', radiusMeters: formData.radiusMeters || 500});
                         // Then request GPS async
                         if (navigator.geolocation) {
                           navigator.geolocation.getCurrentPosition(
@@ -442,7 +442,7 @@
                         {/* Radius preset buttons */}
                         <div style={{ fontSize: '11px', color: '#374151', fontWeight: 'bold', marginBottom: '6px' }}>{t('form.searchRadius')}:</div>
                         <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                          {[500, 1000, 1500, 2000, 3000, 5000].map(r => (
+                          {[100, 250, 500, 750, 1000].map(r => (
                             <button
                               key={r}
                               onClick={() => setFormData({...formData, radiusMeters: r})}
@@ -1444,7 +1444,7 @@
                                       </button>
                                     )}
                                     
-                                    {!isCustom && (!wizardMode || routeChoiceMade === 'manual') && (
+                                    {!isCustom && !wizardMode && (
                                       (() => {
                                         const placeId = stop.id || stop.name;
                                         const isAdding = addingPlaceIds.includes(placeId);
@@ -1507,7 +1507,7 @@
                                       );
                                     })()}
                                     {/* Edit button for custom places - admin or unlocked only */}
-                                    {isCustom && (!wizardMode || routeChoiceMade === 'manual') && (() => {
+                                    {isCustom && !wizardMode && (() => {
                                       const cl = customLocations.find(loc => loc.name === stop.name);
                                       if (cl?.locked && !isUnlocked) return null; // locked, non-admin: no edit
                                       return (
@@ -1565,9 +1565,6 @@
                                         <span className="text-orange-500" title={t("places.outsideArea")} style={{ fontSize: '10px' }}>
                                           🔺
                                         </span>
-                                      )}
-                                      {isCustom && (!wizardMode || routeChoiceMade === 'manual') && (
-                                        <span title={t("form.myPlace")} style={{ fontSize: '11px' }}>🎖️</span>
                                       )}
                                       {isAddedLater && (!wizardMode || routeChoiceMade === 'manual') && (
                                         <span className="text-blue-500 font-bold" title={t("general.addedViaMore")} style={{ fontSize: '9px' }}>{`+${t('general.more')}`}</span>
@@ -1759,10 +1756,36 @@
                         onClick={() => {
                           const allStopsWithCoords = route.stops.filter(s => s.lat && s.lng);
                           if (allStopsWithCoords.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
+                          
+                          // 1. Smart select stops
                           const { selected, disabled } = smartSelectStops(allStopsWithCoords, formData.interests);
                           const newDisabled = disabled.map(s => (s.name || '').toLowerCase().trim());
                           setDisabledStops(newDisabled);
-                          showToast(`🧠 ${t('route.smartSelected', { selected: selected.length, disabled: disabled.length })}`, 'success');
+                          
+                          if (selected.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
+                          
+                          // 2. Auto-detect start point
+                          const isCircular = formData.searchMode === 'radius';
+                          setRouteType(isCircular ? 'circular' : 'linear');
+                          let autoStart = null;
+                          if (formData.searchMode === 'radius' && formData.currentLat && formData.currentLng) {
+                            autoStart = { lat: formData.currentLat, lng: formData.currentLng, address: t('wizard.myLocation') };
+                          } else {
+                            const firstWithCoords = selected[0];
+                            if (firstWithCoords) autoStart = { lat: firstWithCoords.lat, lng: firstWithCoords.lng, address: firstWithCoords.name };
+                          }
+                          if (!autoStart) { showToast(t('form.chooseStartBeforeCalc'), 'warning'); return; }
+                          
+                          setFormData(prev => ({...prev, startPoint: `${autoStart.lat},${autoStart.lng}`}));
+                          setStartPointCoords(autoStart);
+                          
+                          // 3. Optimize geographic order
+                          const optimized = optimizeStopOrder(selected, autoStart, isCircular);
+                          
+                          // 4. Update route as optimized
+                          setRoute({ ...route, stops: [...optimized, ...disabled], circular: isCircular, optimized: true, startPoint: autoStart.address, startPointCoords: autoStart });
+                          
+                          showToast(`🧠 ${t('route.smartSelected', { selected: optimized.length, disabled: disabled.length })}`, 'success');
                         }}
                         style={{
                           width: '100%', height: '38px', borderRadius: '10px',
@@ -3635,8 +3658,14 @@
 
       {/* Leaflet Map Modal */}
       {showMapModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl" style={{ maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)', padding: mapMode === 'stops' ? '0' : '12px' }}>
+          <div className="bg-white shadow-2xl w-full" style={{ 
+            maxWidth: mapMode === 'stops' ? '100%' : '42rem',
+            maxHeight: mapMode === 'stops' ? '100%' : '90vh',
+            height: mapMode === 'stops' ? '100%' : 'auto',
+            borderRadius: mapMode === 'stops' ? '0' : '12px',
+            display: 'flex', flexDirection: 'column'
+          }}>
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b">
               <button
@@ -3672,17 +3701,22 @@
               </div>
               )}
             </div>
-            <div id="leaflet-map-container" style={{ flex: 1, minHeight: '350px', maxHeight: '70vh' }}></div>
+            <div id="leaflet-map-container" style={{ flex: 1, minHeight: mapMode === 'stops' ? '0' : '350px', maxHeight: mapMode === 'stops' ? 'none' : '70vh' }}></div>
             {/* Footer */}
-            <div className="p-2 border-t text-center">
+            <div className="p-2 border-t text-center" style={{ background: mapMode === 'stops' ? '#f8fafc' : 'white' }}>
+              {mapMode === 'stops' ? (
+                <button
+                  onClick={() => setShowMapModal(false)}
+                  style={{ width: '100%', padding: '10px', borderRadius: '10px', border: 'none', background: '#374151', color: 'white', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' }}
+                >{t('general.close')}</button>
+              ) : (
               <p className="text-[9px] text-gray-400">
                 {mapMode === 'areas' 
                   ? `${(window.BKK.areaOptions || []).length} ${t('general.areas')}` 
-                  : mapMode === 'stops'
-                  ? `${mapStops.length} ${t('nav.myPlaces')} — ${t('route.clickForDetails')}`
                   : `${formData.radiusMeters}m - ${formData.radiusPlaceName || t('form.currentLocation')}`
                 }
               </p>
+              )}
             </div>
           </div>
         </div>

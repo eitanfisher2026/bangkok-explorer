@@ -53,6 +53,8 @@
   const [route, setRoute] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [disabledStops, setDisabledStops] = useState([]); // Track disabled stop IDs
+  const disabledStopsRef = React.useRef(disabledStops);
+  React.useEffect(() => { disabledStopsRef.current = disabledStops; }, [disabledStops]);
   const [showRoutePreview, setShowRoutePreview] = useState(false); // Route stop reorder view
   const [routeChoiceMade, setRouteChoiceMade] = useState(null); // null | 'manual' — controls wizard step 3 split
   const [manualStops, setManualStops] = useState([]); // Manually added stops (session only)
@@ -289,7 +291,7 @@
           
           leafletMapRef.current = map;
         } else if (mapMode === 'stops') {
-          // Stops mode - show route points on map
+          // Stops mode - show route points on map (fullscreen)
           const stops = mapStops.filter(s => s.lat && s.lng);
           if (stops.length === 0) return;
           
@@ -301,32 +303,78 @@
             attribution: '© OpenStreetMap contributors', maxZoom: 18
           }).addTo(map);
           
+          // Global callback for popup buttons
+          const markerRefs = {};
+          window._mapStopAction = (action, stopName) => {
+            const nameKey = stopName.toLowerCase().trim();
+            if (action === 'disable') {
+              setDisabledStops(prev => [...prev, nameKey]);
+              // Update marker style
+              if (markerRefs[nameKey]) {
+                markerRefs[nameKey].circle.setStyle({ fillOpacity: 0.2, opacity: 0.3 });
+                markerRefs[nameKey].label.setOpacity(0.3);
+              }
+              map.closePopup();
+              showToast(`🚫 ${stopName}`, 'info');
+            } else if (action === 'enable') {
+              setDisabledStops(prev => prev.filter(n => n !== nameKey));
+              if (markerRefs[nameKey]) {
+                markerRefs[nameKey].circle.setStyle({ fillOpacity: 0.85, opacity: 1 });
+                markerRefs[nameKey].label.setOpacity(1);
+              }
+              map.closePopup();
+              showToast(`✅ ${stopName}`, 'success');
+            }
+          };
+          
           const markers = [];
+          const isRTL = window.BKK.i18n.isRTL();
           stops.forEach((stop, i) => {
             const color = colorPalette[i % colorPalette.length];
-            const marker = L.circleMarker([stop.lat, stop.lng], {
-              radius: 10, color: color, fillColor: color,
-              fillOpacity: 0.85, weight: 2
+            const nameKey = (stop.name || '').toLowerCase().trim();
+            const isDisabled = disabledStops.includes(nameKey);
+            
+            const circle = L.circleMarker([stop.lat, stop.lng], {
+              radius: 12, color: color, fillColor: color,
+              fillOpacity: isDisabled ? 0.2 : 0.85, weight: 2,
+              opacity: isDisabled ? 0.3 : 1
             }).addTo(map);
             
-            // Number label
-            L.marker([stop.lat, stop.lng], {
+            const label = L.marker([stop.lat, stop.lng], {
               icon: L.divIcon({
                 className: '',
-                html: '<div style="font-size:9px;font-weight:bold;text-align:center;color:white;width:20px;height:20px;line-height:20px;border-radius:50%;background:' + color + ';border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);">' + window.BKK.stopLabel(i) + '</div>',
-                iconSize: [20, 20], iconAnchor: [10, 10]
-              })
+                html: '<div style="font-size:10px;font-weight:bold;text-align:center;color:white;width:22px;height:22px;line-height:22px;border-radius:50%;background:' + color + ';border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);opacity:' + (isDisabled ? '0.3' : '1') + ';">' + window.BKK.stopLabel(i) + '</div>',
+                iconSize: [22, 22], iconAnchor: [11, 11]
+              }),
+              opacity: isDisabled ? 0.3 : 1
             }).addTo(map);
             
-            marker.bindPopup(
-              '<div style="text-align:center;direction:rtl;font-size:12px;min-width:120px;">' +
-              '<b>' + window.BKK.stopLabel(i) + '. ' + (stop.name || '') + '</b>' +
-              (stop.rating ? '<br/><span style="color:#f59e0b;">⭐ ' + stop.rating + '</span>' : '') +
-              (stop.vicinity ? '<br/><span style="font-size:10px;color:#666;">' + stop.vicinity + '</span>' : '') +
-              '<br/><a href="https://www.google.com/maps/search/?api=1&query=' + stop.lat + ',' + stop.lng + (stop.place_id ? '&query_place_id=' + stop.place_id : '') + '" target="_blank" style="font-size:10px;color:#3b82f6;">Google Maps ↗</a>' +
-              '</div>'
-            );
-            markers.push(marker);
+            markerRefs[nameKey] = { circle, label };
+            
+            const escapedName = (stop.name || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            const googleUrl = 'https://www.google.com/maps/search/?api=1&query=' + stop.lat + ',' + stop.lng + (stop.place_id ? '&query_place_id=' + stop.place_id : '');
+            
+            // Dynamic popup - regenerates on open to reflect current disable state
+            const makePopup = () => {
+              const curDisabled = disabledStopsRef.current || [];
+              const curIsDisabled = curDisabled.includes(nameKey);
+              const toggleAction = curIsDisabled ? 'enable' : 'disable';
+              const toggleLabel = curIsDisabled ? '✅ ' + t('general.enable') : '🚫 ' + t('route.removeFromRoute');
+              const toggleColor = curIsDisabled ? '#22c55e' : '#ef4444';
+              return '<div style="text-align:center;direction:' + (isRTL ? 'rtl' : 'ltr') + ';font-size:13px;min-width:160px;padding:4px 0;">' +
+                '<div style="font-weight:bold;font-size:14px;margin-bottom:6px;">' + window.BKK.stopLabel(i) + '. ' + (stop.name || '') + '</div>' +
+                (stop.rating ? '<div style="color:#f59e0b;margin-bottom:6px;">⭐ ' + stop.rating + (stop.ratingCount ? ' (' + stop.ratingCount + ')' : '') + '</div>' : '') +
+                '<div style="display:flex;gap:6px;justify-content:center;">' +
+                  '<a href="' + googleUrl + '" target="_blank" style="flex:1;display:inline-block;padding:6px 10px;border-radius:8px;background:#3b82f6;color:white;text-decoration:none;font-size:12px;font-weight:bold;">Google Maps ↗</a>' +
+                  '<button onclick="window._mapStopAction(\'' + toggleAction + '\',\'' + escapedName + '\')" style="flex:1;padding:6px 10px;border-radius:8px;background:' + toggleColor + ';color:white;border:none;font-size:12px;font-weight:bold;cursor:pointer;">' + toggleLabel + '</button>' +
+                '</div>' +
+              '</div>';
+            };
+            
+            circle.bindPopup(makePopup, { maxWidth: 250 });
+            circle.on('popupopen', () => { circle.getPopup().setContent(makePopup()); });
+            label.on('click', () => { circle.openPopup(); });
+            markers.push(circle);
           });
           
           // Draw route line
@@ -348,7 +396,7 @@
     }, 150);
     }); // end loadLeaflet().then
     
-    return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } };
+    return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; };
   }, [showMapModal, mapMode, mapStops, formData.currentLat, formData.currentLng, formData.radiusMeters]);
   const [modalImage, setModalImage] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);

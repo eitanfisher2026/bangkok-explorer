@@ -91,6 +91,8 @@ const FouFouApp = () => {
   const [route, setRoute] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [disabledStops, setDisabledStops] = useState([]); // Track disabled stop IDs
+  const disabledStopsRef = React.useRef(disabledStops);
+  React.useEffect(() => { disabledStopsRef.current = disabledStops; }, [disabledStops]);
   const [showRoutePreview, setShowRoutePreview] = useState(false); // Route stop reorder view
   const [routeChoiceMade, setRouteChoiceMade] = useState(null); // null | 'manual' — controls wizard step 3 split
   const [manualStops, setManualStops] = useState([]); // Manually added stops (session only)
@@ -318,31 +320,75 @@ const FouFouApp = () => {
             attribution: '© OpenStreetMap contributors', maxZoom: 18
           }).addTo(map);
           
+          const markerRefs = {};
+          window._mapStopAction = (action, stopName) => {
+            const nameKey = stopName.toLowerCase().trim();
+            if (action === 'disable') {
+              setDisabledStops(prev => [...prev, nameKey]);
+              if (markerRefs[nameKey]) {
+                markerRefs[nameKey].circle.setStyle({ fillOpacity: 0.2, opacity: 0.3 });
+                markerRefs[nameKey].label.setOpacity(0.3);
+              }
+              map.closePopup();
+              showToast(`🚫 ${stopName}`, 'info');
+            } else if (action === 'enable') {
+              setDisabledStops(prev => prev.filter(n => n !== nameKey));
+              if (markerRefs[nameKey]) {
+                markerRefs[nameKey].circle.setStyle({ fillOpacity: 0.85, opacity: 1 });
+                markerRefs[nameKey].label.setOpacity(1);
+              }
+              map.closePopup();
+              showToast(`✅ ${stopName}`, 'success');
+            }
+          };
+          
           const markers = [];
+          const isRTL = window.BKK.i18n.isRTL();
           stops.forEach((stop, i) => {
             const color = colorPalette[i % colorPalette.length];
-            const marker = L.circleMarker([stop.lat, stop.lng], {
-              radius: 10, color: color, fillColor: color,
-              fillOpacity: 0.85, weight: 2
+            const nameKey = (stop.name || '').toLowerCase().trim();
+            const isDisabled = disabledStops.includes(nameKey);
+            
+            const circle = L.circleMarker([stop.lat, stop.lng], {
+              radius: 12, color: color, fillColor: color,
+              fillOpacity: isDisabled ? 0.2 : 0.85, weight: 2,
+              opacity: isDisabled ? 0.3 : 1
             }).addTo(map);
             
-            L.marker([stop.lat, stop.lng], {
+            const label = L.marker([stop.lat, stop.lng], {
               icon: L.divIcon({
                 className: '',
-                html: '<div style="font-size:9px;font-weight:bold;text-align:center;color:white;width:20px;height:20px;line-height:20px;border-radius:50%;background:' + color + ';border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);">' + window.BKK.stopLabel(i) + '</div>',
-                iconSize: [20, 20], iconAnchor: [10, 10]
-              })
+                html: '<div style="font-size:10px;font-weight:bold;text-align:center;color:white;width:22px;height:22px;line-height:22px;border-radius:50%;background:' + color + ';border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);opacity:' + (isDisabled ? '0.3' : '1') + ';">' + window.BKK.stopLabel(i) + '</div>',
+                iconSize: [22, 22], iconAnchor: [11, 11]
+              }),
+              opacity: isDisabled ? 0.3 : 1
             }).addTo(map);
             
-            marker.bindPopup(
-              '<div style="text-align:center;direction:rtl;font-size:12px;min-width:120px;">' +
-              '<b>' + window.BKK.stopLabel(i) + '. ' + (stop.name || '') + '</b>' +
-              (stop.rating ? '<br/><span style="color:#f59e0b;">⭐ ' + stop.rating + '</span>' : '') +
-              (stop.vicinity ? '<br/><span style="font-size:10px;color:#666;">' + stop.vicinity + '</span>' : '') +
-              '<br/><a href="https://www.google.com/maps/search/?api=1&query=' + stop.lat + ',' + stop.lng + (stop.place_id ? '&query_place_id=' + stop.place_id : '') + '" target="_blank" style="font-size:10px;color:#3b82f6;">Google Maps ↗</a>' +
-              '</div>'
-            );
-            markers.push(marker);
+            markerRefs[nameKey] = { circle, label };
+            
+            const escapedName = (stop.name || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            const googleUrl = 'https://www.google.com/maps/search/?api=1&query=' + stop.lat + ',' + stop.lng + (stop.place_id ? '&query_place_id=' + stop.place_id : '');
+            
+            const makePopup = () => {
+              const curDisabled = disabledStopsRef.current || [];
+              const curIsDisabled = curDisabled.includes(nameKey);
+              const toggleAction = curIsDisabled ? 'enable' : 'disable';
+              const toggleLabel = curIsDisabled ? '✅ ' + t('general.enable') : '🚫 ' + t('route.removeFromRoute');
+              const toggleColor = curIsDisabled ? '#22c55e' : '#ef4444';
+              return '<div style="text-align:center;direction:' + (isRTL ? 'rtl' : 'ltr') + ';font-size:13px;min-width:160px;padding:4px 0;">' +
+                '<div style="font-weight:bold;font-size:14px;margin-bottom:6px;">' + window.BKK.stopLabel(i) + '. ' + (stop.name || '') + '</div>' +
+                (stop.rating ? '<div style="color:#f59e0b;margin-bottom:6px;">⭐ ' + stop.rating + (stop.ratingCount ? ' (' + stop.ratingCount + ')' : '') + '</div>' : '') +
+                '<div style="display:flex;gap:6px;justify-content:center;">' +
+                  '<a href="' + googleUrl + '" target="_blank" style="flex:1;display:inline-block;padding:6px 10px;border-radius:8px;background:#3b82f6;color:white;text-decoration:none;font-size:12px;font-weight:bold;">Google Maps ↗</a>' +
+                  '<button onclick="window._mapStopAction(\'' + toggleAction + '\',\'' + escapedName + '\')" style="flex:1;padding:6px 10px;border-radius:8px;background:' + toggleColor + ';color:white;border:none;font-size:12px;font-weight:bold;cursor:pointer;">' + toggleLabel + '</button>' +
+                '</div>' +
+              '</div>';
+            };
+            
+            circle.bindPopup(makePopup, { maxWidth: 250 });
+            circle.on('popupopen', () => { circle.getPopup().setContent(makePopup()); });
+            label.on('click', () => { circle.openPopup(); });
+            markers.push(circle);
           });
           
           if (stops.length > 1) {
@@ -363,7 +409,7 @@ const FouFouApp = () => {
     }, 150);
     }); // end loadLeaflet().then
     
-    return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } };
+    return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; };
   }, [showMapModal, mapMode, mapStops, formData.currentLat, formData.currentLng, formData.radiusMeters]);
   const [modalImage, setModalImage] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
@@ -4818,7 +4864,7 @@ const FouFouApp = () => {
                   <button
                     onClick={() => {
                       if (formData.searchMode !== 'radius') {
-                        setFormData({...formData, searchMode: 'radius', radiusMeters: formData.radiusMeters || 1000});
+                        setFormData({...formData, searchMode: 'radius', radiusMeters: formData.radiusMeters || 500});
                         if (navigator.geolocation) {
                           navigator.geolocation.getCurrentPosition(
                             (pos) => {
@@ -4888,7 +4934,7 @@ const FouFouApp = () => {
                         {/* Radius preset buttons */}
                         <div style={{ fontSize: '11px', color: '#374151', fontWeight: 'bold', marginBottom: '6px' }}>{t('form.searchRadius')}:</div>
                         <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                          {[500, 1000, 1500, 2000, 3000, 5000].map(r => (
+                          {[100, 250, 500, 750, 1000].map(r => (
                             <button
                               key={r}
                               onClick={() => setFormData({...formData, radiusMeters: r})}
@@ -5881,7 +5927,7 @@ const FouFouApp = () => {
                                       </button>
                                     )}
                                     
-                                    {!isCustom && (!wizardMode || routeChoiceMade === 'manual') && (
+                                    {!isCustom && !wizardMode && (
                                       (() => {
                                         const placeId = stop.id || stop.name;
                                         const isAdding = addingPlaceIds.includes(placeId);
@@ -5942,7 +5988,7 @@ const FouFouApp = () => {
                                       );
                                     })()}
                                     {/* Edit button for custom places - admin or unlocked only */}
-                                    {isCustom && (!wizardMode || routeChoiceMade === 'manual') && (() => {
+                                    {isCustom && !wizardMode && (() => {
                                       const cl = customLocations.find(loc => loc.name === stop.name);
                                       if (cl?.locked && !isUnlocked) return null; // locked, non-admin: no edit
                                       return (
@@ -6000,9 +6046,6 @@ const FouFouApp = () => {
                                         <span className="text-orange-500" title={t("places.outsideArea")} style={{ fontSize: '10px' }}>
                                           🔺
                                         </span>
-                                      )}
-                                      {isCustom && (!wizardMode || routeChoiceMade === 'manual') && (
-                                        <span title={t("form.myPlace")} style={{ fontSize: '11px' }}>🎖️</span>
                                       )}
                                       {isAddedLater && (!wizardMode || routeChoiceMade === 'manual') && (
                                         <span className="text-blue-500 font-bold" title={t("general.addedViaMore")} style={{ fontSize: '9px' }}>{`+${t('general.more')}`}</span>
@@ -6193,10 +6236,32 @@ const FouFouApp = () => {
                         onClick={() => {
                           const allStopsWithCoords = route.stops.filter(s => s.lat && s.lng);
                           if (allStopsWithCoords.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
+                          
                           const { selected, disabled } = smartSelectStops(allStopsWithCoords, formData.interests);
                           const newDisabled = disabled.map(s => (s.name || '').toLowerCase().trim());
                           setDisabledStops(newDisabled);
-                          showToast(`🧠 ${t('route.smartSelected', { selected: selected.length, disabled: disabled.length })}`, 'success');
+                          
+                          if (selected.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
+                          
+                          const isCircular = formData.searchMode === 'radius';
+                          setRouteType(isCircular ? 'circular' : 'linear');
+                          let autoStart = null;
+                          if (formData.searchMode === 'radius' && formData.currentLat && formData.currentLng) {
+                            autoStart = { lat: formData.currentLat, lng: formData.currentLng, address: t('wizard.myLocation') };
+                          } else {
+                            const firstWithCoords = selected[0];
+                            if (firstWithCoords) autoStart = { lat: firstWithCoords.lat, lng: firstWithCoords.lng, address: firstWithCoords.name };
+                          }
+                          if (!autoStart) { showToast(t('form.chooseStartBeforeCalc'), 'warning'); return; }
+                          
+                          setFormData(prev => ({...prev, startPoint: `${autoStart.lat},${autoStart.lng}`}));
+                          setStartPointCoords(autoStart);
+                          
+                          const optimized = optimizeStopOrder(selected, autoStart, isCircular);
+                          
+                          setRoute({ ...route, stops: [...optimized, ...disabled], circular: isCircular, optimized: true, startPoint: autoStart.address, startPointCoords: autoStart });
+                          
+                          showToast(`🧠 ${t('route.smartSelected', { selected: optimized.length, disabled: disabled.length })}`, 'success');
                         }}
                         style={{
                           width: '100%', height: '38px', borderRadius: '10px',
@@ -8051,8 +8116,14 @@ const FouFouApp = () => {
 
       {/* Leaflet Map Modal */}
       {showMapModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl" style={{ maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)', padding: mapMode === 'stops' ? '0' : '12px' }}>
+          <div className="bg-white shadow-2xl w-full" style={{ 
+            maxWidth: mapMode === 'stops' ? '100%' : '42rem',
+            maxHeight: mapMode === 'stops' ? '100%' : '90vh',
+            height: mapMode === 'stops' ? '100%' : 'auto',
+            borderRadius: mapMode === 'stops' ? '0' : '12px',
+            display: 'flex', flexDirection: 'column'
+          }}>
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b">
               <button
@@ -8088,17 +8159,22 @@ const FouFouApp = () => {
               </div>
               )}
             </div>
-            <div id="leaflet-map-container" style={{ flex: 1, minHeight: '350px', maxHeight: '70vh' }}></div>
+            <div id="leaflet-map-container" style={{ flex: 1, minHeight: mapMode === 'stops' ? '0' : '350px', maxHeight: mapMode === 'stops' ? 'none' : '70vh' }}></div>
             {/* Footer */}
-            <div className="p-2 border-t text-center">
+            <div className="p-2 border-t text-center" style={{ background: mapMode === 'stops' ? '#f8fafc' : 'white' }}>
+              {mapMode === 'stops' ? (
+                <button
+                  onClick={() => setShowMapModal(false)}
+                  style={{ width: '100%', padding: '10px', borderRadius: '10px', border: 'none', background: '#374151', color: 'white', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' }}
+                >{t('general.close')}</button>
+              ) : (
               <p className="text-[9px] text-gray-400">
                 {mapMode === 'areas' 
                   ? `${(window.BKK.areaOptions || []).length} ${t('general.areas')}` 
-                  : mapMode === 'stops'
-                  ? `${mapStops.length} ${t('nav.myPlaces')} — ${t('route.clickForDetails')}`
                   : `${formData.radiusMeters}m - ${formData.radiusPlaceName || t('form.currentLocation')}`
                 }
               </p>
+              )}
             </div>
           </div>
         </div>
