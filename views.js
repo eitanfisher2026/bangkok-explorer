@@ -296,7 +296,7 @@
             <div style={{ textAlign: 'center', marginBottom: '4px' }}>
               {/* Top bar: advanced mode + language */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0px' }}>
-                <button onClick={() => { setWizardMode(false); localStorage.setItem('bangkok_wizard_mode', 'false'); }} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '10px', cursor: 'pointer', textDecoration: 'underline' }}>
+                <button onClick={() => { setWizardMode(false); setCurrentView('form'); localStorage.setItem('bangkok_wizard_mode', 'false'); }} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '10px', cursor: 'pointer', textDecoration: 'underline' }}>
                   {`⚙️ ${t("nav.advancedMode")}`}
                 </button>
                 <button onClick={() => switchLanguage(currentLang === 'he' ? 'en' : 'he')} style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '2px 8px', color: '#6b7280', fontSize: '10px', cursor: 'pointer' }}>
@@ -312,7 +312,7 @@
                       onClick={() => {
                         if (step < wizardStep) {
                           setWizardStep(step);
-                          if (step < 3) { setRoute(null); setCurrentView('form'); }
+                          if (step < 3) { setRoute(null); setRouteChoiceMade(null); setCurrentView('form'); }
                           if (step === 1) { /* interests preserved */ };
                           window.scrollTo(0, 0);
                         }
@@ -484,7 +484,7 @@
                 {/* Search button */}
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
                   <button
-                    onClick={() => { generateRoute(); setWizardStep(3); window.scrollTo(0, 0); }}
+                    onClick={() => { generateRoute(); setRouteChoiceMade(null); setWizardStep(3); window.scrollTo(0, 0); }}
                     disabled={!isDataLoaded || formData.interests.length === 0}
                     style={{
                       flex: 1, padding: '14px', borderRadius: '12px', border: 'none',
@@ -572,6 +572,18 @@
         </div>
         )}
 
+        {/* Quick mode switch — visible on non-form tabs in advanced mode */}
+        {!wizardMode && !activeTrail && currentView !== 'form' && (
+          <div style={{ textAlign: 'center', marginTop: '-6px', marginBottom: '4px' }}>
+            <button
+              onClick={() => { setWizardMode(true); setWizardStep(1); localStorage.setItem('bangkok_wizard_mode', 'true'); setRoute(null); setRouteChoiceMade(null); setCurrentView('form'); }}
+              style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '9px', cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              {`🚀 ${t('nav.quickMode')}`}
+            </button>
+          </div>
+        )}
+
         {/* Wizard Step 3: breadcrumb with back link */}
         {wizardMode && wizardStep === 3 && !isGenerating && !activeTrail && (
           <div style={{ 
@@ -579,12 +591,12 @@
             fontSize: '11px', color: '#9ca3af', marginBottom: '6px', flexWrap: 'wrap'
           }}>
             <span
-              onClick={() => { setWizardStep(2); setRoute(null); setCurrentView('form'); window.scrollTo(0, 0); }}
+              onClick={() => { setWizardStep(2); setRoute(null); setRouteChoiceMade(null); setCurrentView('form'); window.scrollTo(0, 0); }}
               style={{ cursor: 'pointer', color: '#3b82f6', fontWeight: '600', textDecoration: 'underline' }}
             >{currentLang === 'he' ? '→' : '←'} {t("general.back")}</span>
             <span style={{ color: '#d1d5db' }}>|</span>
             <span
-              onClick={() => { setWizardStep(1); setRoute(null); setCurrentView('form'); window.scrollTo(0, 0); }}
+              onClick={() => { setWizardStep(1); setRoute(null); setRouteChoiceMade(null); setCurrentView('form'); window.scrollTo(0, 0); }}
               style={{ cursor: 'pointer', textDecoration: 'underline', textDecorationColor: '#d1d5db' }}
             >📍 {(() => {
               if (formData.searchMode === 'all') return t('wizard.allCity');
@@ -594,7 +606,7 @@
             })()}</span>
             <span style={{ color: '#d1d5db' }}>|</span>
             <span
-              onClick={() => { setWizardStep(2); setRoute(null); setCurrentView('form'); window.scrollTo(0, 0); }}
+              onClick={() => { setWizardStep(2); setRoute(null); setRouteChoiceMade(null); setCurrentView('form'); window.scrollTo(0, 0); }}
               style={{ cursor: 'pointer', textDecoration: 'underline', textDecorationColor: '#d1d5db' }}
             >⭐ {formData.interests.slice(0, 3).map(id => {
               const opt = allInterestOptions.find(o => o.id === id);
@@ -615,14 +627,14 @@
           </div>
         )}
 
-        {/* QUICK LAUNCH — "Yalla" fast path, shown in wizard step 3 when route is loaded, hidden after manual config */}
-        {wizardMode && wizardStep === 3 && !isGenerating && route && route.stops?.length > 0 && !activeTrail && !route.optimized && disabledStops.length === 0 && (
-          <div style={{ background: 'white', borderRadius: '16px', padding: '14px', marginBottom: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
-            <div style={{ textAlign: 'center', marginBottom: '10px' }}>
+        {/* ROUTE CHOICE SCREEN — shown in wizard step 3 after route is loaded, before any action */}
+        {wizardMode && wizardStep === 3 && !isGenerating && route && route.stops?.length > 0 && !activeTrail && !route.optimized && routeChoiceMade === null && (
+          <div style={{ background: 'white', borderRadius: '16px', padding: '16px', marginBottom: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+            <div style={{ textAlign: 'center', marginBottom: '14px' }}>
               <span style={{ fontSize: '15px', fontWeight: 'bold' }}>{`🐾 ${route.stops.length} ${t('wizard.placesFound')}`}</span>
             </div>
 
-            {/* Yalla - quick go */}
+            {/* Option 1: Yalla - quick go */}
             <button
               onClick={() => {
                 const isCircular = formData.searchMode === 'radius';
@@ -664,7 +676,7 @@
                 background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', color: '#15803d',
                 fontSize: '15px', fontWeight: 'bold', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'start',
-                direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr'
+                direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', marginBottom: '10px'
               }}
             >
               <span style={{ fontSize: '24px' }}>🚀</span>
@@ -674,23 +686,35 @@
               </div>
             </button>
 
-            {/* Hint: scroll down for manual */}
-            <div style={{ textAlign: 'center', marginTop: '8px', fontSize: '11px', color: '#9ca3af' }}>
-              {t('wizard.orScrollToCustomize')}
-              <span style={{ display: 'block', fontSize: '14px', marginTop: '2px' }}>↓</span>
-            </div>
+            {/* Option 2: Manual arrangement */}
+            <button
+              onClick={() => { setRouteChoiceMade('manual'); window.scrollTo(0, 0); }}
+              style={{
+                width: '100%', padding: '14px', border: '2px solid #8b5cf6', borderRadius: '14px',
+                background: 'linear-gradient(135deg, #faf5ff, #ede9fe)', color: '#6d28d9',
+                fontSize: '15px', fontWeight: 'bold', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'start',
+                direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr'
+              }}
+            >
+              <span style={{ fontSize: '24px' }}>🛠️</span>
+              <div>
+                <div>{t('wizard.manualMode')}</div>
+                <div style={{ fontSize: '10px', color: '#6b7280', fontWeight: 'normal' }}>{t('wizard.manualDesc')}</div>
+              </div>
+            </button>
           </div>
         )}
 
         {/* Form View */}
 
         {/* === VIEWS (from views.js) === */}
-        {currentView === 'form' && (!wizardMode || wizardStep === 3) && !activeTrail && (
+        {currentView === 'form' && !activeTrail && (!wizardMode || (wizardStep === 3 && (routeChoiceMade === 'manual' || route?.optimized))) && (
           <div className="view-fade-in bg-white rounded-xl shadow-lg p-3 space-y-3">
-            {/* Form inputs - hidden in wizard step 3 */}
-            {!wizardMode && (<>
-            {/* City selector for advanced mode */}
-            {Object.values(window.BKK.cities || {}).filter(c => c.active !== false).length > 1 && (
+            {/* Form inputs - shown in advanced mode OR manual mode */}
+            {(!wizardMode || routeChoiceMade === 'manual') && (<>
+            {/* City selector - only in advanced mode */}
+            {!wizardMode && Object.values(window.BKK.cities || {}).filter(c => c.active !== false).length > 1 && (
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2px' }}>
                 <select
                   value={selectedCityId}
@@ -703,6 +727,8 @@
                 </select>
               </div>
             )}
+            {/* Header - different for advanced vs manual mode */}
+            {!wizardMode ? (
             <div className="flex items-center justify-center gap-2">
               <h2 className="text-base font-bold text-center">{t("wizard.step1Title")}</h2>
               <button
@@ -713,7 +739,7 @@
                 {t("general.help")}
               </button>
               <button
-                onClick={() => { setWizardMode(true); setWizardStep(1); localStorage.setItem('bangkok_wizard_mode', 'true'); setRoute(null); }}
+                onClick={() => { setWizardMode(true); setWizardStep(1); localStorage.setItem('bangkok_wizard_mode', 'true'); setRoute(null); setRouteChoiceMade(null); }}
                 style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '10px', cursor: 'pointer', textDecoration: 'underline' }}
                 title={t("nav.switchToQuick")}
               >
@@ -723,6 +749,18 @@
                 {currentLang === 'he' ? '🇬🇧 EN' : '🇮🇱 עב'}
               </button>
             </div>
+            ) : (
+            <div className="flex items-center justify-center gap-2">
+              <h2 className="text-sm font-bold text-center text-purple-700">🛠️ {t('wizard.manualMode')}</h2>
+              <button
+                onClick={() => showHelpFor('main')}
+                className="text-gray-400 hover:text-blue-500 text-sm"
+                title={t("general.help")}
+              >
+                {t("general.help")}
+              </button>
+            </div>
+            )}
 
             {/* Split Layout: Mode selector + content (right) | Interests (left) */}
             <div className="flex gap-0 items-start" style={{ paddingBottom: '60px' }}>
@@ -1131,54 +1169,40 @@
                   /* FLAT ROUTE PREVIEW - Drag to reorder */
                   <div className="max-h-96 overflow-y-auto" style={{ contain: 'content' }}>
                     <div className="bg-purple-50 rounded-lg p-2 mb-2 text-center">
-                      <span className="text-xs text-purple-700 font-bold">{"☰ " + t('route.reorderStops') + " — " + t('route.dragToReorder')}</span>
+                      <span className="text-xs text-purple-700 font-bold">{"☰ " + t('route.reorderStops') + " — " + t('route.tapArrowsToMove')}</span>
                     </div>
                     {(() => {
                       const activeStops = route.stops.filter(s => 
                         !disabledStops.includes((s.name || '').toLowerCase().trim())
                       );
+                      const moveStop = (fromActiveIdx, toActiveIdx) => {
+                        if (toActiveIdx < 0 || toActiveIdx >= activeStops.length) return;
+                        const activeIndices = route.stops.map((s, i) => ({ s, i })).filter(x => !disabledStops.includes((x.s.name || '').toLowerCase().trim()));
+                        const newStops = [...route.stops];
+                        const fromOrig = activeIndices[fromActiveIdx].i;
+                        const [moved] = newStops.splice(fromOrig, 1);
+                        const updatedActiveIndices = newStops.map((s, i) => ({ s, i })).filter(x => !disabledStops.includes((x.s.name || '').toLowerCase().trim()));
+                        const targetPos = toActiveIdx < updatedActiveIndices.length ? updatedActiveIndices[toActiveIdx].i : newStops.length;
+                        newStops.splice(targetPos, 0, moved);
+                        setRoute(prev => ({ ...prev, stops: newStops }));
+                      };
                       return activeStops.map((stop, idx) => {
                         const hasValidCoords = stop.lat && stop.lng && stop.lat !== 0 && stop.lng !== 0;
-                        const originalIdx = route.stops.indexOf(stop);
                         return (
-                          <div key={originalIdx} 
-                            draggable="true"
-                            onDragStart={(e) => {
-                              e.dataTransfer.setData('text/plain', String(idx));
-                              e.dataTransfer.effectAllowed = 'move';
-                              e.currentTarget.style.opacity = '0.4';
-                            }}
-                            onDragEnd={(e) => { e.currentTarget.style.opacity = '1'; }}
-                            onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#8b5cf6'; }}
-                            onDragLeave={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; }}
-                            onDrop={(e) => {
-                              e.preventDefault();
-                              e.currentTarget.style.borderColor = '#e5e7eb';
-                              const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
-                              const toIdx = idx;
-                              if (fromIdx === toIdx) return;
-                              const activeIndices = route.stops.map((s, i) => ({ s, i })).filter(x => !disabledStops.includes((x.s.name || '').toLowerCase().trim()));
-                              const newStops = [...route.stops];
-                              const fromOrig = activeIndices[fromIdx].i;
-                              const [moved] = newStops.splice(fromOrig, 1);
-                              const updatedActiveIndices = newStops.map((s, i) => ({ s, i })).filter(x => !disabledStops.includes((x.s.name || '').toLowerCase().trim()));
-                              const targetPos = toIdx < updatedActiveIndices.length ? updatedActiveIndices[toIdx].i : newStops.length;
-                              newStops.splice(targetPos, 0, moved);
-                              setRoute(prev => ({ ...prev, stops: newStops }));
-                            }}
-                            className="flex items-center gap-2 p-2 mb-1 bg-white rounded-lg border-2 border-gray-200 cursor-grab active:cursor-grabbing transition-colors" 
+                          <div key={stop.name + idx}
+                            className="flex items-center gap-1.5 p-2 mb-1 bg-white rounded-lg border-2 border-gray-200 transition-colors" 
                             style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}
                           >
-                            {/* Drag handle + Stop number */}
-                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', 
+                            {/* Stop number */}
+                            <div style={{ width: '28px', height: '28px', borderRadius: '50%', 
                               background: idx === 0 ? '#22c55e' : idx === activeStops.length - 1 ? '#ef4444' : '#8b5cf6',
                               color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              fontSize: '13px', fontWeight: 'bold', flexShrink: 0, cursor: 'grab'
+                              fontSize: '12px', fontWeight: 'bold', flexShrink: 0
                             }}>
                               {String.fromCharCode(65 + idx)}
                             </div>
                             
-                            {/* Stop name as hyperlink to Google Maps */}
+                            {/* Stop name */}
                             <div className="flex-1 min-w-0">
                               {hasValidCoords ? (
                                 <a href={window.BKK.getGoogleMapsUrl(stop)} target="city_explorer_map" rel="noopener noreferrer"
@@ -1188,11 +1212,21 @@
                               ) : (
                                 <div className="text-sm font-bold text-gray-800 truncate">{stop.name}</div>
                               )}
-                              {stop.description && <div className="text-[10px] text-gray-500 truncate">{stop.description}</div>}
                             </div>
                             
-                            {/* Drag indicator */}
-                            <span style={{ color: '#9ca3af', fontSize: '16px', flexShrink: 0, cursor: 'grab' }}>☰</span>
+                            {/* Move up/down buttons */}
+                            <div className="flex flex-col gap-0.5 flex-shrink-0">
+                              <button
+                                onClick={() => moveStop(idx, idx - 1)}
+                                disabled={idx === 0}
+                                className={`w-7 h-6 rounded text-xs font-bold flex items-center justify-center ${idx === 0 ? 'bg-gray-100 text-gray-300' : 'bg-purple-100 text-purple-700 active:bg-purple-200'}`}
+                              >▲</button>
+                              <button
+                                onClick={() => moveStop(idx, idx + 1)}
+                                disabled={idx === activeStops.length - 1}
+                                className={`w-7 h-6 rounded text-xs font-bold flex items-center justify-center ${idx === activeStops.length - 1 ? 'bg-gray-100 text-gray-300' : 'bg-purple-100 text-purple-700 active:bg-purple-200'}`}
+                              >▼</button>
+                            </div>
                           </div>
                         );
                       });
@@ -1347,7 +1381,7 @@
                                       </button>
                                     )}
                                     
-                                    {!isCustom && !wizardMode && (
+                                    {!isCustom && (!wizardMode || routeChoiceMade === 'manual') && (
                                       (() => {
                                         const placeId = stop.id || stop.name;
                                         const isAdding = addingPlaceIds.includes(placeId);
@@ -1410,7 +1444,7 @@
                                       );
                                     })()}
                                     {/* Edit button for custom places - admin or unlocked only */}
-                                    {isCustom && !wizardMode && (() => {
+                                    {isCustom && (!wizardMode || routeChoiceMade === 'manual') && (() => {
                                       const cl = customLocations.find(loc => loc.name === stop.name);
                                       if (cl?.locked && !isUnlocked) return null; // locked, non-admin: no edit
                                       return (
@@ -1469,10 +1503,10 @@
                                           🔺
                                         </span>
                                       )}
-                                      {isCustom && !wizardMode && (
+                                      {isCustom && (!wizardMode || routeChoiceMade === 'manual') && (
                                         <span title={t("form.myPlace")} style={{ fontSize: '11px' }}>🎖️</span>
                                       )}
-                                      {isAddedLater && !wizardMode && (
+                                      {isAddedLater && (!wizardMode || routeChoiceMade === 'manual') && (
                                         <span className="text-blue-500 font-bold" title={t("general.addedViaMore")} style={{ fontSize: '9px' }}>{`+${t('general.more')}`}</span>
                                       )}
                                       {/* Camera icon for custom locations with image */}
@@ -1700,16 +1734,16 @@
                       </button>
                       <button
                         onClick={() => setShowRoutePreview(!showRoutePreview)}
-                        disabled={!route?.optimized}
+                        disabled={!showRoutePreview && !route?.optimized}
                         style={{
                           height: '42px',
                           backgroundColor: showRoutePreview ? '#7c3aed' : route?.optimized ? '#a78bfa' : '#d1d5db',
-                          color: route?.optimized ? 'white' : '#9ca3af',
+                          color: (showRoutePreview || route?.optimized) ? 'white' : '#9ca3af',
                           borderRadius: '12px',
                           fontWeight: 'bold',
                           fontSize: '13px',
                           border: 'none',
-                          cursor: route?.optimized ? 'pointer' : 'not-allowed',
+                          cursor: (showRoutePreview || route?.optimized) ? 'pointer' : 'not-allowed',
                           whiteSpace: 'nowrap',
                           padding: '0 12px'
                         }}

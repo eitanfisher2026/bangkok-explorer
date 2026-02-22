@@ -872,20 +872,20 @@
                       </select>
                     </div>
                     {/* Row 2: Weight + Min + Max with stepper buttons */}
-                    <div className="flex items-center justify-between gap-1">
+                    <div className="flex items-center gap-1" style={{ width: '100%' }}>
                       {[
                         { label: t('interests.weight'), key: 'weight', val: newInterest.weight || 2, min: 1, max: 5 },
                         { label: t('interests.minStops'), key: 'minStops', val: newInterest.minStops != null ? newInterest.minStops : 1, min: 0, max: 10 },
                         { label: t('interests.maxStopsLabel'), key: 'maxStops', val: newInterest.maxStops || 10, min: 1, max: 15 }
                       ].map(item => (
-                        <div key={item.key} className="flex items-center gap-0.5">
-                          <span className="text-[10px] text-gray-500 whitespace-nowrap">{item.label}:</span>
+                        <div key={item.key} className="flex items-center gap-0.5" style={{ flex: 1, minWidth: 0, justifyContent: 'center' }}>
+                          <span className="text-[9px] text-gray-500 truncate">{item.label}:</span>
                           <button type="button" onClick={() => setNewInterest({...newInterest, [item.key]: Math.max(item.min, item.val - 1)})}
-                            className="w-6 h-6 rounded bg-gray-200 text-gray-700 text-sm font-bold flex items-center justify-center active:bg-gray-300"
+                            className="w-5 h-5 rounded bg-gray-200 text-gray-700 text-xs font-bold flex items-center justify-center active:bg-gray-300 flex-shrink-0"
                           >−</button>
-                          <span className="w-6 text-center text-xs font-bold">{item.val}</span>
+                          <span className="w-5 text-center text-xs font-bold flex-shrink-0">{item.val}</span>
                           <button type="button" onClick={() => setNewInterest({...newInterest, [item.key]: Math.min(item.max, item.val + 1)})}
-                            className="w-6 h-6 rounded bg-gray-200 text-gray-700 text-sm font-bold flex items-center justify-center active:bg-gray-300"
+                            className="w-5 h-5 rounded bg-gray-200 text-gray-700 text-xs font-bold flex items-center justify-center active:bg-gray-300 flex-shrink-0"
                           >+</button>
                         </div>
                       ))}

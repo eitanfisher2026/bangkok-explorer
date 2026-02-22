@@ -54,6 +54,7 @@
   const [isGenerating, setIsGenerating] = useState(false);
   const [disabledStops, setDisabledStops] = useState([]); // Track disabled stop IDs
   const [showRoutePreview, setShowRoutePreview] = useState(false); // Route stop reorder view
+  const [routeChoiceMade, setRouteChoiceMade] = useState(null); // null | 'manual' — controls wizard step 3 split
   const [manualStops, setManualStops] = useState([]); // Manually added stops (session only)
   const [showManualAddDialog, setShowManualAddDialog] = useState(false);
   const [activeTrail, setActiveTrail] = useState(() => {
@@ -4476,20 +4477,26 @@
     let outsideArea = false;
     let hasCoordinates = (lat !== null && lng !== null && lat !== 0 && lng !== 0);
     
-    // Check if location is within area boundaries (only if has coordinates)
+    // Auto-detect areas from coordinates at save time
+    let finalAreas = newLocation.areas || (newLocation.area ? [newLocation.area] : []);
     if (hasCoordinates) {
-      const selectedAreas = newLocation.areas || (newLocation.area ? [newLocation.area] : []);
-      const inAnyArea = selectedAreas.some(aId => checkLocationInArea(lat, lng, aId).valid);
-      outsideArea = !inAnyArea && selectedAreas.length > 0;
-      
-      if (outsideArea) {
-        const areaNames = selectedAreas.map(aId => areaOptions.find(a => a.id === aId)).filter(Boolean).map(a => tLabel(a)).join(', ');
-        showToast(
-          `⚠️ ${newLocation.name.trim()} — ${t("toast.outsideAreaWarning")} (${areaNames})`,
-          'warning'
-        );
+      const detected = window.BKK.getAreasForCoordinates(lat, lng);
+      if (detected.length > 0) {
+        finalAreas = detected;
+      } else if (finalAreas.length > 0) {
+        // No area detected - check if manually selected areas match
+        const inAnyArea = finalAreas.some(aId => checkLocationInArea(lat, lng, aId).valid);
+        outsideArea = !inAnyArea;
+        if (outsideArea) {
+          const areaNames = finalAreas.map(aId => areaOptions.find(a => a.id === aId)).filter(Boolean).map(a => tLabel(a)).join(', ');
+          showToast(
+            `⚠️ ${newLocation.name.trim()} — ${t("toast.outsideAreaWarning")} (${areaNames})`,
+            'warning'
+          );
+        }
       }
     }
+    if (finalAreas.length === 0) finalAreas = ['sukhumvit'];
     
     const newId = Date.now();
     const locationToAdd = {
@@ -4497,8 +4504,8 @@
       name: newLocation.name.trim(),
       description: newLocation.description.trim() || newLocation.notes?.trim() || t('general.addedByUser'),
       notes: newLocation.notes?.trim() || '',
-      area: (newLocation.areas || [newLocation.area])[0] || 'sukhumvit',
-      areas: newLocation.areas || (newLocation.area ? [newLocation.area] : ['sukhumvit']),
+      area: finalAreas[0],
+      areas: finalAreas,
       interests: newLocation.interests,
       lat: lat,
       lng: lng,
@@ -4656,26 +4663,31 @@
                           newLocation.lat !== 0 && newLocation.lng !== 0);
     let outsideArea = false;
     
-    // Check if location is within area boundaries (only if has coordinates)
+    // Auto-detect areas from coordinates at save time
+    let finalAreas = newLocation.areas || (newLocation.area ? [newLocation.area] : editingLocation.areas || []);
     if (hasCoordinates) {
-      const selectedAreas = newLocation.areas || (newLocation.area ? [newLocation.area] : []);
-      const inAnyArea = selectedAreas.some(aId => checkLocationInArea(newLocation.lat, newLocation.lng, aId).valid);
-      outsideArea = !inAnyArea && selectedAreas.length > 0;
-      
-      if (outsideArea) {
-        const areaNames = selectedAreas.map(aId => areaOptions.find(a => a.id === aId)).filter(Boolean).map(a => tLabel(a)).join(', ');
-        showToast(
-          `⚠️ ${newLocation.name || editingLocation.name} — ${t("toast.outsideAreaWarning")} (${areaNames})`,
-          'warning'
-        );
+      const detected = window.BKK.getAreasForCoordinates(newLocation.lat, newLocation.lng);
+      if (detected.length > 0) {
+        finalAreas = detected;
+      } else if (finalAreas.length > 0) {
+        const inAnyArea = finalAreas.some(aId => checkLocationInArea(newLocation.lat, newLocation.lng, aId).valid);
+        outsideArea = !inAnyArea;
+        if (outsideArea) {
+          const areaNames = finalAreas.map(aId => areaOptions.find(a => a.id === aId)).filter(Boolean).map(a => tLabel(a)).join(', ');
+          showToast(
+            `⚠️ ${newLocation.name || editingLocation.name} — ${t("toast.outsideAreaWarning")} (${areaNames})`,
+            'warning'
+          );
+        }
       }
     }
+    if (finalAreas.length === 0) finalAreas = editingLocation.areas || ['sukhumvit'];
     
     const updatedLocation = { 
       ...editingLocation, // Keep existing fields like status
       ...newLocation, // Override with edited fields
-      area: (newLocation.areas || [newLocation.area])[0] || editingLocation.area || 'sukhumvit',
-      areas: newLocation.areas || (newLocation.area ? [newLocation.area] : editingLocation.areas || ['sukhumvit']),
+      area: finalAreas[0],
+      areas: finalAreas,
       custom: true, 
       id: editingLocation.id,
       outsideArea: outsideArea, // Flag for outside area
