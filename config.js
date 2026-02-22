@@ -286,7 +286,7 @@ window.BKK.cleanupInProgress = function(database) {
  */
 window.BKK.cleanupOrphanedInterests = function(database) {
   if (!database) return Promise.resolve();
-  if (localStorage.getItem('cleanup_orphaned_interests_v1') === 'true') return Promise.resolve();
+  if (localStorage.getItem('cleanup_orphaned_interests_v2') === 'true') return Promise.resolve();
   
   var knownInterestIds = new Set();
   // Collect all built-in interest IDs from all cities
@@ -301,10 +301,15 @@ window.BKK.cleanupOrphanedInterests = function(database) {
     // Add custom interest IDs to known set, and find orphans to remove
     Object.keys(customInterests).forEach(function(id) {
       var int = customInterests[id];
-      // Remove interests with no proper label (like "spotted", auto-generated IDs)
-      if (!int.label || int.label.length < 2) {
+      // Remove interests that are clearly orphaned:
+      // - No label or very short label
+      // - No search config (no types, no textSearch) AND not privateOnly
+      var hasLabel = int.label && int.label.length >= 2;
+      var hasSearchConfig = (int.types && int.types.length > 0) || (int.textSearch && int.textSearch.length > 0);
+      var isPrivate = int.privateOnly === true;
+      if (!hasLabel || (!hasSearchConfig && !isPrivate)) {
         removals['customInterests/' + id] = null;
-        console.log('[CLEANUP] Removing orphaned interest: ' + id);
+        console.log('[CLEANUP] Removing orphaned interest: ' + id + ' (label=' + (int.label||'') + ' hasConfig=' + hasSearchConfig + ' private=' + isPrivate + ')');
       } else {
         knownInterestIds.add(id);
       }
@@ -335,7 +340,7 @@ window.BKK.cleanupOrphanedInterests = function(database) {
       }
     });
   }).then(function() {
-    localStorage.setItem('cleanup_orphaned_interests_v1', 'true');
+    localStorage.setItem('cleanup_orphaned_interests_v2', 'true');
   }).catch(function(err) {
     console.error('[CLEANUP] Orphaned interests error:', err);
   });

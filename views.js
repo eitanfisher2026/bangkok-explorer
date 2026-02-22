@@ -2692,14 +2692,19 @@
                         L.tileLayer(window.BKK.getTileUrl(), { attribution: '© OpenStreetMap contributors', maxZoom: 18 }).addTo(map);
                         const colorPalette = ['#3b82f6', '#f59e0b', '#ef4444', '#10b981', '#ec4899', '#6366f1', '#8b5cf6', '#06b6d4', '#f97316', '#a855f7', '#14b8a6', '#e11d48', '#84cc16', '#0ea5e9', '#d946ef', '#f43f5e'];
                         const allCircles = [];
+                        mapMarkersRef.current = [];
                         areas.forEach((area, i) => {
                           const c = coords[area.id];
                           if (!c) return;
                           const color = colorPalette[i % colorPalette.length];
                           const circle = L.circle([c.lat, c.lng], { radius: c.radius, color, fillColor: color, fillOpacity: 0.15, weight: 2 }).addTo(map);
                           allCircles.push(circle);
-                          const marker = L.marker([c.lat, c.lng], { draggable: true, title: tLabel(area) }).addTo(map);
+                          const marker = L.marker([c.lat, c.lng], { draggable: false, title: tLabel(area) }).addTo(map);
                           marker.bindTooltip(tLabel(area), { permanent: true, direction: 'top', className: 'area-label-tooltip', offset: [0, -10] });
+                          marker._areaId = area.id;
+                          marker._circle = circle;
+                          marker._area = area;
+                          marker._coords = c;
                           marker.on('dragend', () => {
                             const pos = marker.getLatLng();
                             const newLat = Math.round(pos.lat * 10000) / 10000;
@@ -2707,9 +2712,8 @@
                             area.lat = newLat; area.lng = newLng;
                             c.lat = newLat; c.lng = newLng;
                             circle.setLatLng(pos);
-                            setCityModified(true); setCityEditCounter(c => c + 1);
-                            setFormData(prev => ({...prev}));
                           });
+                          mapMarkersRef.current.push(marker);
                         });
                         if (allCircles.length > 0) {
                           const group = L.featureGroup(allCircles);
@@ -2721,6 +2725,8 @@
                     } else {
                       try { if (window._settingsMap) { window._settingsMap.off(); window._settingsMap.remove(); } } catch(e) {}
                       window._settingsMap = null;
+                      setMapEditMode(false);
+                      mapMarkersRef.current = [];
                     }
                   }} style={{ fontSize: '10px', padding: '3px 10px', borderRadius: '6px', border: '1.5px solid #3b82f6', cursor: 'pointer', background: showSettingsMap ? '#3b82f6' : '#eff6ff', color: showSettingsMap ? 'white' : '#2563eb', fontWeight: 'bold' }}
                   >{showSettingsMap ? '✕' : '🗺️'} {t('wizard.allAreasMap')}</button>
@@ -2744,7 +2750,60 @@
 
                 {/* All areas map */}
                 {showSettingsMap && (
-                  <div id="settings-all-areas-map" style={{ height: '450px', borderRadius: '8px', border: '2px solid #3b82f6', marginBottom: '8px' }}></div>
+                  <div style={{ marginBottom: '8px' }}>
+                    <div id="settings-all-areas-map" style={{ height: '450px', borderRadius: '8px', border: `2px solid ${mapEditMode ? '#ef4444' : '#3b82f6'}`, transition: 'border-color 0.3s' }}></div>
+                    <div className="flex gap-2 mt-2 justify-center">
+                      {!mapEditMode ? (
+                        <button onClick={() => {
+                          setMapEditMode(true);
+                          mapOriginalPositions.current = {};
+                          mapMarkersRef.current.forEach(m => {
+                            const ll = m.getLatLng();
+                            mapOriginalPositions.current[m._areaId] = { lat: ll.lat, lng: ll.lng };
+                            m.dragging.enable();
+                          });
+                        }} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-amber-500 text-white">
+                          ✏️ {t('general.editMap')}
+                        </button>
+                      ) : (
+                        <>
+                          <button onClick={() => {
+                            setMapEditMode(false);
+                            mapMarkersRef.current.forEach(m => {
+                              m.dragging.disable();
+                            });
+                            setCityModified(true); setCityEditCounter(c => c + 1);
+                            setFormData(prev => ({...prev}));
+                            showToast(t('general.mapSaved'), 'success');
+                          }} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-green-500 text-white">
+                            ✅ {t('general.confirm')}
+                          </button>
+                          <button onClick={() => {
+                            setMapEditMode(false);
+                            const coords = window.BKK.areaCoordinates || {};
+                            mapMarkersRef.current.forEach(m => {
+                              const orig = mapOriginalPositions.current[m._areaId];
+                              if (orig) {
+                                m.setLatLng([orig.lat, orig.lng]);
+                                m._circle.setLatLng([orig.lat, orig.lng]);
+                                m._area.lat = Math.round(orig.lat * 10000) / 10000;
+                                m._area.lng = Math.round(orig.lng * 10000) / 10000;
+                                m._coords.lat = Math.round(orig.lat * 10000) / 10000;
+                                m._coords.lng = Math.round(orig.lng * 10000) / 10000;
+                              }
+                              m.dragging.disable();
+                            });
+                            showToast(t('general.cancel'), 'info');
+                          }} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-gray-400 text-white">
+                            ✕ {t('general.cancel')}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                    {mapEditMode && (
+                      <p className="text-center text-[10px] text-red-500 mt-1 font-bold">{t('general.dragToMove')}</p>
+                    )}
+                  </div>
                 )}
 
                 {/* Areas list for selected city */}

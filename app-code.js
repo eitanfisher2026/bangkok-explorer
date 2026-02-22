@@ -455,6 +455,9 @@ const FouFouApp = () => {
   const [cityModified, setCityModified] = useState(false);
   const [cityEditCounter, setCityEditCounter] = useState(0); // Force re-render on city object mutation
   const [showSettingsMap, setShowSettingsMap] = useState(false);
+  const [mapEditMode, setMapEditMode] = useState(false);
+  const mapMarkersRef = React.useRef([]);
+  const mapOriginalPositions = React.useRef({});
   const [passwordInput, setPasswordInput] = useState('');
   const [newAdminPassword, setNewAdminPassword] = useState(''); // For setting new password in admin panel
   
@@ -1993,10 +1996,15 @@ const FouFouApp = () => {
           if (interests.length === 0) {
             ungrouped.push(loc);
           } else {
+            let hasValidInterest = false;
             interests.forEach(int => {
-              if (!groups[int]) groups[int] = [];
-              groups[int].push(loc);
+              if (interestMap[int]) {
+                if (!groups[int]) groups[int] = [];
+                groups[int].push(loc);
+                hasValidInterest = true;
+              }
             });
+            if (!hasValidInterest) ungrouped.push(loc);
           }
         } else {
           const locAreas = loc.areas || (loc.area ? [loc.area] : ['unknown']);
@@ -7102,14 +7110,19 @@ const FouFouApp = () => {
                         L.tileLayer(window.BKK.getTileUrl(), { attribution: '© OpenStreetMap contributors', maxZoom: 18 }).addTo(map);
                         const colorPalette = ['#3b82f6', '#f59e0b', '#ef4444', '#10b981', '#ec4899', '#6366f1', '#8b5cf6', '#06b6d4', '#f97316', '#a855f7', '#14b8a6', '#e11d48', '#84cc16', '#0ea5e9', '#d946ef', '#f43f5e'];
                         const allCircles = [];
+                        mapMarkersRef.current = [];
                         areas.forEach((area, i) => {
                           const c = coords[area.id];
                           if (!c) return;
                           const color = colorPalette[i % colorPalette.length];
                           const circle = L.circle([c.lat, c.lng], { radius: c.radius, color, fillColor: color, fillOpacity: 0.15, weight: 2 }).addTo(map);
                           allCircles.push(circle);
-                          const marker = L.marker([c.lat, c.lng], { draggable: true, title: tLabel(area) }).addTo(map);
+                          const marker = L.marker([c.lat, c.lng], { draggable: false, title: tLabel(area) }).addTo(map);
                           marker.bindTooltip(tLabel(area), { permanent: true, direction: 'top', className: 'area-label-tooltip', offset: [0, -10] });
+                          marker._areaId = area.id;
+                          marker._circle = circle;
+                          marker._area = area;
+                          marker._coords = c;
                           marker.on('dragend', () => {
                             const pos = marker.getLatLng();
                             const newLat = Math.round(pos.lat * 10000) / 10000;
@@ -7117,9 +7130,8 @@ const FouFouApp = () => {
                             area.lat = newLat; area.lng = newLng;
                             c.lat = newLat; c.lng = newLng;
                             circle.setLatLng(pos);
-                            setCityModified(true); setCityEditCounter(c => c + 1);
-                            setFormData(prev => ({...prev}));
                           });
+                          mapMarkersRef.current.push(marker);
                         });
                         if (allCircles.length > 0) {
                           const group = L.featureGroup(allCircles);
@@ -7131,6 +7143,8 @@ const FouFouApp = () => {
                     } else {
                       try { if (window._settingsMap) { window._settingsMap.off(); window._settingsMap.remove(); } } catch(e) {}
                       window._settingsMap = null;
+                      setMapEditMode(false);
+                      mapMarkersRef.current = [];
                     }
                   }} style={{ fontSize: '10px', padding: '3px 10px', borderRadius: '6px', border: '1.5px solid #3b82f6', cursor: 'pointer', background: showSettingsMap ? '#3b82f6' : '#eff6ff', color: showSettingsMap ? 'white' : '#2563eb', fontWeight: 'bold' }}
                   >{showSettingsMap ? '✕' : '🗺️'} {t('wizard.allAreasMap')}</button>
@@ -7154,7 +7168,60 @@ const FouFouApp = () => {
 
                 {/* All areas map */}
                 {showSettingsMap && (
-                  <div id="settings-all-areas-map" style={{ height: '450px', borderRadius: '8px', border: '2px solid #3b82f6', marginBottom: '8px' }}></div>
+                  <div style={{ marginBottom: '8px' }}>
+                    <div id="settings-all-areas-map" style={{ height: '450px', borderRadius: '8px', border: `2px solid ${mapEditMode ? '#ef4444' : '#3b82f6'}`, transition: 'border-color 0.3s' }}></div>
+                    <div className="flex gap-2 mt-2 justify-center">
+                      {!mapEditMode ? (
+                        <button onClick={() => {
+                          setMapEditMode(true);
+                          mapOriginalPositions.current = {};
+                          mapMarkersRef.current.forEach(m => {
+                            const ll = m.getLatLng();
+                            mapOriginalPositions.current[m._areaId] = { lat: ll.lat, lng: ll.lng };
+                            m.dragging.enable();
+                          });
+                        }} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-amber-500 text-white">
+                          ✏️ {t('general.editMap')}
+                        </button>
+                      ) : (
+                        <>
+                          <button onClick={() => {
+                            setMapEditMode(false);
+                            mapMarkersRef.current.forEach(m => {
+                              m.dragging.disable();
+                            });
+                            setCityModified(true); setCityEditCounter(c => c + 1);
+                            setFormData(prev => ({...prev}));
+                            showToast(t('general.mapSaved'), 'success');
+                          }} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-green-500 text-white">
+                            ✅ {t('general.confirm')}
+                          </button>
+                          <button onClick={() => {
+                            setMapEditMode(false);
+                            const coords = window.BKK.areaCoordinates || {};
+                            mapMarkersRef.current.forEach(m => {
+                              const orig = mapOriginalPositions.current[m._areaId];
+                              if (orig) {
+                                m.setLatLng([orig.lat, orig.lng]);
+                                m._circle.setLatLng([orig.lat, orig.lng]);
+                                m._area.lat = Math.round(orig.lat * 10000) / 10000;
+                                m._area.lng = Math.round(orig.lng * 10000) / 10000;
+                                m._coords.lat = Math.round(orig.lat * 10000) / 10000;
+                                m._coords.lng = Math.round(orig.lng * 10000) / 10000;
+                              }
+                              m.dragging.disable();
+                            });
+                            showToast(t('general.cancel'), 'info');
+                          }} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-gray-400 text-white">
+                            ✕ {t('general.cancel')}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                    {mapEditMode && (
+                      <p className="text-center text-[10px] text-red-500 mt-1 font-bold">{t('general.dragToMove')}</p>
+                    )}
+                  </div>
                 )}
 
                 {/* Areas list for selected city */}
@@ -8105,7 +8172,7 @@ const FouFouApp = () => {
                 <div>
                   <label className="block text-xs font-bold mb-1">{t("general.interestsHeader")}</label>
                   <div className="grid grid-cols-6 gap-1.5 p-2 bg-gray-50 rounded-lg max-h-32 overflow-y-auto">
-                    {allInterestOptions.map(option => (
+                    {allInterestOptions.filter(option => interestStatus[option.id] !== false || (newLocation.interests || []).includes(option.id)).map(option => (
                       <button
                         key={option.id}
                         onClick={() => {
@@ -8774,53 +8841,54 @@ const FouFouApp = () => {
                   </div>
 
                   {/* Category, Weight, Min & Max Stops for route planning */}
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs font-bold text-purple-800">🏷️</span>
-                    <select
-                      value={newInterest.category || 'attraction'}
-                      onChange={(e) => {
-                        const cat = e.target.value;
-                        const defaults = {
-                          attraction: { weight: 3, minStops: 1, maxStops: 10 },
-                          break:      { weight: 1, minStops: 1, maxStops: 2 },
-                          meal:       { weight: 1, minStops: 1, maxStops: 2 },
-                          experience: { weight: 1, minStops: 1, maxStops: 3 },
-                          shopping:   { weight: 2, minStops: 1, maxStops: 5 },
-                          nature:     { weight: 2, minStops: 1, maxStops: 5 }
-                        };
-                        const d = defaults[cat] || defaults.attraction;
-                        setNewInterest({...newInterest, category: cat, weight: d.weight, minStops: d.minStops, maxStops: d.maxStops});
-                      }}
-                      className="p-1 text-xs border rounded flex-1"
-                    >
-                      <option value="attraction">{t('interests.catAttraction')}</option>
-                      <option value="break">{t('interests.catBreak')}</option>
-                      <option value="meal">{t('interests.catMeal')}</option>
-                      <option value="experience">{t('interests.catExperience')}</option>
-                      <option value="shopping">{t('interests.catShopping')}</option>
-                      <option value="nature">{t('interests.catNature')}</option>
-                    </select>
-                    <span className="text-[10px] text-gray-500">{t('interests.weight')}:</span>
-                    <input
-                      type="number" min="1" max="5"
-                      value={newInterest.weight || 2}
-                      onChange={(e) => setNewInterest({...newInterest, weight: Math.max(1, Math.min(5, parseInt(e.target.value) || 1))})}
-                      className="w-10 p-1 text-xs border rounded text-center"
-                    />
-                    <span className="text-[10px] text-gray-500">{t('interests.minStops')}:</span>
-                    <input
-                      type="number" min="0" max="10"
-                      value={newInterest.minStops != null ? newInterest.minStops : 1}
-                      onChange={(e) => setNewInterest({...newInterest, minStops: Math.max(0, Math.min(10, parseInt(e.target.value) || 0))})}
-                      className="w-10 p-1 text-xs border rounded text-center"
-                    />
-                    <span className="text-[10px] text-gray-500">{t('interests.maxStopsLabel')}:</span>
-                    <input
-                      type="number" min="1" max="15"
-                      value={newInterest.maxStops || 10}
-                      onChange={(e) => setNewInterest({...newInterest, maxStops: Math.max(1, Math.min(15, parseInt(e.target.value) || 1))})}
-                      className="w-10 p-1 text-xs border rounded text-center"
-                    />
+                  <div className="mt-1 space-y-1.5">
+                    {/* Row 1: Category */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-purple-800">🏷️</span>
+                      <select
+                        value={newInterest.category || 'attraction'}
+                        onChange={(e) => {
+                          const cat = e.target.value;
+                          const defaults = {
+                            attraction: { weight: 3, minStops: 1, maxStops: 10 },
+                            break:      { weight: 1, minStops: 1, maxStops: 2 },
+                            meal:       { weight: 1, minStops: 1, maxStops: 2 },
+                            experience: { weight: 1, minStops: 1, maxStops: 3 },
+                            shopping:   { weight: 2, minStops: 1, maxStops: 5 },
+                            nature:     { weight: 2, minStops: 1, maxStops: 5 }
+                          };
+                          const d = defaults[cat] || defaults.attraction;
+                          setNewInterest({...newInterest, category: cat, weight: d.weight, minStops: d.minStops, maxStops: d.maxStops});
+                        }}
+                        className="p-1 text-xs border rounded flex-1"
+                      >
+                        <option value="attraction">{t('interests.catAttraction')}</option>
+                        <option value="break">{t('interests.catBreak')}</option>
+                        <option value="meal">{t('interests.catMeal')}</option>
+                        <option value="experience">{t('interests.catExperience')}</option>
+                        <option value="shopping">{t('interests.catShopping')}</option>
+                        <option value="nature">{t('interests.catNature')}</option>
+                      </select>
+                    </div>
+                    {/* Row 2: Weight + Min + Max with stepper buttons */}
+                    <div className="flex items-center justify-between gap-1">
+                      {[
+                        { label: t('interests.weight'), key: 'weight', val: newInterest.weight || 2, min: 1, max: 5 },
+                        { label: t('interests.minStops'), key: 'minStops', val: newInterest.minStops != null ? newInterest.minStops : 1, min: 0, max: 10 },
+                        { label: t('interests.maxStopsLabel'), key: 'maxStops', val: newInterest.maxStops || 10, min: 1, max: 15 }
+                      ].map(item => (
+                        <div key={item.key} className="flex items-center gap-0.5">
+                          <span className="text-[10px] text-gray-500 whitespace-nowrap">{item.label}:</span>
+                          <button type="button" onClick={() => setNewInterest({...newInterest, [item.key]: Math.max(item.min, item.val - 1)})}
+                            className="w-6 h-6 rounded bg-gray-200 text-gray-700 text-sm font-bold flex items-center justify-center active:bg-gray-300"
+                          >−</button>
+                          <span className="w-6 text-center text-xs font-bold">{item.val}</span>
+                          <button type="button" onClick={() => setNewInterest({...newInterest, [item.key]: Math.min(item.max, item.val + 1)})}
+                            className="w-6 h-6 rounded bg-gray-200 text-gray-700 text-sm font-bold flex items-center justify-center active:bg-gray-300"
+                          >+</button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
@@ -10494,7 +10562,7 @@ const FouFouApp = () => {
                 <div style={{ marginBottom: '10px' }}>
                   <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', color: '#374151' }}>{t('trail.whatDidYouSee')}</div>
                   <div className="grid grid-cols-6 gap-1.5">
-                    {allInterestOptions.map(option => (
+                    {allInterestOptions.filter(option => interestStatus[option.id] !== false).map(option => (
                       <button
                         key={option.id}
                         onClick={() => {

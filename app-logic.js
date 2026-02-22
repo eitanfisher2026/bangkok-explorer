@@ -451,6 +451,9 @@
   const [cityModified, setCityModified] = useState(false);
   const [cityEditCounter, setCityEditCounter] = useState(0); // Force re-render on city object mutation
   const [showSettingsMap, setShowSettingsMap] = useState(false);
+  const [mapEditMode, setMapEditMode] = useState(false);
+  const mapMarkersRef = React.useRef([]);
+  const mapOriginalPositions = React.useRef({});
   const [passwordInput, setPasswordInput] = useState('');
   const [newAdminPassword, setNewAdminPassword] = useState(''); // For setting new password in admin panel
   
@@ -2229,10 +2232,15 @@
           if (interests.length === 0) {
             ungrouped.push(loc);
           } else {
+            let hasValidInterest = false;
             interests.forEach(int => {
-              if (!groups[int]) groups[int] = [];
-              groups[int].push(loc);
+              if (interestMap[int]) {
+                if (!groups[int]) groups[int] = [];
+                groups[int].push(loc);
+                hasValidInterest = true;
+              }
             });
+            if (!hasValidInterest) ungrouped.push(loc);
           }
         } else {
           const locAreas = loc.areas || (loc.area ? [loc.area] : ['unknown']);

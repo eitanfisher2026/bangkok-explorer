@@ -114,6 +114,9 @@ general: {
   close: 'סגור',
   cancel: 'ביטול',
   confirm: 'אישור',
+  editMap: 'ערוך מיקומים',
+  mapSaved: 'המיקומים נשמרו',
+  dragToMove: 'גרור סמן כדי להזיז אזור',
   min: 'דק׳',
   save: 'שמור',
   update: '💾 עדכן',
@@ -842,6 +845,9 @@ general: {
   close: 'Close',
   cancel: 'Cancel',
   confirm: 'Confirm',
+  editMap: 'Edit positions',
+  mapSaved: 'Positions saved',
+  dragToMove: 'Drag markers to reposition areas',
   min: 'min',
   save: 'Save',
   update: '💾 Update',
@@ -2814,7 +2820,7 @@ window.BKK.cleanupInProgress = function(database) {
  */
 window.BKK.cleanupOrphanedInterests = function(database) {
   if (!database) return Promise.resolve();
-  if (localStorage.getItem('cleanup_orphaned_interests_v1') === 'true') return Promise.resolve();
+  if (localStorage.getItem('cleanup_orphaned_interests_v2') === 'true') return Promise.resolve();
   
   var knownInterestIds = new Set();
   Object.values(window.BKK.cities || {}).forEach(function(city) {
@@ -2827,7 +2833,10 @@ window.BKK.cleanupOrphanedInterests = function(database) {
     
     Object.keys(customInterests).forEach(function(id) {
       var int = customInterests[id];
-      if (!int.label || int.label.length < 2) {
+      var hasLabel = int.label && int.label.length >= 2;
+      var hasSearchConfig = (int.types && int.types.length > 0) || (int.textSearch && int.textSearch.length > 0);
+      var isPrivate = int.privateOnly === true;
+      if (!hasLabel || (!hasSearchConfig && !isPrivate)) {
         removals['customInterests/' + id] = null;
       } else {
         knownInterestIds.add(id);
@@ -2856,7 +2865,7 @@ window.BKK.cleanupOrphanedInterests = function(database) {
       }
     });
   }).then(function() {
-    localStorage.setItem('cleanup_orphaned_interests_v1', 'true');
+    localStorage.setItem('cleanup_orphaned_interests_v2', 'true');
   }).catch(function(err) {
     console.error('[CLEANUP] Orphaned interests error:', err);
   });

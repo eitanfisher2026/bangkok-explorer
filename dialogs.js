@@ -170,7 +170,7 @@
                 <div>
                   <label className="block text-xs font-bold mb-1">{t("general.interestsHeader")}</label>
                   <div className="grid grid-cols-6 gap-1.5 p-2 bg-gray-50 rounded-lg max-h-32 overflow-y-auto">
-                    {allInterestOptions.map(option => (
+                    {allInterestOptions.filter(option => interestStatus[option.id] !== false || (newLocation.interests || []).includes(option.id)).map(option => (
                       <button
                         key={option.id}
                         onClick={() => {
@@ -842,53 +842,54 @@
                   </div>
 
                   {/* Category, Weight, Min & Max Stops for route planning */}
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs font-bold text-purple-800">🏷️</span>
-                    <select
-                      value={newInterest.category || 'attraction'}
-                      onChange={(e) => {
-                        const cat = e.target.value;
-                        const defaults = {
-                          attraction: { weight: 3, minStops: 1, maxStops: 10 },
-                          break:      { weight: 1, minStops: 1, maxStops: 2 },
-                          meal:       { weight: 1, minStops: 1, maxStops: 2 },
-                          experience: { weight: 1, minStops: 1, maxStops: 3 },
-                          shopping:   { weight: 2, minStops: 1, maxStops: 5 },
-                          nature:     { weight: 2, minStops: 1, maxStops: 5 }
-                        };
-                        const d = defaults[cat] || defaults.attraction;
-                        setNewInterest({...newInterest, category: cat, weight: d.weight, minStops: d.minStops, maxStops: d.maxStops});
-                      }}
-                      className="p-1 text-xs border rounded flex-1"
-                    >
-                      <option value="attraction">{t('interests.catAttraction')}</option>
-                      <option value="break">{t('interests.catBreak')}</option>
-                      <option value="meal">{t('interests.catMeal')}</option>
-                      <option value="experience">{t('interests.catExperience')}</option>
-                      <option value="shopping">{t('interests.catShopping')}</option>
-                      <option value="nature">{t('interests.catNature')}</option>
-                    </select>
-                    <span className="text-[10px] text-gray-500">{t('interests.weight')}:</span>
-                    <input
-                      type="number" min="1" max="5"
-                      value={newInterest.weight || 2}
-                      onChange={(e) => setNewInterest({...newInterest, weight: Math.max(1, Math.min(5, parseInt(e.target.value) || 1))})}
-                      className="w-10 p-1 text-xs border rounded text-center"
-                    />
-                    <span className="text-[10px] text-gray-500">{t('interests.minStops')}:</span>
-                    <input
-                      type="number" min="0" max="10"
-                      value={newInterest.minStops != null ? newInterest.minStops : 1}
-                      onChange={(e) => setNewInterest({...newInterest, minStops: Math.max(0, Math.min(10, parseInt(e.target.value) || 0))})}
-                      className="w-10 p-1 text-xs border rounded text-center"
-                    />
-                    <span className="text-[10px] text-gray-500">{t('interests.maxStopsLabel')}:</span>
-                    <input
-                      type="number" min="1" max="15"
-                      value={newInterest.maxStops || 10}
-                      onChange={(e) => setNewInterest({...newInterest, maxStops: Math.max(1, Math.min(15, parseInt(e.target.value) || 1))})}
-                      className="w-10 p-1 text-xs border rounded text-center"
-                    />
+                  <div className="mt-1 space-y-1.5">
+                    {/* Row 1: Category */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-purple-800">🏷️</span>
+                      <select
+                        value={newInterest.category || 'attraction'}
+                        onChange={(e) => {
+                          const cat = e.target.value;
+                          const defaults = {
+                            attraction: { weight: 3, minStops: 1, maxStops: 10 },
+                            break:      { weight: 1, minStops: 1, maxStops: 2 },
+                            meal:       { weight: 1, minStops: 1, maxStops: 2 },
+                            experience: { weight: 1, minStops: 1, maxStops: 3 },
+                            shopping:   { weight: 2, minStops: 1, maxStops: 5 },
+                            nature:     { weight: 2, minStops: 1, maxStops: 5 }
+                          };
+                          const d = defaults[cat] || defaults.attraction;
+                          setNewInterest({...newInterest, category: cat, weight: d.weight, minStops: d.minStops, maxStops: d.maxStops});
+                        }}
+                        className="p-1 text-xs border rounded flex-1"
+                      >
+                        <option value="attraction">{t('interests.catAttraction')}</option>
+                        <option value="break">{t('interests.catBreak')}</option>
+                        <option value="meal">{t('interests.catMeal')}</option>
+                        <option value="experience">{t('interests.catExperience')}</option>
+                        <option value="shopping">{t('interests.catShopping')}</option>
+                        <option value="nature">{t('interests.catNature')}</option>
+                      </select>
+                    </div>
+                    {/* Row 2: Weight + Min + Max with stepper buttons */}
+                    <div className="flex items-center justify-between gap-1">
+                      {[
+                        { label: t('interests.weight'), key: 'weight', val: newInterest.weight || 2, min: 1, max: 5 },
+                        { label: t('interests.minStops'), key: 'minStops', val: newInterest.minStops != null ? newInterest.minStops : 1, min: 0, max: 10 },
+                        { label: t('interests.maxStopsLabel'), key: 'maxStops', val: newInterest.maxStops || 10, min: 1, max: 15 }
+                      ].map(item => (
+                        <div key={item.key} className="flex items-center gap-0.5">
+                          <span className="text-[10px] text-gray-500 whitespace-nowrap">{item.label}:</span>
+                          <button type="button" onClick={() => setNewInterest({...newInterest, [item.key]: Math.max(item.min, item.val - 1)})}
+                            className="w-6 h-6 rounded bg-gray-200 text-gray-700 text-sm font-bold flex items-center justify-center active:bg-gray-300"
+                          >−</button>
+                          <span className="w-6 text-center text-xs font-bold">{item.val}</span>
+                          <button type="button" onClick={() => setNewInterest({...newInterest, [item.key]: Math.min(item.max, item.val + 1)})}
+                            className="w-6 h-6 rounded bg-gray-200 text-gray-700 text-sm font-bold flex items-center justify-center active:bg-gray-300"
+                          >+</button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
@@ -2587,7 +2588,7 @@
                 <div style={{ marginBottom: '10px' }}>
                   <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', color: '#374151' }}>{t('trail.whatDidYouSee')}</div>
                   <div className="grid grid-cols-6 gap-1.5">
-                    {allInterestOptions.map(option => (
+                    {allInterestOptions.filter(option => interestStatus[option.id] !== false).map(option => (
                       <button
                         key={option.id}
                         onClick={() => {
