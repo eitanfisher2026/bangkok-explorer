@@ -352,6 +352,7 @@ nav: {
 // --- Wizard / Quick Mode ---
 wizard: {
   step1Title: 'איפה מטיילים?',
+  chooseArea: 'בחר אזור',
   step1Subtitle: 'בחרו איזור או קרוב אליי',
   step2Title: 'מה מעניין אותך?',
   step2Subtitle: 'בחר תחום אחד או יותר',
@@ -416,6 +417,7 @@ form: {
   gpsRadiusHint: 'חיפוש לפי GPS (1 ק"מ)',
   useGpsForRadius: '📍 לחץ GPS או הגדר מיקום כדי להשתמש במצב רדיוס',
 },
+  waitingForGps: 'ממתין לאיתור מיקום...',
 
 // --- Route ---
 route: {
@@ -1082,6 +1084,7 @@ nav: {
 
 wizard: {
   step1Title: 'Plan your trip',
+  chooseArea: 'Choose area',
   step1Subtitle: 'Choose an area or near me',
   step2Title: 'What interests you?',
   step2Subtitle: 'Choose one or more topics',
@@ -1144,6 +1147,7 @@ form: {
   showSearchRadius: 'Show search radius',
   gpsRadiusHint: 'Search by GPS (1 km)',
   useGpsForRadius: '📍 Press GPS or set location to use radius mode',
+  waitingForGps: 'Waiting for location...',
 },
 
 route: {

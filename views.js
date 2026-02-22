@@ -356,69 +356,128 @@
                   </button>
                 </p>
                 
-                {/* Map button */}
-                <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+                {/* Mode selector tabs */}
+                <div style={{ display: 'flex', gap: '0', marginBottom: '8px', borderRadius: '10px', overflow: 'hidden', border: '2px solid #e5e7eb' }}>
                   <button
-                    onClick={() => { setMapMode('areas'); setShowMapModal(true); }}
-                    style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', borderRadius: '10px', padding: '6px 16px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 2px 6px rgba(5,150,105,0.3)' }}
-                  >{t("wizard.showMap")}</button>
+                    onClick={() => setFormData({...formData, searchMode: formData.searchMode === 'radius' ? 'area' : formData.searchMode})}
+                    style={{
+                      flex: 1, padding: '8px 4px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px',
+                      background: formData.searchMode !== 'radius' ? '#2563eb' : 'white',
+                      color: formData.searchMode !== 'radius' ? 'white' : '#6b7280',
+                      transition: 'all 0.2s'
+                    }}
+                  >🗺️ {t('wizard.chooseArea')}</button>
+                  <button
+                    onClick={() => {
+                      if (formData.searchMode !== 'radius') {
+                        if (navigator.geolocation) {
+                          navigator.geolocation.getCurrentPosition(
+                            (pos) => {
+                              setFormData({...formData, searchMode: 'radius', radiusMeters: formData.radiusMeters || 1000, currentLat: pos.coords.latitude, currentLng: pos.coords.longitude, radiusPlaceName: t('wizard.myLocation'), radiusSource: 'gps'});
+                              showToast(t('wizard.locationFound'), 'success');
+                            },
+                            () => showToast(t('toast.locationInaccessible'), 'warning')
+                          );
+                        }
+                      }
+                    }}
+                    style={{
+                      flex: 1, padding: '8px 4px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px',
+                      background: formData.searchMode === 'radius' ? '#2563eb' : 'white',
+                      color: formData.searchMode === 'radius' ? 'white' : '#6b7280',
+                      transition: 'all 0.2s'
+                    }}
+                  >📍 {t('general.nearMe')}</button>
                 </div>
 
-                {/* Area Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px', marginBottom: '6px' }}>
-                  {(window.BKK.areaOptions || []).map(area => {
-                    const safety = (window.BKK.areaCoordinates?.[area.id]?.safety) || 'safe';
-                    return (
-                    <button
-                      key={area.id}
-                      onClick={() => setFormData({...formData, area: area.id, searchMode: 'area'})}
-                      style={{
-                        padding: '6px 6px', borderRadius: '8px', border: formData.area === area.id && formData.searchMode === 'area' ? '2px solid #2563eb' : '1.5px solid #e5e7eb',
-                        background: formData.area === area.id && formData.searchMode === 'area' ? '#eff6ff' : 'white',
-                        cursor: 'pointer', textAlign: window.BKK.i18n.isRTL() ? 'right' : 'left', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', transition: 'all 0.2s'
-                      }}
-                    >
-                      <div style={{ fontWeight: 'bold', fontSize: '12px', color: '#1f2937' }}>
-                        {tLabel(area)}
-                        {safety === 'caution' && <span style={{ color: '#f59e0b', marginRight: '3px' }} title={t("general.cautionArea")}>⚠️</span>}
-                        {safety === 'danger' && <span style={{ color: '#ef4444', marginRight: '3px' }} title={t("general.dangerArea")}>🔴</span>}
+                {/* AREA MODE content */}
+                {formData.searchMode !== 'radius' && (
+                  <>
+                    {/* Map button */}
+                    <div style={{ textAlign: 'center', marginBottom: '6px' }}>
+                      <button
+                        onClick={() => { setMapMode('areas'); setShowMapModal(true); }}
+                        style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', borderRadius: '10px', padding: '6px 16px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 2px 6px rgba(5,150,105,0.3)' }}
+                      >{t("wizard.showMap")}</button>
+                    </div>
+
+                    {/* Area Grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px', marginBottom: '6px' }}>
+                      {(window.BKK.areaOptions || []).map(area => {
+                        const safety = (window.BKK.areaCoordinates?.[area.id]?.safety) || 'safe';
+                        return (
+                        <button
+                          key={area.id}
+                          onClick={() => setFormData({...formData, area: area.id, searchMode: 'area'})}
+                          style={{
+                            padding: '6px 6px', borderRadius: '8px', border: formData.area === area.id && formData.searchMode === 'area' ? '2px solid #2563eb' : '1.5px solid #e5e7eb',
+                            background: formData.area === area.id && formData.searchMode === 'area' ? '#eff6ff' : 'white',
+                            cursor: 'pointer', textAlign: window.BKK.i18n.isRTL() ? 'right' : 'left', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', transition: 'all 0.2s'
+                          }}
+                        >
+                          <div style={{ fontWeight: 'bold', fontSize: '12px', color: '#1f2937' }}>
+                            {tLabel(area)}
+                            {safety === 'caution' && <span style={{ color: '#f59e0b', marginRight: '3px' }} title={t("general.cautionArea")}>⚠️</span>}
+                            {safety === 'danger' && <span style={{ color: '#ef4444', marginRight: '3px' }} title={t("general.dangerArea")}>🔴</span>}
+                          </div>
+                          <div style={{ fontSize: '9px', color: '#6b7280', marginTop: '1px' }}>{tDesc(area) || tLabel(area)}</div>
+                        </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+
+                {/* RADIUS MODE content */}
+                {formData.searchMode === 'radius' && (
+                  <div style={{ textAlign: 'center', padding: '8px 0' }}>
+                    {formData.currentLat ? (
+                      <>
+                        <div style={{ fontSize: '12px', color: '#059669', fontWeight: 'bold', marginBottom: '8px' }}>
+                          ✅ {t('wizard.locationFound')}
+                        </div>
+                        {/* Radius preset buttons */}
+                        <div style={{ fontSize: '11px', color: '#374151', fontWeight: 'bold', marginBottom: '6px' }}>{t('form.searchRadius')}:</div>
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                          {[500, 1000, 1500, 2000, 3000, 5000].map(r => (
+                            <button
+                              key={r}
+                              onClick={() => setFormData({...formData, radiusMeters: r})}
+                              style={{
+                                padding: '6px 12px', borderRadius: '20px', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer',
+                                border: formData.radiusMeters === r ? '2px solid #2563eb' : '1.5px solid #d1d5db',
+                                background: formData.radiusMeters === r ? '#2563eb' : 'white',
+                                color: formData.radiusMeters === r ? 'white' : '#374151',
+                                transition: 'all 0.15s', minWidth: '52px'
+                              }}
+                            >{r >= 1000 ? `${r/1000}km` : `${r}m`}</button>
+                          ))}
+                        </div>
+                        {/* Map button */}
+                        <div style={{ marginTop: '8px' }}>
+                          <button
+                            onClick={() => { setMapMode('radius'); setShowMapModal(true); }}
+                            style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', borderRadius: '10px', padding: '6px 16px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 2px 6px rgba(5,150,105,0.3)' }}
+                          >{t("wizard.showMap")}</button>
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                        ⏳ {t('form.waitingForGps')}
                       </div>
-                      <div style={{ fontSize: '9px', color: '#6b7280', marginTop: '1px' }}>{tDesc(area) || tLabel(area)}</div>
-                    </button>
-                    );
-                  })}
-                </div>
-                
-                {/* Radius - search near me */}
-                <button
-                  onClick={() => {
-                    if (navigator.geolocation) {
-                      navigator.geolocation.getCurrentPosition(
-                        (pos) => {
-                          setFormData({...formData, searchMode: 'radius', radiusMeters: 1000, currentLat: pos.coords.latitude, currentLng: pos.coords.longitude, radiusPlaceName: t('wizard.myLocation'), radiusSource: 'gps'});
-                          showToast(t('wizard.locationFound'), 'success');
-                        },
-                        () => showToast(t('toast.locationInaccessible'), 'warning')
-                      );
-                    }
-                  }}
-                  style={{ width: '100%', padding: '8px', borderRadius: '10px', cursor: 'pointer', textAlign: 'center', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr',
-                    border: formData.searchMode === 'radius' ? '2px solid #2563eb' : '1.5px solid #e5e7eb',
-                    background: formData.searchMode === 'radius' ? '#eff6ff' : 'white',
-                    marginBottom: '4px', transition: 'all 0.2s'
-                  }}
-                >
-                  <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#2563eb' }}>{`📍 ${t("general.nearMe")}`}</div>
-                  <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '1px' }}>GPS (1km)</div>
-                </button>
+                    )}
+                  </div>
+                )}
 
                 {/* Continue button */}
                 <button
                   onClick={() => { setWizardStep(2); window.scrollTo(0, 0); }}
-                  disabled={!formData.area && formData.searchMode !== 'radius'}
-                  style={{ width: '100%', padding: '12px', borderRadius: '12px', border: 'none', cursor: formData.area || formData.searchMode === 'radius' ? 'pointer' : 'not-allowed',
-                    background: formData.area || formData.searchMode === 'radius' ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : '#d1d5db',
-                    color: 'white', fontSize: '16px', fontWeight: 'bold', boxShadow: formData.area || formData.searchMode === 'radius' ? '0 4px 6px rgba(37,99,235,0.3)' : 'none'
+                  disabled={formData.searchMode === 'radius' ? !formData.currentLat : !formData.area}
+                  style={{ width: '100%', padding: '12px', borderRadius: '12px', border: 'none', marginTop: '6px',
+                    cursor: (formData.searchMode === 'radius' ? formData.currentLat : formData.area) ? 'pointer' : 'not-allowed',
+                    background: (formData.searchMode === 'radius' ? formData.currentLat : formData.area) ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : '#d1d5db',
+                    color: 'white', fontSize: '16px', fontWeight: 'bold',
+                    boxShadow: (formData.searchMode === 'radius' ? formData.currentLat : formData.area) ? '0 4px 6px rgba(37,99,235,0.3)' : 'none'
                   }}
                 >{t("general.next")}</button>
               </div>
@@ -442,7 +501,7 @@
                     style={{ cursor: 'pointer' }}
                   >📍 {(() => {
                     if (formData.searchMode === 'all') return t('wizard.allCity');
-                    if (formData.searchMode === 'radius') return t('form.radius');
+                    if (formData.searchMode === 'radius') return `${t('general.nearMe')} (${formData.radiusMeters >= 1000 ? `${formData.radiusMeters/1000}km` : `${formData.radiusMeters}m`})`;
                     const area = (window.BKK.areaOptions || []).find(a => a.id === formData.area);
                     return area ? tLabel(area) : '';
                   })()}</span>
@@ -600,7 +659,7 @@
               style={{ cursor: 'pointer', textDecoration: 'underline', textDecorationColor: '#d1d5db' }}
             >📍 {(() => {
               if (formData.searchMode === 'all') return t('wizard.allCity');
-              if (formData.searchMode === 'radius') return t('form.radius');
+              if (formData.searchMode === 'radius') return `${t('general.nearMe')} (${formData.radiusMeters >= 1000 ? `${formData.radiusMeters/1000}km` : `${formData.radiusMeters}m`})`;
               const area = (window.BKK.areaOptions || []).find(a => a.id === formData.area);
               return area ? tLabel(area) : '';
             })()}</span>
