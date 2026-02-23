@@ -932,6 +932,9 @@
                       </div>
                     </div>
                   </div>
+                </div>
+
+                {/* Counter for auto-naming — only in edit mode + admin */}
                 {editingCustomInterest && isUnlocked && (
                 <div className="flex items-center gap-2 px-4 py-1 bg-gray-50 border-t border-gray-100" style={{ direction: 'rtl' }}>
                   <span className="text-xs font-bold text-gray-600">#️⃣</span>
