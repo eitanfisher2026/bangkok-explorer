@@ -10,6 +10,8 @@ window.BKK.cityData.gushdan = {
   "theme": { "color": "#2980b9", "iconLeft": "🏖️", "iconRight": "🌆" },
   "active": true,
   "distanceMultiplier": 1.2,
+  "dayStartHour": 7,
+  "nightStartHour": 18,
   "center": {
     "lat": 32.0802,
     "lng": 34.8871

@@ -14,6 +14,8 @@ window.BKK.cityData.bangkok = {
   },
   "active": true,
   "distanceMultiplier": 1.2,
+  "dayStartHour": 6,
+  "nightStartHour": 17,
   "center": {
     "lat": 13.7563,
     "lng": 100.5018

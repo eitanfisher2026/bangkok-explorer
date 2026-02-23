@@ -2913,6 +2913,56 @@
               </div>
             </div>
             
+            {/* City Day/Night Hours Setting */}
+            <div className="mb-3">
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-400 rounded-lg p-2">
+                <h3 className="text-sm font-bold text-gray-800 mb-1">{`🌅 ${t('settings.dayNightHours')}`}</h3>
+                <p className="text-[10px] text-gray-500 mb-2">{t('settings.dayNightHoursDesc')}</p>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: 'block', fontSize: '11px', color: '#6b7280', fontWeight: '600', marginBottom: '3px' }}>☀️ {t('settings.dayStartHour')}</label>
+                    <input
+                      type="number" min="0" max="23"
+                      value={window.BKK.dayStartHour ?? 6}
+                      onChange={(e) => {
+                        const val = Math.min(23, Math.max(0, parseInt(e.target.value) || 0));
+                        window.BKK.dayStartHour = val;
+                        const city = window.BKK.selectedCity;
+                        if (city) city.dayStartHour = val;
+                        if (isFirebaseAvailable && database && isUnlocked) {
+                          database.ref(`settings/cityOverrides/${selectedCityId}/dayStartHour`).set(val);
+                        }
+                        setFormData(prev => ({...prev}));
+                      }}
+                      style={{ width: '60px', padding: '5px', fontSize: '14px', fontWeight: 'bold', border: '2px solid #c084fc', borderRadius: '8px', textAlign: 'center' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: 'block', fontSize: '11px', color: '#6b7280', fontWeight: '600', marginBottom: '3px' }}>🌙 {t('settings.nightStartHour')}</label>
+                    <input
+                      type="number" min="0" max="23"
+                      value={window.BKK.nightStartHour ?? 17}
+                      onChange={(e) => {
+                        const val = Math.min(23, Math.max(0, parseInt(e.target.value) || 0));
+                        window.BKK.nightStartHour = val;
+                        const city = window.BKK.selectedCity;
+                        if (city) city.nightStartHour = val;
+                        if (isFirebaseAvailable && database && isUnlocked) {
+                          database.ref(`settings/cityOverrides/${selectedCityId}/nightStartHour`).set(val);
+                        }
+                        setFormData(prev => ({...prev}));
+                      }}
+                      style={{ width: '60px', padding: '5px', fontSize: '14px', fontWeight: 'bold', border: '2px solid #c084fc', borderRadius: '8px', textAlign: 'center' }}
+                    />
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#9ca3af', flex: 2 }}>
+                    {`☀️ ${String(window.BKK.dayStartHour ?? 6).padStart(2,'0')}:00 – ${String(window.BKK.nightStartHour ?? 17).padStart(2,'0')}:00`}<br/>
+                    {`🌙 ${String(window.BKK.nightStartHour ?? 17).padStart(2,'0')}:00 – ${String(window.BKK.dayStartHour ?? 6).padStart(2,'0')}:00`}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
             {/* Google Max Waypoints Setting (admin only) */}
             {isUnlocked && (
             <div className="mb-3">

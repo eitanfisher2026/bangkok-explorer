@@ -372,6 +372,10 @@ window.BKK.selectCity = function(cityId) {
   // City name for search queries
   window.BKK.cityNameForSearch = city.nameEn;
 
+  // Time-of-day boundaries for this city
+  window.BKK.dayStartHour = city.dayStartHour != null ? city.dayStartHour : 6;
+  window.BKK.nightStartHour = city.nightStartHour != null ? city.nightStartHour : 17;
+
   console.log('[CONFIG] City selected: ' + city.nameEn + ' (' + city.areas.length + ' areas, ' + city.interests.length + ' interests)');
   return true;
 };

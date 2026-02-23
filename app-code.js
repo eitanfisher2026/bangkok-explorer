@@ -238,7 +238,13 @@ const FouFouApp = () => {
   
   const getAutoTimeMode = () => {
     const h = new Date().getHours();
-    return (h >= 6 && h < 17) ? 'day' : 'night';
+    const dayStart = window.BKK.dayStartHour ?? 6;
+    const nightStart = window.BKK.nightStartHour ?? 17;
+    if (nightStart > dayStart) {
+      return (h >= dayStart && h < nightStart) ? 'day' : 'night';
+    } else {
+      return (h >= dayStart || h < nightStart) ? 'day' : 'night';
+    }
   };
   const routeTimeModeRef = React.useRef('auto');
   const getEffectiveTimeMode = () => routeTimeModeRef.current === 'auto' ? getAutoTimeMode() : routeTimeModeRef.current;
@@ -1527,6 +1533,23 @@ const FouFouApp = () => {
       if (snap.val() !== null) setFormData(prev => ({...prev, fetchMoreCount: snap.val()}));
     });
     
+    database.ref('settings/cityOverrides').on('value', (snap) => {
+      const data = snap.val();
+      if (data) {
+        window.BKK._cityOverrides = data;
+        const cityId = window.BKK.selectedCityId;
+        if (cityId && data[cityId]) {
+          if (data[cityId].dayStartHour != null) window.BKK.dayStartHour = data[cityId].dayStartHour;
+          if (data[cityId].nightStartHour != null) window.BKK.nightStartHour = data[cityId].nightStartHour;
+          const city = window.BKK.selectedCity;
+          if (city) {
+            if (data[cityId].dayStartHour != null) city.dayStartHour = data[cityId].dayStartHour;
+            if (data[cityId].nightStartHour != null) city.nightStartHour = data[cityId].nightStartHour;
+          }
+        }
+      }
+    });
+    
     database.ref('settings/defaultRadius').on('value', (snap) => {
       if (snap.val() !== null) {
         window.BKK._defaultRadius = snap.val();
@@ -1683,6 +1706,11 @@ const FouFouApp = () => {
     if (!window.BKK.cities[cityId]) return;
     
     window.BKK.selectCity(cityId);
+    const overrides = window.BKK._cityOverrides?.[cityId];
+    if (overrides) {
+      if (overrides.dayStartHour != null) { window.BKK.dayStartHour = overrides.dayStartHour; window.BKK.selectedCity.dayStartHour = overrides.dayStartHour; }
+      if (overrides.nightStartHour != null) { window.BKK.nightStartHour = overrides.nightStartHour; window.BKK.selectedCity.nightStartHour = overrides.nightStartHour; }
+    }
     setSelectedCityId(cityId);
     localStorage.setItem('city_explorer_city', cityId);
     
@@ -7777,6 +7805,56 @@ const FouFouApp = () => {
                   placeholder="5"
                 />
                 <span className="text-[10px] text-gray-500 mr-2">(1-100)</span>
+              </div>
+            </div>
+            
+            {/* City Day/Night Hours Setting */}
+            <div className="mb-3">
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-400 rounded-lg p-2">
+                <h3 className="text-sm font-bold text-gray-800 mb-1">{`🌅 ${t('settings.dayNightHours')}`}</h3>
+                <p className="text-[10px] text-gray-500 mb-2">{t('settings.dayNightHoursDesc')}</p>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: 'block', fontSize: '11px', color: '#6b7280', fontWeight: '600', marginBottom: '3px' }}>☀️ {t('settings.dayStartHour')}</label>
+                    <input
+                      type="number" min="0" max="23"
+                      value={window.BKK.dayStartHour ?? 6}
+                      onChange={(e) => {
+                        const val = Math.min(23, Math.max(0, parseInt(e.target.value) || 0));
+                        window.BKK.dayStartHour = val;
+                        const city = window.BKK.selectedCity;
+                        if (city) city.dayStartHour = val;
+                        if (isFirebaseAvailable && database && isUnlocked) {
+                          database.ref(`settings/cityOverrides/${selectedCityId}/dayStartHour`).set(val);
+                        }
+                        setFormData(prev => ({...prev}));
+                      }}
+                      style={{ width: '60px', padding: '5px', fontSize: '14px', fontWeight: 'bold', border: '2px solid #c084fc', borderRadius: '8px', textAlign: 'center' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: 'block', fontSize: '11px', color: '#6b7280', fontWeight: '600', marginBottom: '3px' }}>🌙 {t('settings.nightStartHour')}</label>
+                    <input
+                      type="number" min="0" max="23"
+                      value={window.BKK.nightStartHour ?? 17}
+                      onChange={(e) => {
+                        const val = Math.min(23, Math.max(0, parseInt(e.target.value) || 0));
+                        window.BKK.nightStartHour = val;
+                        const city = window.BKK.selectedCity;
+                        if (city) city.nightStartHour = val;
+                        if (isFirebaseAvailable && database && isUnlocked) {
+                          database.ref(`settings/cityOverrides/${selectedCityId}/nightStartHour`).set(val);
+                        }
+                        setFormData(prev => ({...prev}));
+                      }}
+                      style={{ width: '60px', padding: '5px', fontSize: '14px', fontWeight: 'bold', border: '2px solid #c084fc', borderRadius: '8px', textAlign: 'center' }}
+                    />
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#9ca3af', flex: 2 }}>
+                    {`☀️ ${String(window.BKK.dayStartHour ?? 6).padStart(2,'0')}:00 – ${String(window.BKK.nightStartHour ?? 17).padStart(2,'0')}:00`}<br/>
+                    {`🌙 ${String(window.BKK.nightStartHour ?? 17).padStart(2,'0')}:00 – ${String(window.BKK.dayStartHour ?? 6).padStart(2,'0')}:00`}
+                  </div>
+                </div>
               </div>
             </div>
             

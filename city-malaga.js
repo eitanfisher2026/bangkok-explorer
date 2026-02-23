@@ -9,6 +9,8 @@ window.BKK.cityData.malaga = {
   "secondaryIcon": "☀️",
   "active": false,
   "distanceMultiplier": 1.2,
+  "dayStartHour": 8,
+  "nightStartHour": 20,
   "center": {
     "lat": 36.7178196,
     "lng": -4.4255569999999995

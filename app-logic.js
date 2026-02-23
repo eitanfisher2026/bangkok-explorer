@@ -217,10 +217,18 @@
     return saved || 'circular';
   }); // 'circular' or 'linear'
   
-  // Time-of-day mode for content-aware routing (day = 06:00-17:00, night = 17:00-06:00)
+  // Time-of-day mode for content-aware routing (uses city-level settings)
   const getAutoTimeMode = () => {
     const h = new Date().getHours();
-    return (h >= 6 && h < 17) ? 'day' : 'night';
+    const dayStart = window.BKK.dayStartHour ?? 6;
+    const nightStart = window.BKK.nightStartHour ?? 17;
+    // Day = dayStart..nightStart, Night = nightStart..dayStart (wraps midnight)
+    if (nightStart > dayStart) {
+      return (h >= dayStart && h < nightStart) ? 'day' : 'night';
+    } else {
+      // nightStart < dayStart (e.g. night=22, day=8)
+      return (h >= dayStart || h < nightStart) ? 'day' : 'night';
+    }
   };
   const routeTimeModeRef = React.useRef('auto');
   const getEffectiveTimeMode = () => routeTimeModeRef.current === 'auto' ? getAutoTimeMode() : routeTimeModeRef.current;
@@ -1663,6 +1671,26 @@
       if (snap.val() !== null) setFormData(prev => ({...prev, fetchMoreCount: snap.val()}));
     });
     
+    // Listen for city day/night hour overrides
+    database.ref('settings/cityOverrides').on('value', (snap) => {
+      const data = snap.val();
+      if (data) {
+        window.BKK._cityOverrides = data;
+        // Apply to current city if matching
+        const cityId = window.BKK.selectedCityId;
+        if (cityId && data[cityId]) {
+          if (data[cityId].dayStartHour != null) window.BKK.dayStartHour = data[cityId].dayStartHour;
+          if (data[cityId].nightStartHour != null) window.BKK.nightStartHour = data[cityId].nightStartHour;
+          // Also update city object
+          const city = window.BKK.selectedCity;
+          if (city) {
+            if (data[cityId].dayStartHour != null) city.dayStartHour = data[cityId].dayStartHour;
+            if (data[cityId].nightStartHour != null) city.nightStartHour = data[cityId].nightStartHour;
+          }
+        }
+      }
+    });
+    
     // Listen for defaultRadius changes (admin setting) - only apply if user hasn't customized
     database.ref('settings/defaultRadius').on('value', (snap) => {
       if (snap.val() !== null) {
@@ -1834,6 +1862,12 @@
     if (!window.BKK.cities[cityId]) return;
     
     window.BKK.selectCity(cityId);
+    // Apply Firebase overrides for day/night hours
+    const overrides = window.BKK._cityOverrides?.[cityId];
+    if (overrides) {
+      if (overrides.dayStartHour != null) { window.BKK.dayStartHour = overrides.dayStartHour; window.BKK.selectedCity.dayStartHour = overrides.dayStartHour; }
+      if (overrides.nightStartHour != null) { window.BKK.nightStartHour = overrides.nightStartHour; window.BKK.selectedCity.nightStartHour = overrides.nightStartHour; }
+    }
     setSelectedCityId(cityId);
     localStorage.setItem('city_explorer_city', cityId);
     

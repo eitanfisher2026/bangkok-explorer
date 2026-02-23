@@ -765,6 +765,10 @@ settings: {
   googleMaxWaypointsDesc: 'מגבלת גוגל מפות. אם המסלול חורג — יפוצל אוטומטית.',
   googleMaxMapPoints: 'מקסימום נקודות להצגה על מפה',
   googleMaxMapPointsDesc: 'מעל מספר זה תוצג התראה שיתכן וגוגל לא יציג את כולן.',
+  dayNightHours: 'שעות יום / לילה',
+  dayNightHoursDesc: 'מגדיר מתי "יום" ומתי "לילה" לצורך חיפוש ותיעדוף מקומות בעיר זו',
+  dayStartHour: 'יום מתחיל',
+  nightStartHour: 'לילה מתחיל',
   defaultRadius: 'רדיוס ברירת מחדל',
   radiusDescription: 'רדיוס חיפוש מסביב למיקום נוכחי (מטרים)',
   refreshData: 'רענון נתונים',
@@ -1530,6 +1534,10 @@ settings: {
   googleMaxWaypointsDesc: 'Google Maps limit. Routes exceeding this will be automatically split.',
   googleMaxMapPoints: 'Max points to show on map',
   googleMaxMapPointsDesc: 'Above this number a warning will be shown that Google may not display all points.',
+  dayNightHours: 'Day / Night Hours',
+  dayNightHoursDesc: 'Defines when "day" and "night" start for search and place prioritization in this city',
+  dayStartHour: 'Day starts',
+  nightStartHour: 'Night starts',
   defaultRadius: 'Default radius',
   radiusDescription: 'Search radius around current location (meters)',
   refreshData: 'Refresh data',
@@ -1647,6 +1655,8 @@ window.BKK.cityData.bangkok = {
   },
   "active": true,
   "distanceMultiplier": 1.2,
+  "dayStartHour": 6,
+  "nightStartHour": 17,
   "center": {
     "lat": 13.7563,
     "lng": 100.5018
@@ -2007,6 +2017,8 @@ window.BKK.cityData.gushdan = {
   "theme": { "color": "#2980b9", "iconLeft": "🏖️", "iconRight": "🌆" },
   "active": true,
   "distanceMultiplier": 1.2,
+  "dayStartHour": 7,
+  "nightStartHour": 18,
   "center": {
     "lat": 32.0802,
     "lng": 34.8871
@@ -2300,6 +2312,8 @@ window.BKK.cityData.malaga = {
   "secondaryIcon": "☀️",
   "active": false,
   "distanceMultiplier": 1.2,
+  "dayStartHour": 8,
+  "nightStartHour": 20,
   "center": {
     "lat": 36.7178196,
     "lng": -4.4255569999999995
@@ -2573,6 +2587,8 @@ window.BKK.cityData.singapore = {
     theme: { color: '#c0392b', iconLeft: '🦁', iconRight: '🌺' },
     active: true,
     distanceMultiplier: 1.2,
+    dayStartHour: 7,
+    nightStartHour: 18,
     center: { lat: 1.3521, lng: 103.8198 },
     allCityRadius: 15000,
 
@@ -2963,6 +2979,9 @@ window.BKK.selectCity = function(cityId) {
   window.BKK.interestTooltips = city.interestTooltips || {};
 
   window.BKK.cityNameForSearch = city.nameEn;
+
+  window.BKK.dayStartHour = city.dayStartHour != null ? city.dayStartHour : 6;
+  window.BKK.nightStartHour = city.nightStartHour != null ? city.nightStartHour : 17;
 
   return true;
 };
