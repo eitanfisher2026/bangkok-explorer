@@ -5067,7 +5067,7 @@ const FouFouApp = () => {
                 onClick={() => {
                   if (activeTrail.stops?.length >= 2) {
                     const coords = activeTrail.stops.map(s => `${s.lat},${s.lng}`).join('/');
-                    window.open(`https://www.google.com/maps/dir/${coords}`, 'city_explorer_map');
+                    window.open(`https://www.google.com/maps/dir//${coords}/data=!4m2!4m1!3e2`, 'city_explorer_map');
                   }
                 }}
                 style={{

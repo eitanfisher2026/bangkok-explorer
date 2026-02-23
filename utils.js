@@ -370,26 +370,15 @@ window.BKK.buildMapsUrl = (stops, circular = false) => {
   const validStops = stops.filter(s => s.lat && s.lng && s.lat !== 0 && s.lng !== 0);
   if (validStops.length === 0) return '';
   
-  let waypoints = validStops.map(s => `${s.lat},${s.lng}`);
-  
+  // Path-based format: opens in overview mode with Start button
+  const points = [''];  // Empty = "Your location"
+  validStops.forEach(s => points.push(`${s.lat},${s.lng}`));
   if (circular && validStops.length > 1) {
-    waypoints.push(waypoints[0]);
+    points.push(points[1]); // Return to first stop
   }
   
-  const origin = waypoints[0];
-  const destination = waypoints[waypoints.length - 1];
-  const middlePoints = waypoints.slice(1, -1);
-  
-  // Don't send origin — let Google use "My Location" for Start button
-  // Include origin as first waypoint instead
-  const allWaypoints = [origin, ...middlePoints];
-  let mapUrl = `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
-  if (allWaypoints.length > 0) {
-    mapUrl += `&waypoints=${allWaypoints.join('|')}`;
-  }
-  mapUrl += '&travelmode=walking&dir_action=navigate';
-  
-  return mapUrl;
+  const encoded = points.map(p => encodeURIComponent(p)).join('/');
+  return `https://www.google.com/maps/dir/${encoded}/data=!4m2!4m1!3e2`;
 };
 
 /**
@@ -465,98 +454,81 @@ console.log('[UTILS] Loaded successfully');
 // Returns array of { url, fromIndex, toIndex, label } objects
 window.BKK.buildGoogleMapsUrls = (stops, origin, isCircular, maxPoints) => {
   maxPoints = maxPoints || 12;
-  const maxWaypoints = maxPoints - 2; // subtract origin + destination
   
   if (stops.length === 0) return [];
   
-  // Strategy: Don't send origin coordinates — let Google use "My Location" so it shows "Start" button.
-  // Include origin as first waypoint instead, and last stop (or origin for circular) as destination.
+  // Path-based URL format opens Google Maps in route OVERVIEW mode (not navigation)
+  // Format: google.com/maps/dir/point1/point2/.../pointN/data=!4m2!4m1!3e2
+  // data=!4m2!4m1!3e2 = walking mode (3e0=driving, 3e1=biking, 3e2=walking)
+  // Empty first segment = "Your location"
   
-  // Single stop, no splitting needed
-  if (stops.length === 1) {
-    let url = `https://www.google.com/maps/dir/?api=1&destination=${stops[0].lat},${stops[0].lng}&travelmode=walking&dir_action=navigate`;
-    if (origin) url += `&waypoints=${origin}`;
-    return [{ url, fromIndex: 0, toIndex: 0, part: 1, total: 1 }];
-  }
+  const walkingData = 'data=!4m2!4m1!3e2';
   
-  // Build waypoints: origin + all stops except last (last = destination)
-  // For circular: origin + all stops as waypoints, destination = origin coords
-  const allWaypoints = [];
-  if (origin) allWaypoints.push(origin); // start point as first waypoint
+  // Build ordered list of all points: origin → stops → (origin if circular)
+  const buildPointsList = (stopsSlice, originCoord, circular) => {
+    const points = [];
+    // Empty string = "Your location" as starting point
+    points.push('');
+    // Add origin as first waypoint if it exists
+    if (originCoord) points.push(originCoord);
+    // Add all stops
+    stopsSlice.forEach(s => points.push(`${s.lat},${s.lng}`));
+    // For circular: return to origin
+    if (circular && originCoord) points.push(originCoord);
+    return points;
+  };
   
-  let destination;
-  if (isCircular) {
-    stops.forEach(s => allWaypoints.push(`${s.lat},${s.lng}`));
-    destination = origin || `${stops[0].lat},${stops[0].lng}`;
-  } else {
-    stops.slice(0, -1).forEach(s => allWaypoints.push(`${s.lat},${s.lng}`));
-    destination = `${stops[stops.length - 1].lat},${stops[stops.length - 1].lng}`;
-  }
+  const buildUrl = (points) => {
+    const encoded = points.map(p => encodeURIComponent(p)).join('/');
+    return `https://www.google.com/maps/dir/${encoded}/${walkingData}`;
+  };
   
-  // Check if everything fits in one URL
-  if (allWaypoints.length <= maxWaypoints) {
-    let url = `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
-    if (allWaypoints.length > 0) url += `&waypoints=${allWaypoints.join('|')}`;
-    url += '&travelmode=walking&dir_action=navigate';
-    return [{ url, fromIndex: 0, toIndex: stops.length - 1, part: 1, total: 1 }];
+  // Check if fits in one URL (max ~10 waypoints in path format)
+  const maxPathPoints = maxPoints;
+  const allPoints = buildPointsList(stops, origin, isCircular);
+  
+  if (allPoints.length <= maxPathPoints) {
+    return [{ url: buildUrl(allPoints), fromIndex: 0, toIndex: stops.length - 1, part: 1, total: 1 }];
   }
   
   // Need to split into multiple URLs
-  // Each segment: origin → maxWaypoints waypoints → destination
-  // Next segment starts from previous destination
   const urls = [];
   let currentIndex = 0;
-  let currentOrigin = origin; // For first segment, this will be added as waypoint (not origin)
-  let isFirstSegment = true;
+  let currentOrigin = origin;
+  let isFirst = true;
+  const stopsPerSegment = maxPathPoints - 3; // subtract: empty start + origin + destination
   
   while (currentIndex < stops.length) {
     const remaining = stops.length - currentIndex;
-    const isLastSegment = remaining <= maxWaypoints + 1;
+    const isLast = remaining <= stopsPerSegment + 1;
     
-    let segmentStops, destination;
+    const points = [];
     
-    // Build URL: first segment omits origin param (for Start button), later segments use origin
-    const buildUrl = (dest, wps) => {
-      let url;
-      if (isFirstSegment) {
-        // No origin — Google uses "My Location" → shows Start button
-        const allWps = currentOrigin ? [currentOrigin, ...wps] : wps;
-        url = `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
-        if (allWps.length > 0) url += `&waypoints=${allWps.join('|')}`;
-      } else {
-        // Subsequent segments: use previous endpoint as origin
-        url = `https://www.google.com/maps/dir/?api=1&origin=${currentOrigin}&destination=${dest}`;
-        if (wps.length > 0) url += `&waypoints=${wps.join('|')}`;
-      }
-      url += '&travelmode=walking&dir_action=navigate';
-      return url;
-    };
+    if (isFirst) {
+      points.push(''); // "Your location"
+      if (currentOrigin) points.push(currentOrigin);
+    } else {
+      points.push(currentOrigin);
+    }
     
-    if (isLastSegment) {
-      segmentStops = stops.slice(currentIndex);
-      if (isCircular) {
-        destination = origin;
-        const wps = segmentStops.map(s => `${s.lat},${s.lng}`);
-        urls.push({ url: buildUrl(destination, wps), fromIndex: currentIndex, toIndex: stops.length - 1, part: urls.length + 1, total: 0 });
-      } else {
-        destination = `${segmentStops[segmentStops.length - 1].lat},${segmentStops[segmentStops.length - 1].lng}`;
-        const wps = segmentStops.slice(0, -1).map(s => `${s.lat},${s.lng}`);
-        urls.push({ url: buildUrl(destination, wps), fromIndex: currentIndex, toIndex: stops.length - 1, part: urls.length + 1, total: 0 });
-      }
+    if (isLast) {
+      const segStops = stops.slice(currentIndex);
+      segStops.forEach(s => points.push(`${s.lat},${s.lng}`));
+      if (isCircular && origin) points.push(origin);
+      urls.push({ url: buildUrl(points), fromIndex: currentIndex, toIndex: stops.length - 1, part: urls.length + 1, total: 0 });
       break;
     } else {
-      segmentStops = stops.slice(currentIndex, currentIndex + maxWaypoints + 1);
-      destination = `${segmentStops[segmentStops.length - 1].lat},${segmentStops[segmentStops.length - 1].lng}`;
-      const wps = segmentStops.slice(0, -1).map(s => `${s.lat},${s.lng}`);
-      urls.push({ url: buildUrl(destination, wps), fromIndex: currentIndex, toIndex: currentIndex + segmentStops.length - 1, part: urls.length + 1, total: 0 });
+      const segStops = stops.slice(currentIndex, currentIndex + stopsPerSegment + 1);
+      segStops.forEach(s => points.push(`${s.lat},${s.lng}`));
+      urls.push({ url: buildUrl(points), fromIndex: currentIndex, toIndex: currentIndex + segStops.length - 1, part: urls.length + 1, total: 0 });
       
-      currentOrigin = destination;
-      currentIndex += segmentStops.length - 1;
-      isFirstSegment = false;
+      const lastStop = segStops[segStops.length - 1];
+      currentOrigin = `${lastStop.lat},${lastStop.lng}`;
+      currentIndex += segStops.length - 1; // overlap last stop as next origin
+      isFirst = false;
     }
   }
   
-  // Fill in total count
   const total = urls.length;
   urls.forEach(u => u.total = total);
   
