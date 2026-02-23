@@ -3679,14 +3679,67 @@
             </div>
             <div id="leaflet-map-container" style={{ flex: 1, minHeight: mapMode === 'stops' ? '0' : '350px', maxHeight: mapMode === 'stops' ? 'none' : '70vh' }}></div>
             {/* Footer */}
-            <div className="p-2 border-t text-center" style={{ background: mapMode === 'stops' ? '#f8fafc' : 'white' }}>
+            <div className="border-t" style={{ background: mapMode === 'stops' ? '#f8fafc' : 'white' }}>
               {mapMode === 'stops' ? (
-                <button
-                  onClick={() => setShowMapModal(false)}
-                  style={{ width: '100%', padding: '10px', borderRadius: '10px', border: 'none', background: '#374151', color: 'white', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' }}
-                >{t('general.close')}</button>
+                <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {/* Row 1: Route type toggle + Help me plan */}
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    {/* Circular / Linear toggle */}
+                    <div style={{ display: 'flex', borderRadius: '8px', overflow: 'hidden', border: '1px solid #d1d5db', flexShrink: 0 }}>
+                      <button 
+                        onClick={() => setRouteType('linear')}
+                        style={{ padding: '6px 10px', border: 'none', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer',
+                          background: routeType === 'linear' ? '#3b82f6' : 'white', color: routeType === 'linear' ? 'white' : '#6b7280'
+                        }}
+                      >↔ {t('route.linear')}</button>
+                      <button 
+                        onClick={() => setRouteType('circular')}
+                        style={{ padding: '6px 10px', border: 'none', borderLeft: '1px solid #d1d5db', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer',
+                          background: routeType === 'circular' ? '#3b82f6' : 'white', color: routeType === 'circular' ? 'white' : '#6b7280'
+                        }}
+                      >⭕ {t('route.circular')}</button>
+                    </div>
+                    {/* Help me plan */}
+                    {route?.stops?.length > 0 && (
+                    <button
+                      onClick={() => {
+                        const allStopsWithCoords = route.stops.filter(s => s.lat && s.lng);
+                        if (allStopsWithCoords.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
+                        setDisabledStops([]);
+                        const { selected, disabled } = smartSelectStops(allStopsWithCoords, formData.interests);
+                        const newDisabled = disabled.map(s => (s.name || '').toLowerCase().trim());
+                        setDisabledStops(newDisabled);
+                        if (selected.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
+                        const isCircular = routeType === 'circular';
+                        let autoStart = startPointCoords;
+                        if (!autoStart) {
+                          if (formData.searchMode === 'radius' && formData.currentLat && formData.currentLng) {
+                            autoStart = { lat: formData.currentLat, lng: formData.currentLng, address: t('wizard.myLocation') };
+                          } else {
+                            autoStart = { lat: selected[0].lat, lng: selected[0].lng, address: selected[0].name };
+                          }
+                          setStartPointCoords(autoStart);
+                          setFormData(prev => ({...prev, startPoint: `${autoStart.lat},${autoStart.lng}`}));
+                        }
+                        const optimized = optimizeStopOrder(selected, autoStart, isCircular);
+                        setRoute({ ...route, stops: [...optimized, ...disabled], circular: isCircular, optimized: true, startPoint: autoStart.address, startPointCoords: autoStart });
+                        setShowMapModal(false);
+                        showToast(`🧠 ${t('route.smartSelected', { selected: optimized.length, disabled: disabled.length })}`, 'success');
+                      }}
+                      style={{ flex: 1, padding: '6px 10px', borderRadius: '8px', border: '2px solid #f59e0b', 
+                        background: 'linear-gradient(135deg, #fffbeb, #fef3c7)', color: '#b45309', 
+                        fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+                    >🧠 {t('route.helpMePlan')}</button>
+                    )}
+                  </div>
+                  {/* Row 2: Close */}
+                  <button
+                    onClick={() => setShowMapModal(false)}
+                    style={{ width: '100%', padding: '8px', borderRadius: '8px', border: 'none', background: '#374151', color: 'white', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}
+                  >{t('general.close')}</button>
+                </div>
               ) : (
-              <p className="text-[9px] text-gray-400">
+              <p className="text-[9px] text-gray-400 p-2 text-center">
                 {mapMode === 'areas' 
                   ? `${(window.BKK.areaOptions || []).length} ${t('general.areas')}` 
                   : `${formData.radiusMeters}m - ${formData.radiusPlaceName || t('form.currentLocation')}`

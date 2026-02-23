@@ -322,8 +322,35 @@ const FouFouApp = () => {
           }).addTo(map);
           
           const markerRefs = {};
-          window._mapStopAction = (action, stopName) => {
-            const nameKey = stopName.toLowerCase().trim();
+          let startMarkerRef = null;
+          const startPointCoordsRef_local = { current: startPointCoords };
+          
+          const updateStartMarker = (lat, lng, address) => {
+            if (startMarkerRef) map.removeLayer(startMarkerRef);
+            startMarkerRef = L.marker([lat, lng], {
+              icon: L.divIcon({
+                className: '',
+                html: '<div style="font-size:14px;text-align:center;width:28px;height:28px;line-height:28px;border-radius:50%;background:#22c55e;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);color:white;font-weight:bold;">▶</div>',
+                iconSize: [28, 28], iconAnchor: [14, 14]
+              })
+            }).addTo(map);
+            startMarkerRef.bindPopup('<div style="text-align:center;font-size:12px;font-weight:bold;">📍 ' + (address || t('route.startPoint')) + '</div>');
+          };
+          
+          window._mapStopAction = (action, data, lat, lng) => {
+            if (action === 'setstart') {
+              const newStart = { lat: parseFloat(lat), lng: parseFloat(lng), address: data };
+              setStartPointCoords(newStart);
+              setFormData(prev => ({...prev, startPoint: data}));
+              startPointCoordsRef_local.current = newStart;
+              updateStartMarker(parseFloat(lat), parseFloat(lng), data);
+              if (route?.optimized) setRoute(prev => prev ? {...prev, optimized: false} : prev);
+              map.closePopup();
+              showToast(`▶ ${data}`, 'success');
+              setTimeout(() => { if (window._mapRedrawLine) window._mapRedrawLine(); }, 50);
+              return;
+            }
+            const nameKey = data.toLowerCase().trim();
             if (action === 'disable') {
               setDisabledStops(prev => [...prev, nameKey]);
               if (markerRefs[nameKey]) {
@@ -331,7 +358,7 @@ const FouFouApp = () => {
                 markerRefs[nameKey].label.setOpacity(0.3);
               }
               map.closePopup();
-              showToast(`🚫 ${stopName}`, 'info');
+              showToast(`🚫 ${data}`, 'info');
               setTimeout(() => { if (window._mapRedrawLine) window._mapRedrawLine(); }, 50);
             } else if (action === 'enable') {
               setDisabledStops(prev => prev.filter(n => n !== nameKey));
@@ -340,7 +367,7 @@ const FouFouApp = () => {
                 markerRefs[nameKey].label.setOpacity(1);
               }
               map.closePopup();
-              showToast(`✅ ${stopName}`, 'success');
+              showToast(`✅ ${data}`, 'success');
               setTimeout(() => { if (window._mapRedrawLine) window._mapRedrawLine(); }, 50);
             }
           };
@@ -349,15 +376,7 @@ const FouFouApp = () => {
           const isRTL = window.BKK.i18n.isRTL();
           
           if (startPointCoords?.lat && startPointCoords?.lng) {
-            const startMarker = L.marker([startPointCoords.lat, startPointCoords.lng], {
-              icon: L.divIcon({
-                className: '',
-                html: '<div style="font-size:14px;text-align:center;width:28px;height:28px;line-height:28px;border-radius:50%;background:#22c55e;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);color:white;font-weight:bold;">▶</div>',
-                iconSize: [28, 28], iconAnchor: [14, 14]
-              })
-            }).addTo(map);
-            startMarker.bindPopup('<div style="text-align:center;font-size:12px;font-weight:bold;">📍 ' + (startPointCoords.address || t('route.startPoint')) + '</div>');
-            markers.push(startMarker);
+            updateStartMarker(startPointCoords.lat, startPointCoords.lng, startPointCoords.address);
           }
           stops.forEach((stop, i) => {
             const color = colorPalette[i % colorPalette.length];
@@ -393,10 +412,11 @@ const FouFouApp = () => {
               return '<div style="text-align:center;direction:' + (isRTL ? 'rtl' : 'ltr') + ';font-size:13px;min-width:160px;padding:4px 0;">' +
                 '<div style="font-weight:bold;font-size:14px;margin-bottom:6px;">' + window.BKK.stopLabel(i) + '. ' + (stop.name || '') + '</div>' +
                 (stop.rating ? '<div style="color:#f59e0b;margin-bottom:6px;">⭐ ' + stop.rating + (stop.ratingCount ? ' (' + stop.ratingCount + ')' : '') + '</div>' : '') +
-                '<div style="display:flex;gap:6px;justify-content:center;">' +
+                '<div style="display:flex;gap:6px;justify-content:center;margin-bottom:6px;">' +
                   '<a href="' + googleUrl + '" target="_blank" style="flex:1;display:inline-block;padding:6px 10px;border-radius:8px;background:#3b82f6;color:white;text-decoration:none;font-size:12px;font-weight:bold;">Google Maps ↗</a>' +
                   '<button onclick="window._mapStopAction(\'' + toggleAction + '\',\'' + escapedName + '\')" style="flex:1;padding:6px 10px;border-radius:8px;background:' + toggleColor + ';color:white;border:none;font-size:12px;font-weight:bold;cursor:pointer;">' + toggleLabel + '</button>' +
                 '</div>' +
+                '<button onclick="window._mapStopAction(\'setstart\',\'' + escapedName + '\',' + stop.lat + ',' + stop.lng + ')" style="width:100%;padding:5px 8px;border-radius:8px;background:#22c55e;color:white;border:none;font-size:11px;font-weight:bold;cursor:pointer;">▶ ' + t('form.setStartPoint') + '</button>' +
               '</div>';
             };
             
@@ -414,7 +434,8 @@ const FouFouApp = () => {
             const activeStops = stops.filter(s => !curDisabled.includes((s.name || '').toLowerCase().trim()));
             if (activeStops.length > 1) {
               const pts = [];
-              if (startPointCoords?.lat) pts.push([startPointCoords.lat, startPointCoords.lng]);
+              const sp = startPointCoordsRef_local.current;
+              if (sp?.lat) pts.push([sp.lat, sp.lng]);
               pts.push(...activeStops.map(s => [s.lat, s.lng]));
               routeLine = L.polyline(pts, { color: '#6366f1', weight: 2.5, opacity: 0.6, dashArray: '6,8' }).addTo(map);
             }
@@ -440,11 +461,17 @@ const FouFouApp = () => {
                     function(pos) {
                       div.firstChild.innerHTML = '📍';
                       if (myLocMarker) map.removeLayer(myLocMarker);
-                      myLocMarker = L.circleMarker([pos.coords.latitude, pos.coords.longitude], {
+                      const lat = pos.coords.latitude, lng = pos.coords.longitude;
+                      myLocMarker = L.circleMarker([lat, lng], {
                         radius: 8, color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.4, weight: 3
                       }).addTo(map);
-                      myLocMarker.bindPopup('<div style="text-align:center;font-size:12px;font-weight:bold;">📍 ' + t('wizard.myLocation') + '</div>').openPopup();
-                      map.setView([pos.coords.latitude, pos.coords.longitude], map.getZoom());
+                      myLocMarker.bindPopup(
+                        '<div style="text-align:center;font-size:12px;padding:4px 0;">' +
+                        '<div style="font-weight:bold;margin-bottom:6px;">📍 ' + t('wizard.myLocation') + '</div>' +
+                        '<button onclick="window._mapStopAction(\'setstart\',\'' + t('wizard.myLocation').replace(/'/g, "\\'") + '\',' + lat + ',' + lng + ')" style="width:100%;padding:5px 8px;border-radius:8px;background:#22c55e;color:white;border:none;font-size:11px;font-weight:bold;cursor:pointer;">▶ ' + t('form.setStartPoint') + '</button>' +
+                        '</div>'
+                      ).openPopup();
+                      map.setView([lat, lng], map.getZoom());
                     },
                     function() { div.firstChild.innerHTML = '📍'; showToast(t('toast.locationInaccessible'), 'warning'); }
                   );
@@ -8214,14 +8241,67 @@ const FouFouApp = () => {
             </div>
             <div id="leaflet-map-container" style={{ flex: 1, minHeight: mapMode === 'stops' ? '0' : '350px', maxHeight: mapMode === 'stops' ? 'none' : '70vh' }}></div>
             {/* Footer */}
-            <div className="p-2 border-t text-center" style={{ background: mapMode === 'stops' ? '#f8fafc' : 'white' }}>
+            <div className="border-t" style={{ background: mapMode === 'stops' ? '#f8fafc' : 'white' }}>
               {mapMode === 'stops' ? (
-                <button
-                  onClick={() => setShowMapModal(false)}
-                  style={{ width: '100%', padding: '10px', borderRadius: '10px', border: 'none', background: '#374151', color: 'white', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' }}
-                >{t('general.close')}</button>
+                <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {/* Row 1: Route type toggle + Help me plan */}
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    {/* Circular / Linear toggle */}
+                    <div style={{ display: 'flex', borderRadius: '8px', overflow: 'hidden', border: '1px solid #d1d5db', flexShrink: 0 }}>
+                      <button 
+                        onClick={() => setRouteType('linear')}
+                        style={{ padding: '6px 10px', border: 'none', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer',
+                          background: routeType === 'linear' ? '#3b82f6' : 'white', color: routeType === 'linear' ? 'white' : '#6b7280'
+                        }}
+                      >↔ {t('route.linear')}</button>
+                      <button 
+                        onClick={() => setRouteType('circular')}
+                        style={{ padding: '6px 10px', border: 'none', borderLeft: '1px solid #d1d5db', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer',
+                          background: routeType === 'circular' ? '#3b82f6' : 'white', color: routeType === 'circular' ? 'white' : '#6b7280'
+                        }}
+                      >⭕ {t('route.circular')}</button>
+                    </div>
+                    {/* Help me plan */}
+                    {route?.stops?.length > 0 && (
+                    <button
+                      onClick={() => {
+                        const allStopsWithCoords = route.stops.filter(s => s.lat && s.lng);
+                        if (allStopsWithCoords.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
+                        setDisabledStops([]);
+                        const { selected, disabled } = smartSelectStops(allStopsWithCoords, formData.interests);
+                        const newDisabled = disabled.map(s => (s.name || '').toLowerCase().trim());
+                        setDisabledStops(newDisabled);
+                        if (selected.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
+                        const isCircular = routeType === 'circular';
+                        let autoStart = startPointCoords;
+                        if (!autoStart) {
+                          if (formData.searchMode === 'radius' && formData.currentLat && formData.currentLng) {
+                            autoStart = { lat: formData.currentLat, lng: formData.currentLng, address: t('wizard.myLocation') };
+                          } else {
+                            autoStart = { lat: selected[0].lat, lng: selected[0].lng, address: selected[0].name };
+                          }
+                          setStartPointCoords(autoStart);
+                          setFormData(prev => ({...prev, startPoint: `${autoStart.lat},${autoStart.lng}`}));
+                        }
+                        const optimized = optimizeStopOrder(selected, autoStart, isCircular);
+                        setRoute({ ...route, stops: [...optimized, ...disabled], circular: isCircular, optimized: true, startPoint: autoStart.address, startPointCoords: autoStart });
+                        setShowMapModal(false);
+                        showToast(`🧠 ${t('route.smartSelected', { selected: optimized.length, disabled: disabled.length })}`, 'success');
+                      }}
+                      style={{ flex: 1, padding: '6px 10px', borderRadius: '8px', border: '2px solid #f59e0b', 
+                        background: 'linear-gradient(135deg, #fffbeb, #fef3c7)', color: '#b45309', 
+                        fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+                    >🧠 {t('route.helpMePlan')}</button>
+                    )}
+                  </div>
+                  {/* Row 2: Close */}
+                  <button
+                    onClick={() => setShowMapModal(false)}
+                    style={{ width: '100%', padding: '8px', borderRadius: '8px', border: 'none', background: '#374151', color: 'white', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}
+                  >{t('general.close')}</button>
+                </div>
               ) : (
-              <p className="text-[9px] text-gray-400">
+              <p className="text-[9px] text-gray-400 p-2 text-center">
                 {mapMode === 'areas' 
                   ? `${(window.BKK.areaOptions || []).length} ${t('general.areas')}` 
                   : `${formData.radiusMeters}m - ${formData.radiusPlaceName || t('form.currentLocation')}`
