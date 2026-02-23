@@ -6225,136 +6225,10 @@ const FouFouApp = () => {
                     {`${t("route.showStopsOnMap")} (${route.stops.filter(s => !disabledStops.includes((s.name || '').toLowerCase().trim()) && s.lat && s.lng).length})`}
                   </button>
                   
-                  {/* URL limit note */}
-                  
-                  {/* Route Type + Button */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {/* Route Type Radio Buttons - Small and Simple */}
-                    <div style={{
-                      display: 'flex',
-                      gap: '16px',
-                      fontSize: '13px',
-                      paddingRight: '4px'
-                    }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-                        <input
-                          type="radio"
-                          name="routeType"
-                          checked={routeType === 'circular'}
-                          onChange={() => {
-                            setRouteType('circular');
-                            if (route?.optimized) setRoute(prev => prev ? {...prev, optimized: false} : prev);
-                          }}
-                          style={{ cursor: 'pointer' }}
-                        />
-                        <span>{t("route.circular")}</span>
-                      </label>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-                        <input
-                          type="radio"
-                          name="routeType"
-                          checked={routeType === 'linear'}
-                          onChange={() => {
-                            setRouteType('linear');
-                            if (route?.optimized) setRoute(prev => prev ? {...prev, optimized: false} : prev);
-                          }}
-                          style={{ cursor: 'pointer' }}
-                        />
-                        <span>{t("general.linear")}</span>
-                      </label>
-                    </div>
-                    
-                    {/* Start Point + Calc Route + Google Maps - aligned grid */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <label className="text-xs font-bold text-gray-700" style={{ textAlign: window.BKK.i18n.isRTL() ? 'right' : 'left' }}>{`📍 ${t("route.startPoint")}`}</label>
-                      {/* Row 1: Start Point */}
-                      <div style={{ display: 'flex', gap: '4px', alignItems: 'center', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
-                      <input
-                        type="text"
-                        value={formData.startPoint}
-                        readOnly
-                        onClick={() => setShowAddressDialog(true)}
-                        placeholder={t("form.selectStartPoint")}
-                        className="border border-gray-300 rounded-lg text-xs cursor-pointer hover:border-blue-400"
-                        style={{ flex: 1, direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', padding: '0 8px', height: '42px', backgroundColor: startPointCoords ? '#f0fdf4' : '#fff', minWidth: 0 }}
-                      />
-                      <button
-                        onClick={() => {
-                          if (formData.startPoint?.trim() || startPointCoords) {
-                            setFormData({...formData, startPoint: ''});
-                            setStartPointCoords(null);
-                            if (route?.optimized) setRoute(prev => prev ? {...prev, optimized: false} : prev);
-                          }
-                        }}
-                        style={{ width: '42px', height: '42px', borderRadius: '12px', border: 'none', backgroundColor: (formData.startPoint?.trim() || startPointCoords) ? '#ef4444' : '#e5e7eb', color: (formData.startPoint?.trim() || startPointCoords) ? 'white' : '#9ca3af', fontSize: '12px', fontWeight: 'bold', cursor: (formData.startPoint?.trim() || startPointCoords) ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                        title={t("general.clear")}
-                      >
-                        ✕
-                      </button>
-                      <button
-                        onClick={() => setShowAddressDialog(true)}
-                        style={{ width: '42px', height: '42px', borderRadius: '12px', border: 'none', backgroundColor: '#22c55e', color: 'white', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                        title={t("form.searchAddress")}
-                      >
-                        🔍
-                      </button>
-                      <button
-                        onClick={getMyLocation}
-                        disabled={isLocating}
-                        style={{ width: '42px', height: '42px', borderRadius: '12px', border: 'none', backgroundColor: isLocating ? '#d1d5db' : '#3b82f6', color: isLocating ? '#9ca3af' : 'white', fontSize: '14px', fontWeight: 'bold', cursor: isLocating ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                        title={t("form.findCurrentLocation")}
-                      >
-                        {isLocating ? '⏳' : '📍'}
-                      </button>
-                      </div>
+                  {/* Route controls - simplified (type + start + plan moved to map) */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
 
-                      {/* Row 1.5: Smart Select - "Help me plan" — always available */}
-                      {route.stops.length > 0 && (
-                      <button
-                        onClick={() => {
-                          const allStopsWithCoords = route.stops.filter(s => s.lat && s.lng);
-                          if (allStopsWithCoords.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
-                          
-                          setDisabledStops([]);
-                          
-                          const { selected, disabled } = smartSelectStops(allStopsWithCoords, formData.interests);
-                          const newDisabled = disabled.map(s => (s.name || '').toLowerCase().trim());
-                          setDisabledStops(newDisabled);
-                          
-                          if (selected.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
-                          
-                          const isCircular = formData.searchMode === 'radius';
-                          setRouteType(isCircular ? 'circular' : 'linear');
-                          let autoStart = null;
-                          if (formData.searchMode === 'radius' && formData.currentLat && formData.currentLng) {
-                            autoStart = { lat: formData.currentLat, lng: formData.currentLng, address: t('wizard.myLocation') };
-                          } else {
-                            const firstWithCoords = selected[0];
-                            if (firstWithCoords) autoStart = { lat: firstWithCoords.lat, lng: firstWithCoords.lng, address: firstWithCoords.name };
-                          }
-                          if (!autoStart) { showToast(t('form.chooseStartBeforeCalc'), 'warning'); return; }
-                          
-                          setFormData(prev => ({...prev, startPoint: `${autoStart.lat},${autoStart.lng}`}));
-                          setStartPointCoords(autoStart);
-                          
-                          const optimized = optimizeStopOrder(selected, autoStart, isCircular);
-                          
-                          setRoute({ ...route, stops: [...optimized, ...disabled], circular: isCircular, optimized: true, startPoint: autoStart.address, startPointCoords: autoStart });
-                          
-                          showToast(`🧠 ${t('route.smartSelected', { selected: optimized.length, disabled: disabled.length })}`, 'success');
-                        }}
-                        style={{
-                          width: '100%', height: '38px', borderRadius: '10px',
-                          border: '2px solid #f59e0b', background: 'linear-gradient(135deg, #fffbeb, #fef3c7)',
-                          color: '#b45309', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
-                        }}
-                      >
-                        🧠 {t('route.helpMePlan')}
-                      </button>
-                      )}
-
-                      {/* Row 2: Calc Route + Reorder */}
+                      {/* Row 1: Calc Route + Reorder */}
                       <div style={{ display: 'flex', gap: '4px', alignItems: 'center', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
                       <button
                         onClick={computeRoute}
@@ -6514,7 +6388,7 @@ const FouFouApp = () => {
                     </div>
                     {!startPointCoords && (
                       <p style={{ fontSize: '10px', color: '#ef4444', textAlign: 'center', marginTop: '2px', marginBottom: '2px' }}>
-                        {`⬆️ ${t("form.chooseStartBeforeCalc")}`}
+                        {`🗺️ ${t("form.setStartOnMap")}`}
                       </p>
                     )}
                     {route?.optimized && (
@@ -6523,7 +6397,6 @@ const FouFouApp = () => {
                       </p>
                     )}
 
-                    </div>
                   </div>
                 </div>
             )}
@@ -8244,7 +8117,7 @@ const FouFouApp = () => {
             <div className="border-t" style={{ background: mapMode === 'stops' ? '#f8fafc' : 'white' }}>
               {mapMode === 'stops' ? (
                 <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {/* Row 1: Route type toggle + Help me plan */}
+                  {/* Row 1: Route type toggle + Compute Route */}
                   <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                     {/* Circular / Linear toggle */}
                     <div style={{ display: 'flex', borderRadius: '8px', overflow: 'hidden', border: '1px solid #d1d5db', flexShrink: 0 }}>
@@ -8261,7 +8134,7 @@ const FouFouApp = () => {
                         }}
                       >⭕ {t('route.circular')}</button>
                     </div>
-                    {/* Help me plan */}
+                    {/* Compute Route — stays on map */}
                     {route?.stops?.length > 0 && (
                     <button
                       onClick={() => {
@@ -8284,14 +8157,16 @@ const FouFouApp = () => {
                           setFormData(prev => ({...prev, startPoint: `${autoStart.lat},${autoStart.lng}`}));
                         }
                         const optimized = optimizeStopOrder(selected, autoStart, isCircular);
-                        setRoute({ ...route, stops: [...optimized, ...disabled], circular: isCircular, optimized: true, startPoint: autoStart.address, startPointCoords: autoStart });
-                        setShowMapModal(false);
-                        showToast(`🧠 ${t('route.smartSelected', { selected: optimized.length, disabled: disabled.length })}`, 'success');
+                        const newStops = [...optimized, ...disabled];
+                        setRoute({ ...route, stops: newStops, circular: isCircular, optimized: true, startPoint: autoStart.address, startPointCoords: autoStart });
+                        const activeForMap = optimized.filter(s => s.lat && s.lng);
+                        setMapStops(activeForMap);
+                        showToast(`✅ ${t('route.routeCalculated')} (${optimized.length})`, 'success');
                       }}
-                      style={{ flex: 1, padding: '6px 10px', borderRadius: '8px', border: '2px solid #f59e0b', 
-                        background: 'linear-gradient(135deg, #fffbeb, #fef3c7)', color: '#b45309', 
+                      style={{ flex: 1, padding: '6px 10px', borderRadius: '8px', border: 'none',
+                        background: '#7c3aed', color: 'white', 
                         fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
-                    >🧠 {t('route.helpMePlan')}</button>
+                    >{t('route.calcRoute')}</button>
                     )}
                   </div>
                   {/* Row 2: Close */}
