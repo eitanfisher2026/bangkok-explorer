@@ -841,11 +841,10 @@
                     )}
                   </div>
 
-                  {/* Category, Weight, Min & Max Stops for route planning */}
-                  <div className="mt-1 space-y-1.5">
-                    {/* Row 1: Category */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-purple-800">🏷️</span>
+                  {/* Route planning config */}
+                  <div className="mt-1 space-y-1">
+                    {/* Row 1: Category + Best Time */}
+                    <div className="flex items-center gap-1.5">
                       <select
                         value={newInterest.category || 'attraction'}
                         onChange={(e) => {
@@ -870,13 +869,35 @@
                         <option value="shopping">{t('interests.catShopping')}</option>
                         <option value="nature">{t('interests.catNature')}</option>
                       </select>
+                      <select
+                        value={newInterest.bestTime || 'anytime'}
+                        onChange={(e) => setNewInterest({...newInterest, bestTime: e.target.value})}
+                        className="p-1 text-xs border rounded flex-1"
+                      >
+                        <option value="anytime">{t('interests.timeAnytime')}</option>
+                        <option value="day">{t('interests.timeDay')}</option>
+                        <option value="night">{t('interests.timeNight')}</option>
+                      </select>
+                      <select
+                        value={newInterest.routeSlot || 'any'}
+                        onChange={(e) => setNewInterest({...newInterest, routeSlot: e.target.value})}
+                        className="p-1 text-xs border rounded flex-1"
+                      >
+                        <option value="any">{t('interests.slotAny')}</option>
+                        <option value="bookend">{t('interests.slotBookend')}</option>
+                        <option value="early">{t('interests.slotEarly')}</option>
+                        <option value="middle">{t('interests.slotMiddle')}</option>
+                        <option value="late">{t('interests.slotLate')}</option>
+                        <option value="end">{t('interests.slotEnd')}</option>
+                      </select>
                     </div>
-                    {/* Row 2: Weight + Min + Max with stepper buttons */}
-                    <div className="flex items-center gap-1" style={{ width: '100%' }}>
+                    {/* Row 2: Weight + Min + Max + Gap steppers */}
+                    <div className="flex items-center gap-0.5" style={{ width: '100%' }}>
                       {[
                         { label: t('interests.weight'), key: 'weight', val: newInterest.weight || 2, min: 1, max: 5 },
                         { label: t('interests.minStops'), key: 'minStops', val: newInterest.minStops != null ? newInterest.minStops : 1, min: 0, max: 10 },
-                        { label: t('interests.maxStopsLabel'), key: 'maxStops', val: newInterest.maxStops || 10, min: 1, max: 15 }
+                        { label: t('interests.maxStopsLabel'), key: 'maxStops', val: newInterest.maxStops || 10, min: 1, max: 15 },
+                        { label: t('interests.minGap'), key: 'minGap', val: newInterest.minGap || 1, min: 1, max: 5 }
                       ].map(item => (
                         <div key={item.key} className="flex items-center gap-0.5" style={{ flex: 1, minWidth: 0, justifyContent: 'center' }}>
                           <span className="text-[9px] text-gray-500 truncate">{item.label}:</span>
@@ -889,47 +910,6 @@
                           >+</button>
                         </div>
                       ))}
-                    </div>
-                    {/* Row 3: Route slot + minGap + bestTime */}
-                    <div className="flex items-center gap-1" style={{ width: '100%' }}>
-                      <div className="flex items-center gap-0.5" style={{ flex: 1.2, minWidth: 0 }}>
-                        <span className="text-[9px] text-gray-500 truncate">{t('interests.routeSlot')}:</span>
-                        <select
-                          value={newInterest.routeSlot || 'any'}
-                          onChange={(e) => setNewInterest({...newInterest, routeSlot: e.target.value})}
-                          className="p-0.5 text-[10px] border rounded flex-1" style={{ minWidth: 0 }}
-                        >
-                          <option value="any">{t('interests.slotAny')}</option>
-                          <option value="bookend">{t('interests.slotBookend')}</option>
-                          <option value="early">{t('interests.slotEarly')}</option>
-                          <option value="middle">{t('interests.slotMiddle')}</option>
-                          <option value="late">{t('interests.slotLate')}</option>
-                          <option value="end">{t('interests.slotEnd')}</option>
-                        </select>
-                      </div>
-                      <div className="flex items-center gap-0.5" style={{ flex: 0.7, minWidth: 0, justifyContent: 'center' }}>
-                        <span className="text-[9px] text-gray-500 truncate">{t('interests.minGap')}:</span>
-                        <button type="button" onClick={() => setNewInterest({...newInterest, minGap: Math.max(1, (newInterest.minGap || 1) - 1)})}
-                          className="w-5 h-5 rounded bg-gray-200 text-gray-700 text-xs font-bold flex items-center justify-center active:bg-gray-300 flex-shrink-0"
-                        >−</button>
-                        <span className="w-5 text-center text-xs font-bold flex-shrink-0">{newInterest.minGap || 1}</span>
-                        <button type="button" onClick={() => setNewInterest({...newInterest, minGap: Math.min(5, (newInterest.minGap || 1) + 1)})}
-                          className="w-5 h-5 rounded bg-gray-200 text-gray-700 text-xs font-bold flex items-center justify-center active:bg-gray-300 flex-shrink-0"
-                        >+</button>
-                      </div>
-                      <div className="flex items-center gap-0.5" style={{ flex: 1, minWidth: 0 }}>
-                        <span className="text-[9px] text-gray-500 truncate">{t('interests.bestTime')}:</span>
-                        <select
-                          value={newInterest.bestTime || 'anytime'}
-                          onChange={(e) => setNewInterest({...newInterest, bestTime: e.target.value})}
-                          className="p-0.5 text-[10px] border rounded flex-1" style={{ minWidth: 0 }}
-                        >
-                          <option value="anytime">{t('interests.timeAnytime')}</option>
-                          <option value="day">{t('interests.timeDay')}</option>
-                          <option value="evening">{t('interests.timeEvening')}</option>
-                          <option value="night">{t('interests.timeNight')}</option>
-                        </select>
-                      </div>
                     </div>
                   </div>
                 </div>

@@ -1812,42 +1812,7 @@
                     );
                   })()}
 
-                  {/* Time-of-day toggle */}
-                  {route?.optimized && (
-                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: '6px' }}>
-                      <div style={{ display: 'inline-flex', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden', fontSize: '11px' }}>
-                        {[
-                          { id: 'auto', label: t('route.timeAuto') },
-                          { id: 'day', label: t('route.timeDay') },
-                          { id: 'afternoon', label: t('route.timeAfternoon') },
-                          { id: 'night', label: t('route.timeNight') },
-                        ].map(opt => {
-                          const isActive = routeTimeMode === opt.id;
-                          return (
-                            <button
-                              key={opt.id}
-                              onClick={() => {
-                                setRouteTimeMode(opt.id);
-                                if (route?.optimized) {
-                                  setRoute(prev => prev ? {...prev, optimized: false} : prev);
-                                }
-                              }}
-                              style={{
-                                padding: '4px 10px', border: 'none', cursor: 'pointer',
-                                background: isActive ? '#3b82f6' : 'white',
-                                color: isActive ? 'white' : '#6b7280',
-                                fontWeight: isActive ? 'bold' : 'normal',
-                                borderRight: '1px solid #e5e7eb',
-                                fontSize: '10px', whiteSpace: 'nowrap'
-                              }}
-                            >
-                              {opt.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+                  {/* Time-of-day: auto-detected, no UI toggle needed */}
 
                   {/* Hint text */}
                   {route?.optimized && (

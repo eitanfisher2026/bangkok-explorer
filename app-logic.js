@@ -128,16 +128,12 @@
     return saved || 'circular';
   }); // 'circular' or 'linear'
   
-  // Time-of-day mode for content-aware routing
+  // Time-of-day mode for content-aware routing (day = 06:00-17:00, night = 17:00-06:00)
   const getAutoTimeMode = () => {
     const h = new Date().getHours();
-    if (h >= 6 && h < 14) return 'day';
-    if (h >= 14 && h < 17) return 'afternoon';
-    return 'night';
+    return (h >= 6 && h < 17) ? 'day' : 'night';
   };
-  const [routeTimeMode, setRouteTimeMode] = useState('auto'); // 'auto' | 'day' | 'afternoon' | 'night'
-  const routeTimeModeRef = React.useRef(routeTimeMode);
-  React.useEffect(() => { routeTimeModeRef.current = routeTimeMode; }, [routeTimeMode]);
+  const routeTimeModeRef = React.useRef('auto');
   const getEffectiveTimeMode = () => routeTimeModeRef.current === 'auto' ? getAutoTimeMode() : routeTimeModeRef.current;
   
   const [savedRoutes, setSavedRoutes] = useState([]);
@@ -2677,7 +2673,38 @@
       }
     }
     
-    // Sort each bucket: custom/pinned first, then by rating
+    // Sort each bucket: custom/pinned first, then by time match, then by rating
+    const timeMode = getEffectiveTimeMode(); // 'day' or 'night'
+    
+    // Get a stop's preferred time from its interest config
+    const getStopBestTime = (stop) => {
+      if (stop.bestTime) return stop.bestTime;
+      const stopInterests = stop.interests || [];
+      for (const id of stopInterests) {
+        // Check interestConfig (user-defined)
+        const iCfg = interestConfig[id];
+        if (iCfg?.bestTime && iCfg.bestTime !== 'anytime') return iCfg.bestTime;
+      }
+      // Check slotConfig defaults
+      const defaultTimes = {
+        temples: 'day', galleries: 'day', architecture: 'day', parks: 'day',
+        beaches: 'day', graffiti: 'day', artisans: 'day', canals: 'day',
+        culture: 'day', history: 'day', markets: 'day', shopping: 'day',
+        nightlife: 'night', bars: 'night', rooftop: 'night', entertainment: 'night'
+      };
+      for (const id of stopInterests) {
+        if (defaultTimes[id]) return defaultTimes[id];
+      }
+      return 'anytime';
+    };
+    
+    // Time score: matching=2, anytime=1, conflicting=0
+    const timeScore = (stop) => {
+      const bt = getStopBestTime(stop);
+      if (bt === 'anytime') return 1;
+      return bt === timeMode ? 2 : 0;
+    };
+    
     const stopScore = (s) => (s.rating || 0) * Math.log10((s.ratingCount || 0) + 1);
     for (const id of selectedInterests) {
       buckets[id].sort((a, b) => {
@@ -2685,9 +2712,16 @@
         const aCustom = a.source === 'custom' || a.custom ? 1 : 0;
         const bCustom = b.source === 'custom' || b.custom ? 1 : 0;
         if (aCustom !== bCustom) return bCustom - aCustom;
+        // Time match: prefer stops matching current time of day
+        const aTime = timeScore(a);
+        const bTime = timeScore(b);
+        if (aTime !== bTime) return bTime - aTime;
+        // Rating
         return stopScore(b) - stopScore(a);
       });
     }
+    
+    console.log(`[SMART] Time mode: ${timeMode}, sorting buckets by time preference`);
     
     // Pick top N from each bucket
     const selected = [];
@@ -2701,9 +2735,14 @@
     }
     disabled.push(...unmatched);
     
-    // If we have room, fill from best disabled stops
+    // If we have room, fill from best disabled stops (prefer time-matching)
     if (selected.length < maxTotal && disabled.length > 0) {
-      disabled.sort((a, b) => stopScore(b) - stopScore(a));
+      disabled.sort((a, b) => {
+        const aTime = timeScore(a);
+        const bTime = timeScore(b);
+        if (aTime !== bTime) return bTime - aTime;
+        return stopScore(b) - stopScore(a);
+      });
       const extra = disabled.splice(0, maxTotal - selected.length);
       selected.push(...extra);
     }
@@ -2893,9 +2932,9 @@
         culture:       { slot: 'any',     minGap: 1, time: 'day' },
         history:       { slot: 'any',     minGap: 1, time: 'day' },
         nightlife:     { slot: 'end',     minGap: 2, time: 'night' },
-        rooftop:       { slot: 'end',     minGap: 2, time: 'evening' },
+        rooftop:       { slot: 'end',     minGap: 2, time: 'night' },
         bars:          { slot: 'end',     minGap: 2, time: 'night' },
-        entertainment: { slot: 'late',    minGap: 2, time: 'evening' },
+        entertainment: { slot: 'late',    minGap: 2, time: 'night' },
       };
       
       // Merge with interestConfig (user-defined values override defaults)
@@ -2912,18 +2951,13 @@
         });
       }
       
-      // Time-of-day compatibility scoring
+      // Time-of-day compatibility scoring (simplified: day vs night)
       const timeMode = getEffectiveTimeMode();
       const timeCompat = (stopTime) => {
-        if (!stopTime || stopTime === 'anytime') return 0; // Always compatible
-        // How well does a stop's preferred time match the route's time mode?
-        const compat = {
-          day:       { day: 0, afternoon: 0.5, evening: 2, night: 3 },
-          afternoon: { day: 0.3, afternoon: 0, evening: 0.3, night: 1.5 },
-          evening:   { day: 2, afternoon: 0.3, evening: 0, night: 0.3 },
-          night:     { day: 3, afternoon: 1.5, evening: 0.3, night: 0 },
-        };
-        return (compat[timeMode] || {})[stopTime] || 0;
+        if (!stopTime || stopTime === 'anytime') return 0;
+        // day stop in night route = penalty 3, night stop in day route = penalty 3
+        if (stopTime === timeMode) return 0;
+        return 3;
       };
       
       const n = ordered.length;

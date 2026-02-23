@@ -159,13 +159,9 @@ const FouFouApp = () => {
   
   const getAutoTimeMode = () => {
     const h = new Date().getHours();
-    if (h >= 6 && h < 14) return 'day';
-    if (h >= 14 && h < 17) return 'afternoon';
-    return 'night';
+    return (h >= 6 && h < 17) ? 'day' : 'night';
   };
-  const [routeTimeMode, setRouteTimeMode] = useState('auto'); // 'auto' | 'day' | 'afternoon' | 'night'
-  const routeTimeModeRef = React.useRef(routeTimeMode);
-  React.useEffect(() => { routeTimeModeRef.current = routeTimeMode; }, [routeTimeMode]);
+  const routeTimeModeRef = React.useRef('auto');
   const getEffectiveTimeMode = () => routeTimeModeRef.current === 'auto' ? getAutoTimeMode() : routeTimeModeRef.current;
   
   const [savedRoutes, setSavedRoutes] = useState([]);
@@ -2397,12 +2393,42 @@ const FouFouApp = () => {
       }
     }
     
+    const timeMode = getEffectiveTimeMode(); // 'day' or 'night'
+    
+    const getStopBestTime = (stop) => {
+      if (stop.bestTime) return stop.bestTime;
+      const stopInterests = stop.interests || [];
+      for (const id of stopInterests) {
+        const iCfg = interestConfig[id];
+        if (iCfg?.bestTime && iCfg.bestTime !== 'anytime') return iCfg.bestTime;
+      }
+      const defaultTimes = {
+        temples: 'day', galleries: 'day', architecture: 'day', parks: 'day',
+        beaches: 'day', graffiti: 'day', artisans: 'day', canals: 'day',
+        culture: 'day', history: 'day', markets: 'day', shopping: 'day',
+        nightlife: 'night', bars: 'night', rooftop: 'night', entertainment: 'night'
+      };
+      for (const id of stopInterests) {
+        if (defaultTimes[id]) return defaultTimes[id];
+      }
+      return 'anytime';
+    };
+    
+    const timeScore = (stop) => {
+      const bt = getStopBestTime(stop);
+      if (bt === 'anytime') return 1;
+      return bt === timeMode ? 2 : 0;
+    };
+    
     const stopScore = (s) => (s.rating || 0) * Math.log10((s.ratingCount || 0) + 1);
     for (const id of selectedInterests) {
       buckets[id].sort((a, b) => {
         const aCustom = a.source === 'custom' || a.custom ? 1 : 0;
         const bCustom = b.source === 'custom' || b.custom ? 1 : 0;
         if (aCustom !== bCustom) return bCustom - aCustom;
+        const aTime = timeScore(a);
+        const bTime = timeScore(b);
+        if (aTime !== bTime) return bTime - aTime;
         return stopScore(b) - stopScore(a);
       });
     }
@@ -2419,7 +2445,12 @@ const FouFouApp = () => {
     disabled.push(...unmatched);
     
     if (selected.length < maxTotal && disabled.length > 0) {
-      disabled.sort((a, b) => stopScore(b) - stopScore(a));
+      disabled.sort((a, b) => {
+        const aTime = timeScore(a);
+        const bTime = timeScore(b);
+        if (aTime !== bTime) return bTime - aTime;
+        return stopScore(b) - stopScore(a);
+      });
       const extra = disabled.splice(0, maxTotal - selected.length);
       selected.push(...extra);
     }
@@ -2578,9 +2609,9 @@ const FouFouApp = () => {
         culture:       { slot: 'any',     minGap: 1, time: 'day' },
         history:       { slot: 'any',     minGap: 1, time: 'day' },
         nightlife:     { slot: 'end',     minGap: 2, time: 'night' },
-        rooftop:       { slot: 'end',     minGap: 2, time: 'evening' },
+        rooftop:       { slot: 'end',     minGap: 2, time: 'night' },
         bars:          { slot: 'end',     minGap: 2, time: 'night' },
-        entertainment: { slot: 'late',    minGap: 2, time: 'evening' },
+        entertainment: { slot: 'late',    minGap: 2, time: 'night' },
       };
       
       const slotConfig = {};
@@ -2598,14 +2629,9 @@ const FouFouApp = () => {
       
       const timeMode = getEffectiveTimeMode();
       const timeCompat = (stopTime) => {
-        if (!stopTime || stopTime === 'anytime') return 0; // Always compatible
-        const compat = {
-          day:       { day: 0, afternoon: 0.5, evening: 2, night: 3 },
-          afternoon: { day: 0.3, afternoon: 0, evening: 0.3, night: 1.5 },
-          evening:   { day: 2, afternoon: 0.3, evening: 0, night: 0.3 },
-          night:     { day: 3, afternoon: 1.5, evening: 0.3, night: 0 },
-        };
-        return (compat[timeMode] || {})[stopTime] || 0;
+        if (!stopTime || stopTime === 'anytime') return 0;
+        if (stopTime === timeMode) return 0;
+        return 3;
       };
       
       const n = ordered.length;
@@ -6618,42 +6644,7 @@ const FouFouApp = () => {
                     );
                   })()}
 
-                  {/* Time-of-day toggle */}
-                  {route?.optimized && (
-                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: '6px' }}>
-                      <div style={{ display: 'inline-flex', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden', fontSize: '11px' }}>
-                        {[
-                          { id: 'auto', label: t('route.timeAuto') },
-                          { id: 'day', label: t('route.timeDay') },
-                          { id: 'afternoon', label: t('route.timeAfternoon') },
-                          { id: 'night', label: t('route.timeNight') },
-                        ].map(opt => {
-                          const isActive = routeTimeMode === opt.id;
-                          return (
-                            <button
-                              key={opt.id}
-                              onClick={() => {
-                                setRouteTimeMode(opt.id);
-                                if (route?.optimized) {
-                                  setRoute(prev => prev ? {...prev, optimized: false} : prev);
-                                }
-                              }}
-                              style={{
-                                padding: '4px 10px', border: 'none', cursor: 'pointer',
-                                background: isActive ? '#3b82f6' : 'white',
-                                color: isActive ? 'white' : '#6b7280',
-                                fontWeight: isActive ? 'bold' : 'normal',
-                                borderRight: '1px solid #e5e7eb',
-                                fontSize: '10px', whiteSpace: 'nowrap'
-                              }}
-                            >
-                              {opt.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+                  {/* Time-of-day: auto-detected, no UI toggle needed */}
 
                   {/* Hint text */}
                   {route?.optimized && (
@@ -9284,11 +9275,10 @@ const FouFouApp = () => {
                     )}
                   </div>
 
-                  {/* Category, Weight, Min & Max Stops for route planning */}
-                  <div className="mt-1 space-y-1.5">
-                    {/* Row 1: Category */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-purple-800">🏷️</span>
+                  {/* Route planning config */}
+                  <div className="mt-1 space-y-1">
+                    {/* Row 1: Category + Best Time */}
+                    <div className="flex items-center gap-1.5">
                       <select
                         value={newInterest.category || 'attraction'}
                         onChange={(e) => {
@@ -9313,13 +9303,35 @@ const FouFouApp = () => {
                         <option value="shopping">{t('interests.catShopping')}</option>
                         <option value="nature">{t('interests.catNature')}</option>
                       </select>
+                      <select
+                        value={newInterest.bestTime || 'anytime'}
+                        onChange={(e) => setNewInterest({...newInterest, bestTime: e.target.value})}
+                        className="p-1 text-xs border rounded flex-1"
+                      >
+                        <option value="anytime">{t('interests.timeAnytime')}</option>
+                        <option value="day">{t('interests.timeDay')}</option>
+                        <option value="night">{t('interests.timeNight')}</option>
+                      </select>
+                      <select
+                        value={newInterest.routeSlot || 'any'}
+                        onChange={(e) => setNewInterest({...newInterest, routeSlot: e.target.value})}
+                        className="p-1 text-xs border rounded flex-1"
+                      >
+                        <option value="any">{t('interests.slotAny')}</option>
+                        <option value="bookend">{t('interests.slotBookend')}</option>
+                        <option value="early">{t('interests.slotEarly')}</option>
+                        <option value="middle">{t('interests.slotMiddle')}</option>
+                        <option value="late">{t('interests.slotLate')}</option>
+                        <option value="end">{t('interests.slotEnd')}</option>
+                      </select>
                     </div>
-                    {/* Row 2: Weight + Min + Max with stepper buttons */}
-                    <div className="flex items-center gap-1" style={{ width: '100%' }}>
+                    {/* Row 2: Weight + Min + Max + Gap steppers */}
+                    <div className="flex items-center gap-0.5" style={{ width: '100%' }}>
                       {[
                         { label: t('interests.weight'), key: 'weight', val: newInterest.weight || 2, min: 1, max: 5 },
                         { label: t('interests.minStops'), key: 'minStops', val: newInterest.minStops != null ? newInterest.minStops : 1, min: 0, max: 10 },
-                        { label: t('interests.maxStopsLabel'), key: 'maxStops', val: newInterest.maxStops || 10, min: 1, max: 15 }
+                        { label: t('interests.maxStopsLabel'), key: 'maxStops', val: newInterest.maxStops || 10, min: 1, max: 15 },
+                        { label: t('interests.minGap'), key: 'minGap', val: newInterest.minGap || 1, min: 1, max: 5 }
                       ].map(item => (
                         <div key={item.key} className="flex items-center gap-0.5" style={{ flex: 1, minWidth: 0, justifyContent: 'center' }}>
                           <span className="text-[9px] text-gray-500 truncate">{item.label}:</span>
@@ -9332,47 +9344,6 @@ const FouFouApp = () => {
                           >+</button>
                         </div>
                       ))}
-                    </div>
-                    {/* Row 3: Route slot + minGap + bestTime */}
-                    <div className="flex items-center gap-1" style={{ width: '100%' }}>
-                      <div className="flex items-center gap-0.5" style={{ flex: 1.2, minWidth: 0 }}>
-                        <span className="text-[9px] text-gray-500 truncate">{t('interests.routeSlot')}:</span>
-                        <select
-                          value={newInterest.routeSlot || 'any'}
-                          onChange={(e) => setNewInterest({...newInterest, routeSlot: e.target.value})}
-                          className="p-0.5 text-[10px] border rounded flex-1" style={{ minWidth: 0 }}
-                        >
-                          <option value="any">{t('interests.slotAny')}</option>
-                          <option value="bookend">{t('interests.slotBookend')}</option>
-                          <option value="early">{t('interests.slotEarly')}</option>
-                          <option value="middle">{t('interests.slotMiddle')}</option>
-                          <option value="late">{t('interests.slotLate')}</option>
-                          <option value="end">{t('interests.slotEnd')}</option>
-                        </select>
-                      </div>
-                      <div className="flex items-center gap-0.5" style={{ flex: 0.7, minWidth: 0, justifyContent: 'center' }}>
-                        <span className="text-[9px] text-gray-500 truncate">{t('interests.minGap')}:</span>
-                        <button type="button" onClick={() => setNewInterest({...newInterest, minGap: Math.max(1, (newInterest.minGap || 1) - 1)})}
-                          className="w-5 h-5 rounded bg-gray-200 text-gray-700 text-xs font-bold flex items-center justify-center active:bg-gray-300 flex-shrink-0"
-                        >−</button>
-                        <span className="w-5 text-center text-xs font-bold flex-shrink-0">{newInterest.minGap || 1}</span>
-                        <button type="button" onClick={() => setNewInterest({...newInterest, minGap: Math.min(5, (newInterest.minGap || 1) + 1)})}
-                          className="w-5 h-5 rounded bg-gray-200 text-gray-700 text-xs font-bold flex items-center justify-center active:bg-gray-300 flex-shrink-0"
-                        >+</button>
-                      </div>
-                      <div className="flex items-center gap-0.5" style={{ flex: 1, minWidth: 0 }}>
-                        <span className="text-[9px] text-gray-500 truncate">{t('interests.bestTime')}:</span>
-                        <select
-                          value={newInterest.bestTime || 'anytime'}
-                          onChange={(e) => setNewInterest({...newInterest, bestTime: e.target.value})}
-                          className="p-0.5 text-[10px] border rounded flex-1" style={{ minWidth: 0 }}
-                        >
-                          <option value="anytime">{t('interests.timeAnytime')}</option>
-                          <option value="day">{t('interests.timeDay')}</option>
-                          <option value="evening">{t('interests.timeEvening')}</option>
-                          <option value="night">{t('interests.timeNight')}</option>
-                        </select>
-                      </div>
                     </div>
                   </div>
                 </div>

@@ -479,8 +479,7 @@ window.BKK.buildGoogleMapsUrls = (stops, origin, isCircular, maxPoints) => {
   };
   
   const buildUrl = (points) => {
-    const encoded = points.map(p => encodeURIComponent(p)).join('/');
-    return `https://www.google.com/maps/dir/${encoded}/${walkingData}`;
+    return `https://www.google.com/maps/dir/${points.join('/')}/${walkingData}`;
   };
   
   // Check if fits in one URL (max ~10 waypoints in path format)
