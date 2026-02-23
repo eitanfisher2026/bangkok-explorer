@@ -345,12 +345,9 @@
               // Auto-recompute route with new start point
               const result = recomputeForMap(newStart);
               if (result) {
-                // Refresh map markers with new order
-                setTimeout(() => {
-                  const activeForMap = result.optimized.filter(s => s.lat && s.lng);
-                  setMapStops(activeForMap);
-                }, 100);
+                stopsOrderRef.current = result.optimized;
               }
+              setTimeout(() => { if (window._mapRedrawLine) window._mapRedrawLine(); }, 150);
               return;
             }
             const nameKey = data.toLowerCase().trim();
@@ -377,6 +374,7 @@
           
           const markers = [];
           const isRTL = window.BKK.i18n.isRTL();
+          const stopsOrderRef = { current: stops }; // Mutable ref for current stop order
           
           // Initial start point marker
           if (startPointCoords?.lat && startPointCoords?.lng) {
@@ -437,12 +435,17 @@
             if (routeLine) map.removeLayer(routeLine);
             routeLine = null;
             const curDisabled = disabledStopsRef.current || [];
-            const activeStops = stops.filter(s => !curDisabled.includes((s.name || '').toLowerCase().trim()));
+            const curStops = stopsOrderRef.current || [];
+            const activeStops = curStops.filter(s => !curDisabled.includes((s.name || '').toLowerCase().trim()));
             if (activeStops.length > 1) {
               const pts = [];
               const sp = startPointCoordsRef_local.current;
               if (sp?.lat) pts.push([sp.lat, sp.lng]);
               pts.push(...activeStops.map(s => [s.lat, s.lng]));
+              // For circular routes, close the loop back to start
+              if (routeTypeRef.current === 'circular' && sp?.lat) {
+                pts.push([sp.lat, sp.lng]);
+              }
               routeLine = L.polyline(pts, { color: '#6366f1', weight: 2.5, opacity: 0.6, dashArray: '6,8' }).addTo(map);
             }
           };
@@ -462,27 +465,29 @@
               let myLocMarker = null;
               div.onclick = function(e) {
                 e.stopPropagation();
-                if (navigator.geolocation) {
-                  div.firstChild.innerHTML = '⏳';
-                  navigator.geolocation.getCurrentPosition(
-                    function(pos) {
-                      div.firstChild.innerHTML = '📍';
-                      if (myLocMarker) map.removeLayer(myLocMarker);
-                      const lat = pos.coords.latitude, lng = pos.coords.longitude;
-                      myLocMarker = L.circleMarker([lat, lng], {
-                        radius: 8, color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.4, weight: 3
-                      }).addTo(map);
-                      myLocMarker.bindPopup(
-                        '<div style="text-align:center;font-size:12px;padding:4px 0;">' +
-                        '<div style="font-weight:bold;margin-bottom:6px;">📍 ' + t('wizard.myLocation') + '</div>' +
-                        '<button onclick="window._mapStopAction(\'setstart\',\'' + t('wizard.myLocation').replace(/'/g, "\\'") + '\',' + lat + ',' + lng + ')" style="width:100%;padding:5px 8px;border-radius:8px;background:#22c55e;color:white;border:none;font-size:11px;font-weight:bold;cursor:pointer;">▶ ' + t('form.setStartPoint') + '</button>' +
-                        '</div>'
-                      ).openPopup();
-                      map.setView([lat, lng], map.getZoom());
-                    },
-                    function() { div.firstChild.innerHTML = '📍'; showToast(t('toast.locationInaccessible'), 'warning'); }
-                  );
-                }
+                div.firstChild.innerHTML = '⏳';
+                window.BKK.getValidatedGps(
+                  function(pos) {
+                    div.firstChild.innerHTML = '📍';
+                    if (myLocMarker) map.removeLayer(myLocMarker);
+                    const lat = pos.coords.latitude, lng = pos.coords.longitude;
+                    myLocMarker = L.circleMarker([lat, lng], {
+                      radius: 8, color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.4, weight: 3
+                    }).addTo(map);
+                    myLocMarker.bindPopup(
+                      '<div style="text-align:center;font-size:12px;padding:4px 0;">' +
+                      '<div style="font-weight:bold;margin-bottom:6px;">📍 ' + t('wizard.myLocation') + '</div>' +
+                      '<button onclick="window._mapStopAction(\'setstart\',\'' + t('wizard.myLocation').replace(/'/g, "\\'") + '\',' + lat + ',' + lng + ')" style="width:100%;padding:5px 8px;border-radius:8px;background:#22c55e;color:white;border:none;font-size:11px;font-weight:bold;cursor:pointer;">▶ ' + t('form.setStartPoint') + '</button>' +
+                      '</div>'
+                    ).openPopup();
+                    map.setView([lat, lng], map.getZoom());
+                  },
+                  function(reason) {
+                    div.firstChild.innerHTML = '📍';
+                    if (reason === 'outside_city') showToast(t('toast.outsideCity'), 'warning', 'sticky');
+                    else showToast(reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'warning', 'sticky');
+                  }
+                );
               };
               L.DomEvent.disableClickPropagation(div);
               return div;
@@ -492,6 +497,7 @@
           
           // Store redraw for disable/enable callbacks
           window._mapRedrawLine = redrawRouteLine;
+          window._mapStopsOrderRef = stopsOrderRef;
           
           leafletMapRef.current = map;
         }
@@ -501,7 +507,7 @@
     }, 150);
     }); // end loadLeaflet().then
     
-    return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; delete window._mapRedrawLine; };
+    return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; delete window._mapRedrawLine; delete window._mapStopsOrderRef; };
   }, [showMapModal, mapMode, mapStops, formData.currentLat, formData.currentLng, formData.radiusMeters]);
   const [modalImage, setModalImage] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
@@ -594,6 +600,12 @@
   const [adminUsers, setAdminUsers] = useState([]);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  
+  // Refs for current values (needed by map closures to avoid stale state)
+  const routeTypeRef = React.useRef(routeType);
+  React.useEffect(() => { routeTypeRef.current = routeType; }, [routeType]);
+  const startPointCoordsRef = React.useRef(startPointCoords);
+  React.useEffect(() => { startPointCoordsRef.current = startPointCoords; }, [startPointCoords]);
   const [showVersionPasswordDialog, setShowVersionPasswordDialog] = useState(false);
   const [showAddCityDialog, setShowAddCityDialog] = useState(false);
   const [addCityInput, setAddCityInput] = useState('');
@@ -650,45 +662,47 @@
 
   // Get current GPS location and reverse geocode to address
   const getMyLocation = () => {
-    if (!navigator.geolocation) {
-      showToast(t('toast.browserNoLocation'), 'error');
-      return;
-    }
-    
     setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
+    window.BKK.getValidatedGps(
       async (position) => {
         const { latitude: lat, longitude: lng } = position.coords;
         console.log('[GPS] Got location:', lat, lng);
         
-        // Try to get address via reverse geocode
         try {
           const address = await window.BKK.reverseGeocode(lat, lng);
           const displayAddress = address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
           setStartPointCoords({ lat, lng, address: displayAddress });
+          startPointCoordsRef.current = { lat, lng, address: displayAddress };
           setFormData(prev => ({ ...prev, startPoint: displayAddress }));
           showToast(address ? t('form.locationDetectedFull') : t('form.locationDetectedNoAddr'), 'success');
         } catch (err) {
           const fallback = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
           setStartPointCoords({ lat, lng, address: fallback });
+          startPointCoordsRef.current = { lat, lng, address: fallback };
           setFormData(prev => ({ ...prev, startPoint: fallback }));
           showToast(t('form.locationDetected'), 'success');
         }
-        
         setIsLocating(false);
       },
-      (error) => {
+      (reason) => {
         setIsLocating(false);
-        console.error('[GPS] Error:', error);
-        if (error.code === 1) {
-          showToast(t('toast.locationNoPermission'), 'error');
-        } else if (error.code === 2) {
-          showToast(t('toast.locationUnavailable'), 'error');
+        if (reason === 'outside_city') {
+          showToast(t('toast.outsideCity'), 'warning', 'sticky');
+        } else if (reason === 'denied') {
+          showToast(t('toast.locationNoPermission'), 'error', 'sticky');
         } else {
-          showToast(t('toast.locationError'), 'error');
+          showToast(t('toast.noGpsSignal'), 'error', 'sticky');
         }
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+        // Fall back to stop A as start point
+        if (route && route.stops && route.stops.length > 0) {
+          const firstStop = route.stops.find(s => s.lat && s.lng);
+          if (firstStop) {
+            setStartPointCoords({ lat: firstStop.lat, lng: firstStop.lng, address: firstStop.name });
+            startPointCoordsRef.current = { lat: firstStop.lat, lng: firstStop.lng, address: firstStop.name };
+            setFormData(prev => ({ ...prev, startPoint: firstStop.name }));
+          }
+        }
+      }
     );
   };
 
@@ -721,17 +735,12 @@
 
   // Detect which area the user is currently in based on GPS
   const detectArea = () => {
-    if (!navigator.geolocation) {
-      showToast(t('toast.browserNoLocation'), 'error');
-      return;
-    }
     setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
+    window.BKK.getValidatedGps(
       (position) => {
         const { latitude: lat, longitude: lng } = position.coords;
         const coords = window.BKK.areaCoordinates;
         
-        // Calculate distance to each area center
         let closest = null;
         let closestDist = Infinity;
         
@@ -755,15 +764,12 @@
         }
         setIsLocating(false);
       },
-      (error) => {
+      (reason) => {
         setIsLocating(false);
-        if (error.code === 1) {
-          showToast(t('toast.locationNoPermission'), 'error');
-        } else {
-          showToast(t('toast.locationUnavailable'), 'error');
-        }
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+        if (reason === 'outside_city') showToast(t('toast.outsideCity'), 'warning', 'sticky');
+        else if (reason === 'denied') showToast(t('toast.locationNoPermission'), 'error', 'sticky');
+        else showToast(t('toast.noGpsSignal'), 'error', 'sticky');
+      }
     );
   };
   // Monitor Firebase connection state
@@ -3381,7 +3387,8 @@
     const allStops = route.stops.filter(s => s.lat && s.lng);
     if (allStops.length < 2) return null;
     
-    const type = overrideType !== undefined ? overrideType : routeType;
+    // Use refs to always get current values (avoids stale closures in map callbacks)
+    const type = overrideType !== undefined ? overrideType : routeTypeRef.current;
     const isCircular = type === 'circular';
     
     const { selected, disabled } = smartSelectStops(allStops, formData.interests);
@@ -3389,15 +3396,22 @@
     setDisabledStops(newDisabled);
     if (selected.length < 2) return null;
     
-    let autoStart = overrideStart || startPointCoords;
+    let autoStart = overrideStart || startPointCoordsRef.current;
     if (!autoStart) {
+      // Radius mode + valid GPS → start from my location
       if (formData.searchMode === 'radius' && formData.currentLat && formData.currentLng) {
-        autoStart = { lat: formData.currentLat, lng: formData.currentLng, address: t('wizard.myLocation') };
-      } else {
+        const check = window.BKK.isGpsWithinCity(formData.currentLat, formData.currentLng);
+        if (check.withinCity) {
+          autoStart = { lat: formData.currentLat, lng: formData.currentLng, address: t('wizard.myLocation') };
+        }
+      }
+      // Area mode or GPS unavailable/outside city → first stop
+      if (!autoStart) {
         autoStart = { lat: selected[0].lat, lng: selected[0].lng, address: selected[0].name };
       }
     }
     setStartPointCoords(autoStart);
+    startPointCoordsRef.current = autoStart; // Update ref immediately
     setFormData(prev => ({...prev, startPoint: autoStart.address || `${autoStart.lat},${autoStart.lng}`}));
     
     const optimized = optimizeStopOrder(selected, autoStart, isCircular);
@@ -4970,23 +4984,16 @@
 
   // Get current location from GPS
   const getCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      showToast(t('toast.browserNoGps'), 'error');
-      return;
-    }
-    
     showToast(t('form.searchingLocation'), 'info');
     
-    navigator.geolocation.getCurrentPosition(
+    window.BKK.getValidatedGps(
       async (position) => {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
         
-        // Auto-detect areas from coordinates
         const detected = window.BKK.getAreasForCoordinates(lat, lng);
         const areaUpdates = detected.length > 0 ? { areas: detected, area: detected[0] } : {};
         
-        // First update with coordinates + areas
         setNewLocation(prev => ({
           ...prev,
           lat: lat,
@@ -4997,40 +5004,18 @@
         
         showToast(`${t("toast.locationDetectedCoords")} ${lat.toFixed(5)}, ${lng.toFixed(5)}${detected.length > 0 ? ` (${detected.length} ${t("toast.detectedAreas")})` : ''}`, 'success');
         
-        // Then try to get address (reverse geocode)
         try {
           const address = await reverseGeocode(lat, lng);
           if (address) {
-            setNewLocation(prev => ({
-              ...prev,
-              address: address
-            }));
+            setNewLocation(prev => ({ ...prev, address: address }));
           }
         } catch (err) {
           console.log('[GPS] Reverse geocode failed (ok):', err);
         }
       },
-      (error) => {
-        let errorMessage = t('toast.locationFailed');
-        
-        switch(error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage = t('toast.locationNoPermissionBrowser');
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = t('toast.locationNotAvailable');
-            break;
-          case error.TIMEOUT:
-            errorMessage = t('toast.locationTimeout');
-            break;
-        }
-        
-        showToast(`${errorMessage}`, 'error');
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
+      (reason) => {
+        if (reason === 'outside_city') showToast(t('toast.outsideCity'), 'warning', 'sticky');
+        else showToast(reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'error', 'sticky');
       }
     );
   };

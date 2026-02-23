@@ -676,6 +676,8 @@ toast: {
   locationNoPermissionBrowser: 'נדרשת הרשאה למיקום. אנא אפשר גישה במיקום בהגדרות הדפדפן.',
   locationUnavailable: 'לא ניתן לאתר מיקום',
   locationInaccessible: 'לא ניתן לגשת למיקום',
+  outsideCity: 'המיקום שלך מחוץ לגבולות העיר',
+  noGpsSignal: 'אין קליטת GPS',
   browserNoLocation: 'הדפדפן לא תומך במיקום',
   browserNoGps: 'הדפדפן שלך לא תומך במיקום GPS',
   noImportItems: 'לא נמצאו פריטים לייבוא',
@@ -1419,6 +1421,8 @@ toast: {
   locationNoPermissionBrowser: 'Location permission required. Please enable location access in browser settings.',
   locationUnavailable: 'Unable to detect location',
   locationInaccessible: 'Cannot access location',
+  outsideCity: 'Your location is outside the city boundaries',
+  noGpsSignal: 'No GPS signal',
   browserNoLocation: 'Browser does not support location',
   browserNoGps: 'Your browser does not support GPS location',
   noImportItems: 'No items found to import',
@@ -2940,6 +2944,7 @@ window.BKK.selectCity = function(cityId) {
 
   window.BKK.selectedCity = city;
   window.BKK.selectedCityId = cityId;
+  window.BKK.activeCityData = city; // For GPS city-bounds validation
 
   window.BKK.areaOptions = city.areas.map(function(a) {
     return { id: a.id, label: a.label, labelEn: a.labelEn, desc: a.desc, descEn: a.descEn };
@@ -3047,6 +3052,50 @@ window.BKK.checkLocationInArea = (lat, lng, areaId) => {
     distance: Math.round(distance),
     distanceKm: (distance / 1000).toFixed(1)
   };
+};
+
+/**
+ * Check if GPS coordinates are within the active city boundaries.
+ * Uses city center + allCityRadius (with 50% padding for edge cases).
+ * @returns {{ withinCity: boolean, distance: number }}
+ */
+window.BKK.isGpsWithinCity = (lat, lng) => {
+  if (!lat || !lng) return { withinCity: false, distance: 0 };
+  const cityData = window.BKK.activeCityData;
+  if (!cityData?.center) return { withinCity: true, distance: 0 };
+  const R = 6371e3;
+  const lat1Rad = lat * Math.PI / 180;
+  const lat2Rad = cityData.center.lat * Math.PI / 180;
+  const dLat = (cityData.center.lat - lat) * Math.PI / 180;
+  const dLng = (cityData.center.lng - lng) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1Rad) * Math.cos(lat2Rad) *
+            Math.sin(dLng/2) * Math.sin(dLng/2);
+  const distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const maxRadius = (cityData.allCityRadius || 15000) * 1.5;
+  return { withinCity: distance <= maxRadius, distance: Math.round(distance) };
+};
+
+/**
+ * System-wide GPS wrapper. Gets position and validates it's within city.
+ * If outside city, calls onError with 'outside_city' reason.
+ * @param {function} onSuccess - (pos) => {} — only called if within city
+ * @param {function} onError - (reason) => {} — 'outside_city', 'denied', 'unavailable', 'timeout'
+ */
+window.BKK.getValidatedGps = (onSuccess, onError) => {
+  if (!navigator.geolocation) { if (onError) onError('unavailable'); return; }
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const check = window.BKK.isGpsWithinCity(pos.coords.latitude, pos.coords.longitude);
+      if (check.withinCity) {
+        if (onSuccess) onSuccess(pos);
+      } else {
+        if (onError) onError('outside_city');
+      }
+    },
+    (err) => { if (onError) onError(err.code === 1 ? 'denied' : err.code === 3 ? 'timeout' : 'unavailable'); },
+    { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+  );
 };
 
 /**

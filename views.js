@@ -168,7 +168,7 @@
                 setNewLocation(initLocation);
                 setShowQuickCapture(true);
                 if (navigator.geolocation) {
-                  navigator.geolocation.getCurrentPosition(
+                  window.BKK.getValidatedGps(
                     (pos) => {
                       const lat = pos.coords.latitude;
                       const lng = pos.coords.longitude;
@@ -187,10 +187,10 @@
                         ...prev, lat, lng, nearestStop: nearest, gpsLoading: false, ...areaUpdates
                       }));
                     },
-                    () => {
+                    (reason) => {
                       setNewLocation(prev => ({...prev, gpsLoading: false, gpsBlocked: true}));
-                    },
-                    { enableHighAccuracy: true, timeout: 8000 }
+                      showToast(reason === 'outside_city' ? t('toast.outsideCity') : reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'warning', 'sticky');
+                    }
                   );
                 }
               }}
@@ -374,12 +374,15 @@
                         setFormData({...formData, searchMode: 'radius', radiusMeters: formData.radiusMeters || 500});
                         // Then request GPS async
                         if (navigator.geolocation) {
-                          navigator.geolocation.getCurrentPosition(
+                          window.BKK.getValidatedGps(
                             (pos) => {
                               setFormData(prev => ({...prev, currentLat: pos.coords.latitude, currentLng: pos.coords.longitude, radiusPlaceName: t('wizard.myLocation'), radiusSource: 'gps'}));
                               showToast(t('wizard.locationFound'), 'success');
                             },
-                            () => showToast(t('toast.locationInaccessible'), 'warning')
+                            (reason) => {
+                              setFormData(prev => ({...prev, searchMode: 'area'}));
+                              showToast(reason === 'outside_city' ? t('toast.outsideCity') : reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'warning', 'sticky');
+                            }
                           );
                         }
                       }
@@ -847,7 +850,21 @@
                     }`}
                   >{t("form.areaMode")}</button>
                   <button
-                    onClick={() => setFormData({...formData, searchMode: 'radius'})}
+                    onClick={() => {
+                      const source = formData.radiusSource || 'gps';
+                      setFormData(prev => ({...prev, searchMode: 'radius'}));
+                      if (source === 'gps' && !formData.currentLat) {
+                        window.BKK.getValidatedGps(
+                          (pos) => {
+                            setFormData(prev => ({...prev, currentLat: pos.coords.latitude, currentLng: pos.coords.longitude, gpsLat: pos.coords.latitude, gpsLng: pos.coords.longitude, radiusSource: 'gps'}));
+                          },
+                          (reason) => {
+                            setFormData(prev => ({...prev, searchMode: 'area'}));
+                            showToast(reason === 'outside_city' ? t('toast.outsideCity') : reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'warning', 'sticky');
+                          }
+                        );
+                      }
+                    }}
                     className={`flex-1 py-1 rounded text-[9px] font-bold transition ${
                       formData.searchMode === 'radius' ? 'bg-white shadow text-blue-600' : 'text-gray-500'
                     }`}
@@ -963,12 +980,8 @@
                       /* GPS Mode */
                       <button
                         onClick={() => {
-                          if (!navigator.geolocation) {
-                            showToast(t('toast.browserNoLocation'), 'error');
-                            return;
-                          }
                           setIsLocating(true);
-                          navigator.geolocation.getCurrentPosition(
+                          window.BKK.getValidatedGps(
                             (position) => {
                               const { latitude, longitude } = position.coords;
                               const lat = parseFloat(latitude.toFixed(6));
@@ -983,11 +996,12 @@
                               showToast(t('form.locationDetectedShort'), 'success');
                               setIsLocating(false);
                             },
-                            (error) => {
+                            (reason) => {
                               setIsLocating(false);
-                              showToast(error.code === 1 ? t('places.noLocationPermission') : t('toast.locationUnavailable'), 'error');
-                            },
-                            { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+                              setFormData(prev => ({...prev, searchMode: 'area'}));
+                              if (reason === 'outside_city') showToast(t('toast.outsideCity'), 'warning', 'sticky');
+                              else showToast(reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'error', 'sticky');
+                            }
                           );
                         }}
                         disabled={isLocating}
@@ -1371,9 +1385,10 @@
                                     {hasValidCoords && !isDisabled && (
                                       <button
                                         onClick={() => {
-                                          const displayText = stop.name || stop.description || `${stop.lat.toFixed(5)}, ${stop.lng.toFixed(5)}`;
-                                          setStartPointCoords({ lat: stop.lat, lng: stop.lng, address: stop.name });
-                                          setFormData(prev => ({...prev, startPoint: displayText}));
+                                          const newStart = { lat: stop.lat, lng: stop.lng, address: stop.name };
+                                          setStartPointCoords(newStart);
+                                          startPointCoordsRef.current = newStart; // Update ref immediately
+                                          setFormData(prev => ({...prev, startPoint: stop.name || `${stop.lat.toFixed(5)}, ${stop.lng.toFixed(5)}`}));
                                           if (route?.optimized) {
                                             setRoute(prev => prev ? {...prev, optimized: false} : prev);
                                           }
@@ -1606,26 +1621,39 @@
                   
                   <button
                     onClick={() => {
-                      // Auto-compute route before opening map
-                      const result = recomputeForMap();
-                      if (result) {
-                        const activeForMap = result.optimized.filter(s => s.lat && s.lng);
-                        setMapStops(activeForMap);
-                      } else {
-                        // Fallback: just show all stops
-                        const activeStops = route.stops.filter((s) => {
-                          const isActive = !disabledStops.includes((s.name || '').toLowerCase().trim());
-                          const hasValidCoords = s.lat && s.lng && s.lat !== 0 && s.lng !== 0;
-                          return isActive && hasValidCoords;
-                        });
-                        if (activeStops.length === 0) {
-                          showToast(t('places.noPlacesWithCoords'), 'warning');
-                          return;
+                      const openMap = (gpsStart) => {
+                        const result = recomputeForMap(gpsStart || null);
+                        if (result) {
+                          const activeForMap = result.optimized.filter(s => s.lat && s.lng);
+                          setMapStops(activeForMap);
+                        } else {
+                          const activeStops = route.stops.filter((s) => {
+                            const isActive = !disabledStops.includes((s.name || '').toLowerCase().trim());
+                            const hasValidCoords = s.lat && s.lng && s.lat !== 0 && s.lng !== 0;
+                            return isActive && hasValidCoords;
+                          });
+                          if (activeStops.length === 0) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
+                          setMapStops(activeStops);
                         }
-                        setMapStops(activeStops);
+                        setMapMode('stops');
+                        setShowMapModal(true);
+                      };
+                      // Request GPS if no start point set
+                      if (!startPointCoordsRef.current && !formData.currentLat && navigator.geolocation) {
+                        window.BKK.getValidatedGps(
+                          (pos) => {
+                            const gpsStart = { lat: pos.coords.latitude, lng: pos.coords.longitude, address: t('wizard.myLocation') };
+                            setFormData(prev => ({...prev, currentLat: pos.coords.latitude, currentLng: pos.coords.longitude}));
+                            openMap(gpsStart);
+                          },
+                          (reason) => {
+                            showToast(reason === 'outside_city' ? t('toast.outsideCity') : reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'warning', 'sticky');
+                            openMap(null);
+                          },
+                        );
+                      } else {
+                        openMap(null);
                       }
-                      setMapMode('stops');
-                      setShowMapModal(true);
                     }}
                     style={{
                       display: 'flex',
@@ -2105,7 +2133,7 @@
                       setNewLocation(initLocation);
                       setShowQuickCapture(true);
                       if (navigator.geolocation) {
-                        navigator.geolocation.getCurrentPosition(
+                        window.BKK.getValidatedGps(
                           (pos) => {
                             const lat = pos.coords.latitude;
                             const lng = pos.coords.longitude;
@@ -2113,8 +2141,10 @@
                             const areaUpdates = detected.length > 0 ? { areas: detected, area: detected[0] } : {};
                             setNewLocation(prev => ({...prev, lat, lng, gpsLoading: false, ...areaUpdates}));
                           },
-                          () => setNewLocation(prev => ({...prev, gpsLoading: false, gpsBlocked: true})),
-                          { enableHighAccuracy: true, timeout: 8000 }
+                          (reason) => {
+                            setNewLocation(prev => ({...prev, gpsLoading: false, gpsBlocked: true}));
+                            showToast(reason === 'outside_city' ? t('toast.outsideCity') : reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'warning', 'sticky');
+                          }
                         );
                       }
                     }}
@@ -3545,10 +3575,12 @@
                       <button 
                         onClick={() => {
                           setRouteType('linear');
+                          routeTypeRef.current = 'linear'; // Update ref immediately
                           const result = recomputeForMap(null, 'linear');
-                          if (result) {
-                            setTimeout(() => setMapStops(result.optimized.filter(s => s.lat && s.lng)), 100);
+                          if (result && window._mapStopsOrderRef) {
+                            window._mapStopsOrderRef.current = result.optimized;
                           }
+                          setTimeout(() => { if (window._mapRedrawLine) window._mapRedrawLine(); }, 100);
                         }}
                         style={{ padding: '8px 16px', border: 'none', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer',
                           background: routeType === 'linear' ? '#3b82f6' : 'white', color: routeType === 'linear' ? 'white' : '#6b7280'
@@ -3557,10 +3589,12 @@
                       <button 
                         onClick={() => {
                           setRouteType('circular');
+                          routeTypeRef.current = 'circular'; // Update ref immediately
                           const result = recomputeForMap(null, 'circular');
-                          if (result) {
-                            setTimeout(() => setMapStops(result.optimized.filter(s => s.lat && s.lng)), 100);
+                          if (result && window._mapStopsOrderRef) {
+                            window._mapStopsOrderRef.current = result.optimized;
                           }
+                          setTimeout(() => { if (window._mapRedrawLine) window._mapRedrawLine(); }, 100);
                         }}
                         style={{ padding: '8px 16px', border: 'none', borderLeft: '1px solid #d1d5db', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer',
                           background: routeType === 'circular' ? '#3b82f6' : 'white', color: routeType === 'circular' ? 'white' : '#6b7280'

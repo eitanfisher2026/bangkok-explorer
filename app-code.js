@@ -358,11 +358,9 @@ const FouFouApp = () => {
               showToast(`▶ ${data}`, 'success');
               const result = recomputeForMap(newStart);
               if (result) {
-                setTimeout(() => {
-                  const activeForMap = result.optimized.filter(s => s.lat && s.lng);
-                  setMapStops(activeForMap);
-                }, 100);
+                stopsOrderRef.current = result.optimized;
               }
+              setTimeout(() => { if (window._mapRedrawLine) window._mapRedrawLine(); }, 150);
               return;
             }
             const nameKey = data.toLowerCase().trim();
@@ -389,6 +387,7 @@ const FouFouApp = () => {
           
           const markers = [];
           const isRTL = window.BKK.i18n.isRTL();
+          const stopsOrderRef = { current: stops }; // Mutable ref for current stop order
           
           if (startPointCoords?.lat && startPointCoords?.lng) {
             updateStartMarker(startPointCoords.lat, startPointCoords.lng, startPointCoords.address);
@@ -446,12 +445,16 @@ const FouFouApp = () => {
             if (routeLine) map.removeLayer(routeLine);
             routeLine = null;
             const curDisabled = disabledStopsRef.current || [];
-            const activeStops = stops.filter(s => !curDisabled.includes((s.name || '').toLowerCase().trim()));
+            const curStops = stopsOrderRef.current || [];
+            const activeStops = curStops.filter(s => !curDisabled.includes((s.name || '').toLowerCase().trim()));
             if (activeStops.length > 1) {
               const pts = [];
               const sp = startPointCoordsRef_local.current;
               if (sp?.lat) pts.push([sp.lat, sp.lng]);
               pts.push(...activeStops.map(s => [s.lat, s.lng]));
+              if (routeTypeRef.current === 'circular' && sp?.lat) {
+                pts.push([sp.lat, sp.lng]);
+              }
               routeLine = L.polyline(pts, { color: '#6366f1', weight: 2.5, opacity: 0.6, dashArray: '6,8' }).addTo(map);
             }
           };
@@ -470,27 +473,29 @@ const FouFouApp = () => {
               let myLocMarker = null;
               div.onclick = function(e) {
                 e.stopPropagation();
-                if (navigator.geolocation) {
-                  div.firstChild.innerHTML = '⏳';
-                  navigator.geolocation.getCurrentPosition(
-                    function(pos) {
-                      div.firstChild.innerHTML = '📍';
-                      if (myLocMarker) map.removeLayer(myLocMarker);
-                      const lat = pos.coords.latitude, lng = pos.coords.longitude;
-                      myLocMarker = L.circleMarker([lat, lng], {
-                        radius: 8, color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.4, weight: 3
-                      }).addTo(map);
-                      myLocMarker.bindPopup(
-                        '<div style="text-align:center;font-size:12px;padding:4px 0;">' +
-                        '<div style="font-weight:bold;margin-bottom:6px;">📍 ' + t('wizard.myLocation') + '</div>' +
-                        '<button onclick="window._mapStopAction(\'setstart\',\'' + t('wizard.myLocation').replace(/'/g, "\\'") + '\',' + lat + ',' + lng + ')" style="width:100%;padding:5px 8px;border-radius:8px;background:#22c55e;color:white;border:none;font-size:11px;font-weight:bold;cursor:pointer;">▶ ' + t('form.setStartPoint') + '</button>' +
-                        '</div>'
-                      ).openPopup();
-                      map.setView([lat, lng], map.getZoom());
-                    },
-                    function() { div.firstChild.innerHTML = '📍'; showToast(t('toast.locationInaccessible'), 'warning'); }
-                  );
-                }
+                div.firstChild.innerHTML = '⏳';
+                window.BKK.getValidatedGps(
+                  function(pos) {
+                    div.firstChild.innerHTML = '📍';
+                    if (myLocMarker) map.removeLayer(myLocMarker);
+                    const lat = pos.coords.latitude, lng = pos.coords.longitude;
+                    myLocMarker = L.circleMarker([lat, lng], {
+                      radius: 8, color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.4, weight: 3
+                    }).addTo(map);
+                    myLocMarker.bindPopup(
+                      '<div style="text-align:center;font-size:12px;padding:4px 0;">' +
+                      '<div style="font-weight:bold;margin-bottom:6px;">📍 ' + t('wizard.myLocation') + '</div>' +
+                      '<button onclick="window._mapStopAction(\'setstart\',\'' + t('wizard.myLocation').replace(/'/g, "\\'") + '\',' + lat + ',' + lng + ')" style="width:100%;padding:5px 8px;border-radius:8px;background:#22c55e;color:white;border:none;font-size:11px;font-weight:bold;cursor:pointer;">▶ ' + t('form.setStartPoint') + '</button>' +
+                      '</div>'
+                    ).openPopup();
+                    map.setView([lat, lng], map.getZoom());
+                  },
+                  function(reason) {
+                    div.firstChild.innerHTML = '📍';
+                    if (reason === 'outside_city') showToast(t('toast.outsideCity'), 'warning', 'sticky');
+                    else showToast(reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'warning', 'sticky');
+                  }
+                );
               };
               L.DomEvent.disableClickPropagation(div);
               return div;
@@ -499,6 +504,7 @@ const FouFouApp = () => {
           new LocateControl().addTo(map);
           
           window._mapRedrawLine = redrawRouteLine;
+          window._mapStopsOrderRef = stopsOrderRef;
           
           leafletMapRef.current = map;
         }
@@ -508,7 +514,7 @@ const FouFouApp = () => {
     }, 150);
     }); // end loadLeaflet().then
     
-    return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; delete window._mapRedrawLine; };
+    return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; delete window._mapRedrawLine; delete window._mapStopsOrderRef; };
   }, [showMapModal, mapMode, mapStops, formData.currentLat, formData.currentLng, formData.radiusMeters]);
   const [modalImage, setModalImage] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
@@ -590,6 +596,11 @@ const FouFouApp = () => {
   const [adminUsers, setAdminUsers] = useState([]);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  
+  const routeTypeRef = React.useRef(routeType);
+  React.useEffect(() => { routeTypeRef.current = routeType; }, [routeType]);
+  const startPointCoordsRef = React.useRef(startPointCoords);
+  React.useEffect(() => { startPointCoordsRef.current = startPointCoords; }, [startPointCoords]);
   const [showVersionPasswordDialog, setShowVersionPasswordDialog] = useState(false);
   const [showAddCityDialog, setShowAddCityDialog] = useState(false);
   const [addCityInput, setAddCityInput] = useState('');
@@ -640,13 +651,8 @@ const FouFouApp = () => {
   };
 
   const getMyLocation = () => {
-    if (!navigator.geolocation) {
-      showToast(t('toast.browserNoLocation'), 'error');
-      return;
-    }
-    
     setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
+    window.BKK.getValidatedGps(
       async (position) => {
         const { latitude: lat, longitude: lng } = position.coords;
         
@@ -654,29 +660,36 @@ const FouFouApp = () => {
           const address = await window.BKK.reverseGeocode(lat, lng);
           const displayAddress = address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
           setStartPointCoords({ lat, lng, address: displayAddress });
+          startPointCoordsRef.current = { lat, lng, address: displayAddress };
           setFormData(prev => ({ ...prev, startPoint: displayAddress }));
           showToast(address ? t('form.locationDetectedFull') : t('form.locationDetectedNoAddr'), 'success');
         } catch (err) {
           const fallback = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
           setStartPointCoords({ lat, lng, address: fallback });
+          startPointCoordsRef.current = { lat, lng, address: fallback };
           setFormData(prev => ({ ...prev, startPoint: fallback }));
           showToast(t('form.locationDetected'), 'success');
         }
-        
         setIsLocating(false);
       },
-      (error) => {
+      (reason) => {
         setIsLocating(false);
-        console.error('[GPS] Error:', error);
-        if (error.code === 1) {
-          showToast(t('toast.locationNoPermission'), 'error');
-        } else if (error.code === 2) {
-          showToast(t('toast.locationUnavailable'), 'error');
+        if (reason === 'outside_city') {
+          showToast(t('toast.outsideCity'), 'warning', 'sticky');
+        } else if (reason === 'denied') {
+          showToast(t('toast.locationNoPermission'), 'error', 'sticky');
         } else {
-          showToast(t('toast.locationError'), 'error');
+          showToast(t('toast.noGpsSignal'), 'error', 'sticky');
         }
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+        if (route && route.stops && route.stops.length > 0) {
+          const firstStop = route.stops.find(s => s.lat && s.lng);
+          if (firstStop) {
+            setStartPointCoords({ lat: firstStop.lat, lng: firstStop.lng, address: firstStop.name });
+            startPointCoordsRef.current = { lat: firstStop.lat, lng: firstStop.lng, address: firstStop.name };
+            setFormData(prev => ({ ...prev, startPoint: firstStop.name }));
+          }
+        }
+      }
     );
   };
 
@@ -706,12 +719,8 @@ const FouFouApp = () => {
   };
 
   const detectArea = () => {
-    if (!navigator.geolocation) {
-      showToast(t('toast.browserNoLocation'), 'error');
-      return;
-    }
     setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
+    window.BKK.getValidatedGps(
       (position) => {
         const { latitude: lat, longitude: lng } = position.coords;
         const coords = window.BKK.areaCoordinates;
@@ -739,15 +748,12 @@ const FouFouApp = () => {
         }
         setIsLocating(false);
       },
-      (error) => {
+      (reason) => {
         setIsLocating(false);
-        if (error.code === 1) {
-          showToast(t('toast.locationNoPermission'), 'error');
-        } else {
-          showToast(t('toast.locationUnavailable'), 'error');
-        }
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+        if (reason === 'outside_city') showToast(t('toast.outsideCity'), 'warning', 'sticky');
+        else if (reason === 'denied') showToast(t('toast.locationNoPermission'), 'error', 'sticky');
+        else showToast(t('toast.noGpsSignal'), 'error', 'sticky');
+      }
     );
   };
   useEffect(() => {
@@ -2981,7 +2987,7 @@ const FouFouApp = () => {
     const allStops = route.stops.filter(s => s.lat && s.lng);
     if (allStops.length < 2) return null;
     
-    const type = overrideType !== undefined ? overrideType : routeType;
+    const type = overrideType !== undefined ? overrideType : routeTypeRef.current;
     const isCircular = type === 'circular';
     
     const { selected, disabled } = smartSelectStops(allStops, formData.interests);
@@ -2989,15 +2995,20 @@ const FouFouApp = () => {
     setDisabledStops(newDisabled);
     if (selected.length < 2) return null;
     
-    let autoStart = overrideStart || startPointCoords;
+    let autoStart = overrideStart || startPointCoordsRef.current;
     if (!autoStart) {
       if (formData.searchMode === 'radius' && formData.currentLat && formData.currentLng) {
-        autoStart = { lat: formData.currentLat, lng: formData.currentLng, address: t('wizard.myLocation') };
-      } else {
+        const check = window.BKK.isGpsWithinCity(formData.currentLat, formData.currentLng);
+        if (check.withinCity) {
+          autoStart = { lat: formData.currentLat, lng: formData.currentLng, address: t('wizard.myLocation') };
+        }
+      }
+      if (!autoStart) {
         autoStart = { lat: selected[0].lat, lng: selected[0].lng, address: selected[0].name };
       }
     }
     setStartPointCoords(autoStart);
+    startPointCoordsRef.current = autoStart; // Update ref immediately
     setFormData(prev => ({...prev, startPoint: autoStart.address || `${autoStart.lat},${autoStart.lng}`}));
     
     const optimized = optimizeStopOrder(selected, autoStart, isCircular);
@@ -4425,14 +4436,9 @@ const FouFouApp = () => {
   };
 
   const getCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      showToast(t('toast.browserNoGps'), 'error');
-      return;
-    }
-    
     showToast(t('form.searchingLocation'), 'info');
     
-    navigator.geolocation.getCurrentPosition(
+    window.BKK.getValidatedGps(
       async (position) => {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
@@ -4453,35 +4459,14 @@ const FouFouApp = () => {
         try {
           const address = await reverseGeocode(lat, lng);
           if (address) {
-            setNewLocation(prev => ({
-              ...prev,
-              address: address
-            }));
+            setNewLocation(prev => ({ ...prev, address: address }));
           }
         } catch (err) {
         }
       },
-      (error) => {
-        let errorMessage = t('toast.locationFailed');
-        
-        switch(error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage = t('toast.locationNoPermissionBrowser');
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = t('toast.locationNotAvailable');
-            break;
-          case error.TIMEOUT:
-            errorMessage = t('toast.locationTimeout');
-            break;
-        }
-        
-        showToast(`${errorMessage}`, 'error');
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
+      (reason) => {
+        if (reason === 'outside_city') showToast(t('toast.outsideCity'), 'warning', 'sticky');
+        else showToast(reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'error', 'sticky');
       }
     );
   };
@@ -4799,7 +4784,7 @@ const FouFouApp = () => {
                 setNewLocation(initLocation);
                 setShowQuickCapture(true);
                 if (navigator.geolocation) {
-                  navigator.geolocation.getCurrentPosition(
+                  window.BKK.getValidatedGps(
                     (pos) => {
                       const lat = pos.coords.latitude;
                       const lng = pos.coords.longitude;
@@ -4818,10 +4803,10 @@ const FouFouApp = () => {
                         ...prev, lat, lng, nearestStop: nearest, gpsLoading: false, ...areaUpdates
                       }));
                     },
-                    () => {
+                    (reason) => {
                       setNewLocation(prev => ({...prev, gpsLoading: false, gpsBlocked: true}));
-                    },
-                    { enableHighAccuracy: true, timeout: 8000 }
+                      showToast(reason === 'outside_city' ? t('toast.outsideCity') : reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'warning', 'sticky');
+                    }
                   );
                 }
               }}
@@ -5002,12 +4987,15 @@ const FouFouApp = () => {
                       if (formData.searchMode !== 'radius') {
                         setFormData({...formData, searchMode: 'radius', radiusMeters: formData.radiusMeters || 500});
                         if (navigator.geolocation) {
-                          navigator.geolocation.getCurrentPosition(
+                          window.BKK.getValidatedGps(
                             (pos) => {
                               setFormData(prev => ({...prev, currentLat: pos.coords.latitude, currentLng: pos.coords.longitude, radiusPlaceName: t('wizard.myLocation'), radiusSource: 'gps'}));
                               showToast(t('wizard.locationFound'), 'success');
                             },
-                            () => showToast(t('toast.locationInaccessible'), 'warning')
+                            (reason) => {
+                              setFormData(prev => ({...prev, searchMode: 'area'}));
+                              showToast(reason === 'outside_city' ? t('toast.outsideCity') : reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'warning', 'sticky');
+                            }
                           );
                         }
                       }
@@ -5472,7 +5460,21 @@ const FouFouApp = () => {
                     }`}
                   >{t("form.areaMode")}</button>
                   <button
-                    onClick={() => setFormData({...formData, searchMode: 'radius'})}
+                    onClick={() => {
+                      const source = formData.radiusSource || 'gps';
+                      setFormData(prev => ({...prev, searchMode: 'radius'}));
+                      if (source === 'gps' && !formData.currentLat) {
+                        window.BKK.getValidatedGps(
+                          (pos) => {
+                            setFormData(prev => ({...prev, currentLat: pos.coords.latitude, currentLng: pos.coords.longitude, gpsLat: pos.coords.latitude, gpsLng: pos.coords.longitude, radiusSource: 'gps'}));
+                          },
+                          (reason) => {
+                            setFormData(prev => ({...prev, searchMode: 'area'}));
+                            showToast(reason === 'outside_city' ? t('toast.outsideCity') : reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'warning', 'sticky');
+                          }
+                        );
+                      }
+                    }}
                     className={`flex-1 py-1 rounded text-[9px] font-bold transition ${
                       formData.searchMode === 'radius' ? 'bg-white shadow text-blue-600' : 'text-gray-500'
                     }`}
@@ -5586,12 +5588,8 @@ const FouFouApp = () => {
                       /* GPS Mode */
                       <button
                         onClick={() => {
-                          if (!navigator.geolocation) {
-                            showToast(t('toast.browserNoLocation'), 'error');
-                            return;
-                          }
                           setIsLocating(true);
-                          navigator.geolocation.getCurrentPosition(
+                          window.BKK.getValidatedGps(
                             (position) => {
                               const { latitude, longitude } = position.coords;
                               const lat = parseFloat(latitude.toFixed(6));
@@ -5606,11 +5604,12 @@ const FouFouApp = () => {
                               showToast(t('form.locationDetectedShort'), 'success');
                               setIsLocating(false);
                             },
-                            (error) => {
+                            (reason) => {
                               setIsLocating(false);
-                              showToast(error.code === 1 ? t('places.noLocationPermission') : t('toast.locationUnavailable'), 'error');
-                            },
-                            { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+                              setFormData(prev => ({...prev, searchMode: 'area'}));
+                              if (reason === 'outside_city') showToast(t('toast.outsideCity'), 'warning', 'sticky');
+                              else showToast(reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'error', 'sticky');
+                            }
                           );
                         }}
                         disabled={isLocating}
@@ -5990,9 +5989,10 @@ const FouFouApp = () => {
                                     {hasValidCoords && !isDisabled && (
                                       <button
                                         onClick={() => {
-                                          const displayText = stop.name || stop.description || `${stop.lat.toFixed(5)}, ${stop.lng.toFixed(5)}`;
-                                          setStartPointCoords({ lat: stop.lat, lng: stop.lng, address: stop.name });
-                                          setFormData(prev => ({...prev, startPoint: displayText}));
+                                          const newStart = { lat: stop.lat, lng: stop.lng, address: stop.name };
+                                          setStartPointCoords(newStart);
+                                          startPointCoordsRef.current = newStart; // Update ref immediately
+                                          setFormData(prev => ({...prev, startPoint: stop.name || `${stop.lat.toFixed(5)}, ${stop.lng.toFixed(5)}`}));
                                           if (route?.optimized) {
                                             setRoute(prev => prev ? {...prev, optimized: false} : prev);
                                           }
@@ -6223,24 +6223,38 @@ const FouFouApp = () => {
                   
                   <button
                     onClick={() => {
-                      const result = recomputeForMap();
-                      if (result) {
-                        const activeForMap = result.optimized.filter(s => s.lat && s.lng);
-                        setMapStops(activeForMap);
-                      } else {
-                        const activeStops = route.stops.filter((s) => {
-                          const isActive = !disabledStops.includes((s.name || '').toLowerCase().trim());
-                          const hasValidCoords = s.lat && s.lng && s.lat !== 0 && s.lng !== 0;
-                          return isActive && hasValidCoords;
-                        });
-                        if (activeStops.length === 0) {
-                          showToast(t('places.noPlacesWithCoords'), 'warning');
-                          return;
+                      const openMap = (gpsStart) => {
+                        const result = recomputeForMap(gpsStart || null);
+                        if (result) {
+                          const activeForMap = result.optimized.filter(s => s.lat && s.lng);
+                          setMapStops(activeForMap);
+                        } else {
+                          const activeStops = route.stops.filter((s) => {
+                            const isActive = !disabledStops.includes((s.name || '').toLowerCase().trim());
+                            const hasValidCoords = s.lat && s.lng && s.lat !== 0 && s.lng !== 0;
+                            return isActive && hasValidCoords;
+                          });
+                          if (activeStops.length === 0) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
+                          setMapStops(activeStops);
                         }
-                        setMapStops(activeStops);
+                        setMapMode('stops');
+                        setShowMapModal(true);
+                      };
+                      if (!startPointCoordsRef.current && !formData.currentLat && navigator.geolocation) {
+                        window.BKK.getValidatedGps(
+                          (pos) => {
+                            const gpsStart = { lat: pos.coords.latitude, lng: pos.coords.longitude, address: t('wizard.myLocation') };
+                            setFormData(prev => ({...prev, currentLat: pos.coords.latitude, currentLng: pos.coords.longitude}));
+                            openMap(gpsStart);
+                          },
+                          (reason) => {
+                            showToast(reason === 'outside_city' ? t('toast.outsideCity') : reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'warning', 'sticky');
+                            openMap(null);
+                          },
+                        );
+                      } else {
+                        openMap(null);
                       }
-                      setMapMode('stops');
-                      setShowMapModal(true);
                     }}
                     style={{
                       display: 'flex',
@@ -6716,7 +6730,7 @@ const FouFouApp = () => {
                       setNewLocation(initLocation);
                       setShowQuickCapture(true);
                       if (navigator.geolocation) {
-                        navigator.geolocation.getCurrentPosition(
+                        window.BKK.getValidatedGps(
                           (pos) => {
                             const lat = pos.coords.latitude;
                             const lng = pos.coords.longitude;
@@ -6724,8 +6738,10 @@ const FouFouApp = () => {
                             const areaUpdates = detected.length > 0 ? { areas: detected, area: detected[0] } : {};
                             setNewLocation(prev => ({...prev, lat, lng, gpsLoading: false, ...areaUpdates}));
                           },
-                          () => setNewLocation(prev => ({...prev, gpsLoading: false, gpsBlocked: true})),
-                          { enableHighAccuracy: true, timeout: 8000 }
+                          (reason) => {
+                            setNewLocation(prev => ({...prev, gpsLoading: false, gpsBlocked: true}));
+                            showToast(reason === 'outside_city' ? t('toast.outsideCity') : reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'warning', 'sticky');
+                          }
                         );
                       }
                     }}
@@ -8142,10 +8158,12 @@ const FouFouApp = () => {
                       <button 
                         onClick={() => {
                           setRouteType('linear');
+                          routeTypeRef.current = 'linear'; // Update ref immediately
                           const result = recomputeForMap(null, 'linear');
-                          if (result) {
-                            setTimeout(() => setMapStops(result.optimized.filter(s => s.lat && s.lng)), 100);
+                          if (result && window._mapStopsOrderRef) {
+                            window._mapStopsOrderRef.current = result.optimized;
                           }
+                          setTimeout(() => { if (window._mapRedrawLine) window._mapRedrawLine(); }, 100);
                         }}
                         style={{ padding: '8px 16px', border: 'none', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer',
                           background: routeType === 'linear' ? '#3b82f6' : 'white', color: routeType === 'linear' ? 'white' : '#6b7280'
@@ -8154,10 +8172,12 @@ const FouFouApp = () => {
                       <button 
                         onClick={() => {
                           setRouteType('circular');
+                          routeTypeRef.current = 'circular'; // Update ref immediately
                           const result = recomputeForMap(null, 'circular');
-                          if (result) {
-                            setTimeout(() => setMapStops(result.optimized.filter(s => s.lat && s.lng)), 100);
+                          if (result && window._mapStopsOrderRef) {
+                            window._mapStopsOrderRef.current = result.optimized;
                           }
+                          setTimeout(() => { if (window._mapRedrawLine) window._mapRedrawLine(); }, 100);
                         }}
                         style={{ padding: '8px 16px', border: 'none', borderLeft: '1px solid #d1d5db', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer',
                           background: routeType === 'circular' ? '#3b82f6' : 'white', color: routeType === 'circular' ? 'white' : '#6b7280'

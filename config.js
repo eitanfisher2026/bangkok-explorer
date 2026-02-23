@@ -400,6 +400,7 @@ window.BKK.selectCity = function(cityId) {
 
   window.BKK.selectedCity = city;
   window.BKK.selectedCityId = cityId;
+  window.BKK.activeCityData = city; // For GPS city-bounds validation
 
   // Populate legacy area variables
   window.BKK.areaOptions = city.areas.map(function(a) {
