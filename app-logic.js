@@ -56,6 +56,10 @@
   const disabledStopsRef = React.useRef(disabledStops);
   React.useEffect(() => { disabledStopsRef.current = disabledStops; }, [disabledStops]);
   
+  const [showRoutePreview, setShowRoutePreview] = useState(false); // Route stop reorder view
+  const [showRouteMenu, setShowRouteMenu] = useState(false); // Hamburger menu in route results
+  const [routeChoiceMade, setRouteChoiceMade] = useState(null); // null | 'manual' — controls wizard step 3 split
+  
   // Auto-compute route whenever route exists with stops but isn't optimized
   // Skip in wizard mode when user hasn't chosen Yalla/Manual yet
   const autoComputeRef = React.useRef(false);
@@ -72,9 +76,6 @@
       return () => { clearTimeout(timer); autoComputeRef.current = false; };
     }
   }, [route?.stops?.length, route?.optimized, routeChoiceMade]);
-  const [showRoutePreview, setShowRoutePreview] = useState(false); // Route stop reorder view
-  const [showRouteMenu, setShowRouteMenu] = useState(false); // Hamburger menu in route results
-  const [routeChoiceMade, setRouteChoiceMade] = useState(null); // null | 'manual' — controls wizard step 3 split
   const [manualStops, setManualStops] = useState([]); // Manually added stops (session only)
   const [showManualAddDialog, setShowManualAddDialog] = useState(false);
   const [activeTrail, setActiveTrail] = useState(() => {

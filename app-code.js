@@ -94,6 +94,10 @@ const FouFouApp = () => {
   const disabledStopsRef = React.useRef(disabledStops);
   React.useEffect(() => { disabledStopsRef.current = disabledStops; }, [disabledStops]);
   
+  const [showRoutePreview, setShowRoutePreview] = useState(false); // Route stop reorder view
+  const [showRouteMenu, setShowRouteMenu] = useState(false); // Hamburger menu in route results
+  const [routeChoiceMade, setRouteChoiceMade] = useState(null); // null | 'manual' — controls wizard step 3 split
+  
   const autoComputeRef = React.useRef(false);
   React.useEffect(() => {
     if (route && route.stops && route.stops.length >= 2 && !route.optimized && !autoComputeRef.current) {
@@ -106,9 +110,6 @@ const FouFouApp = () => {
       return () => { clearTimeout(timer); autoComputeRef.current = false; };
     }
   }, [route?.stops?.length, route?.optimized, routeChoiceMade]);
-  const [showRoutePreview, setShowRoutePreview] = useState(false); // Route stop reorder view
-  const [showRouteMenu, setShowRouteMenu] = useState(false); // Hamburger menu in route results
-  const [routeChoiceMade, setRouteChoiceMade] = useState(null); // null | 'manual' — controls wizard step 3 split
   const [manualStops, setManualStops] = useState([]); // Manually added stops (session only)
   const [showManualAddDialog, setShowManualAddDialog] = useState(false);
   const [activeTrail, setActiveTrail] = useState(() => {
