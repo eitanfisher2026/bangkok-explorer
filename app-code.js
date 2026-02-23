@@ -391,12 +391,24 @@ const FouFouApp = () => {
           const stopsOrderRef = { current: stops }; // Mutable ref for current stop order
           
           if (startPointCoords?.lat && startPointCoords?.lng) {
-            updateStartMarker(startPointCoords.lat, startPointCoords.lng, startPointCoords.address);
+            const overlapsStop = stops.some(s => Math.abs(s.lat - startPointCoords.lat) < 0.0001 && Math.abs(s.lng - startPointCoords.lng) < 0.0001);
+            if (!overlapsStop) {
+              updateStartMarker(startPointCoords.lat, startPointCoords.lng, startPointCoords.address);
+            }
           }
           stops.forEach((stop, i) => {
             const color = colorPalette[i % colorPalette.length];
             const nameKey = (stop.name || '').toLowerCase().trim();
             const isDisabled = disabledStops.includes(nameKey);
+            const isStart = startPointCoordsRef_local.current && Math.abs(stop.lat - startPointCoordsRef_local.current.lat) < 0.0001 && Math.abs(stop.lng - startPointCoordsRef_local.current.lng) < 0.0001;
+            
+            if (isStart && !isDisabled) {
+              L.circleMarker([stop.lat, stop.lng], {
+                radius: 18, color: '#22c55e', fillColor: 'transparent',
+                fillOpacity: 0, weight: 3, opacity: 1,
+                dashArray: '6,4'
+              }).addTo(map);
+            }
             
             const circle = L.circleMarker([stop.lat, stop.lng], {
               radius: 12, color: color, fillColor: color,
@@ -407,7 +419,7 @@ const FouFouApp = () => {
             const label = L.marker([stop.lat, stop.lng], {
               icon: L.divIcon({
                 className: '',
-                html: '<div style="font-size:10px;font-weight:bold;text-align:center;color:white;width:22px;height:22px;line-height:22px;border-radius:50%;background:' + color + ';border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);opacity:' + (isDisabled ? '0.3' : '1') + ';">' + window.BKK.stopLabel(i) + '</div>',
+                html: '<div style="font-size:10px;font-weight:bold;text-align:center;color:white;width:22px;height:22px;line-height:22px;border-radius:50%;background:' + color + ';border:2px solid ' + (isStart ? '#22c55e' : 'white') + ';box-shadow:0 1px 4px rgba(0,0,0,0.3);opacity:' + (isDisabled ? '0.3' : '1') + ';">' + (isStart ? '▶' : window.BKK.stopLabel(i)) + '</div>',
                 iconSize: [22, 22], iconAnchor: [11, 11]
               }),
               opacity: isDisabled ? 0.3 : 1
