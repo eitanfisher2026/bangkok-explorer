@@ -1177,6 +1177,13 @@
             if (now - ts > 30000) recentlyAddedRef.current.delete(id);
           }
           setCustomInterests(prev => {
+            // Detect disappearances
+            const prevIds = new Set(prev.map(i => i.id));
+            const disappeared = prev.filter(i => !firebaseIds.has(i.id) && !recentlyAddedRef.current.has(i.id));
+            if (disappeared.length > 0 && prev.length > 0) {
+              console.warn('[FIREBASE] ⚠️ INTERESTS DISAPPEARED:', disappeared.map(i => `${i.id}:"${i.label}"`).join(', '));
+              console.warn('[FIREBASE] Previous count:', prev.length, '→ Firebase count:', interestsArray.length);
+            }
             // Find locally-added interests not yet in Firebase (added within last 30s)
             const pendingLocal = prev.filter(i => 
               !firebaseIds.has(i.id) && recentlyAddedRef.current.has(i.id)

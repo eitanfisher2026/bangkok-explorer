@@ -888,9 +888,8 @@
 
                 {/* Counter for auto-naming — only in edit mode + admin */}
                 {editingCustomInterest && isUnlocked && (
-                <div className="flex items-center gap-2 px-4 py-1 bg-gray-50 border-t border-gray-100" style={{ direction: 'rtl' }}>
-                  <span className="text-xs font-bold text-gray-600">#️⃣</span>
-                  <span className="text-[10px] text-gray-500">{t('interests.nextNumber')}:</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '10px', direction: 'rtl' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#6b7280' }}>{t('interests.nextNumber')}:</span>
                   <input
                     type="number"
                     min="0"
@@ -902,72 +901,13 @@
                         database.ref(`cities/${selectedCityId}/interestCounters/${editingCustomInterest.id}`).set(newCounter);
                       }
                     }}
-                    className="w-14 p-1 text-xs border rounded text-center"
+                    style={{ width: '56px', padding: '5px', fontSize: '14px', fontWeight: 'bold', border: '1px solid #d1d5db', borderRadius: '8px', textAlign: 'center' }}
                   />
-                  <span className="text-[9px] text-gray-400 truncate">({tLabel(editingCustomInterest)} · {tLabel(window.BKK.selectedCity)} #{(interestCounters[editingCustomInterest.id] || 0) + 1})</span>
+                  <span style={{ fontSize: '11px', color: '#9ca3af' }}>({tLabel(editingCustomInterest)} · {tLabel(window.BKK.selectedCity)} #{(interestCounters[editingCustomInterest.id] || 0) + 1})</span>
                 </div>
                 )}
 
-                {/* Status toggle - locked (admin only) */}
-                {isUnlocked && (
-                <div className="flex gap-3 px-4 py-2 bg-gray-50 border-t border-gray-100">
-                  <button type="button"
-                    onClick={() => setNewInterest({...newInterest, locked: !newInterest.locked})}
-                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${newInterest.locked ? 'border-gray-600 bg-gray-600 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-gray-400'}`}
-                  >
-                    {newInterest.locked ? '🔒' : '○'} {t("general.locked")}
-                  </button>
-                </div>
-                )}
-
-                {/* Actions: Enable/Disable + Delete (edit mode only) - hidden for locked non-admin */}
-                {editingCustomInterest && !(editingCustomInterest.locked && !isUnlocked) && (
-                  <div className="border-t border-red-200 bg-red-50 px-4 py-2">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          toggleInterestStatus(editingCustomInterest.id);
-                          setShowAddInterestDialog(false);
-                          setEditingCustomInterest(null);
-                        }}
-                        className={`flex-1 py-2 rounded-lg text-sm font-bold ${
-                          interestStatus[editingCustomInterest.id] === false 
-                            ? 'bg-green-500 text-white hover:bg-green-600'
-                            : 'bg-blue-500 text-white hover:bg-blue-600'
-                        }`}
-                      >
-                        {interestStatus[editingCustomInterest.id] === false ? t('general.enable') : t('general.disable')}
-                      </button>
-                      {(!newInterest.builtIn || isUnlocked) && (
-                        <button
-                          onClick={() => {
-                            const msg = newInterest.builtIn 
-                              ? `${t('interests.deleteBuiltIn')} "${newInterest.label}"?`
-                              : `${t('interests.deleteCustom')} "${newInterest.label}"?`;
-                            showConfirm(msg, () => {
-                              if (newInterest.builtIn) {
-                                toggleInterestStatus(editingCustomInterest.id);
-                                if (isFirebaseAvailable && database) {
-                                  database.ref(`settings/interestConfig/${editingCustomInterest.id}`).remove();
-                                }
-                                showToast(t('interests.builtInRemoved'), 'success');
-                              } else {
-                                deleteCustomInterest(editingCustomInterest.id);
-                              }
-                              setShowAddInterestDialog(false);
-                              setEditingCustomInterest(null);
-                            });
-                          }}
-                          className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700"
-                        >
-                          🗑️ {t("general.deleteInterest")}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Search Configuration — moved to end */}
+                {/* Search Configuration */}
                 <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3" style={{ opacity: (!newInterest.builtIn && newInterest.privateOnly) ? 0.4 : 1, pointerEvents: (!newInterest.builtIn && newInterest.privateOnly) ? 'none' : 'auto' }}>
                   <label className="block text-xs font-bold mb-2 text-blue-800">{`🔍 ${t("general.searchSettings")}`}
                     {(!newInterest.builtIn && newInterest.privateOnly) && <span className="text-[9px] text-gray-500 font-normal ml-2">({t("interests.myPlacesOnly")})</span>}
@@ -1030,6 +970,65 @@
                     />
                   </div>
                 </div>
+
+                {/* Status toggle - locked (admin only) */}
+                {isUnlocked && (
+                <div className="flex gap-3 px-4 py-2 bg-gray-50 border-t border-gray-100">
+                  <button type="button"
+                    onClick={() => setNewInterest({...newInterest, locked: !newInterest.locked})}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${newInterest.locked ? 'border-gray-600 bg-gray-600 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-gray-400'}`}
+                  >
+                    {newInterest.locked ? '🔒' : '○'} {t("general.locked")}
+                  </button>
+                </div>
+                )}
+
+                {/* Actions: Enable/Disable + Delete (edit mode only) - hidden for locked non-admin */}
+                {editingCustomInterest && !(editingCustomInterest.locked && !isUnlocked) && (
+                  <div className="border-t border-red-200 bg-red-50 px-4 py-2">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          toggleInterestStatus(editingCustomInterest.id);
+                          setShowAddInterestDialog(false);
+                          setEditingCustomInterest(null);
+                        }}
+                        className={`flex-1 py-2 rounded-lg text-sm font-bold ${
+                          interestStatus[editingCustomInterest.id] === false 
+                            ? 'bg-green-500 text-white hover:bg-green-600'
+                            : 'bg-blue-500 text-white hover:bg-blue-600'
+                        }`}
+                      >
+                        {interestStatus[editingCustomInterest.id] === false ? t('general.enable') : t('general.disable')}
+                      </button>
+                      {(!newInterest.builtIn || isUnlocked) && (
+                        <button
+                          onClick={() => {
+                            const msg = newInterest.builtIn 
+                              ? `${t('interests.deleteBuiltIn')} "${newInterest.label}"?`
+                              : `${t('interests.deleteCustom')} "${newInterest.label}"?`;
+                            showConfirm(msg, () => {
+                              if (newInterest.builtIn) {
+                                toggleInterestStatus(editingCustomInterest.id);
+                                if (isFirebaseAvailable && database) {
+                                  database.ref(`settings/interestConfig/${editingCustomInterest.id}`).remove();
+                                }
+                                showToast(t('interests.builtInRemoved'), 'success');
+                              } else {
+                                deleteCustomInterest(editingCustomInterest.id);
+                              }
+                              setShowAddInterestDialog(false);
+                              setEditingCustomInterest(null);
+                            });
+                          }}
+                          className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700"
+                        >
+                          🗑️ {t("general.deleteInterest")}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
               
               {/* Footer */}
@@ -1180,9 +1179,19 @@
                                 console.log(`[INTEREST-SAVE] Saved to Firebase: ${interestId}`);
                                 recentlyAddedRef.current.delete(interestId);
                                 showToast(`✅ ${newInterestData.label} — ${t('interests.interestAdded')}`, 'success');
+                                // Verify: read back to confirm server actually persisted it
+                                database.ref(`customInterests/${interestId}`).once('value').then(snap => {
+                                  if (!snap.val()) {
+                                    console.error(`[INTEREST-SAVE] ⚠️ VERIFICATION FAILED — saved but read-back is null! Server may have rejected the write.`);
+                                    showToast(`⚠️ "${newInterestData.label}" may not have been saved to server`, 'warning', 'sticky');
+                                  } else {
+                                    console.log(`[INTEREST-SAVE] ✅ Verified on server: ${interestId}`);
+                                  }
+                                });
                               })
                               .catch(e => {
                                 console.error(`[INTEREST-SAVE] FAILED: ${interestId}`, e);
+                                showToast(`❌ ${t('toast.saveError')}: ${e.message}`, 'error', 'sticky');
                                 saveToPendingInterest(newInterestData, searchConfig);
                               });
                             // Enable interest status in Firebase
