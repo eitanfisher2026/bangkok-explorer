@@ -710,28 +710,43 @@
               onClick={() => {
                 const isCircular = formData.searchMode === 'radius';
                 setRouteType(isCircular ? 'circular' : 'linear');
-                let autoStart = null;
-                if (formData.searchMode === 'radius' && formData.gpsLat && formData.gpsLng) {
-                  autoStart = { lat: formData.gpsLat, lng: formData.gpsLng, address: t('wizard.myLocation') };
-                } else {
-                  const firstWithCoords = route.stops.find(s => s.lat && s.lng);
-                  if (firstWithCoords) autoStart = { lat: firstWithCoords.lat, lng: firstWithCoords.lng, address: firstWithCoords.name };
-                }
-                if (!autoStart) { showToast(t('form.chooseStartBeforeCalc'), 'warning'); return; }
-                setFormData(prev => ({...prev, startPoint: `${autoStart.lat},${autoStart.lng}`}));
                 
-                // Smart selection: pick best stops per interest based on category/maxStops
+                // Smart selection first
                 const allStopsWithCoords = route.stops.filter(s => s.lat && s.lng);
                 const { selected: smartStops, disabled: smartDisabled } = smartSelectStops(allStopsWithCoords, formData.interests);
-                
                 if (smartStops.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
                 
-                // Disable the stops that smartSelect didn't pick
+                // Smart start point selection
+                let autoStart = null;
+                if (formData.currentLat && formData.currentLng) {
+                  // GPS available → nearest stop
+                  let minDist = Infinity, nearestStop = null;
+                  smartStops.forEach(s => {
+                    const dlat = (formData.currentLat - s.lat) * 111320;
+                    const dlng = (formData.currentLng - s.lng) * 111320 * Math.cos(formData.currentLat * Math.PI / 180);
+                    const d = Math.sqrt(dlat * dlat + dlng * dlng);
+                    if (d < minDist) { minDist = d; nearestStop = s; }
+                  });
+                  if (nearestStop) autoStart = { lat: nearestStop.lat, lng: nearestStop.lng, address: nearestStop.name };
+                }
+                if (!autoStart && isCircular) {
+                  autoStart = { lat: smartStops[0].lat, lng: smartStops[0].lng, address: smartStops[0].name };
+                }
+                // Linear without GPS: autoStart stays null → optimizeStopOrder picks best endpoint
+                
+                setFormData(prev => ({...prev, startPoint: autoStart ? `${autoStart.lat},${autoStart.lng}` : ''}));
+                
                 const newDisabled = smartDisabled.map(s => (s.name || '').toLowerCase().trim());
                 setDisabledStops(newDisabled);
                 
                 // Optimize geographic order
                 const optimized = optimizeStopOrder(smartStops, autoStart, isCircular);
+                
+                // For linear without explicit start: use first optimized stop
+                if (!autoStart && optimized.length > 0) {
+                  autoStart = { lat: optimized[0].lat, lng: optimized[0].lng, address: optimized[0].name };
+                }
+                if (!autoStart) { showToast(t('form.chooseStartBeforeCalc'), 'warning'); return; }
                 
                 setRoute({ ...route, stops: [...optimized, ...smartDisabled], circular: isCircular, optimized: true, startPoint: autoStart.address, startPointCoords: autoStart });
                 const urls = window.BKK.buildGoogleMapsUrls(
@@ -1374,10 +1389,12 @@
                               
                               return (
                                 <div key={stop.originalIndex} className="p-1.5 rounded border relative" style={{ 
-                                  borderColor: isStartPoint ? '#e5e7eb' : !hasValidCoords ? '#ef4444' : isAddedLater ? '#60a5fa' : '#e5e7eb',
+                                  borderColor: isDisabled ? '#d1d5db' : isStartPoint ? '#e5e7eb' : !hasValidCoords ? '#ef4444' : isAddedLater ? '#60a5fa' : '#e5e7eb',
                                   borderWidth: isAddedLater ? '2px' : '1px',
                                   borderStyle: isAddedLater ? 'dashed' : 'solid',
-                                  backgroundColor: !hasValidCoords ? '#fef2f2' : isAddedLater ? '#eff6ff' : '#fafafa'
+                                  backgroundColor: isDisabled ? '#f9fafb' : !hasValidCoords ? '#fef2f2' : isAddedLater ? '#eff6ff' : '#fafafa',
+                                  opacity: isDisabled ? 0.45 : 1,
+                                  transition: 'opacity 0.2s'
                                 }}>
                                   {/* Action buttons - positioned based on language direction */}
                                   <div style={{ position: 'absolute', top: '2px', display: 'flex', gap: '2px', ...(window.BKK.i18n.isRTL() ? { left: '2px' } : { right: '2px' }) }}>
@@ -1602,7 +1619,7 @@
                   <button
                     onClick={() => {
                       const openMap = (gpsStart) => {
-                        const result = recomputeForMap(gpsStart || null);
+                        const result = recomputeForMap(gpsStart || null, undefined, true);
                         if (result) {
                           const activeForMap = result.optimized.filter(s => s.lat && s.lng);
                           setMapStops(activeForMap);
@@ -1662,15 +1679,15 @@
                     <div>
                     <div onClick={() => setShowRouteMenu(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 40 }} />
                     <div style={{
-                      position: 'absolute', left: 0, right: 0, zIndex: 50,
-                      background: 'white', borderRadius: '12px', boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                      position: 'absolute', left: 0, right: 0, bottom: '48px', zIndex: 50,
+                      background: 'white', borderRadius: '12px', boxShadow: '0 -4px 24px rgba(0,0,0,0.15)',
                       border: '1px solid #e5e7eb', overflow: 'hidden',
                       direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr'
                     }}>
                       {[
-                        { icon: '➕', label: t('route.addManualStop').replace('➕ ', ''), action: () => { setShowRouteMenu(false); setShowManualAddDialog(true); } },
-                        { icon: '☰', label: showRoutePreview ? t('route.backToList') : t('route.reorderStops'), action: () => { setShowRouteMenu(false); setShowRoutePreview(!showRoutePreview); }, disabled: !showRoutePreview && !route?.optimized },
-                        { icon: '🧠', label: t('route.helpMePlan'), action: () => {
+                        { icon: '+', label: t('route.addManualStop').replace('➕ ', ''), action: () => { setShowRouteMenu(false); setShowManualAddDialog(true); } },
+                        { icon: '≡', label: showRoutePreview ? t('route.backToList') : t('route.reorderStops'), action: () => { setShowRouteMenu(false); setShowRoutePreview(!showRoutePreview); }, disabled: !showRoutePreview && !route?.optimized },
+                        { icon: '✦', label: t('route.helpMePlan'), action: () => {
                           setShowRouteMenu(false);
                           if (!route?.stops?.length) return;
                           const allStopsWithCoords = route.stops.filter(s => s.lat && s.lng);
@@ -1679,9 +1696,9 @@
                           const newDisabled = smartDisabled.map(s => (s.name || '').toLowerCase().trim());
                           setDisabledStops(newDisabled);
                           setRoute(prev => prev ? { ...prev, optimized: false } : prev);
-                          showToast(`🧠 ${smartStops.length} ${t('route.stops')}`, 'success');
+                          showToast(`✦ ${smartStops.length} ${t('route.stops')}`, 'success');
                         }},
-                        { icon: '📤', label: t('route.shareRoute'), action: () => {
+                        { icon: '↗', label: t('general.shareRoute'), action: () => {
                           setShowRouteMenu(false);
                           if (!route?.optimized) return;
                           const activeStops = (route.stops || []).filter(s => {
@@ -1702,7 +1719,7 @@
                           if (navigator.share) { navigator.share({ title: routeName, text: shareText }); }
                           else { navigator.clipboard.writeText(shareText); showToast(t('route.routeCopied'), 'success'); }
                         }, disabled: !route?.optimized },
-                        { icon: route.name ? '✅' : '💾', label: route.name ? `${t('route.savedAs')} ${route.name}` : t('route.saveRoute'), action: () => {
+                        { icon: route.name ? '✓' : '⬇', label: route.name ? `${t('route.savedAs')} ${route.name}` : t('route.saveRoute'), action: () => {
                           setShowRouteMenu(false);
                           if (!route.name && route?.optimized) quickSaveRoute();
                         }, disabled: !route?.optimized || !!route.name },
@@ -1719,7 +1736,7 @@
                             textAlign: window.BKK.i18n.isRTL() ? 'right' : 'left'
                           }}
                         >
-                          <span style={{ fontSize: '16px', flexShrink: 0, width: '24px', textAlign: 'center' }}>{item.icon}</span>
+                          <span style={{ fontSize: '14px', flexShrink: 0, width: '22px', textAlign: 'center', fontWeight: 'bold', color: item.disabled ? '#d1d5db' : '#6b7280' }}>{item.icon}</span>
                           <span>{item.label}</span>
                         </button>
                       ))}
@@ -1794,6 +1811,43 @@
                       </div>
                     );
                   })()}
+
+                  {/* Time-of-day toggle */}
+                  {route?.optimized && (
+                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: '6px' }}>
+                      <div style={{ display: 'inline-flex', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden', fontSize: '11px' }}>
+                        {[
+                          { id: 'auto', label: t('route.timeAuto') },
+                          { id: 'day', label: t('route.timeDay') },
+                          { id: 'afternoon', label: t('route.timeAfternoon') },
+                          { id: 'night', label: t('route.timeNight') },
+                        ].map(opt => {
+                          const isActive = routeTimeMode === opt.id;
+                          return (
+                            <button
+                              key={opt.id}
+                              onClick={() => {
+                                setRouteTimeMode(opt.id);
+                                if (route?.optimized) {
+                                  setRoute(prev => prev ? {...prev, optimized: false} : prev);
+                                }
+                              }}
+                              style={{
+                                padding: '4px 10px', border: 'none', cursor: 'pointer',
+                                background: isActive ? '#3b82f6' : 'white',
+                                color: isActive ? 'white' : '#6b7280',
+                                fontWeight: isActive ? 'bold' : 'normal',
+                                borderRight: '1px solid #e5e7eb',
+                                fontSize: '10px', whiteSpace: 'nowrap'
+                              }}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Hint text */}
                   {route?.optimized && (
@@ -3547,7 +3601,7 @@
                         onClick={() => {
                           setRouteType('linear');
                           routeTypeRef.current = 'linear'; // Update ref immediately
-                          const result = recomputeForMap(null, 'linear');
+                          const result = recomputeForMap(null, 'linear', true);
                           if (result && window._mapStopsOrderRef) {
                             window._mapStopsOrderRef.current = result.optimized;
                           }
@@ -3561,7 +3615,7 @@
                         onClick={() => {
                           setRouteType('circular');
                           routeTypeRef.current = 'circular'; // Update ref immediately
-                          const result = recomputeForMap(null, 'circular');
+                          const result = recomputeForMap(null, 'circular', true);
                           if (result && window._mapStopsOrderRef) {
                             window._mapStopsOrderRef.current = result.optimized;
                           }

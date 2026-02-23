@@ -57,18 +57,21 @@
   React.useEffect(() => { disabledStopsRef.current = disabledStops; }, [disabledStops]);
   
   // Auto-compute route whenever route exists with stops but isn't optimized
+  // Skip in wizard mode when user hasn't chosen Yalla/Manual yet
   const autoComputeRef = React.useRef(false);
   React.useEffect(() => {
     if (route && route.stops && route.stops.length >= 2 && !route.optimized && !autoComputeRef.current) {
+      // Don't auto-compute while wizard choice screen is showing
+      if (wizardMode && routeChoiceMade === null) return;
       autoComputeRef.current = true;
       const timer = setTimeout(() => {
         console.log('[AUTO-COMPUTE] Route not optimized, auto-computing...');
-        recomputeForMap();
+        recomputeForMap(null, undefined, true); // skipSmartSelect: respect user's manual disable choices
         autoComputeRef.current = false;
       }, 300);
       return () => { clearTimeout(timer); autoComputeRef.current = false; };
     }
-  }, [route?.stops?.length, route?.optimized]);
+  }, [route?.stops?.length, route?.optimized, routeChoiceMade]);
   const [showRoutePreview, setShowRoutePreview] = useState(false); // Route stop reorder view
   const [showRouteMenu, setShowRouteMenu] = useState(false); // Hamburger menu in route results
   const [routeChoiceMade, setRouteChoiceMade] = useState(null); // null | 'manual' — controls wizard step 3 split
@@ -123,6 +126,19 @@
     const saved = localStorage.getItem('bangkok_route_type');
     return saved || 'circular';
   }); // 'circular' or 'linear'
+  
+  // Time-of-day mode for content-aware routing
+  const getAutoTimeMode = () => {
+    const h = new Date().getHours();
+    if (h >= 6 && h < 14) return 'day';
+    if (h >= 14 && h < 17) return 'afternoon';
+    return 'night';
+  };
+  const [routeTimeMode, setRouteTimeMode] = useState('auto'); // 'auto' | 'day' | 'afternoon' | 'night'
+  const routeTimeModeRef = React.useRef(routeTimeMode);
+  React.useEffect(() => { routeTimeModeRef.current = routeTimeMode; }, [routeTimeMode]);
+  const getEffectiveTimeMode = () => routeTimeModeRef.current === 'auto' ? getAutoTimeMode() : routeTimeModeRef.current;
+  
   const [savedRoutes, setSavedRoutes] = useState([]);
   const [customLocations, setCustomLocations] = useState([]);
   const [pendingLocations, setPendingLocations] = useState(() => {
@@ -344,7 +360,7 @@
               map.closePopup();
               showToast(`▶ ${data}`, 'success');
               // Auto-recompute route with new start point
-              const result = recomputeForMap(newStart);
+              const result = recomputeForMap(newStart, undefined, true);
               if (result) {
                 stopsOrderRef.current = result.optimized;
               }
@@ -359,7 +375,20 @@
                 markerRefs[nameKey].label.setOpacity(0.3);
               }
               map.closePopup();
-              showToast(`🚫 ${data}`, 'info');
+              // If disabling the current start point, clear it so recompute picks a new one
+              const curStart = startPointCoordsRef_local.current;
+              if (curStart) {
+                const stopObj = stops.find(s => (s.name || '').toLowerCase().trim() === nameKey);
+                if (stopObj && Math.abs(stopObj.lat - curStart.lat) < 0.0001 && Math.abs(stopObj.lng - curStart.lng) < 0.0001) {
+                  startPointCoordsRef_local.current = null;
+                  if (startMarkerRef) { map.removeLayer(startMarkerRef); startMarkerRef = null; }
+                  setStartPointCoords(null);
+                  startPointCoordsRef.current = null;
+                }
+              }
+              showToast(`⏸️ ${data}`, 'info');
+              // Trigger route recompute
+              setRoute(prev => prev ? {...prev, optimized: false} : prev);
               setTimeout(() => { if (window._mapRedrawLine) window._mapRedrawLine(); }, 50);
             } else if (action === 'enable') {
               setDisabledStops(prev => prev.filter(n => n !== nameKey));
@@ -368,7 +397,9 @@
                 markerRefs[nameKey].label.setOpacity(1);
               }
               map.closePopup();
-              showToast(`✅ ${data}`, 'success');
+              showToast(`▶️ ${data}`, 'success');
+              // Trigger route recompute
+              setRoute(prev => prev ? {...prev, optimized: false} : prev);
               setTimeout(() => { if (window._mapRedrawLine) window._mapRedrawLine(); }, 50);
             }
           };
@@ -424,8 +455,8 @@
               const curDisabled = disabledStopsRef.current || [];
               const curIsDisabled = curDisabled.includes(nameKey);
               const toggleAction = curIsDisabled ? 'enable' : 'disable';
-              const toggleLabel = curIsDisabled ? '✅ ' + t('general.enable') : '🚫 ' + t('route.removeFromRoute');
-              const toggleColor = curIsDisabled ? '#22c55e' : '#ef4444';
+              const toggleLabel = curIsDisabled ? '▶️ ' + t('route.returnPlace') : '⏸️ ' + t('route.skipPlace');
+              const toggleColor = curIsDisabled ? '#22c55e' : '#9ca3af';
               return '<div style="text-align:center;direction:' + (isRTL ? 'rtl' : 'ltr') + ';font-size:13px;min-width:160px;padding:4px 0;">' +
                 '<div style="font-weight:bold;font-size:14px;margin-bottom:6px;">' + window.BKK.stopLabel(i) + '. ' + (stop.name || '') + '</div>' +
                 (stop.rating ? '<div style="color:#f59e0b;margin-bottom:6px;">⭐ ' + stop.rating + (stop.ratingCount ? ' (' + stop.ratingCount + ')' : '') + '</div>' : '') +
@@ -2840,6 +2871,141 @@
     console.log(`[OPTIMIZE] ${withCoords.length} stops optimized in ${passes} passes`);
     console.log(`[OPTIMIZE] Total distance: ${Math.round(totalDist(ordered))}m (${isCircular ? 'circular' : 'linear'})`);
     
+    // --- Step 3: Content-aware reordering ---
+    // Adjust order so route feels natural: cafes at start/end, food in middle, no same-category neighbors
+    if (ordered.length >= 4) {
+      const slotConfig = {
+        cafes:         { slot: 'bookend', minGap: 3, time: 'anytime' },
+        food:          { slot: 'middle',  minGap: 3, time: 'anytime' },
+        restaurants:   { slot: 'middle',  minGap: 3, time: 'anytime' },
+        markets:       { slot: 'early',   minGap: 2, time: 'day' },
+        shopping:      { slot: 'early',   minGap: 2, time: 'day' },
+        temples:       { slot: 'any',     minGap: 1, time: 'day' },
+        galleries:     { slot: 'any',     minGap: 1, time: 'day' },
+        architecture:  { slot: 'any',     minGap: 1, time: 'day' },
+        parks:         { slot: 'early',   minGap: 1, time: 'day' },
+        beaches:       { slot: 'early',   minGap: 2, time: 'day' },
+        graffiti:      { slot: 'any',     minGap: 1, time: 'day' },
+        artisans:      { slot: 'any',     minGap: 1, time: 'day' },
+        canals:        { slot: 'any',     minGap: 1, time: 'day' },
+        culture:       { slot: 'any',     minGap: 1, time: 'day' },
+        history:       { slot: 'any',     minGap: 1, time: 'day' },
+        nightlife:     { slot: 'end',     minGap: 2, time: 'night' },
+        rooftop:       { slot: 'end',     minGap: 2, time: 'evening' },
+        bars:          { slot: 'end',     minGap: 2, time: 'night' },
+        entertainment: { slot: 'late',    minGap: 2, time: 'evening' },
+      };
+      
+      // Time-of-day compatibility scoring
+      const timeMode = getEffectiveTimeMode();
+      const timeCompat = (stopTime) => {
+        if (!stopTime || stopTime === 'anytime') return 0; // Always compatible
+        // How well does a stop's preferred time match the route's time mode?
+        const compat = {
+          day:       { day: 0, afternoon: 0.5, evening: 2, night: 3 },
+          afternoon: { day: 0.3, afternoon: 0, evening: 0.3, night: 1.5 },
+          evening:   { day: 2, afternoon: 0.3, evening: 0, night: 0.3 },
+          night:     { day: 3, afternoon: 1.5, evening: 0.3, night: 0 },
+        };
+        return (compat[timeMode] || {})[stopTime] || 0;
+      };
+      
+      const n = ordered.length;
+      const getCategory = (stop) => {
+        const cats = stop.interests || [];
+        return cats.find(c => slotConfig[c]) || cats[0] || 'other';
+      };
+      const getStopTime = (stop) => {
+        // Per-stop override (from bestTime field) takes priority
+        if (stop.bestTime) return stop.bestTime;
+        const cat = getCategory(stop);
+        return slotConfig[cat]?.time || 'anytime';
+      };
+      
+      // Score how well a stop fits its position (lower = better)
+      const slotScore = (cat, pos) => {
+        const cfg = slotConfig[cat];
+        if (!cfg) return 0;
+        const pct = n > 1 ? pos / (n - 1) : 0.5;
+        switch (cfg.slot) {
+          case 'bookend': return Math.min(pct, 1 - pct) * 4;
+          case 'early': return pct < 0.4 ? 0 : (pct - 0.4) * 3;
+          case 'middle': return Math.abs(pct - 0.5) * 3;
+          case 'late': return pct > 0.6 ? 0 : (0.6 - pct) * 3;
+          case 'end': return pct > 0.7 ? 0 : (0.7 - pct) * 4;
+          default: return 0;
+        }
+      };
+      
+      // Penalty for same-category adjacency
+      const gapPenalty = (arr) => {
+        let penalty = 0;
+        for (let i = 0; i < arr.length; i++) {
+          const cat = getCategory(arr[i]);
+          const cfg = slotConfig[cat];
+          const minGap = cfg?.minGap || 1;
+          for (let j = 1; j <= Math.min(minGap, i); j++) {
+            if (getCategory(arr[i - j]) === cat) {
+              penalty += (minGap - j + 1) * 2;
+            }
+          }
+        }
+        return penalty;
+      };
+      
+      // Total content penalty (includes time-of-day)
+      const contentPenalty = (arr) => {
+        let p = 0;
+        for (let i = 0; i < arr.length; i++) {
+          p += slotScore(getCategory(arr[i]), i);
+          p += timeCompat(getStopTime(arr[i])); // Time mismatch penalty
+        }
+        p += gapPenalty(arr);
+        return p;
+      };
+      
+      // Geographic distance of the order
+      const geoDist = (arr) => totalDist(arr);
+      const baseGeo = geoDist(ordered);
+      const basePenalty = contentPenalty(ordered);
+      
+      // Only apply if there are actual content issues
+      if (basePenalty > 0.5) {
+        // Try targeted swaps that improve content without too much geographic cost
+        let contentImproved = true;
+        let contentPasses = 0;
+        const maxContentPasses = 3;
+        
+        while (contentImproved && contentPasses < maxContentPasses) {
+          contentImproved = false;
+          contentPasses++;
+          for (let i = 0; i < ordered.length; i++) {
+            for (let j = i + 1; j < ordered.length; j++) {
+              const curPenalty = contentPenalty(ordered);
+              // Try swap
+              [ordered[i], ordered[j]] = [ordered[j], ordered[i]];
+              const newPenalty = contentPenalty(ordered);
+              const newGeo = geoDist(ordered);
+              const geoIncrease = (newGeo - baseGeo) / Math.max(baseGeo, 1);
+              
+              // Accept if content improves by more than geographic cost
+              if (newPenalty < curPenalty - 0.3 && geoIncrease < 0.25) {
+                contentImproved = true;
+                // Keep swap
+              } else {
+                // Revert
+                [ordered[i], ordered[j]] = [ordered[j], ordered[i]];
+              }
+            }
+          }
+        }
+        
+        const finalPenalty = contentPenalty(ordered);
+        const finalGeo = geoDist(ordered);
+        console.log(`[CONTENT-REORDER] mode=${timeMode}, ${contentPasses} passes, penalty ${basePenalty.toFixed(1)} → ${finalPenalty.toFixed(1)}, distance ${Math.round(baseGeo)}m → ${Math.round(finalGeo)}m`);
+      }
+    }
+    
     // Append stops without coordinates at the end
     return [...ordered, ...noCoords];
   };
@@ -3397,7 +3563,8 @@
   };
 
   // Recompute route for map — returns data for immediate use (avoids React state timing issues)
-  const recomputeForMap = (overrideStart, overrideType) => {
+  // When skipSmartSelect=true, respects current disabledStops (for user manual changes)
+  const recomputeForMap = (overrideStart, overrideType, skipSmartSelect) => {
     if (!route || route.stops.length < 2) return null;
     const allStops = route.stops.filter(s => s.lat && s.lng);
     if (allStops.length < 2) return null;
@@ -3406,32 +3573,61 @@
     const type = overrideType !== undefined ? overrideType : routeTypeRef.current;
     const isCircular = type === 'circular';
     
-    const { selected, disabled } = smartSelectStops(allStops, formData.interests);
-    const newDisabled = disabled.map(s => (s.name || '').toLowerCase().trim());
-    setDisabledStops(newDisabled);
+    let selected, disabled, newDisabled;
+    if (skipSmartSelect) {
+      // Respect user's manual disable choices
+      const curDisabled = disabledStopsRef.current || [];
+      selected = allStops.filter(s => !curDisabled.includes((s.name || '').toLowerCase().trim()));
+      disabled = allStops.filter(s => curDisabled.includes((s.name || '').toLowerCase().trim()));
+      newDisabled = curDisabled;
+    } else {
+      const result = smartSelectStops(allStops, formData.interests);
+      selected = result.selected;
+      disabled = result.disabled;
+      newDisabled = disabled.map(s => (s.name || '').toLowerCase().trim());
+      setDisabledStops(newDisabled);
+    }
     if (selected.length < 2) return null;
     
     let autoStart = overrideStart || startPointCoordsRef.current;
     if (!autoStart) {
-      // Radius mode + valid GPS → start from my location
-      if (formData.searchMode === 'radius' && formData.currentLat && formData.currentLng) {
+      // Radius mode + valid GPS → find nearest stop to GPS
+      if (formData.currentLat && formData.currentLng) {
         const check = window.BKK.isGpsWithinCity(formData.currentLat, formData.currentLng);
         if (check.withinCity) {
-          autoStart = { lat: formData.currentLat, lng: formData.currentLng, address: t('wizard.myLocation') };
+          // Find nearest stop to current GPS position
+          let minDist = Infinity, nearestStop = null;
+          selected.forEach(s => {
+            const d = calcDistance(formData.currentLat, formData.currentLng, s.lat, s.lng);
+            if (d < minDist) { minDist = d; nearestStop = s; }
+          });
+          if (nearestStop) {
+            autoStart = { lat: nearestStop.lat, lng: nearestStop.lng, address: nearestStop.name };
+          }
         }
       }
-      // Area mode or GPS unavailable/outside city → first stop
+      // Linear mode without GPS → let optimizeStopOrder pick optimal endpoint (don't force A)
+      // Circular mode without GPS → use first stop
       if (!autoStart) {
-        autoStart = { lat: selected[0].lat, lng: selected[0].lng, address: selected[0].name };
+        if (isCircular) {
+          autoStart = { lat: selected[0].lat, lng: selected[0].lng, address: selected[0].name };
+        }
+        // For linear: autoStart stays null → optimizeStopOrder will pick the best endpoint
       }
     }
+    const optimized = optimizeStopOrder(selected, autoStart, isCircular);
+    
+    // For linear routes without explicit start: use the first stop from optimized order
+    if (!autoStart && optimized.length > 0) {
+      autoStart = { lat: optimized[0].lat, lng: optimized[0].lng, address: optimized[0].name };
+    }
+    
     setStartPointCoords(autoStart);
     startPointCoordsRef.current = autoStart; // Update ref immediately
-    setFormData(prev => ({...prev, startPoint: autoStart.address || `${autoStart.lat},${autoStart.lng}`}));
+    setFormData(prev => ({...prev, startPoint: autoStart?.address || (autoStart ? `${autoStart.lat},${autoStart.lng}` : '')}));
     
-    const optimized = optimizeStopOrder(selected, autoStart, isCircular);
     const newStops = [...optimized, ...disabled];
-    setRoute(prev => prev ? { ...prev, stops: newStops, circular: isCircular, optimized: true, startPoint: autoStart.address, startPointCoords: autoStart } : prev);
+    setRoute(prev => prev ? { ...prev, stops: newStops, circular: isCircular, optimized: true, startPoint: autoStart?.address, startPointCoords: autoStart } : prev);
     
     // Return for immediate use (before React re-renders)
     return { optimized, disabled, autoStart, newDisabled, isCircular };
@@ -5172,13 +5368,25 @@
   };
 
   const toggleStopActive = (stopIndex) => {
-    const stopName = route.stops[stopIndex]?.name?.toLowerCase().trim();
+    const stop = route.stops[stopIndex];
+    const stopName = stop?.name?.toLowerCase().trim();
     if (!stopName) return;
-    const newDisabledStops = disabledStops.includes(stopName)
+    const isCurrentlyDisabled = disabledStops.includes(stopName);
+    const newDisabledStops = isCurrentlyDisabled
       ? disabledStops.filter(n => n !== stopName)
       : [...disabledStops, stopName];
     
     setDisabledStops(newDisabledStops);
+    
+    // If disabling the current start point, clear it so recompute picks a new one
+    if (!isCurrentlyDisabled && startPointCoords && stop?.lat && stop?.lng) {
+      if (Math.abs(stop.lat - startPointCoords.lat) < 0.0001 && Math.abs(stop.lng - startPointCoords.lng) < 0.0001) {
+        setStartPointCoords(null);
+        startPointCoordsRef.current = null;
+        setFormData(prev => ({...prev, startPoint: ''}));
+      }
+    }
+    
     // Mark as not optimized — auto-compute useEffect will recompute
     if (route?.optimized) {
       setRoute(prev => prev ? {...prev, optimized: false} : prev);
