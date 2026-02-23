@@ -93,6 +93,18 @@ const FouFouApp = () => {
   const [disabledStops, setDisabledStops] = useState([]); // Track disabled stop IDs
   const disabledStopsRef = React.useRef(disabledStops);
   React.useEffect(() => { disabledStopsRef.current = disabledStops; }, [disabledStops]);
+  
+  const autoComputeRef = React.useRef(false);
+  React.useEffect(() => {
+    if (route && route.stops && route.stops.length >= 2 && !route.optimized && !autoComputeRef.current) {
+      autoComputeRef.current = true;
+      const timer = setTimeout(() => {
+        recomputeForMap();
+        autoComputeRef.current = false;
+      }, 300);
+      return () => { clearTimeout(timer); autoComputeRef.current = false; };
+    }
+  }, [route?.stops?.length, route?.optimized]);
   const [showRoutePreview, setShowRoutePreview] = useState(false); // Route stop reorder view
   const [routeChoiceMade, setRouteChoiceMade] = useState(null); // null | 'manual' — controls wizard step 3 split
   const [manualStops, setManualStops] = useState([]); // Manually added stops (session only)
@@ -3097,7 +3109,7 @@ const FouFouApp = () => {
       
       const updatedRoute = {
         ...route,
-        stops: [...route.stops, ...placesToAdd]
+        stops: [...route.stops, ...placesToAdd], optimized: false
       };
       
       setRoute(updatedRoute);
@@ -3215,7 +3227,7 @@ const FouFouApp = () => {
       
       const updatedRoute = {
         ...route,
-        stops: [...route.stops, ...allNewPlaces]
+        stops: [...route.stops, ...allNewPlaces], optimized: false
       };
       
       setRoute(updatedRoute);
@@ -4611,24 +4623,9 @@ const FouFouApp = () => {
       : [...disabledStops, stopName];
     
     setDisabledStops(newDisabledStops);
-    
-    const activeStops = route.stops.filter(s => 
-      !newDisabledStops.includes(s.name?.toLowerCase().trim())
-    );
-    
-    const hasStartPoint = startPointCoords && startPointCoords.lat && startPointCoords.lng;
-    const origin = hasStartPoint
-      ? `${startPointCoords.lat},${startPointCoords.lng}`
-      : activeStops.length > 0 ? `${activeStops[0].lat},${activeStops[0].lng}` : '';
-    const stopsForUrls = hasStartPoint ? activeStops : activeStops.slice(1);
-    const isCircular = route.preferences?.circular || false;
-    const urls = activeStops.length > 0
-      ? window.BKK.buildGoogleMapsUrls(stopsForUrls, origin, isCircular, googleMaxWaypoints)
-      : [];
-    
-    const mapUrl = urls.length > 0 ? urls[0].url : '';
-    
-    setRoute({...route, mapUrl, mapUrls: urls});
+    if (route?.optimized) {
+      setRoute(prev => prev ? {...prev, optimized: false} : prev);
+    }
   };
 
 
@@ -6265,49 +6262,11 @@ const FouFouApp = () => {
                     {`${t("route.showStopsOnMap")} (${route.stops.filter(s => !disabledStops.includes((s.name || '').toLowerCase().trim()) && s.lat && s.lng).length})`}
                   </button>
                   
-                  {/* Route controls */}
+                  {/* Route controls — compute is automatic */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
 
-                      {/* Help me plan */}
-                      {route.stops.length > 0 && (
-                      <button
-                        onClick={() => {
-                          const result = recomputeForMap();
-                          if (result) {
-                            showToast(`🧠 ${t('route.smartSelected', { selected: result.optimized.length, disabled: result.disabled.length })}`, 'success');
-                          }
-                        }}
-                        style={{
-                          width: '100%', height: '38px', borderRadius: '10px',
-                          border: '2px solid #f59e0b', background: 'linear-gradient(135deg, #fffbeb, #fef3c7)',
-                          color: '#b45309', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
-                        }}
-                      >
-                        🧠 {t('route.helpMePlan')}
-                      </button>
-                      )}
-
-                      {/* Row 1: Calc Route + Reorder */}
+                      {/* Row 1: Reorder */}
                       <div style={{ display: 'flex', gap: '4px', alignItems: 'center', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
-                      <button
-                        onClick={computeRoute}
-                        disabled={!startPointCoords}
-                        style={{
-                          flex: 1,
-                          height: '42px',
-                          backgroundColor: startPointCoords ? '#7c3aed' : '#d1d5db',
-                          color: startPointCoords ? 'white' : '#9ca3af',
-                          borderRadius: '12px',
-                          fontWeight: 'bold',
-                          fontSize: '13px',
-                          border: 'none',
-                          boxShadow: startPointCoords ? '0 4px 6px rgba(124, 58, 237, 0.3)' : 'none',
-                          cursor: startPointCoords ? 'pointer' : 'not-allowed'
-                        }}
-                      >
-                        {route?.optimized ? t('route.recalcRoute') : t('route.calcRoute')}
-                      </button>
                       <button
                         onClick={() => setShowRoutePreview(!showRoutePreview)}
                         disabled={!showRoutePreview && !route?.optimized}
@@ -6447,13 +6406,13 @@ const FouFouApp = () => {
                       </div>
                     </div>
                     {!startPointCoords && (
-                      <p style={{ fontSize: '10px', color: '#ef4444', textAlign: 'center', marginTop: '2px', marginBottom: '2px' }}>
-                        {`🗺️ ${t("form.setStartOnMap")}`}
+                      <p style={{ fontSize: '10px', color: '#6b7280', textAlign: 'center', marginTop: '2px', marginBottom: '2px' }}>
+                        {`💡 ${t("route.autoComputeHint")}`}
                       </p>
                     )}
                     {route?.optimized && (
                       <p style={{ fontSize: '10px', color: '#16a34a', textAlign: 'center', marginTop: '2px', marginBottom: '2px', fontWeight: 'bold' }}>
-                        {`✅ ${t("route.routeCalculated")}`}
+                        {`✅ ${t("route.autoComputeReady")}`}
                       </p>
                     )}
 
@@ -8205,9 +8164,6 @@ const FouFouApp = () => {
                         }}
                       >⭕ {t('route.circular')}</button>
                     </div>
-                    {startPointCoords && (
-                      <span style={{ fontSize: '10px', color: '#22c55e', fontWeight: 'bold' }}>▶ {(startPointCoords.address || '').substring(0, 20)}{(startPointCoords.address || '').length > 20 ? '...' : ''}</span>
-                    )}
                   </div>
                   {/* Hint + Close */}
                   <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -9609,7 +9565,8 @@ const FouFouApp = () => {
                 if (route) {
                   setRoute(prev => prev ? {
                     ...prev,
-                    stops: [...prev.stops, newStop]
+                    stops: [...prev.stops, newStop],
+                    optimized: false
                   } : prev);
                 }
                 

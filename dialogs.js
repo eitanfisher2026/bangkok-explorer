@@ -1393,7 +1393,8 @@
                 if (route) {
                   setRoute(prev => prev ? {
                     ...prev,
-                    stops: [...prev.stops, newStop]
+                    stops: [...prev.stops, newStop],
+                    optimized: false
                   } : prev);
                 }
                 

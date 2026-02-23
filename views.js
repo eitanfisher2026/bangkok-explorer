@@ -1647,49 +1647,11 @@
                     {`${t("route.showStopsOnMap")} (${route.stops.filter(s => !disabledStops.includes((s.name || '').toLowerCase().trim()) && s.lat && s.lng).length})`}
                   </button>
                   
-                  {/* Route controls */}
+                  {/* Route controls — compute is automatic */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
 
-                      {/* Help me plan */}
-                      {route.stops.length > 0 && (
-                      <button
-                        onClick={() => {
-                          const result = recomputeForMap();
-                          if (result) {
-                            showToast(`🧠 ${t('route.smartSelected', { selected: result.optimized.length, disabled: result.disabled.length })}`, 'success');
-                          }
-                        }}
-                        style={{
-                          width: '100%', height: '38px', borderRadius: '10px',
-                          border: '2px solid #f59e0b', background: 'linear-gradient(135deg, #fffbeb, #fef3c7)',
-                          color: '#b45309', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
-                        }}
-                      >
-                        🧠 {t('route.helpMePlan')}
-                      </button>
-                      )}
-
-                      {/* Row 1: Calc Route + Reorder */}
+                      {/* Row 1: Reorder */}
                       <div style={{ display: 'flex', gap: '4px', alignItems: 'center', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
-                      <button
-                        onClick={computeRoute}
-                        disabled={!startPointCoords}
-                        style={{
-                          flex: 1,
-                          height: '42px',
-                          backgroundColor: startPointCoords ? '#7c3aed' : '#d1d5db',
-                          color: startPointCoords ? 'white' : '#9ca3af',
-                          borderRadius: '12px',
-                          fontWeight: 'bold',
-                          fontSize: '13px',
-                          border: 'none',
-                          boxShadow: startPointCoords ? '0 4px 6px rgba(124, 58, 237, 0.3)' : 'none',
-                          cursor: startPointCoords ? 'pointer' : 'not-allowed'
-                        }}
-                      >
-                        {route?.optimized ? t('route.recalcRoute') : t('route.calcRoute')}
-                      </button>
                       <button
                         onClick={() => setShowRoutePreview(!showRoutePreview)}
                         disabled={!showRoutePreview && !route?.optimized}
@@ -1831,13 +1793,13 @@
                       </div>
                     </div>
                     {!startPointCoords && (
-                      <p style={{ fontSize: '10px', color: '#ef4444', textAlign: 'center', marginTop: '2px', marginBottom: '2px' }}>
-                        {`🗺️ ${t("form.setStartOnMap")}`}
+                      <p style={{ fontSize: '10px', color: '#6b7280', textAlign: 'center', marginTop: '2px', marginBottom: '2px' }}>
+                        {`💡 ${t("route.autoComputeHint")}`}
                       </p>
                     )}
                     {route?.optimized && (
                       <p style={{ fontSize: '10px', color: '#16a34a', textAlign: 'center', marginTop: '2px', marginBottom: '2px', fontWeight: 'bold' }}>
-                        {`✅ ${t("route.routeCalculated")}`}
+                        {`✅ ${t("route.autoComputeReady")}`}
                       </p>
                     )}
 
@@ -3605,9 +3567,6 @@
                         }}
                       >⭕ {t('route.circular')}</button>
                     </div>
-                    {startPointCoords && (
-                      <span style={{ fontSize: '10px', color: '#22c55e', fontWeight: 'bold' }}>▶ {(startPointCoords.address || '').substring(0, 20)}{(startPointCoords.address || '').length > 20 ? '...' : ''}</span>
-                    )}
                   </div>
                   {/* Hint + Close */}
                   <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>

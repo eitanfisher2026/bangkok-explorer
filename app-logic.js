@@ -55,6 +55,20 @@
   const [disabledStops, setDisabledStops] = useState([]); // Track disabled stop IDs
   const disabledStopsRef = React.useRef(disabledStops);
   React.useEffect(() => { disabledStopsRef.current = disabledStops; }, [disabledStops]);
+  
+  // Auto-compute route whenever route exists with stops but isn't optimized
+  const autoComputeRef = React.useRef(false);
+  React.useEffect(() => {
+    if (route && route.stops && route.stops.length >= 2 && !route.optimized && !autoComputeRef.current) {
+      autoComputeRef.current = true;
+      const timer = setTimeout(() => {
+        console.log('[AUTO-COMPUTE] Route not optimized, auto-computing...');
+        recomputeForMap();
+        autoComputeRef.current = false;
+      }, 300);
+      return () => { clearTimeout(timer); autoComputeRef.current = false; };
+    }
+  }, [route?.stops?.length, route?.optimized]);
   const [showRoutePreview, setShowRoutePreview] = useState(false); // Route stop reorder view
   const [routeChoiceMade, setRouteChoiceMade] = useState(null); // null | 'manual' — controls wizard step 3 split
   const [manualStops, setManualStops] = useState([]); // Manually added stops (session only)
@@ -3513,7 +3527,7 @@
       
       const updatedRoute = {
         ...route,
-        stops: [...route.stops, ...placesToAdd]
+        stops: [...route.stops, ...placesToAdd], optimized: false
       };
       
       setRoute(updatedRoute);
@@ -3640,7 +3654,7 @@
       
       const updatedRoute = {
         ...route,
-        stops: [...route.stops, ...allNewPlaces]
+        stops: [...route.stops, ...allNewPlaces], optimized: false
       };
       
       setRoute(updatedRoute);
@@ -5165,25 +5179,9 @@
       : [...disabledStops, stopName];
     
     setDisabledStops(newDisabledStops);
-    
-    // Regenerate map URL with only active stops
-    const activeStops = route.stops.filter(s => 
-      !newDisabledStops.includes(s.name?.toLowerCase().trim())
-    );
-    
-    const hasStartPoint = startPointCoords && startPointCoords.lat && startPointCoords.lng;
-    const origin = hasStartPoint
-      ? `${startPointCoords.lat},${startPointCoords.lng}`
-      : activeStops.length > 0 ? `${activeStops[0].lat},${activeStops[0].lng}` : '';
-    const stopsForUrls = hasStartPoint ? activeStops : activeStops.slice(1);
-    const isCircular = route.preferences?.circular || false;
-    const urls = activeStops.length > 0
-      ? window.BKK.buildGoogleMapsUrls(stopsForUrls, origin, isCircular, googleMaxWaypoints)
-      : [];
-    
-    // Use first URL as legacy mapUrl for backward compat
-    const mapUrl = urls.length > 0 ? urls[0].url : '';
-    
-    setRoute({...route, mapUrl, mapUrls: urls});
+    // Mark as not optimized — auto-compute useEffect will recompute
+    if (route?.optimized) {
+      setRoute(prev => prev ? {...prev, optimized: false} : prev);
+    }
   };
 
