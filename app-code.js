@@ -331,6 +331,7 @@ const FouFouApp = () => {
               }
               map.closePopup();
               showToast(`🚫 ${stopName}`, 'info');
+              setTimeout(() => { if (window._mapRedrawLine) window._mapRedrawLine(); }, 50);
             } else if (action === 'enable') {
               setDisabledStops(prev => prev.filter(n => n !== nameKey));
               if (markerRefs[nameKey]) {
@@ -339,11 +340,24 @@ const FouFouApp = () => {
               }
               map.closePopup();
               showToast(`✅ ${stopName}`, 'success');
+              setTimeout(() => { if (window._mapRedrawLine) window._mapRedrawLine(); }, 50);
             }
           };
           
           const markers = [];
           const isRTL = window.BKK.i18n.isRTL();
+          
+          if (startPointCoords?.lat && startPointCoords?.lng) {
+            const startMarker = L.marker([startPointCoords.lat, startPointCoords.lng], {
+              icon: L.divIcon({
+                className: '',
+                html: '<div style="font-size:14px;text-align:center;width:28px;height:28px;line-height:28px;border-radius:50%;background:#22c55e;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);color:white;font-weight:bold;">▶</div>',
+                iconSize: [28, 28], iconAnchor: [14, 14]
+              })
+            }).addTo(map);
+            startMarker.bindPopup('<div style="text-align:center;font-size:12px;font-weight:bold;">📍 ' + (startPointCoords.address || t('route.startPoint')) + '</div>');
+            markers.push(startMarker);
+          }
           stops.forEach((stop, i) => {
             const color = colorPalette[i % colorPalette.length];
             const nameKey = (stop.name || '').toLowerCase().trim();
@@ -391,15 +405,57 @@ const FouFouApp = () => {
             markers.push(circle);
           });
           
-          if (stops.length > 1) {
-            const latlngs = stops.map(s => [s.lat, s.lng]);
-            L.polyline(latlngs, { color: '#94a3b8', weight: 1.5, opacity: 0.35, dashArray: '4,6' }).addTo(map);
-          }
+          let routeLine = null;
+          const redrawRouteLine = () => {
+            if (routeLine) map.removeLayer(routeLine);
+            routeLine = null;
+            const curDisabled = disabledStopsRef.current || [];
+            const activeStops = stops.filter(s => !curDisabled.includes((s.name || '').toLowerCase().trim()));
+            if (activeStops.length > 1) {
+              const pts = [];
+              if (startPointCoords?.lat) pts.push([startPointCoords.lat, startPointCoords.lng]);
+              pts.push(...activeStops.map(s => [s.lat, s.lng]));
+              routeLine = L.polyline(pts, { color: '#6366f1', weight: 2.5, opacity: 0.6, dashArray: '6,8' }).addTo(map);
+            }
+          };
+          redrawRouteLine();
           
           if (markers.length > 0) {
             const group = L.featureGroup(markers);
             map.fitBounds(group.getBounds().pad(0.15));
           }
+          
+          const LocateControl = L.Control.extend({
+            options: { position: 'topright' },
+            onAdd: function() {
+              const div = L.DomUtil.create('div', '');
+              div.innerHTML = '<button style="width:36px;height:36px;border-radius:8px;border:2px solid rgba(0,0,0,0.2);background:white;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);" title="' + t('form.findCurrentLocation') + '">📍</button>';
+              let myLocMarker = null;
+              div.onclick = function(e) {
+                e.stopPropagation();
+                if (navigator.geolocation) {
+                  div.firstChild.innerHTML = '⏳';
+                  navigator.geolocation.getCurrentPosition(
+                    function(pos) {
+                      div.firstChild.innerHTML = '📍';
+                      if (myLocMarker) map.removeLayer(myLocMarker);
+                      myLocMarker = L.circleMarker([pos.coords.latitude, pos.coords.longitude], {
+                        radius: 8, color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.4, weight: 3
+                      }).addTo(map);
+                      myLocMarker.bindPopup('<div style="text-align:center;font-size:12px;font-weight:bold;">📍 ' + t('wizard.myLocation') + '</div>').openPopup();
+                      map.setView([pos.coords.latitude, pos.coords.longitude], map.getZoom());
+                    },
+                    function() { div.firstChild.innerHTML = '📍'; showToast(t('toast.locationInaccessible'), 'warning'); }
+                  );
+                }
+              };
+              L.DomEvent.disableClickPropagation(div);
+              return div;
+            }
+          });
+          new LocateControl().addTo(map);
+          
+          window._mapRedrawLine = redrawRouteLine;
           
           leafletMapRef.current = map;
         }
@@ -409,8 +465,8 @@ const FouFouApp = () => {
     }, 150);
     }); // end loadLeaflet().then
     
-    return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; };
-  }, [showMapModal, mapMode, mapStops, formData.currentLat, formData.currentLng, formData.radiusMeters]);
+    return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; delete window._mapRedrawLine; };
+  }, [showMapModal, mapMode, mapStops, formData.currentLat, formData.currentLng, formData.radiusMeters, startPointCoords]);
   const [modalImage, setModalImage] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -5802,33 +5858,7 @@ const FouFouApp = () => {
                         );
                       });
                     })()}
-                    {/* Mini map showing route order */}
-                    <div style={{ height: '200px', borderRadius: '8px', marginTop: '8px', border: '1px solid #e5e7eb' }}
-                      ref={(el) => {
-                        if (!el) return;
-                        if (el._leafletMap) { el._leafletMap.remove(); el._leafletMap = null; }
-                        const activeStops = route.stops.filter(s => !disabledStops.includes((s.name || '').toLowerCase().trim()) && s.lat && s.lng);
-                        if (activeStops.length === 0) return;
-                        setTimeout(() => {
-                          try {
-                            const L = window.L;
-                            if (!L || !el.offsetHeight) return;
-                            const map = L.map(el, { zoomControl: false, attributionControl: false }).setView([activeStops[0].lat, activeStops[0].lng], 13);
-                            L.tileLayer(window.BKK.getTileUrl(), { maxZoom: 18 }).addTo(map);
-                            const colors = ['#3b82f6','#f59e0b','#ef4444','#10b981','#ec4899','#6366f1','#8b5cf6','#06b6d4','#f97316','#a855f7'];
-                            const mkrs = [];
-                            activeStops.forEach((stop, i) => {
-                              const c = colors[i % colors.length];
-                              mkrs.push(L.circleMarker([stop.lat, stop.lng], { radius: 8, color: c, fillColor: c, fillOpacity: 0.85, weight: 2 }).addTo(map));
-                              L.marker([stop.lat, stop.lng], { icon: L.divIcon({ className: '', html: '<div style="font-size:8px;font-weight:bold;text-align:center;color:white;width:16px;height:16px;line-height:16px;border-radius:50%;background:'+c+';border:1.5px solid white;">'+window.BKK.stopLabel(i)+'</div>', iconSize:[16,16], iconAnchor:[8,8] }) }).addTo(map);
-                            });
-                            if (activeStops.length > 1) L.polyline(activeStops.map(s => [s.lat, s.lng]), { color: '#6366f1', weight: 2, opacity: 0.5, dashArray: '4,6' }).addTo(map);
-                            if (mkrs.length > 0) map.fitBounds(L.featureGroup(mkrs).getBounds().pad(0.15));
-                            el._leafletMap = map;
-                          } catch(e) { console.error('[MINI-MAP]', e); }
-                        }, 100);
-                      }}
-                    ></div>
+                    </div>
                   </div>
                 ) : (
                 <div className="max-h-96 overflow-y-auto" style={{ contain: 'content' }}>

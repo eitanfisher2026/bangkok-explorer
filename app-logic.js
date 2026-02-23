@@ -316,6 +316,7 @@
               }
               map.closePopup();
               showToast(`🚫 ${stopName}`, 'info');
+              setTimeout(() => { if (window._mapRedrawLine) window._mapRedrawLine(); }, 50);
             } else if (action === 'enable') {
               setDisabledStops(prev => prev.filter(n => n !== nameKey));
               if (markerRefs[nameKey]) {
@@ -324,11 +325,25 @@
               }
               map.closePopup();
               showToast(`✅ ${stopName}`, 'success');
+              setTimeout(() => { if (window._mapRedrawLine) window._mapRedrawLine(); }, 50);
             }
           };
           
           const markers = [];
           const isRTL = window.BKK.i18n.isRTL();
+          
+          // Start point marker (green ▶)
+          if (startPointCoords?.lat && startPointCoords?.lng) {
+            const startMarker = L.marker([startPointCoords.lat, startPointCoords.lng], {
+              icon: L.divIcon({
+                className: '',
+                html: '<div style="font-size:14px;text-align:center;width:28px;height:28px;line-height:28px;border-radius:50%;background:#22c55e;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);color:white;font-weight:bold;">▶</div>',
+                iconSize: [28, 28], iconAnchor: [14, 14]
+              })
+            }).addTo(map);
+            startMarker.bindPopup('<div style="text-align:center;font-size:12px;font-weight:bold;">📍 ' + (startPointCoords.address || t('route.startPoint')) + '</div>');
+            markers.push(startMarker);
+          }
           stops.forEach((stop, i) => {
             const color = colorPalette[i % colorPalette.length];
             const nameKey = (stop.name || '').toLowerCase().trim();
@@ -377,16 +392,60 @@
             markers.push(circle);
           });
           
-          // Draw route line
-          if (stops.length > 1) {
-            const latlngs = stops.map(s => [s.lat, s.lng]);
-            L.polyline(latlngs, { color: '#94a3b8', weight: 1.5, opacity: 0.35, dashArray: '4,6' }).addTo(map);
-          }
+          // Route line through active stops (+ start point if set)
+          let routeLine = null;
+          const redrawRouteLine = () => {
+            if (routeLine) map.removeLayer(routeLine);
+            routeLine = null;
+            const curDisabled = disabledStopsRef.current || [];
+            const activeStops = stops.filter(s => !curDisabled.includes((s.name || '').toLowerCase().trim()));
+            if (activeStops.length > 1) {
+              const pts = [];
+              if (startPointCoords?.lat) pts.push([startPointCoords.lat, startPointCoords.lng]);
+              pts.push(...activeStops.map(s => [s.lat, s.lng]));
+              routeLine = L.polyline(pts, { color: '#6366f1', weight: 2.5, opacity: 0.6, dashArray: '6,8' }).addTo(map);
+            }
+          };
+          redrawRouteLine();
           
           if (markers.length > 0) {
             const group = L.featureGroup(markers);
             map.fitBounds(group.getBounds().pad(0.15));
           }
+          
+          // GPS locate-me button (top-right)
+          const LocateControl = L.Control.extend({
+            options: { position: 'topright' },
+            onAdd: function() {
+              const div = L.DomUtil.create('div', '');
+              div.innerHTML = '<button style="width:36px;height:36px;border-radius:8px;border:2px solid rgba(0,0,0,0.2);background:white;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);" title="' + t('form.findCurrentLocation') + '">📍</button>';
+              let myLocMarker = null;
+              div.onclick = function(e) {
+                e.stopPropagation();
+                if (navigator.geolocation) {
+                  div.firstChild.innerHTML = '⏳';
+                  navigator.geolocation.getCurrentPosition(
+                    function(pos) {
+                      div.firstChild.innerHTML = '📍';
+                      if (myLocMarker) map.removeLayer(myLocMarker);
+                      myLocMarker = L.circleMarker([pos.coords.latitude, pos.coords.longitude], {
+                        radius: 8, color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.4, weight: 3
+                      }).addTo(map);
+                      myLocMarker.bindPopup('<div style="text-align:center;font-size:12px;font-weight:bold;">📍 ' + t('wizard.myLocation') + '</div>').openPopup();
+                      map.setView([pos.coords.latitude, pos.coords.longitude], map.getZoom());
+                    },
+                    function() { div.firstChild.innerHTML = '📍'; showToast(t('toast.locationInaccessible'), 'warning'); }
+                  );
+                }
+              };
+              L.DomEvent.disableClickPropagation(div);
+              return div;
+            }
+          });
+          new LocateControl().addTo(map);
+          
+          // Store redraw for disable/enable callbacks
+          window._mapRedrawLine = redrawRouteLine;
           
           leafletMapRef.current = map;
         }
@@ -396,8 +455,8 @@
     }, 150);
     }); // end loadLeaflet().then
     
-    return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; };
-  }, [showMapModal, mapMode, mapStops, formData.currentLat, formData.currentLng, formData.radiusMeters]);
+    return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; delete window._mapRedrawLine; };
+  }, [showMapModal, mapMode, mapStops, formData.currentLat, formData.currentLng, formData.radiusMeters, startPointCoords]);
   const [modalImage, setModalImage] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');

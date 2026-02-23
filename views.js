@@ -1294,33 +1294,7 @@
                         );
                       });
                     })()}
-                    {/* Mini map showing route order */}
-                    <div style={{ height: '200px', borderRadius: '8px', marginTop: '8px', border: '1px solid #e5e7eb' }}
-                      ref={(el) => {
-                        if (!el) return;
-                        if (el._leafletMap) { el._leafletMap.remove(); el._leafletMap = null; }
-                        const activeStops = route.stops.filter(s => !disabledStops.includes((s.name || '').toLowerCase().trim()) && s.lat && s.lng);
-                        if (activeStops.length === 0) return;
-                        setTimeout(() => {
-                          try {
-                            const L = window.L;
-                            if (!L || !el.offsetHeight) return;
-                            const map = L.map(el, { zoomControl: false, attributionControl: false }).setView([activeStops[0].lat, activeStops[0].lng], 13);
-                            L.tileLayer(window.BKK.getTileUrl(), { maxZoom: 18 }).addTo(map);
-                            const colors = ['#3b82f6','#f59e0b','#ef4444','#10b981','#ec4899','#6366f1','#8b5cf6','#06b6d4','#f97316','#a855f7'];
-                            const mkrs = [];
-                            activeStops.forEach((stop, i) => {
-                              const c = colors[i % colors.length];
-                              mkrs.push(L.circleMarker([stop.lat, stop.lng], { radius: 8, color: c, fillColor: c, fillOpacity: 0.85, weight: 2 }).addTo(map));
-                              L.marker([stop.lat, stop.lng], { icon: L.divIcon({ className: '', html: '<div style="font-size:8px;font-weight:bold;text-align:center;color:white;width:16px;height:16px;line-height:16px;border-radius:50%;background:'+c+';border:1.5px solid white;">'+window.BKK.stopLabel(i)+'</div>', iconSize:[16,16], iconAnchor:[8,8] }) }).addTo(map);
-                            });
-                            if (activeStops.length > 1) L.polyline(activeStops.map(s => [s.lat, s.lng]), { color: '#6366f1', weight: 2, opacity: 0.5, dashArray: '4,6' }).addTo(map);
-                            if (mkrs.length > 0) map.fitBounds(L.featureGroup(mkrs).getBounds().pad(0.15));
-                            el._leafletMap = map;
-                          } catch(e) { console.error('[MINI-MAP]', e); }
-                        }, 100);
-                      }}
-                    ></div>
+                    </div>
                   </div>
                 ) : (
                 <div className="max-h-96 overflow-y-auto" style={{ contain: 'content' }}>
