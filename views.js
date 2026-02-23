@@ -1256,75 +1256,7 @@
                     style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline' }}
                   >{t("general.help")}</button>
                 </div>
-                {/* Help link instead of inline legend */}
-                {showRoutePreview ? (
-                  /* FLAT ROUTE PREVIEW - Drag to reorder */
-                  <div className="max-h-96 overflow-y-auto" style={{ contain: 'content' }}>
-                    <div className="bg-purple-50 rounded-lg p-2 mb-2 text-center">
-                      <span className="text-xs text-purple-700 font-bold">{"☰ " + t('route.reorderStops') + " — " + t('route.tapArrowsToMove')}</span>
-                    </div>
-                    {(() => {
-                      const activeStops = route.stops.filter(s => 
-                        !disabledStops.includes((s.name || '').toLowerCase().trim())
-                      );
-                      const moveStop = (fromActiveIdx, toActiveIdx) => {
-                        if (toActiveIdx < 0 || toActiveIdx >= activeStops.length) return;
-                        const activeIndices = route.stops.map((s, i) => ({ s, i })).filter(x => !disabledStops.includes((x.s.name || '').toLowerCase().trim()));
-                        const newStops = [...route.stops];
-                        const fromOrig = activeIndices[fromActiveIdx].i;
-                        const [moved] = newStops.splice(fromOrig, 1);
-                        const updatedActiveIndices = newStops.map((s, i) => ({ s, i })).filter(x => !disabledStops.includes((x.s.name || '').toLowerCase().trim()));
-                        const targetPos = toActiveIdx < updatedActiveIndices.length ? updatedActiveIndices[toActiveIdx].i : newStops.length;
-                        newStops.splice(targetPos, 0, moved);
-                        setRoute(prev => ({ ...prev, stops: newStops }));
-                      };
-                      return activeStops.map((stop, idx) => {
-                        const hasValidCoords = stop.lat && stop.lng && stop.lat !== 0 && stop.lng !== 0;
-                        return (
-                          <div key={stop.name + idx}
-                            className="flex items-center gap-1.5 p-2 mb-1 bg-white rounded-lg border-2 border-gray-200 transition-colors" 
-                            style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}
-                          >
-                            {/* Stop number */}
-                            <div style={{ width: '28px', height: '28px', borderRadius: '50%', 
-                              background: idx === 0 ? '#22c55e' : idx === activeStops.length - 1 ? '#ef4444' : '#8b5cf6',
-                              color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              fontSize: '12px', fontWeight: 'bold', flexShrink: 0
-                            }}>
-                              {String.fromCharCode(65 + idx)}
-                            </div>
-                            
-                            {/* Stop name */}
-                            <div className="flex-1 min-w-0">
-                              {hasValidCoords ? (
-                                <a href={window.BKK.getGoogleMapsUrl(stop)} target="city_explorer_map" rel="noopener noreferrer"
-                                  className="text-sm font-bold text-blue-700 hover:text-blue-900 hover:underline truncate block"
-                                  onClick={(e) => e.stopPropagation()}
-                                >{stop.name}</a>
-                              ) : (
-                                <div className="text-sm font-bold text-gray-800 truncate">{stop.name}</div>
-                              )}
-                            </div>
-                            
-                            {/* Move up/down buttons */}
-                            <div className="flex flex-col gap-0.5 flex-shrink-0">
-                              <button
-                                onClick={() => moveStop(idx, idx - 1)}
-                                disabled={idx === 0}
-                                className={`w-7 h-6 rounded text-xs font-bold flex items-center justify-center ${idx === 0 ? 'bg-gray-100 text-gray-300' : 'bg-purple-100 text-purple-700 active:bg-purple-200'}`}
-                              >▲</button>
-                              <button
-                                onClick={() => moveStop(idx, idx + 1)}
-                                disabled={idx === activeStops.length - 1}
-                                className={`w-7 h-6 rounded text-xs font-bold flex items-center justify-center ${idx === activeStops.length - 1 ? 'bg-gray-100 text-gray-300' : 'bg-purple-100 text-purple-700 active:bg-purple-200'}`}
-                              >▼</button>
-                            </div>
-                          </div>
-                        );
-                      });
-                    })()}
-                  </div>
-                ) : (
+                {/* Normal stop list grouped by interest */}
                 <div className="max-h-96 overflow-y-auto" style={{ contain: 'content' }}>
                   {(() => {
                     // Group stops by interest
@@ -1611,7 +1543,6 @@
                     });
                   })()}
                 </div>
-                )}
                 
                 <div className="mt-3 space-y-1" style={{ position: 'relative' }}>
                   {/* Row 1: Map & Plan + Hamburger */}
@@ -1686,7 +1617,7 @@
                     }}>
                       {[
                         { icon: '+', label: t('route.addManualStop').replace('➕ ', ''), action: () => { setShowRouteMenu(false); setShowManualAddDialog(true); } },
-                        { icon: '≡', label: showRoutePreview ? t('route.backToList') : t('route.reorderStops'), action: () => { setShowRouteMenu(false); setShowRoutePreview(!showRoutePreview); }, disabled: !showRoutePreview && !route?.optimized },
+                        { icon: '≡', label: t('route.reorderStops'), action: () => { setShowRouteMenu(false); reorderOriginalStopsRef.current = route?.stops ? [...route.stops] : null; setShowRoutePreview(true); }, disabled: !route?.optimized },
                         { icon: '✦', label: t('route.helpMePlan'), action: () => {
                           setShowRouteMenu(false);
                           if (!route?.stops?.length) return;

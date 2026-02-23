@@ -56,7 +56,8 @@
   const disabledStopsRef = React.useRef(disabledStops);
   React.useEffect(() => { disabledStopsRef.current = disabledStops; }, [disabledStops]);
   
-  const [showRoutePreview, setShowRoutePreview] = useState(false); // Route stop reorder view
+  const [showRoutePreview, setShowRoutePreview] = useState(false); // Route reorder dialog
+  const reorderOriginalStopsRef = React.useRef(null); // Snapshot of stops before reorder
   const [showRouteMenu, setShowRouteMenu] = useState(false); // Hamburger menu in route results
   const [routeChoiceMade, setRouteChoiceMade] = useState(null); // null | 'manual' — controls wizard step 3 split
   

@@ -94,7 +94,8 @@ const FouFouApp = () => {
   const disabledStopsRef = React.useRef(disabledStops);
   React.useEffect(() => { disabledStopsRef.current = disabledStops; }, [disabledStops]);
   
-  const [showRoutePreview, setShowRoutePreview] = useState(false); // Route stop reorder view
+  const [showRoutePreview, setShowRoutePreview] = useState(false); // Route reorder dialog
+  const reorderOriginalStopsRef = React.useRef(null); // Snapshot of stops before reorder
   const [showRouteMenu, setShowRouteMenu] = useState(false); // Hamburger menu in route results
   const [routeChoiceMade, setRouteChoiceMade] = useState(null); // null | 'manual' — controls wizard step 3 split
   
@@ -6093,75 +6094,7 @@ const FouFouApp = () => {
                     style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline' }}
                   >{t("general.help")}</button>
                 </div>
-                {/* Help link instead of inline legend */}
-                {showRoutePreview ? (
-                  /* FLAT ROUTE PREVIEW - Drag to reorder */
-                  <div className="max-h-96 overflow-y-auto" style={{ contain: 'content' }}>
-                    <div className="bg-purple-50 rounded-lg p-2 mb-2 text-center">
-                      <span className="text-xs text-purple-700 font-bold">{"☰ " + t('route.reorderStops') + " — " + t('route.tapArrowsToMove')}</span>
-                    </div>
-                    {(() => {
-                      const activeStops = route.stops.filter(s => 
-                        !disabledStops.includes((s.name || '').toLowerCase().trim())
-                      );
-                      const moveStop = (fromActiveIdx, toActiveIdx) => {
-                        if (toActiveIdx < 0 || toActiveIdx >= activeStops.length) return;
-                        const activeIndices = route.stops.map((s, i) => ({ s, i })).filter(x => !disabledStops.includes((x.s.name || '').toLowerCase().trim()));
-                        const newStops = [...route.stops];
-                        const fromOrig = activeIndices[fromActiveIdx].i;
-                        const [moved] = newStops.splice(fromOrig, 1);
-                        const updatedActiveIndices = newStops.map((s, i) => ({ s, i })).filter(x => !disabledStops.includes((x.s.name || '').toLowerCase().trim()));
-                        const targetPos = toActiveIdx < updatedActiveIndices.length ? updatedActiveIndices[toActiveIdx].i : newStops.length;
-                        newStops.splice(targetPos, 0, moved);
-                        setRoute(prev => ({ ...prev, stops: newStops }));
-                      };
-                      return activeStops.map((stop, idx) => {
-                        const hasValidCoords = stop.lat && stop.lng && stop.lat !== 0 && stop.lng !== 0;
-                        return (
-                          <div key={stop.name + idx}
-                            className="flex items-center gap-1.5 p-2 mb-1 bg-white rounded-lg border-2 border-gray-200 transition-colors" 
-                            style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}
-                          >
-                            {/* Stop number */}
-                            <div style={{ width: '28px', height: '28px', borderRadius: '50%', 
-                              background: idx === 0 ? '#22c55e' : idx === activeStops.length - 1 ? '#ef4444' : '#8b5cf6',
-                              color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              fontSize: '12px', fontWeight: 'bold', flexShrink: 0
-                            }}>
-                              {String.fromCharCode(65 + idx)}
-                            </div>
-                            
-                            {/* Stop name */}
-                            <div className="flex-1 min-w-0">
-                              {hasValidCoords ? (
-                                <a href={window.BKK.getGoogleMapsUrl(stop)} target="city_explorer_map" rel="noopener noreferrer"
-                                  className="text-sm font-bold text-blue-700 hover:text-blue-900 hover:underline truncate block"
-                                  onClick={(e) => e.stopPropagation()}
-                                >{stop.name}</a>
-                              ) : (
-                                <div className="text-sm font-bold text-gray-800 truncate">{stop.name}</div>
-                              )}
-                            </div>
-                            
-                            {/* Move up/down buttons */}
-                            <div className="flex flex-col gap-0.5 flex-shrink-0">
-                              <button
-                                onClick={() => moveStop(idx, idx - 1)}
-                                disabled={idx === 0}
-                                className={`w-7 h-6 rounded text-xs font-bold flex items-center justify-center ${idx === 0 ? 'bg-gray-100 text-gray-300' : 'bg-purple-100 text-purple-700 active:bg-purple-200'}`}
-                              >▲</button>
-                              <button
-                                onClick={() => moveStop(idx, idx + 1)}
-                                disabled={idx === activeStops.length - 1}
-                                className={`w-7 h-6 rounded text-xs font-bold flex items-center justify-center ${idx === activeStops.length - 1 ? 'bg-gray-100 text-gray-300' : 'bg-purple-100 text-purple-700 active:bg-purple-200'}`}
-                              >▼</button>
-                            </div>
-                          </div>
-                        );
-                      });
-                    })()}
-                  </div>
-                ) : (
+                {/* Normal stop list grouped by interest */}
                 <div className="max-h-96 overflow-y-auto" style={{ contain: 'content' }}>
                   {(() => {
                     const groupedStops = {};
@@ -6443,7 +6376,6 @@ const FouFouApp = () => {
                     });
                   })()}
                 </div>
-                )}
                 
                 <div className="mt-3 space-y-1" style={{ position: 'relative' }}>
                   {/* Row 1: Map & Plan + Hamburger */}
@@ -6518,7 +6450,7 @@ const FouFouApp = () => {
                     }}>
                       {[
                         { icon: '+', label: t('route.addManualStop').replace('➕ ', ''), action: () => { setShowRouteMenu(false); setShowManualAddDialog(true); } },
-                        { icon: '≡', label: showRoutePreview ? t('route.backToList') : t('route.reorderStops'), action: () => { setShowRouteMenu(false); setShowRoutePreview(!showRoutePreview); }, disabled: !showRoutePreview && !route?.optimized },
+                        { icon: '≡', label: t('route.reorderStops'), action: () => { setShowRouteMenu(false); reorderOriginalStopsRef.current = route?.stops ? [...route.stops] : null; setShowRoutePreview(true); }, disabled: !route?.optimized },
                         { icon: '✦', label: t('route.helpMePlan'), action: () => {
                           setShowRouteMenu(false);
                           if (!route?.stops?.length) return;
@@ -11112,6 +11044,103 @@ const FouFouApp = () => {
                   </button>
                 </div>
               </div>
+          </div>
+        )}
+
+        {/* Reorder Stops Dialog */}
+        {showRoutePreview && route?.stops && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div onClick={() => { setRoute(prev => prev ? { ...prev, stops: reorderOriginalStopsRef.current || prev.stops } : prev); setShowRoutePreview(false); }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)' }} />
+            <div style={{ position: 'relative', width: '92%', maxWidth: '420px', maxHeight: '85vh', background: 'white', borderRadius: '16px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column', overflow: 'hidden', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
+              {/* Header */}
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid #e5e7eb', background: '#f3e8ff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#6b21a8' }}>{'≡ ' + t('route.reorderStops')}</span>
+                <button onClick={() => { setRoute(prev => prev ? { ...prev, stops: reorderOriginalStopsRef.current || prev.stops } : prev); setShowRoutePreview(false); }}
+                  style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#6b7280', padding: '0 4px' }}>✕</button>
+              </div>
+              
+              {/* Scrollable stop list */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '8px 12px' }}>
+                {(() => {
+                  const activeStops = route.stops.filter(s => 
+                    !disabledStops.includes((s.name || '').toLowerCase().trim())
+                  );
+                  const moveStop = (fromActiveIdx, toActiveIdx) => {
+                    if (toActiveIdx < 0 || toActiveIdx >= activeStops.length) return;
+                    const activeIndices = route.stops.map((s, i) => ({ s, i })).filter(x => !disabledStops.includes((x.s.name || '').toLowerCase().trim()));
+                    const newStops = [...route.stops];
+                    const fromOrig = activeIndices[fromActiveIdx].i;
+                    const [moved] = newStops.splice(fromOrig, 1);
+                    const updatedActiveIndices = newStops.map((s, i) => ({ s, i })).filter(x => !disabledStops.includes((x.s.name || '').toLowerCase().trim()));
+                    const targetPos = toActiveIdx < updatedActiveIndices.length ? updatedActiveIndices[toActiveIdx].i : newStops.length;
+                    newStops.splice(targetPos, 0, moved);
+                    setRoute(prev => ({ ...prev, stops: newStops }));
+                  };
+                  return activeStops.map((stop, idx) => (
+                    <div key={stop.name + idx}
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', marginBottom: '4px', background: 'white', borderRadius: '10px', border: '2px solid #e5e7eb' }}
+                    >
+                      <div style={{ width: '28px', height: '28px', borderRadius: '50%', 
+                        background: idx === 0 ? '#22c55e' : idx === activeStops.length - 1 ? '#ef4444' : '#8b5cf6',
+                        color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '12px', fontWeight: 'bold', flexShrink: 0
+                      }}>
+                        {String.fromCharCode(65 + idx)}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0, fontSize: '13px', fontWeight: 'bold', color: '#1f2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {stop.name}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flexShrink: 0 }}>
+                        <button
+                          onClick={() => moveStop(idx, idx - 1)}
+                          disabled={idx === 0}
+                          style={{ width: '28px', height: '24px', borderRadius: '4px', border: 'none', cursor: idx === 0 ? 'default' : 'pointer',
+                            background: idx === 0 ? '#f3f4f6' : '#ede9fe', color: idx === 0 ? '#d1d5db' : '#7c3aed',
+                            fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                          }}
+                        >▲</button>
+                        <button
+                          onClick={() => moveStop(idx, idx + 1)}
+                          disabled={idx === activeStops.length - 1}
+                          style={{ width: '28px', height: '24px', borderRadius: '4px', border: 'none', cursor: idx === activeStops.length - 1 ? 'default' : 'pointer',
+                            background: idx === activeStops.length - 1 ? '#f3f4f6' : '#ede9fe', color: idx === activeStops.length - 1 ? '#d1d5db' : '#7c3aed',
+                            fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                          }}
+                        >▼</button>
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+              
+              {/* Footer: Update + Cancel */}
+              <div style={{ padding: '10px 12px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => {
+                    const orig = reorderOriginalStopsRef.current;
+                    const curr = route.stops;
+                    const changed = orig && curr && (orig.length !== curr.length || orig.some((s, i) => s.name !== curr[i]?.name));
+                    setShowRoutePreview(false);
+                    if (changed) {
+                      setRoute(prev => prev ? { ...prev, optimized: false } : prev);
+                      showToast(t('route.orderUpdated'), 'success');
+                    }
+                  }}
+                  style={{ flex: 1, padding: '10px', background: '#7c3aed', color: 'white', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  {t('general.update')}
+                </button>
+                <button
+                  onClick={() => {
+                    setRoute(prev => prev ? { ...prev, stops: reorderOriginalStopsRef.current || prev.stops } : prev);
+                    setShowRoutePreview(false);
+                  }}
+                  style={{ flex: 1, padding: '10px', background: '#f3f4f6', color: '#6b7280', border: '1px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  {t('general.cancel')}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
