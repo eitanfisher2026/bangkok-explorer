@@ -7324,6 +7324,14 @@ const FouFouApp = () => {
                   settingsTab === 'general' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >{`⚙️ ${t('settings.generalSettings')}`}</button>
+              {isUnlocked && (
+              <button
+                onClick={() => setSettingsTab('sysparams')}
+                className={`flex-1 py-2 rounded-lg font-bold text-sm transition ${
+                  settingsTab === 'sysparams' ? 'bg-purple-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >{`🔧 ${t('sysParams.tabTitle')}`}</button>
+              )}
             </div>
 
             {/* ===== CITIES & AREAS TAB ===== */}
@@ -7466,6 +7474,49 @@ const FouFouApp = () => {
                     }} style={{ fontSize: '10px', padding: '3px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: '#f59e0b', color: 'white', fontWeight: 'bold' }}
                     >📥 {t('settings.exportCity')}</button>
                   </div>
+                )}
+
+                {/* City Day/Night Hours */}
+                {isUnlocked && window.BKK.selectedCity && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px', padding: '8px 10px', background: 'linear-gradient(to right, #faf5ff, #fdf2f8)', borderRadius: '8px', border: '2px solid #c084fc', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#7c3aed' }}>🌅 {t('settings.dayNightHours')}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <label style={{ fontSize: '10px', color: '#6b7280', fontWeight: '600' }}>☀️</label>
+                    <input type="number" min="0" max="23"
+                      value={window.BKK.dayStartHour ?? 6}
+                      onChange={(e) => {
+                        const val = Math.min(23, Math.max(0, parseInt(e.target.value) || 0));
+                        window.BKK.dayStartHour = val;
+                        const city = window.BKK.selectedCity;
+                        if (city) city.dayStartHour = val;
+                        if (isFirebaseAvailable && database && isUnlocked) {
+                          database.ref(`settings/cityOverrides/${selectedCityId}/dayStartHour`).set(val);
+                        }
+                        setFormData(prev => ({...prev}));
+                      }}
+                      style={{ width: '50px', padding: '3px', fontSize: '13px', fontWeight: 'bold', border: '2px solid #c084fc', borderRadius: '6px', textAlign: 'center' }}
+                    />
+                    <label style={{ fontSize: '10px', color: '#6b7280', fontWeight: '600' }}>🌙</label>
+                    <input type="number" min="0" max="23"
+                      value={window.BKK.nightStartHour ?? 17}
+                      onChange={(e) => {
+                        const val = Math.min(23, Math.max(0, parseInt(e.target.value) || 0));
+                        window.BKK.nightStartHour = val;
+                        const city = window.BKK.selectedCity;
+                        if (city) city.nightStartHour = val;
+                        if (isFirebaseAvailable && database && isUnlocked) {
+                          database.ref(`settings/cityOverrides/${selectedCityId}/nightStartHour`).set(val);
+                        }
+                        setFormData(prev => ({...prev}));
+                      }}
+                      style={{ width: '50px', padding: '3px', fontSize: '13px', fontWeight: 'bold', border: '2px solid #c084fc', borderRadius: '6px', textAlign: 'center' }}
+                    />
+                  </div>
+                  <span style={{ fontSize: '10px', color: '#9ca3af' }}>
+                    {`☀️ ${String(window.BKK.dayStartHour ?? 6).padStart(2,'0')}:00–${String(window.BKK.nightStartHour ?? 17).padStart(2,'0')}:00`}
+                    {` 🌙 ${String(window.BKK.nightStartHour ?? 17).padStart(2,'0')}:00–${String(window.BKK.dayStartHour ?? 6).padStart(2,'0')}:00`}
+                  </span>
+                </div>
                 )}
 
                 {/* Add Area + Show Map buttons */}
@@ -7848,56 +7899,6 @@ const FouFouApp = () => {
               </div>
             </div>
             
-            {/* City Day/Night Hours Setting */}
-            <div className="mb-3">
-              <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-400 rounded-lg p-2">
-                <h3 className="text-sm font-bold text-gray-800 mb-1">{`🌅 ${t('settings.dayNightHours')}`}</h3>
-                <p className="text-[10px] text-gray-500 mb-2">{t('settings.dayNightHoursDesc')}</p>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', fontSize: '11px', color: '#6b7280', fontWeight: '600', marginBottom: '3px' }}>☀️ {t('settings.dayStartHour')}</label>
-                    <input
-                      type="number" min="0" max="23"
-                      value={window.BKK.dayStartHour ?? 6}
-                      onChange={(e) => {
-                        const val = Math.min(23, Math.max(0, parseInt(e.target.value) || 0));
-                        window.BKK.dayStartHour = val;
-                        const city = window.BKK.selectedCity;
-                        if (city) city.dayStartHour = val;
-                        if (isFirebaseAvailable && database && isUnlocked) {
-                          database.ref(`settings/cityOverrides/${selectedCityId}/dayStartHour`).set(val);
-                        }
-                        setFormData(prev => ({...prev}));
-                      }}
-                      style={{ width: '60px', padding: '5px', fontSize: '14px', fontWeight: 'bold', border: '2px solid #c084fc', borderRadius: '8px', textAlign: 'center' }}
-                    />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', fontSize: '11px', color: '#6b7280', fontWeight: '600', marginBottom: '3px' }}>🌙 {t('settings.nightStartHour')}</label>
-                    <input
-                      type="number" min="0" max="23"
-                      value={window.BKK.nightStartHour ?? 17}
-                      onChange={(e) => {
-                        const val = Math.min(23, Math.max(0, parseInt(e.target.value) || 0));
-                        window.BKK.nightStartHour = val;
-                        const city = window.BKK.selectedCity;
-                        if (city) city.nightStartHour = val;
-                        if (isFirebaseAvailable && database && isUnlocked) {
-                          database.ref(`settings/cityOverrides/${selectedCityId}/nightStartHour`).set(val);
-                        }
-                        setFormData(prev => ({...prev}));
-                      }}
-                      style={{ width: '60px', padding: '5px', fontSize: '14px', fontWeight: 'bold', border: '2px solid #c084fc', borderRadius: '8px', textAlign: 'center' }}
-                    />
-                  </div>
-                  <div style={{ fontSize: '11px', color: '#9ca3af', flex: 2 }}>
-                    {`☀️ ${String(window.BKK.dayStartHour ?? 6).padStart(2,'0')}:00 – ${String(window.BKK.nightStartHour ?? 17).padStart(2,'0')}:00`}<br/>
-                    {`🌙 ${String(window.BKK.nightStartHour ?? 17).padStart(2,'0')}:00 – ${String(window.BKK.dayStartHour ?? 6).padStart(2,'0')}:00`}
-                  </div>
-                </div>
-              </div>
-            </div>
-            
             {/* Google Max Waypoints Setting (admin only) */}
             {isUnlocked && (
             <div className="mb-3">
@@ -8028,87 +8029,6 @@ const FouFouApp = () => {
               </div>
             </div>
             
-            {/* System Parameters (Admin Only) */}
-            {isUnlocked && (() => {
-              const paramDefs = [
-                { key: 'trailTimeoutHours', label: t('sysParams.trailTimeout'), desc: t('sysParams.trailTimeoutDesc'), min: 1, max: 48, step: 1, type: 'int' },
-                { key: 'defaultInterestWeight', label: t('sysParams.defaultWeight'), desc: t('sysParams.defaultWeightDesc'), min: 1, max: 10, step: 1, type: 'int' },
-                { key: 'maxContentPasses', label: t('sysParams.maxPasses'), desc: t('sysParams.maxPassesDesc'), min: 1, max: 20, step: 1, type: 'int' },
-                { key: 'timeScoreMatch', label: t('sysParams.timeMatch'), desc: t('sysParams.timeMatchDesc'), min: 0, max: 10, step: 1, type: 'int' },
-                { key: 'timeScoreAnytime', label: t('sysParams.timeAnytime'), desc: t('sysParams.timeAnytimeDesc'), min: 0, max: 10, step: 1, type: 'int' },
-                { key: 'timeScoreConflict', label: t('sysParams.timeConflict'), desc: t('sysParams.timeConflictDesc'), min: 0, max: 10, step: 1, type: 'int' },
-                { key: 'timeConflictPenalty', label: t('sysParams.timePenalty'), desc: t('sysParams.timePenaltyDesc'), min: 0, max: 20, step: 1, type: 'int' },
-                { key: 'slotEarlyThreshold', label: t('sysParams.earlyThreshold'), desc: t('sysParams.earlyThresholdDesc'), min: 0.1, max: 0.9, step: 0.05, type: 'float' },
-                { key: 'slotLateThreshold', label: t('sysParams.lateThreshold'), desc: t('sysParams.lateThresholdDesc'), min: 0.1, max: 0.9, step: 0.05, type: 'float' },
-                { key: 'slotEndThreshold', label: t('sysParams.endThreshold'), desc: t('sysParams.endThresholdDesc'), min: 0.1, max: 0.9, step: 0.05, type: 'float' },
-                { key: 'slotPenaltyMultiplier', label: t('sysParams.slotPenalty'), desc: t('sysParams.slotPenaltyDesc'), min: 1, max: 20, step: 1, type: 'int' },
-                { key: 'slotEndPenaltyMultiplier', label: t('sysParams.endPenalty'), desc: t('sysParams.endPenaltyDesc'), min: 1, max: 20, step: 1, type: 'int' },
-                { key: 'gapPenaltyMultiplier', label: t('sysParams.gapPenalty'), desc: t('sysParams.gapPenaltyDesc'), min: 1, max: 20, step: 1, type: 'int' },
-              ];
-              const updateParam = (key, val, type) => {
-                const parsed = type === 'float' ? parseFloat(val) : parseInt(val);
-                if (isNaN(parsed)) return;
-                const updated = { ...systemParams, [key]: parsed };
-                window.BKK.systemParams = updated;
-                setSystemParams(updated);
-                if (isFirebaseAvailable && database) {
-                  database.ref(`settings/systemParams/${key}`).set(parsed);
-                }
-              };
-              const resetAll = () => {
-                const defaults = { ...window.BKK._defaultSystemParams };
-                window.BKK.systemParams = defaults;
-                setSystemParams(defaults);
-                if (isFirebaseAvailable && database) {
-                  database.ref('settings/systemParams').set(defaults);
-                }
-                showToast(t('sysParams.resetDone'), 'success');
-              };
-              return (
-              <div className="mb-3">
-                <details>
-                  <summary className="cursor-pointer bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-gray-400 rounded-lg p-2 font-bold text-sm text-gray-700">
-                    ⚙️ {t('sysParams.title')}
-                  </summary>
-                  <div className="bg-white border-2 border-gray-300 border-t-0 rounded-b-lg p-3 space-y-3">
-                    <p className="text-[10px] text-gray-500">{t('sysParams.subtitle')}</p>
-                    {paramDefs.map(p => {
-                      const def = window.BKK._defaultSystemParams[p.key];
-                      const isDefault = systemParams[p.key] === def;
-                      return (
-                      <div key={p.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', background: isDefault ? '#f9fafb' : '#fef3c7', borderRadius: '8px', border: isDefault ? '1px solid #e5e7eb' : '2px solid #f59e0b' }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#374151' }}>{p.label}</div>
-                          <div style={{ fontSize: '10px', color: '#9ca3af' }}>{p.desc}</div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <input
-                            type="number" min={p.min} max={p.max} step={p.step}
-                            value={systemParams[p.key]}
-                            onChange={(e) => updateParam(p.key, e.target.value, p.type)}
-                            style={{ width: '65px', padding: '4px', fontSize: '14px', fontWeight: 'bold', border: '2px solid #d1d5db', borderRadius: '8px', textAlign: 'center' }}
-                          />
-                          {!isDefault && (
-                            <button onClick={() => updateParam(p.key, def, p.type)}
-                              title={`Default: ${def}`}
-                              style={{ padding: '3px 6px', fontSize: '9px', fontWeight: 'bold', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                              ↩ {def}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      );
-                    })}
-                    <button onClick={resetAll}
-                      className="w-full py-1.5 bg-gray-500 text-white rounded-lg text-xs font-bold hover:bg-gray-600">
-                      🔄 {t('sysParams.resetAll')}
-                    </button>
-                  </div>
-                </details>
-              </div>
-              );
-            })()}
-
             {/* Import/Export Section */}
             
             {/* Admin Management - Password Based (Admin Only) */}
@@ -8409,6 +8329,82 @@ const FouFouApp = () => {
               </div>
             </div>
             
+            </div>)}
+
+            {/* ===== SYSTEM PARAMS TAB ===== */}
+            {settingsTab === 'sysparams' && isUnlocked && (<div>
+            {(() => {
+              const paramDefs = [
+                { key: 'trailTimeoutHours', label: t('sysParams.trailTimeout'), desc: t('sysParams.trailTimeoutDesc'), min: 1, max: 48, step: 1, type: 'int' },
+                { key: 'defaultInterestWeight', label: t('sysParams.defaultWeight'), desc: t('sysParams.defaultWeightDesc'), min: 1, max: 10, step: 1, type: 'int' },
+                { key: 'maxContentPasses', label: t('sysParams.maxPasses'), desc: t('sysParams.maxPassesDesc'), min: 1, max: 20, step: 1, type: 'int' },
+                { key: 'timeScoreMatch', label: t('sysParams.timeMatch'), desc: t('sysParams.timeMatchDesc'), min: 0, max: 10, step: 1, type: 'int' },
+                { key: 'timeScoreAnytime', label: t('sysParams.timeAnytime'), desc: t('sysParams.timeAnytimeDesc'), min: 0, max: 10, step: 1, type: 'int' },
+                { key: 'timeScoreConflict', label: t('sysParams.timeConflict'), desc: t('sysParams.timeConflictDesc'), min: 0, max: 10, step: 1, type: 'int' },
+                { key: 'timeConflictPenalty', label: t('sysParams.timePenalty'), desc: t('sysParams.timePenaltyDesc'), min: 0, max: 20, step: 1, type: 'int' },
+                { key: 'slotEarlyThreshold', label: t('sysParams.earlyThreshold'), desc: t('sysParams.earlyThresholdDesc'), min: 0.1, max: 0.9, step: 0.05, type: 'float' },
+                { key: 'slotLateThreshold', label: t('sysParams.lateThreshold'), desc: t('sysParams.lateThresholdDesc'), min: 0.1, max: 0.9, step: 0.05, type: 'float' },
+                { key: 'slotEndThreshold', label: t('sysParams.endThreshold'), desc: t('sysParams.endThresholdDesc'), min: 0.1, max: 0.9, step: 0.05, type: 'float' },
+                { key: 'slotPenaltyMultiplier', label: t('sysParams.slotPenalty'), desc: t('sysParams.slotPenaltyDesc'), min: 1, max: 20, step: 1, type: 'int' },
+                { key: 'slotEndPenaltyMultiplier', label: t('sysParams.endPenalty'), desc: t('sysParams.endPenaltyDesc'), min: 1, max: 20, step: 1, type: 'int' },
+                { key: 'gapPenaltyMultiplier', label: t('sysParams.gapPenalty'), desc: t('sysParams.gapPenaltyDesc'), min: 1, max: 20, step: 1, type: 'int' },
+              ];
+              const updateParam = (key, val, type) => {
+                const parsed = type === 'float' ? parseFloat(val) : parseInt(val);
+                if (isNaN(parsed)) return;
+                const updated = { ...systemParams, [key]: parsed };
+                window.BKK.systemParams = updated;
+                setSystemParams(updated);
+                if (isFirebaseAvailable && database) {
+                  database.ref(`settings/systemParams/${key}`).set(parsed);
+                }
+              };
+              const resetAll = () => {
+                const defaults = { ...window.BKK._defaultSystemParams };
+                window.BKK.systemParams = defaults;
+                setSystemParams(defaults);
+                if (isFirebaseAvailable && database) {
+                  database.ref('settings/systemParams').set(defaults);
+                }
+                showToast(t('sysParams.resetDone'), 'success');
+              };
+              return (
+              <div className="space-y-3">
+                <p className="text-[11px] text-gray-500">{t('sysParams.subtitle')}</p>
+                {paramDefs.map(p => {
+                  const def = window.BKK._defaultSystemParams[p.key];
+                  const isDefault = systemParams[p.key] === def;
+                  return (
+                  <div key={p.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', background: isDefault ? '#f9fafb' : '#fef3c7', borderRadius: '8px', border: isDefault ? '1px solid #e5e7eb' : '2px solid #f59e0b' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#374151' }}>{p.label}</div>
+                      <div style={{ fontSize: '10px', color: '#9ca3af' }}>{p.desc}</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <input
+                        type="number" min={p.min} max={p.max} step={p.step}
+                        value={systemParams[p.key]}
+                        onChange={(e) => updateParam(p.key, e.target.value, p.type)}
+                        style={{ width: '65px', padding: '4px', fontSize: '14px', fontWeight: 'bold', border: '2px solid #d1d5db', borderRadius: '8px', textAlign: 'center' }}
+                      />
+                      {!isDefault && (
+                        <button onClick={() => updateParam(p.key, def, p.type)}
+                          title={`Default: ${def}`}
+                          style={{ padding: '3px 6px', fontSize: '9px', fontWeight: 'bold', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                          ↩ {def}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  );
+                })}
+                <button onClick={resetAll}
+                  className="w-full py-1.5 bg-gray-500 text-white rounded-lg text-xs font-bold hover:bg-gray-600">
+                  🔄 {t('sysParams.resetAll')}
+                </button>
+              </div>
+              );
+            })()}
             </div>)}
             
           </div>

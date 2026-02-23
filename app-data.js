@@ -866,6 +866,7 @@ help: {
     allReviews: 'כל הביקורות',
   },
   sysParams: {
+    tabTitle: 'פרמטרים',
     title: 'פרמטרי מערכת (אלגוריתם)',
     subtitle: 'ערכים אלה משפיעים על אלגוריתם בניית המסלול, חיפוש ותיעדוף.',
     resetAll: 'אפס לברירת מחדל',
@@ -1666,6 +1667,7 @@ help: {
     allReviews: 'All Reviews',
   },
   sysParams: {
+    tabTitle: 'Parameters',
     title: 'System Parameters (Algorithm)',
     subtitle: 'These values affect route building, search, and prioritization.',
     resetAll: 'Reset to defaults',
