@@ -1065,7 +1065,10 @@
     if (isFirebaseAvailable && database) {
       window.BKK.migrateLocationsToPerCity(database);
       window.BKK.cleanupInProgress(database);
-      window.BKK.cleanupOrphanedInterests(database);
+      // NOTE: cleanupOrphanedInterests REMOVED — it was deleting valid interests!
+      // The function checked for types/textSearch on the interest object, but search config
+      // is stored separately in settings/interestConfig/{id}. So non-privateOnly interests
+      // were incorrectly flagged as orphans and deleted.
     }
   }, []);
 
@@ -4694,9 +4697,21 @@
           const newInterest = {
             id: interestId,
             label: label,
+            labelEn: interest.labelEn || '',
             name: label,
             icon: interest.icon || '📍',
-            locked: !!interest.locked
+            custom: true,
+            privateOnly: interest.privateOnly || false,
+            locked: !!interest.locked,
+            scope: interest.scope || 'global',
+            cityId: interest.cityId || '',
+            category: interest.category || 'attraction',
+            weight: interest.weight || 3,
+            minStops: interest.minStops != null ? interest.minStops : 1,
+            maxStops: interest.maxStops || 10,
+            routeSlot: interest.routeSlot || 'any',
+            minGap: interest.minGap || 1,
+            bestTime: interest.bestTime || 'anytime'
           };
           await database.ref(`customInterests/${interestId}`).set(newInterest);
           addedInterests++;
@@ -4725,6 +4740,17 @@
             updatedStatuses++;
           } catch (error) {
             console.error('[FIREBASE] Error importing status:', error);
+          }
+        }
+      }
+      
+      // 3b. Import interest counters (auto-naming)
+      if (importedData.interestCounters && typeof importedData.interestCounters === 'object') {
+        for (const [interestId, counter] of Object.entries(importedData.interestCounters)) {
+          try {
+            await database.ref(`cities/${selectedCityId}/interestCounters/${interestId}`).set(counter);
+          } catch (error) {
+            console.error('[FIREBASE] Error importing counter:', error);
           }
         }
       }
@@ -4818,9 +4844,21 @@
         newInterests.push({
           id: interestId,
           label: label,
+          labelEn: interest.labelEn || '',
           name: label,
           icon: interest.icon || '📍',
-          locked: !!interest.locked
+          custom: true,
+          privateOnly: interest.privateOnly || false,
+          locked: !!interest.locked,
+          scope: interest.scope || 'global',
+          cityId: interest.cityId || '',
+          category: interest.category || 'attraction',
+          weight: interest.weight || 3,
+          minStops: interest.minStops != null ? interest.minStops : 1,
+          maxStops: interest.maxStops || 10,
+          routeSlot: interest.routeSlot || 'any',
+          minGap: interest.minGap || 1,
+          bestTime: interest.bestTime || 'anytime'
         });
         addedInterests++;
       });
@@ -4839,6 +4877,11 @@
           newStatus[id] = status;
           updatedStatuses++;
         });
+      }
+      
+      // 3b. Import interest counters (auto-naming)
+      if (importedData.interestCounters && typeof importedData.interestCounters === 'object') {
+        setInterestCounters(prev => ({ ...prev, ...importedData.interestCounters }));
       }
       
       // 4. Import locations

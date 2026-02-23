@@ -1009,7 +1009,6 @@ const FouFouApp = () => {
     if (isFirebaseAvailable && database) {
       window.BKK.migrateLocationsToPerCity(database);
       window.BKK.cleanupInProgress(database);
-      window.BKK.cleanupOrphanedInterests(database);
     }
   }, []);
 
@@ -4139,9 +4138,21 @@ const FouFouApp = () => {
           const newInterest = {
             id: interestId,
             label: label,
+            labelEn: interest.labelEn || '',
             name: label,
             icon: interest.icon || '📍',
-            locked: !!interest.locked
+            custom: true,
+            privateOnly: interest.privateOnly || false,
+            locked: !!interest.locked,
+            scope: interest.scope || 'global',
+            cityId: interest.cityId || '',
+            category: interest.category || 'attraction',
+            weight: interest.weight || 3,
+            minStops: interest.minStops != null ? interest.minStops : 1,
+            maxStops: interest.maxStops || 10,
+            routeSlot: interest.routeSlot || 'any',
+            minGap: interest.minGap || 1,
+            bestTime: interest.bestTime || 'anytime'
           };
           await database.ref(`customInterests/${interestId}`).set(newInterest);
           addedInterests++;
@@ -4168,6 +4179,16 @@ const FouFouApp = () => {
             updatedStatuses++;
           } catch (error) {
             console.error('[FIREBASE] Error importing status:', error);
+          }
+        }
+      }
+      
+      if (importedData.interestCounters && typeof importedData.interestCounters === 'object') {
+        for (const [interestId, counter] of Object.entries(importedData.interestCounters)) {
+          try {
+            await database.ref(`cities/${selectedCityId}/interestCounters/${interestId}`).set(counter);
+          } catch (error) {
+            console.error('[FIREBASE] Error importing counter:', error);
           }
         }
       }
@@ -4257,9 +4278,21 @@ const FouFouApp = () => {
         newInterests.push({
           id: interestId,
           label: label,
+          labelEn: interest.labelEn || '',
           name: label,
           icon: interest.icon || '📍',
-          locked: !!interest.locked
+          custom: true,
+          privateOnly: interest.privateOnly || false,
+          locked: !!interest.locked,
+          scope: interest.scope || 'global',
+          cityId: interest.cityId || '',
+          category: interest.category || 'attraction',
+          weight: interest.weight || 3,
+          minStops: interest.minStops != null ? interest.minStops : 1,
+          maxStops: interest.maxStops || 10,
+          routeSlot: interest.routeSlot || 'any',
+          minGap: interest.minGap || 1,
+          bestTime: interest.bestTime || 'anytime'
         });
         addedInterests++;
       });
@@ -4276,6 +4309,10 @@ const FouFouApp = () => {
           newStatus[id] = status;
           updatedStatuses++;
         });
+      }
+      
+      if (importedData.interestCounters && typeof importedData.interestCounters === 'object') {
+        setInterestCounters(prev => ({ ...prev, ...importedData.interestCounters }));
       }
       
       (importedData.customLocations || []).forEach(loc => {
@@ -8038,8 +8075,9 @@ const FouFouApp = () => {
                           savedRoutes: savedRoutes,
                           interestConfig: interestConfig,
                           interestStatus: interestStatus,
+                          interestCounters: interestCounters,
                           exportDate: new Date().toISOString(),
-                          version: window.BKK.VERSION || '2.8'
+                          version: window.BKK.VERSION || '3.5'
                         };
                         
                         const dataStr = JSON.stringify(data, null, 2);

@@ -3214,9 +3214,11 @@
                           interestConfig: interestConfig,
                           // Interest active/inactive status
                           interestStatus: interestStatus,
+                          // Interest auto-naming counters
+                          interestCounters: interestCounters,
                           // Metadata
                           exportDate: new Date().toISOString(),
-                          version: window.BKK.VERSION || '2.8'
+                          version: window.BKK.VERSION || '3.5'
                         };
                         
                         const dataStr = JSON.stringify(data, null, 2);
