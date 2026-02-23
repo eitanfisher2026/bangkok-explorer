@@ -2561,7 +2561,7 @@ const FouFouApp = () => {
     }
     
     if (ordered.length >= 4) {
-      const slotConfig = {
+      const defaultSlotConfig = {
         cafes:         { slot: 'bookend', minGap: 3, time: 'anytime' },
         food:          { slot: 'middle',  minGap: 3, time: 'anytime' },
         restaurants:   { slot: 'middle',  minGap: 3, time: 'anytime' },
@@ -2582,6 +2582,19 @@ const FouFouApp = () => {
         bars:          { slot: 'end',     minGap: 2, time: 'night' },
         entertainment: { slot: 'late',    minGap: 2, time: 'evening' },
       };
+      
+      const slotConfig = {};
+      Object.keys(defaultSlotConfig).forEach(k => { slotConfig[k] = { ...defaultSlotConfig[k] }; });
+      if (typeof interestConfig === 'object') {
+        Object.entries(interestConfig).forEach(([id, cfg]) => {
+          if (cfg.routeSlot || cfg.minGap || cfg.bestTime) {
+            if (!slotConfig[id]) slotConfig[id] = { slot: 'any', minGap: 1, time: 'anytime' };
+            if (cfg.routeSlot && cfg.routeSlot !== 'any') slotConfig[id].slot = cfg.routeSlot;
+            if (cfg.minGap) slotConfig[id].minGap = cfg.minGap;
+            if (cfg.bestTime && cfg.bestTime !== 'anytime') slotConfig[id].time = cfg.bestTime;
+          }
+        });
+      }
       
       const timeMode = getEffectiveTimeMode();
       const timeCompat = (stopTime) => {
@@ -7202,7 +7215,10 @@ const FouFouApp = () => {
                   category: config.category || interest.category || 'attraction',
                   weight: config.weight || interest.weight || ({'attraction':3,'break':1,'meal':1,'experience':1,'shopping':2,'nature':2}[config.category || interest.category || 'attraction'] || 2),
                   minStops: config.minStops != null ? config.minStops : (interest.minStops != null ? interest.minStops : 1),
-                  maxStops: config.maxStops || interest.maxStops || 10
+                  maxStops: config.maxStops || interest.maxStops || 10,
+                  routeSlot: config.routeSlot || interest.routeSlot || 'any',
+                  minGap: config.minGap || interest.minGap || 1,
+                  bestTime: config.bestTime || interest.bestTime || 'anytime'
                 });
                 setShowAddInterestDialog(true);
               };
@@ -9073,7 +9089,7 @@ const FouFouApp = () => {
                 <button
                   onClick={() => {
                     setShowAddInterestDialog(false);
-                    setNewInterest({ label: '', labelEn: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
+                    setNewInterest({ label: '', labelEn: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10, routeSlot: 'any', minGap: 1, bestTime: 'anytime' });
                     setEditingCustomInterest(null);
                   }}
                   className="text-xl hover:bg-white hover:bg-opacity-20 rounded-full w-7 h-7 flex items-center justify-center"
@@ -9278,15 +9294,15 @@ const FouFouApp = () => {
                         onChange={(e) => {
                           const cat = e.target.value;
                           const defaults = {
-                            attraction: { weight: 3, minStops: 1, maxStops: 10 },
-                            break:      { weight: 1, minStops: 1, maxStops: 2 },
-                            meal:       { weight: 1, minStops: 1, maxStops: 2 },
-                            experience: { weight: 1, minStops: 1, maxStops: 3 },
-                            shopping:   { weight: 2, minStops: 1, maxStops: 5 },
-                            nature:     { weight: 2, minStops: 1, maxStops: 5 }
+                            attraction: { weight: 3, minStops: 1, maxStops: 10, routeSlot: 'any', minGap: 1, bestTime: 'day' },
+                            break:      { weight: 1, minStops: 1, maxStops: 2, routeSlot: 'bookend', minGap: 3, bestTime: 'anytime' },
+                            meal:       { weight: 1, minStops: 1, maxStops: 2, routeSlot: 'middle', minGap: 3, bestTime: 'anytime' },
+                            experience: { weight: 1, minStops: 1, maxStops: 3, routeSlot: 'any', minGap: 1, bestTime: 'anytime' },
+                            shopping:   { weight: 2, minStops: 1, maxStops: 5, routeSlot: 'early', minGap: 2, bestTime: 'day' },
+                            nature:     { weight: 2, minStops: 1, maxStops: 5, routeSlot: 'early', minGap: 1, bestTime: 'day' }
                           };
                           const d = defaults[cat] || defaults.attraction;
-                          setNewInterest({...newInterest, category: cat, weight: d.weight, minStops: d.minStops, maxStops: d.maxStops});
+                          setNewInterest({...newInterest, category: cat, weight: d.weight, minStops: d.minStops, maxStops: d.maxStops, routeSlot: d.routeSlot, minGap: d.minGap, bestTime: d.bestTime});
                         }}
                         className="p-1 text-xs border rounded flex-1"
                       >
@@ -9317,10 +9333,48 @@ const FouFouApp = () => {
                         </div>
                       ))}
                     </div>
+                    {/* Row 3: Route slot + minGap + bestTime */}
+                    <div className="flex items-center gap-1" style={{ width: '100%' }}>
+                      <div className="flex items-center gap-0.5" style={{ flex: 1.2, minWidth: 0 }}>
+                        <span className="text-[9px] text-gray-500 truncate">{t('interests.routeSlot')}:</span>
+                        <select
+                          value={newInterest.routeSlot || 'any'}
+                          onChange={(e) => setNewInterest({...newInterest, routeSlot: e.target.value})}
+                          className="p-0.5 text-[10px] border rounded flex-1" style={{ minWidth: 0 }}
+                        >
+                          <option value="any">{t('interests.slotAny')}</option>
+                          <option value="bookend">{t('interests.slotBookend')}</option>
+                          <option value="early">{t('interests.slotEarly')}</option>
+                          <option value="middle">{t('interests.slotMiddle')}</option>
+                          <option value="late">{t('interests.slotLate')}</option>
+                          <option value="end">{t('interests.slotEnd')}</option>
+                        </select>
+                      </div>
+                      <div className="flex items-center gap-0.5" style={{ flex: 0.7, minWidth: 0, justifyContent: 'center' }}>
+                        <span className="text-[9px] text-gray-500 truncate">{t('interests.minGap')}:</span>
+                        <button type="button" onClick={() => setNewInterest({...newInterest, minGap: Math.max(1, (newInterest.minGap || 1) - 1)})}
+                          className="w-5 h-5 rounded bg-gray-200 text-gray-700 text-xs font-bold flex items-center justify-center active:bg-gray-300 flex-shrink-0"
+                        >−</button>
+                        <span className="w-5 text-center text-xs font-bold flex-shrink-0">{newInterest.minGap || 1}</span>
+                        <button type="button" onClick={() => setNewInterest({...newInterest, minGap: Math.min(5, (newInterest.minGap || 1) + 1)})}
+                          className="w-5 h-5 rounded bg-gray-200 text-gray-700 text-xs font-bold flex items-center justify-center active:bg-gray-300 flex-shrink-0"
+                        >+</button>
+                      </div>
+                      <div className="flex items-center gap-0.5" style={{ flex: 1, minWidth: 0 }}>
+                        <span className="text-[9px] text-gray-500 truncate">{t('interests.bestTime')}:</span>
+                        <select
+                          value={newInterest.bestTime || 'anytime'}
+                          onChange={(e) => setNewInterest({...newInterest, bestTime: e.target.value})}
+                          className="p-0.5 text-[10px] border rounded flex-1" style={{ minWidth: 0 }}
+                        >
+                          <option value="anytime">{t('interests.timeAnytime')}</option>
+                          <option value="day">{t('interests.timeDay')}</option>
+                          <option value="evening">{t('interests.timeEvening')}</option>
+                          <option value="night">{t('interests.timeNight')}</option>
+                        </select>
+                      </div>
+                    </div>
                   </div>
-                </div>
-
-                {/* Counter for auto-naming — only in edit mode + admin */}
                 {editingCustomInterest && isUnlocked && (
                 <div className="flex items-center gap-2 px-4 py-1 bg-gray-50 border-t border-gray-100" style={{ direction: 'rtl' }}>
                   <span className="text-xs font-bold text-gray-600">#️⃣</span>
@@ -9438,6 +9492,9 @@ const FouFouApp = () => {
                             configData.weight = newInterest.weight || 3;
                             configData.minStops = newInterest.minStops != null ? newInterest.minStops : 1;
                             configData.maxStops = newInterest.maxStops || 10;
+                            configData.routeSlot = newInterest.routeSlot || 'any';
+                            configData.minGap = newInterest.minGap || 1;
+                            configData.bestTime = newInterest.bestTime || 'anytime';
                             if (isUnlocked) {
                               configData.labelOverride = newInterest.label.trim();
                               configData.labelEnOverride = (newInterest.labelEn || '').trim();
@@ -9463,7 +9520,10 @@ const FouFouApp = () => {
                               category: newInterest.category || 'attraction',
                               weight: newInterest.weight || 3,
                               minStops: newInterest.minStops != null ? newInterest.minStops : 1,
-                              maxStops: newInterest.maxStops || 10
+                              maxStops: newInterest.maxStops || 10,
+                              routeSlot: newInterest.routeSlot || 'any',
+                              minGap: newInterest.minGap || 1,
+                              bestTime: newInterest.bestTime || 'anytime'
                             };
                             delete updatedInterest.builtIn;
                             
@@ -9481,7 +9541,7 @@ const FouFouApp = () => {
                           
                           showToast(t('interests.interestUpdated'), 'success');
                           setShowAddInterestDialog(false);
-                          setNewInterest({ label: '', labelEn: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
+                          setNewInterest({ label: '', labelEn: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10, routeSlot: 'any', minGap: 1, bestTime: 'anytime' });
                           setEditingCustomInterest(null);
                           window._savingInterest = false;
                           return;
@@ -9510,11 +9570,14 @@ const FouFouApp = () => {
                             category: newInterest.category || 'attraction',
                             weight: newInterest.weight || 3,
                               minStops: newInterest.minStops != null ? newInterest.minStops : 1,
-                              maxStops: newInterest.maxStops || 10
+                              maxStops: newInterest.maxStops || 10,
+                              routeSlot: newInterest.routeSlot || 'any',
+                              minGap: newInterest.minGap || 1,
+                              bestTime: newInterest.bestTime || 'anytime'
                           };
                           
                           setShowAddInterestDialog(false);
-                          setNewInterest({ label: '', labelEn: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
+                          setNewInterest({ label: '', labelEn: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10, routeSlot: 'any', minGap: 1, bestTime: 'anytime' });
                           setEditingCustomInterest(null);
                           
                           setCustomInterests(prev => {
@@ -9551,7 +9614,7 @@ const FouFouApp = () => {
                         }
                         
                         setShowAddInterestDialog(false);
-                        setNewInterest({ label: '', labelEn: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
+                        setNewInterest({ label: '', labelEn: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10, routeSlot: 'any', minGap: 1, bestTime: 'anytime' });
                         setEditingCustomInterest(null);
                         window._savingInterest = false;
                       }}
@@ -9569,7 +9632,7 @@ const FouFouApp = () => {
                 <button
                   onClick={() => {
                     setShowAddInterestDialog(false);
-                    setNewInterest({ label: '', labelEn: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10 });
+                    setNewInterest({ label: '', labelEn: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10, routeSlot: 'any', minGap: 1, bestTime: 'anytime' });
                     setEditingCustomInterest(null);
                   }}
                   className="px-5 py-2.5 rounded-lg bg-green-500 text-white text-sm font-bold hover:bg-green-600"

@@ -2875,7 +2875,8 @@
     // --- Step 3: Content-aware reordering ---
     // Adjust order so route feels natural: cafes at start/end, food in middle, no same-category neighbors
     if (ordered.length >= 4) {
-      const slotConfig = {
+      // Default slot config — overridden by interestConfig when available
+      const defaultSlotConfig = {
         cafes:         { slot: 'bookend', minGap: 3, time: 'anytime' },
         food:          { slot: 'middle',  minGap: 3, time: 'anytime' },
         restaurants:   { slot: 'middle',  minGap: 3, time: 'anytime' },
@@ -2896,6 +2897,20 @@
         bars:          { slot: 'end',     minGap: 2, time: 'night' },
         entertainment: { slot: 'late',    minGap: 2, time: 'evening' },
       };
+      
+      // Merge with interestConfig (user-defined values override defaults)
+      const slotConfig = {};
+      Object.keys(defaultSlotConfig).forEach(k => { slotConfig[k] = { ...defaultSlotConfig[k] }; });
+      if (typeof interestConfig === 'object') {
+        Object.entries(interestConfig).forEach(([id, cfg]) => {
+          if (cfg.routeSlot || cfg.minGap || cfg.bestTime) {
+            if (!slotConfig[id]) slotConfig[id] = { slot: 'any', minGap: 1, time: 'anytime' };
+            if (cfg.routeSlot && cfg.routeSlot !== 'any') slotConfig[id].slot = cfg.routeSlot;
+            if (cfg.minGap) slotConfig[id].minGap = cfg.minGap;
+            if (cfg.bestTime && cfg.bestTime !== 'anytime') slotConfig[id].time = cfg.bestTime;
+          }
+        });
+      }
       
       // Time-of-day compatibility scoring
       const timeMode = getEffectiveTimeMode();
