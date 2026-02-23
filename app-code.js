@@ -2514,7 +2514,7 @@ const FouFouApp = () => {
       }
       
       const interestResults = {};
-      const allStops = [...customStops]; // Start with custom stops (highest priority)
+      const allStops = []; // Build this respecting limits
       let fetchErrors = [];
       
       googleCacheRef.current = {};
@@ -2526,9 +2526,16 @@ const FouFouApp = () => {
           stop.interests && stop.interests.includes(interest)
         );
         
-        const neededForInterest = Math.max(0, stopsForThisInterest - customStopsForInterest.length);
+        const customToUse = customStopsForInterest.slice(0, stopsForThisInterest);
+        for (const cs of customToUse) {
+          if (!allStops.some(s => s.name.toLowerCase().trim() === cs.name.toLowerCase().trim())) {
+            allStops.push(cs);
+          }
+        }
         
-        if (neededForInterest > 0) {
+        const neededFromApi = Math.max(0, stopsForThisInterest - customToUse.length);
+        
+        if (neededFromApi > 0) {
           const interestObj = allInterestOptions.find(o => o.id === interest);
           const interestPrivateOnly = interestObj?.privateOnly || false;
           
@@ -2579,16 +2586,16 @@ const FouFouApp = () => {
               .sort((a, b) => (b.rating * Math.log10((b.ratingCount || 0) + 1)) - (a.rating * Math.log10((a.ratingCount || 0) + 1)));
           }
           
-          const sortedPlaces = sortedAll.slice(0, neededForInterest);
-          const cachedPlaces = sortedAll.slice(neededForInterest);
+          const sortedPlaces = sortedAll.slice(0, neededFromApi);
+          const cachedPlaces = sortedAll.slice(neededFromApi);
           
           googleCacheRef.current[interest] = cachedPlaces;
           
           interestResults[interest] = {
             requested: stopsForThisInterest,
-            custom: customStopsForInterest.length,
+            custom: customToUse.length,
             fetched: sortedPlaces.length,
-            total: customStopsForInterest.length + sortedPlaces.length,
+            total: customToUse.length + sortedPlaces.length,
             allPlaces: sortedAll // Keep all for round 2
           };
           
@@ -2597,9 +2604,9 @@ const FouFouApp = () => {
           googleCacheRef.current[interest] = []; // Empty cache
           interestResults[interest] = {
             requested: stopsForThisInterest,
-            custom: customStopsForInterest.length,
+            custom: customToUse.length,
             fetched: 0,
-            total: customStopsForInterest.length,
+            total: customToUse.length,
             allPlaces: []
           };
         }
@@ -2621,6 +2628,16 @@ const FouFouApp = () => {
       const missing = maxStops - totalFound;
       
       if (missing > 0) {
+        const currentCountPerInterest = {};
+        for (const interest of formData.interests) currentCountPerInterest[interest] = 0;
+        for (const stop of uniqueStops) {
+          for (const interest of formData.interests) {
+            if (stop.interests?.includes(interest)) {
+              currentCountPerInterest[interest] = (currentCountPerInterest[interest] || 0) + 1;
+            }
+          }
+        }
+        
         const additionalPlaces = [];
         
         for (const interest of formData.interests) {
@@ -2629,14 +2646,19 @@ const FouFouApp = () => {
           const available = result.allPlaces.length;
           const canAddMore = available - alreadyUsed;
           
-          if (canAddMore > 0) {
+          const interestMax = interestCfg[interest].maxStops;
+          const currentCount = currentCountPerInterest[interest] || 0;
+          const roomLeft = Math.max(0, interestMax - currentCount);
+          
+          if (canAddMore > 0 && roomLeft > 0) {
             const ratingSort = (a, b) => (b.rating * Math.log10((b.ratingCount || 0) + 1)) - (a.rating * Math.log10((a.ratingCount || 0) + 1));
             const distSort = (a, b) => calcDistance(formData.currentLat, formData.currentLng, a.lat, a.lng) - calcDistance(formData.currentLat, formData.currentLng, b.lat, b.lng);
             const morePlaces = result.allPlaces
               .sort(isRadiusMode ? distSort : ratingSort)
-              .slice(alreadyUsed, alreadyUsed + canAddMore);
+              .slice(alreadyUsed, alreadyUsed + Math.min(canAddMore, roomLeft));
             
             additionalPlaces.push(...morePlaces);
+          } else if (canAddMore > 0) {
           }
         }
         
