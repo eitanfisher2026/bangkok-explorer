@@ -196,6 +196,7 @@ const FouFouApp = () => {
   const [editingArea, setEditingArea] = useState(null); // area being edited on map
   const [mapMode, setMapMode] = useState('areas'); // 'areas', 'radius', or 'stops'
   const [mapStops, setMapStops] = useState([]); // stops to show when mapMode='stops'
+  const [startPointCoords, setStartPointCoords] = useState(null); // { lat, lng, address }
   const leafletMapRef = React.useRef(null);
   
   const googleCacheRef = React.useRef({});
@@ -466,7 +467,7 @@ const FouFouApp = () => {
     }); // end loadLeaflet().then
     
     return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; delete window._mapRedrawLine; };
-  }, [showMapModal, mapMode, mapStops, formData.currentLat, formData.currentLng, formData.radiusMeters, startPointCoords]);
+  }, [showMapModal, mapMode, mapStops, formData.currentLat, formData.currentLng, formData.radiusMeters]);
   const [modalImage, setModalImage] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -535,7 +536,6 @@ const FouFouApp = () => {
     }, 5000);
     return () => clearTimeout(timer);
   }, [isDataLoaded]);
-  const [startPointCoords, setStartPointCoords] = useState(null); // { lat, lng }
   const [isLocating, setIsLocating] = useState(false);
   const [rightColWidth, setRightColWidth] = useState(() => {
     try {
