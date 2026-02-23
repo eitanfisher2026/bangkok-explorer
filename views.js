@@ -1596,29 +1596,9 @@
                 </div>
                 )}
                 
-                <div className="mt-3 space-y-2">
-                  {/* Add manual stop button */}
-                  <button
-                    onClick={() => setShowManualAddDialog(true)}
-                    style={{ width: '100%',
-                      height: '42px',
-                      background: 'linear-gradient(135deg, #14b8a6, #0d9488)',
-                      color: 'white',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: '12px',
-                      fontWeight: 'bold',
-                      fontSize: '13px',
-                      border: 'none',
-                      boxShadow: '0 4px 6px -1px rgba(20, 184, 166, 0.3)',
-                      marginBottom: '4px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {t("route.addManualStop")}
-                  </button>
-                  
+                <div className="mt-3 space-y-1" style={{ position: 'relative' }}>
+                  {/* Row 1: Map & Plan + Hamburger */}
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                   <button
                     onClick={() => {
                       const openMap = (gpsStart) => {
@@ -1638,7 +1618,6 @@
                         setMapMode('stops');
                         setShowMapModal(true);
                       };
-                      // Request GPS if no start point set
                       if (!startPointCoordsRef.current && !formData.currentLat && navigator.geolocation) {
                         window.BKK.getValidatedGps(
                           (pos) => {
@@ -1656,54 +1635,54 @@
                       }
                     }}
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: '100%',
-                      height: '42px',
-                      backgroundColor: '#f59e0b',
-                      color: 'white',
-                      borderRadius: '12px',
-                      fontWeight: 'bold',
-                      fontSize: '13px',
-                      border: 'none',
-                      cursor: 'pointer',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
-                      marginBottom: '4px'
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      flex: 1, height: '42px', backgroundColor: '#f59e0b', color: 'white',
+                      borderRadius: '12px', fontWeight: 'bold', fontSize: '13px',
+                      border: 'none', cursor: 'pointer',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)'
                     }}
                   >
                     {`${t("route.showStopsOnMap")} (${route.stops.filter(s => !disabledStops.includes((s.name || '').toLowerCase().trim()) && s.lat && s.lng).length})`}
                   </button>
-                  
-                  {/* Route controls — compute is automatic */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <button
+                    onClick={() => setShowRouteMenu(!showRouteMenu)}
+                    style={{
+                      width: '42px', height: '42px', borderRadius: '12px',
+                      border: '1px solid #e5e7eb', background: showRouteMenu ? '#f3f4f6' : 'rgba(255,255,255,0.9)',
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '18px', color: '#6b7280', flexShrink: 0
+                    }}
+                  >
+                    ☰
+                  </button>
+                  </div>
 
-                      {/* Row 1: Reorder */}
-                      <div style={{ display: 'flex', gap: '4px', alignItems: 'center', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
-                      <button
-                        onClick={() => setShowRoutePreview(!showRoutePreview)}
-                        disabled={!showRoutePreview && !route?.optimized}
-                        style={{
-                          height: '42px',
-                          backgroundColor: showRoutePreview ? '#7c3aed' : route?.optimized ? '#a78bfa' : '#d1d5db',
-                          color: (showRoutePreview || route?.optimized) ? 'white' : '#9ca3af',
-                          borderRadius: '12px',
-                          fontWeight: 'bold',
-                          fontSize: '13px',
-                          border: 'none',
-                          cursor: (showRoutePreview || route?.optimized) ? 'pointer' : 'not-allowed',
-                          whiteSpace: 'nowrap',
-                          padding: '0 12px'
-                        }}
-                      >
-                        {showRoutePreview ? `✓ ${t('route.backToList')}` : `☰ ${t('route.reorderStops')}`}
-                      </button>
-                      </div>
-
-                      {/* Row 3: Google Maps + Save + Share */}
-                      <div style={{ display: 'flex', gap: '4px', alignItems: 'center', direction: window.BKK.i18n.isRTL() ? 'ltr' : 'rtl' }}>
-                      <button
-                        onClick={() => {
+                  {/* Hamburger dropdown menu */}
+                  {showRouteMenu && (
+                    <div>
+                    <div onClick={() => setShowRouteMenu(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 40 }} />
+                    <div style={{
+                      position: 'absolute', left: 0, right: 0, zIndex: 50,
+                      background: 'white', borderRadius: '12px', boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                      border: '1px solid #e5e7eb', overflow: 'hidden',
+                      direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr'
+                    }}>
+                      {[
+                        { icon: '➕', label: t('route.addManualStop').replace('➕ ', ''), action: () => { setShowRouteMenu(false); setShowManualAddDialog(true); } },
+                        { icon: '☰', label: showRoutePreview ? t('route.backToList') : t('route.reorderStops'), action: () => { setShowRouteMenu(false); setShowRoutePreview(!showRoutePreview); }, disabled: !showRoutePreview && !route?.optimized },
+                        { icon: '🧠', label: t('route.helpMePlan'), action: () => {
+                          setShowRouteMenu(false);
+                          if (!route?.stops?.length) return;
+                          const allStopsWithCoords = route.stops.filter(s => s.lat && s.lng);
+                          if (allStopsWithCoords.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
+                          const { selected: smartStops, disabled: smartDisabled } = smartSelectStops(allStopsWithCoords, formData.interests);
+                          const newDisabled = smartDisabled.map(s => (s.name || '').toLowerCase().trim());
+                          setDisabledStops(newDisabled);
+                          setRoute(prev => prev ? { ...prev, optimized: false } : prev);
+                          showToast(`🧠 ${smartStops.length} ${t('route.stops')}`, 'success');
+                        }},
+                        { icon: '📤', label: t('route.shareRoute'), action: () => {
+                          setShowRouteMenu(false);
                           if (!route?.optimized) return;
                           const activeStops = (route.stops || []).filter(s => {
                             const isActive = !disabledStops.includes((s.name || '').toLowerCase().trim());
@@ -1720,116 +1699,108 @@
                           if (!mapUrl) return;
                           const mapLinks = urls.map((u, i) => urls.length === 1 ? u.url : `(${u.part}/${u.total}) ${u.url}`).join('\n');
                           const shareText = `🗺️ ${routeName}\n📍 ${route.areaName || ''}\n🎯 ${activeStops.length} stops\n${routeType === 'circular' ? t('route.circularRoute') : t('route.linearDesc')}\n\n${activeStops.map((s, i) => `${window.BKK.stopLabel(i)}. ${s.name}`).join('\n')}\n\n🗺️ Google Maps:\n${mapLinks}`;
-                          if (navigator.share) {
-                            navigator.share({ title: routeName, text: shareText });
-                          } else {
-                            navigator.clipboard.writeText(shareText);
-                            showToast(t('route.routeCopied'), 'success');
-                          }
-                        }}
-                        style={{ width: '42px', height: '42px', borderRadius: '12px', border: 'none', background: route?.optimized ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#e5e7eb', color: route?.optimized ? 'white' : '#9ca3af', cursor: route?.optimized ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: route?.optimized ? '0 4px 6px rgba(37, 99, 235, 0.3)' : 'none' }}
-                        title={t("general.shareRoute")}
-                      >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill={route?.optimized ? 'white' : '#9ca3af'}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" stroke={route?.optimized ? 'white' : '#9ca3af'} strokeWidth="2"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" stroke={route?.optimized ? 'white' : '#9ca3af'} strokeWidth="2"/></svg>
-                      </button>
-                      {route.name ? (
+                          if (navigator.share) { navigator.share({ title: routeName, text: shareText }); }
+                          else { navigator.clipboard.writeText(shareText); showToast(t('route.routeCopied'), 'success'); }
+                        }, disabled: !route?.optimized },
+                        { icon: route.name ? '✅' : '💾', label: route.name ? `${t('route.savedAs')} ${route.name}` : t('route.saveRoute'), action: () => {
+                          setShowRouteMenu(false);
+                          if (!route.name && route?.optimized) quickSaveRoute();
+                        }, disabled: !route?.optimized || !!route.name },
+                      ].map((item, idx) => (
                         <button
-                          disabled
-                          style={{ width: '42px', height: '42px', borderRadius: '12px', backgroundColor: '#dcfce7', border: '2px solid #16a34a', fontSize: '16px', cursor: 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                          title={`${t("route.savedAs")} ${route.name}`}
+                          key={idx}
+                          onClick={item.action}
+                          disabled={item.disabled}
+                          style={{
+                            width: '100%', padding: '10px 14px', border: 'none', borderBottom: idx < 4 ? '1px solid #f3f4f6' : 'none',
+                            background: 'white', cursor: item.disabled ? 'default' : 'pointer',
+                            display: 'flex', alignItems: 'center', gap: '10px',
+                            fontSize: '13px', fontWeight: '500', color: item.disabled ? '#9ca3af' : '#374151',
+                            textAlign: window.BKK.i18n.isRTL() ? 'right' : 'left'
+                          }}
                         >
-                          ✅
+                          <span style={{ fontSize: '16px', flexShrink: 0, width: '24px', textAlign: 'center' }}>{item.icon}</span>
+                          <span>{item.label}</span>
                         </button>
-                      ) : (
-                        <button
-                          onClick={() => route?.optimized && quickSaveRoute()}
-                          style={{ width: '42px', height: '42px', borderRadius: '12px', border: 'none', background: route?.optimized ? 'linear-gradient(135deg, #8b5cf6, #7c3aed)' : '#e5e7eb', color: route?.optimized ? 'white' : '#9ca3af', cursor: route?.optimized ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: route?.optimized ? '0 4px 6px rgba(124, 58, 237, 0.3)' : 'none' }}
-                          title={t("route.saveRoute")}
-                        >
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill={route?.optimized ? 'white' : '#9ca3af'}><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/><path d="M12 6v8M8 12l4 4 4-4" stroke={route?.optimized ? 'white' : '#9ca3af'} strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        </button>
-                      )}
-                      {(() => {
-                        const activeStops = route?.optimized ? route.stops.filter((stop) => {
-                          const isActive = !disabledStops.includes((stop.name || '').toLowerCase().trim());
-                          const hasValidCoords = stop.lat && stop.lng && stop.lat !== 0 && stop.lng !== 0;
-                          return isActive && hasValidCoords;
-                        }) : [];
-                        const hasStartPoint = startPointCoords && startPointCoords.lat && startPointCoords.lng;
-                        const origin = hasStartPoint
-                          ? `${startPointCoords.lat},${startPointCoords.lng}`
-                          : activeStops.length > 0 ? `${activeStops[0].lat},${activeStops[0].lng}` : '';
-                        const stopsForUrls = hasStartPoint ? activeStops : activeStops.slice(1);
-                        const isCircular = routeType === 'circular';
-                        const urls = route?.optimized && activeStops.length > 0
-                          ? window.BKK.buildGoogleMapsUrls(stopsForUrls, origin, isCircular, googleMaxWaypoints)
-                          : [];
-
-                        return urls.length <= 1 ? (
-                          <button
-                            id="open-google-maps-btn"
-                            disabled={!route?.optimized}
-                            style={{
-                              flex: 1, height: '42px', backgroundColor: route?.optimized ? '#2563eb' : '#d1d5db',
-                              color: route?.optimized ? 'white' : '#9ca3af', textAlign: 'center',
-                              borderRadius: '12px', fontWeight: 'bold', fontSize: '13px',
-                              border: 'none', boxShadow: route?.optimized ? '0 4px 6px -1px rgba(0, 0, 0, 0.3)' : 'none',
-                              cursor: route?.optimized ? 'pointer' : 'not-allowed'
-                            }}
-                            onClick={() => {
-                              if (!route?.optimized) { showToast(t('route.calcRoutePrevious'), 'warning'); return; }
-                              if (activeStops.length === 0) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
-                              const mapUrl = urls.length === 1 ? urls[0].url : (activeStops.length === 1 && !hasStartPoint ? window.BKK.getGoogleMapsUrl(activeStops[0]) : '#');
-                              if (mapUrl.length > 2000) showToast(`${t('toast.urlTooLong')} (${mapUrl.length})`, 'warning');
-                              else if (isCircular) showToast(t('route.circularDesc'), 'info');
-                              // Save active trail before opening Google Maps
-                              startActiveTrail(activeStops, formData.interests, formData.area);
-                              showToast(`📸 ${t('trail.started')}`, 'success');
-                              window.open(mapUrl, 'city_explorer_map');
-                            }}
-                          >
-                            {`🗺️ ${t('route.openRouteInGoogle')}`}
-                          </button>
-                        ) : (
-                          <div style={{ display: 'flex', gap: '4px', flex: 1 }}>
-                          {urls.map((urlInfo, idx) => (
-                            <button
-                              key={idx}
-                              id={idx === 0 ? "open-google-maps-btn" : undefined}
-                              onClick={() => {
-                                if (urlInfo.url.length > 2000) showToast(`${t('toast.urlTooLong')} (${urlInfo.url.length})`, 'warning');
-                                // Save active trail on first part click
-                                if (idx === 0) startActiveTrail(activeStops, formData.interests, formData.area);
-                                window.open(urlInfo.url, 'city_explorer_map');
-                              }}
-                              style={{
-                                flex: 1,
-                                height: '42px',
-                                backgroundColor: idx === 0 ? '#2563eb' : '#1d4ed8',
-                                color: 'white', textAlign: 'center',
-                                borderRadius: '12px', fontWeight: 'bold', fontSize: '12px',
-                                border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              {`🗺️ ${t('route.openRoutePartN').replace('{n}', urlInfo.part).replace('{total}', urlInfo.total)}`}
-                            </button>
-                          ))}
-                          </div>
-                        );
-                      })()}
-                      </div>
+                      ))}
                     </div>
-                    {!startPointCoords && (
-                      <p style={{ fontSize: '10px', color: '#6b7280', textAlign: 'center', marginTop: '2px', marginBottom: '2px' }}>
-                        {`💡 ${t("route.autoComputeHint")}`}
-                      </p>
-                    )}
-                    {route?.optimized && (
-                      <p style={{ fontSize: '10px', color: '#16a34a', textAlign: 'center', marginTop: '2px', marginBottom: '2px', fontWeight: 'bold' }}>
-                        {`✅ ${t("route.autoComputeReady")}`}
-                      </p>
-                    )}
+                    </div>
+                  )}
+
+                  {/* Row 2: Open in Google Maps */}
+                  {(() => {
+                    const activeStops = route?.optimized ? route.stops.filter((stop) => {
+                      const isActive = !disabledStops.includes((stop.name || '').toLowerCase().trim());
+                      const hasValidCoords = stop.lat && stop.lng && stop.lat !== 0 && stop.lng !== 0;
+                      return isActive && hasValidCoords;
+                    }) : [];
+                    const hasStartPoint = startPointCoords && startPointCoords.lat && startPointCoords.lng;
+                    const origin = hasStartPoint
+                      ? `${startPointCoords.lat},${startPointCoords.lng}`
+                      : activeStops.length > 0 ? `${activeStops[0].lat},${activeStops[0].lng}` : '';
+                    const stopsForUrls = hasStartPoint ? activeStops : activeStops.slice(1);
+                    const isCircular = routeType === 'circular';
+                    const urls = route?.optimized && activeStops.length > 0
+                      ? window.BKK.buildGoogleMapsUrls(stopsForUrls, origin, isCircular, googleMaxWaypoints)
+                      : [];
+
+                    return urls.length <= 1 ? (
+                      <button
+                        id="open-google-maps-btn"
+                        disabled={!route?.optimized}
+                        style={{
+                          width: '100%', height: '42px', backgroundColor: route?.optimized ? '#2563eb' : '#d1d5db',
+                          color: route?.optimized ? 'white' : '#9ca3af', textAlign: 'center',
+                          borderRadius: '12px', fontWeight: 'bold', fontSize: '13px',
+                          border: 'none', boxShadow: route?.optimized ? '0 4px 6px -1px rgba(0, 0, 0, 0.3)' : 'none',
+                          cursor: route?.optimized ? 'pointer' : 'not-allowed'
+                        }}
+                        onClick={() => {
+                          if (!route?.optimized) { showToast(t('route.calcRoutePrevious'), 'warning'); return; }
+                          if (activeStops.length === 0) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
+                          const mapUrl = urls.length === 1 ? urls[0].url : (activeStops.length === 1 && !hasStartPoint ? window.BKK.getGoogleMapsUrl(activeStops[0]) : '#');
+                          if (mapUrl.length > 2000) showToast(`${t('toast.urlTooLong')} (${mapUrl.length})`, 'warning');
+                          else if (isCircular) showToast(t('route.circularDesc'), 'info');
+                          startActiveTrail(activeStops, formData.interests, formData.area);
+                          showToast(`📸 ${t('trail.started')}`, 'success');
+                          window.open(mapUrl, 'city_explorer_map');
+                        }}
+                      >
+                        {`📍 ${t('route.openRouteInGoogle')}`}
+                      </button>
+                    ) : (
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                      {urls.map((urlInfo, idx) => (
+                        <button
+                          key={idx}
+                          id={idx === 0 ? "open-google-maps-btn" : undefined}
+                          onClick={() => {
+                            if (urlInfo.url.length > 2000) showToast(`${t('toast.urlTooLong')} (${urlInfo.url.length})`, 'warning');
+                            if (idx === 0) startActiveTrail(activeStops, formData.interests, formData.area);
+                            window.open(urlInfo.url, 'city_explorer_map');
+                          }}
+                          style={{
+                            flex: 1, height: '42px',
+                            backgroundColor: idx === 0 ? '#2563eb' : '#1d4ed8',
+                            color: 'white', textAlign: 'center',
+                            borderRadius: '12px', fontWeight: 'bold', fontSize: '12px',
+                            border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {`📍 ${t('route.openRoutePartN').replace('{n}', urlInfo.part).replace('{total}', urlInfo.total)}`}
+                        </button>
+                      ))}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Hint text */}
+                  {route?.optimized && (
+                    <p style={{ fontSize: '10px', color: '#6b7280', textAlign: 'center', marginTop: '4px', marginBottom: '2px', lineHeight: '1.6', whiteSpace: 'pre-line' }}>
+                      {t("route.routeActionsHint")}
+                    </p>
+                  )}
 
                   </div>
                 </div>

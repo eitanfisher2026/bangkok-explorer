@@ -70,6 +70,7 @@
     }
   }, [route?.stops?.length, route?.optimized]);
   const [showRoutePreview, setShowRoutePreview] = useState(false); // Route stop reorder view
+  const [showRouteMenu, setShowRouteMenu] = useState(false); // Hamburger menu in route results
   const [routeChoiceMade, setRouteChoiceMade] = useState(null); // null | 'manual' — controls wizard step 3 split
   const [manualStops, setManualStops] = useState([]); // Manually added stops (session only)
   const [showManualAddDialog, setShowManualAddDialog] = useState(false);
@@ -1681,6 +1682,7 @@
     }
     setDisabledStops([]);
     setShowRoutePreview(false);
+    setShowRouteMenu(false);
     setManualStops([]);
     setCityModified(false);
     showToast(window.BKK.selectedCity.icon + ' ' + tLabel(window.BKK.selectedCity), 'success');
