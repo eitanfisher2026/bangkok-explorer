@@ -196,7 +196,7 @@ const FouFouApp = () => {
       const saved = localStorage.getItem('foufou_active_trail');
       if (saved) {
         const trail = JSON.parse(saved);
-        if (trail.startedAt && (Date.now() - trail.startedAt) > 8 * 60 * 60 * 1000) {
+        if (trail.startedAt && (Date.now() - trail.startedAt) > (window.BKK.systemParams?.trailTimeoutHours || 8) * 60 * 60 * 1000) {
           localStorage.removeItem('foufou_active_trail');
           return null;
         }
@@ -216,7 +216,7 @@ const FouFouApp = () => {
           const saved = localStorage.getItem('foufou_active_trail');
           if (saved) {
             const trail = JSON.parse(saved);
-            if (trail.startedAt && (Date.now() - trail.startedAt) < 8 * 60 * 60 * 1000) {
+            if (trail.startedAt && (Date.now() - trail.startedAt) < (window.BKK.systemParams?.trailTimeoutHours || 8) * 60 * 60 * 1000) {
               setActiveTrail(trail);
               setCurrentView('form');
               window.scrollTo(0, 0);
@@ -285,6 +285,27 @@ const FouFouApp = () => {
   const [interestStatus, setInterestStatus] = useState({}); // { interestId: true/false }
   
   const [interestConfig, setInterestConfig] = useState({});
+
+  if (!window.BKK._defaultSystemParams) {
+    window.BKK._defaultSystemParams = {
+      trailTimeoutHours: 8,
+      timeScoreMatch: 2,
+      timeScoreAnytime: 1,
+      timeScoreConflict: 0,
+      timeConflictPenalty: 3,
+      slotEarlyThreshold: 0.4,
+      slotLateThreshold: 0.6,
+      slotEndThreshold: 0.7,
+      slotPenaltyMultiplier: 3,
+      slotEndPenaltyMultiplier: 4,
+      gapPenaltyMultiplier: 2,
+      maxContentPasses: 3,
+      defaultInterestWeight: 3
+    };
+    window.BKK.systemParams = { ...window.BKK._defaultSystemParams };
+  }
+  const [systemParams, setSystemParams] = useState(window.BKK.systemParams);
+  const sp = systemParams; // shorthand
   const [interestCounters, setInterestCounters] = useState({}); // { interestId: nextNumber }
   const [googlePlaceInfo, setGooglePlaceInfo] = useState(null);
   const [loadingGoogleInfo, setLoadingGoogleInfo] = useState(false);
@@ -338,7 +359,7 @@ const FouFouApp = () => {
         areas.forEach((area, i) => { areaColors[area.id] = colorPalette[i % colorPalette.length]; });
         
         if (mapMode === 'areas') {
-          const cityCenter = window.BKK.selectedCity?.center || { lat: 13.7500, lng: 100.5350 };
+          const cityCenter = window.BKK.selectedCity?.center || window.BKK.activeCityData?.center || { lat: 0, lng: 0 };
           const map = L.map(container).setView([cityCenter.lat, cityCenter.lng], 12);
           L.tileLayer(window.BKK.getTileUrl(), {
             attribution: '© OpenStreetMap contributors', maxZoom: 18
@@ -1550,6 +1571,15 @@ const FouFouApp = () => {
       }
     });
     
+    database.ref('settings/systemParams').on('value', (snap) => {
+      const data = snap.val();
+      if (data) {
+        const merged = { ...window.BKK._defaultSystemParams, ...data };
+        window.BKK.systemParams = merged;
+        setSystemParams(merged);
+      }
+    });
+    
     database.ref('settings/defaultRadius').on('value', (snap) => {
       if (snap.val() !== null) {
         window.BKK._defaultRadius = snap.val();
@@ -1958,7 +1988,6 @@ const FouFouApp = () => {
                 lng: place.location?.longitude || 0,
                 rating: place.rating || 0,
                 ratingCount: place.userRatingCount || 0,
-                duration: 45,
                 interests: validInterests,
                 googleTypes: placeTypesFromGoogle,
                 primaryType: place.primaryType || null,
@@ -2037,7 +2066,6 @@ const FouFouApp = () => {
             lat: place.location?.latitude || center.lat,
             lng: place.location?.longitude || center.lng,
             description: `⭐ ${place.rating?.toFixed(1) || 'N/A'} (${place.userRatingCount || 0} reviews)`,
-            duration: 45,
             googlePlace: true,
             rating: place.rating || 0,
             ratingCount: place.userRatingCount || 0,
@@ -2186,7 +2214,7 @@ const FouFouApp = () => {
         scope: config.scope || opt.scope || 'global',
         cityId: config.cityId || opt.cityId || '',
         category: config.category || opt.category || 'attraction',
-        weight: config.weight || opt.weight || 3,
+        weight: config.weight || opt.weight || sp.defaultInterestWeight,
         minStops: config.minStops != null ? config.minStops : (opt.minStops != null ? opt.minStops : 1),
         maxStops: config.maxStops || opt.maxStops || 10
       };
@@ -2467,7 +2495,7 @@ const FouFouApp = () => {
     for (const interestId of selectedInterests) {
       const interestObj = allInterestOptions.find(o => o.id === interestId);
       cfg[interestId] = {
-        weight: interestObj?.weight || 2,
+        weight: interestObj?.weight || sp.defaultInterestWeight,
         minStops: interestObj?.minStops != null ? interestObj.minStops : 1,
         maxStops: interestObj?.maxStops || 10,
         category: interestObj?.category || 'attraction'
@@ -2550,8 +2578,8 @@ const FouFouApp = () => {
     
     const timeScore = (stop) => {
       const bt = getStopBestTime(stop);
-      if (bt === 'anytime') return 1;
-      return bt === timeMode ? 2 : 0;
+      if (bt === 'anytime') return sp.timeScoreAnytime;
+      return bt === timeMode ? sp.timeScoreMatch : sp.timeScoreConflict;
     };
     
     const stopScore = (s) => (s.rating || 0) * Math.log10((s.ratingCount || 0) + 1);
@@ -2765,7 +2793,7 @@ const FouFouApp = () => {
       const timeCompat = (stopTime) => {
         if (!stopTime || stopTime === 'anytime') return 0;
         if (stopTime === timeMode) return 0;
-        return 3;
+        return sp.timeConflictPenalty;
       };
       
       const n = ordered.length;
@@ -2784,11 +2812,11 @@ const FouFouApp = () => {
         if (!cfg) return 0;
         const pct = n > 1 ? pos / (n - 1) : 0.5;
         switch (cfg.slot) {
-          case 'bookend': return Math.min(pct, 1 - pct) * 4;
-          case 'early': return pct < 0.4 ? 0 : (pct - 0.4) * 3;
-          case 'middle': return Math.abs(pct - 0.5) * 3;
-          case 'late': return pct > 0.6 ? 0 : (0.6 - pct) * 3;
-          case 'end': return pct > 0.7 ? 0 : (0.7 - pct) * 4;
+          case 'bookend': return Math.min(pct, 1 - pct) * sp.slotEndPenaltyMultiplier;
+          case 'early': return pct < sp.slotEarlyThreshold ? 0 : (pct - sp.slotEarlyThreshold) * sp.slotPenaltyMultiplier;
+          case 'middle': return Math.abs(pct - 0.5) * sp.slotPenaltyMultiplier;
+          case 'late': return pct > sp.slotLateThreshold ? 0 : (sp.slotLateThreshold - pct) * sp.slotPenaltyMultiplier;
+          case 'end': return pct > sp.slotEndThreshold ? 0 : (sp.slotEndThreshold - pct) * sp.slotEndPenaltyMultiplier;
           default: return 0;
         }
       };
@@ -2801,7 +2829,7 @@ const FouFouApp = () => {
           const minGap = cfg?.minGap || 1;
           for (let j = 1; j <= Math.min(minGap, i); j++) {
             if (getCategory(arr[i - j]) === cat) {
-              penalty += (minGap - j + 1) * 2;
+              penalty += (minGap - j + 1) * sp.gapPenaltyMultiplier;
             }
           }
         }
@@ -2825,7 +2853,7 @@ const FouFouApp = () => {
       if (basePenalty > 0.5) {
         let contentImproved = true;
         let contentPasses = 0;
-        const maxContentPasses = 3;
+        const maxContentPasses = sp.maxContentPasses;
         
         while (contentImproved && contentPasses < maxContentPasses) {
           contentImproved = false;
@@ -2863,7 +2891,7 @@ const FouFouApp = () => {
     
     if (formData.searchMode === 'all') {
       if (!formData.currentLat) {
-        const cityCenter = window.BKK.selectedCity?.center || { lat: 13.7563, lng: 100.5018 };
+        const cityCenter = window.BKK.selectedCity?.center || window.BKK.activeCityData?.center || { lat: 0, lng: 0 };
         const cityRadius = window.BKK.selectedCity?.allCityRadius || 15000;
         const cityName = tLabel(window.BKK.selectedCity) || t('general.allCity');
         const allCityLabel = t('general.all') + ' ' + cityName;
@@ -2905,7 +2933,7 @@ const FouFouApp = () => {
       for (const interest of formData.interests) {
         const interestObj = allInterestOptions.find(o => o.id === interest);
         interestCfg[interest] = {
-          weight: interestObj?.weight || 2,
+          weight: interestObj?.weight || sp.defaultInterestWeight,
           minStops: interestObj?.minStops != null ? interestObj.minStops : 1,
           maxStops: interestObj?.maxStops || 10
         };
@@ -4015,7 +4043,6 @@ const FouFouApp = () => {
       uploadedImage: null,
       imageUrls: [],
       outsideArea: !boundaryCheck.valid,
-      duration: 45,
       custom: true,
       status: 'active',
       addedAt: new Date().toISOString(),
@@ -4106,7 +4133,6 @@ const FouFouApp = () => {
       uploadedImage: null,
       imageUrls: [],
       outsideArea: !boundaryCheck.valid,
-      duration: 45,
       custom: true,
       status: 'blacklist', // Start as blacklisted!
       addedAt: new Date().toISOString(),
@@ -4175,7 +4201,7 @@ const FouFouApp = () => {
             scope: interest.scope || 'global',
             cityId: interest.cityId || '',
             category: interest.category || 'attraction',
-            weight: interest.weight || 3,
+            weight: interest.weight || sp.defaultInterestWeight,
             minStops: interest.minStops != null ? interest.minStops : 1,
             maxStops: interest.maxStops || 10,
             routeSlot: interest.routeSlot || 'any',
@@ -4221,6 +4247,15 @@ const FouFouApp = () => {
         }
       }
       
+      if (importedData.systemParams && typeof importedData.systemParams === 'object') {
+        const merged = { ...window.BKK._defaultSystemParams, ...importedData.systemParams };
+        window.BKK.systemParams = merged;
+        setSystemParams(merged);
+        if (isFirebaseAvailable && database) {
+          await database.ref('settings/systemParams').set(merged);
+        }
+      }
+      
       for (const loc of (importedData.customLocations || [])) {
         if (!loc.name) continue;
         
@@ -4247,7 +4282,7 @@ const FouFouApp = () => {
             imageUrls: Array.isArray(loc.imageUrls) ? loc.imageUrls : [],
             outsideArea: loc.outsideArea || false,
             missingCoordinates: !loc.lat || !loc.lng,
-            duration: loc.duration || 45,
+            
             custom: true,
             status: loc.status || 'active',
             locked: !!loc.locked,
@@ -4315,7 +4350,7 @@ const FouFouApp = () => {
           scope: interest.scope || 'global',
           cityId: interest.cityId || '',
           category: interest.category || 'attraction',
-          weight: interest.weight || 3,
+          weight: interest.weight || sp.defaultInterestWeight,
           minStops: interest.minStops != null ? interest.minStops : 1,
           maxStops: interest.maxStops || 10,
           routeSlot: interest.routeSlot || 'any',
@@ -4343,6 +4378,12 @@ const FouFouApp = () => {
         setInterestCounters(prev => ({ ...prev, ...importedData.interestCounters }));
       }
       
+      if (importedData.systemParams && typeof importedData.systemParams === 'object') {
+        const merged = { ...window.BKK._defaultSystemParams, ...importedData.systemParams };
+        window.BKK.systemParams = merged;
+        setSystemParams(merged);
+      }
+      
       (importedData.customLocations || []).forEach(loc => {
         if (!loc.name) return;
         
@@ -4368,7 +4409,7 @@ const FouFouApp = () => {
           imageUrls: Array.isArray(loc.imageUrls) ? loc.imageUrls : [],
           outsideArea: loc.outsideArea || false,
           missingCoordinates: !loc.lat || !loc.lng,
-          duration: loc.duration || 45,
+          
           custom: true,
           status: loc.status || 'active',
           locked: !!loc.locked,
@@ -4504,7 +4545,6 @@ const FouFouApp = () => {
       imageUrls: newLocation.imageUrls || [],
       outsideArea: outsideArea, // Flag for outside area
       missingCoordinates: !hasCoordinates, // Flag for missing coordinates
-      duration: 45,
       custom: true,
       status: 'active',
       locked: newLocation.locked || false,
@@ -7442,7 +7482,7 @@ const FouFouApp = () => {
                         if (!city) return;
                         const coords = window.BKK.areaCoordinates || {};
                         const areas = city.areas || [];
-                        const cityCenter = city.center || { lat: 13.75, lng: 100.53 };
+                        const cityCenter = city.center || window.BKK.activeCityData?.center || { lat: 0, lng: 0 };
                         const map = L.map(container).setView([cityCenter.lat, cityCenter.lng], 12);
                         L.tileLayer(window.BKK.getTileUrl(), { attribution: '© OpenStreetMap contributors', maxZoom: 18 }).addTo(map);
                         const colorPalette = ['#3b82f6', '#f59e0b', '#ef4444', '#10b981', '#ec4899', '#6366f1', '#8b5cf6', '#06b6d4', '#f97316', '#a855f7', '#14b8a6', '#e11d48', '#84cc16', '#0ea5e9', '#d946ef', '#f43f5e'];
@@ -7988,6 +8028,87 @@ const FouFouApp = () => {
               </div>
             </div>
             
+            {/* System Parameters (Admin Only) */}
+            {isUnlocked && (() => {
+              const paramDefs = [
+                { key: 'trailTimeoutHours', label: t('sysParams.trailTimeout'), desc: t('sysParams.trailTimeoutDesc'), min: 1, max: 48, step: 1, type: 'int' },
+                { key: 'defaultInterestWeight', label: t('sysParams.defaultWeight'), desc: t('sysParams.defaultWeightDesc'), min: 1, max: 10, step: 1, type: 'int' },
+                { key: 'maxContentPasses', label: t('sysParams.maxPasses'), desc: t('sysParams.maxPassesDesc'), min: 1, max: 20, step: 1, type: 'int' },
+                { key: 'timeScoreMatch', label: t('sysParams.timeMatch'), desc: t('sysParams.timeMatchDesc'), min: 0, max: 10, step: 1, type: 'int' },
+                { key: 'timeScoreAnytime', label: t('sysParams.timeAnytime'), desc: t('sysParams.timeAnytimeDesc'), min: 0, max: 10, step: 1, type: 'int' },
+                { key: 'timeScoreConflict', label: t('sysParams.timeConflict'), desc: t('sysParams.timeConflictDesc'), min: 0, max: 10, step: 1, type: 'int' },
+                { key: 'timeConflictPenalty', label: t('sysParams.timePenalty'), desc: t('sysParams.timePenaltyDesc'), min: 0, max: 20, step: 1, type: 'int' },
+                { key: 'slotEarlyThreshold', label: t('sysParams.earlyThreshold'), desc: t('sysParams.earlyThresholdDesc'), min: 0.1, max: 0.9, step: 0.05, type: 'float' },
+                { key: 'slotLateThreshold', label: t('sysParams.lateThreshold'), desc: t('sysParams.lateThresholdDesc'), min: 0.1, max: 0.9, step: 0.05, type: 'float' },
+                { key: 'slotEndThreshold', label: t('sysParams.endThreshold'), desc: t('sysParams.endThresholdDesc'), min: 0.1, max: 0.9, step: 0.05, type: 'float' },
+                { key: 'slotPenaltyMultiplier', label: t('sysParams.slotPenalty'), desc: t('sysParams.slotPenaltyDesc'), min: 1, max: 20, step: 1, type: 'int' },
+                { key: 'slotEndPenaltyMultiplier', label: t('sysParams.endPenalty'), desc: t('sysParams.endPenaltyDesc'), min: 1, max: 20, step: 1, type: 'int' },
+                { key: 'gapPenaltyMultiplier', label: t('sysParams.gapPenalty'), desc: t('sysParams.gapPenaltyDesc'), min: 1, max: 20, step: 1, type: 'int' },
+              ];
+              const updateParam = (key, val, type) => {
+                const parsed = type === 'float' ? parseFloat(val) : parseInt(val);
+                if (isNaN(parsed)) return;
+                const updated = { ...systemParams, [key]: parsed };
+                window.BKK.systemParams = updated;
+                setSystemParams(updated);
+                if (isFirebaseAvailable && database) {
+                  database.ref(`settings/systemParams/${key}`).set(parsed);
+                }
+              };
+              const resetAll = () => {
+                const defaults = { ...window.BKK._defaultSystemParams };
+                window.BKK.systemParams = defaults;
+                setSystemParams(defaults);
+                if (isFirebaseAvailable && database) {
+                  database.ref('settings/systemParams').set(defaults);
+                }
+                showToast(t('sysParams.resetDone'), 'success');
+              };
+              return (
+              <div className="mb-3">
+                <details>
+                  <summary className="cursor-pointer bg-gradient-to-r from-gray-100 to-gray-200 border-2 border-gray-400 rounded-lg p-2 font-bold text-sm text-gray-700">
+                    ⚙️ {t('sysParams.title')}
+                  </summary>
+                  <div className="bg-white border-2 border-gray-300 border-t-0 rounded-b-lg p-3 space-y-3">
+                    <p className="text-[10px] text-gray-500">{t('sysParams.subtitle')}</p>
+                    {paramDefs.map(p => {
+                      const def = window.BKK._defaultSystemParams[p.key];
+                      const isDefault = systemParams[p.key] === def;
+                      return (
+                      <div key={p.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', background: isDefault ? '#f9fafb' : '#fef3c7', borderRadius: '8px', border: isDefault ? '1px solid #e5e7eb' : '2px solid #f59e0b' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#374151' }}>{p.label}</div>
+                          <div style={{ fontSize: '10px', color: '#9ca3af' }}>{p.desc}</div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <input
+                            type="number" min={p.min} max={p.max} step={p.step}
+                            value={systemParams[p.key]}
+                            onChange={(e) => updateParam(p.key, e.target.value, p.type)}
+                            style={{ width: '65px', padding: '4px', fontSize: '14px', fontWeight: 'bold', border: '2px solid #d1d5db', borderRadius: '8px', textAlign: 'center' }}
+                          />
+                          {!isDefault && (
+                            <button onClick={() => updateParam(p.key, def, p.type)}
+                              title={`Default: ${def}`}
+                              style={{ padding: '3px 6px', fontSize: '9px', fontWeight: 'bold', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                              ↩ {def}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      );
+                    })}
+                    <button onClick={resetAll}
+                      className="w-full py-1.5 bg-gray-500 text-white rounded-lg text-xs font-bold hover:bg-gray-600">
+                      🔄 {t('sysParams.resetAll')}
+                    </button>
+                  </div>
+                </details>
+              </div>
+              );
+            })()}
+
             {/* Import/Export Section */}
             
             {/* Admin Management - Password Based (Admin Only) */}
@@ -8154,6 +8275,7 @@ const FouFouApp = () => {
                           interestConfig: interestConfig,
                           interestStatus: interestStatus,
                           interestCounters: interestCounters,
+                          systemParams: systemParams,
                           exportDate: new Date().toISOString(),
                           version: window.BKK.VERSION || '3.5'
                         };
