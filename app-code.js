@@ -94,6 +94,84 @@ const FouFouApp = () => {
   const disabledStopsRef = React.useRef(disabledStops);
   React.useEffect(() => { disabledStopsRef.current = disabledStops; }, [disabledStops]);
   
+  // === SHARED HELPERS (avoid code duplication) ===
+  
+  const isStopDisabled = (stop) => disabledStops.includes((stop.name || '').toLowerCase().trim());
+  const isStopDisabledRef = (stop) => (disabledStopsRef.current || []).includes((stop.name || '').toLowerCase().trim());
+  
+  const findSmartStart = (stops, gps, isCircular) => {
+    if (gps?.lat && gps?.lng) {
+      const check = window.BKK.isGpsWithinCity(gps.lat, gps.lng);
+      if (check.withinCity) {
+        let minDist = Infinity, nearest = null;
+        stops.forEach(s => {
+          const d = calcDistance(gps.lat, gps.lng, s.lat, s.lng);
+          if (d < minDist) { minDist = d; nearest = s; }
+        });
+        if (nearest) return { lat: nearest.lat, lng: nearest.lng, address: nearest.name };
+      }
+    }
+    if (isCircular && stops.length > 0) {
+      return { lat: stops[0].lat, lng: stops[0].lng, address: stops[0].name };
+    }
+    return null; // Linear without GPS: optimizer picks best endpoint
+  };
+  
+  const runSmartPlan = (options = {}) => {
+    const { openMap = false, startTrail = false, skipSmartSelect = false, overrideStart = null, overrideType = null } = options;
+    
+    if (!route?.stops?.length) return null;
+    const allStops = route.stops.filter(s => s.lat && s.lng);
+    if (allStops.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return null; }
+    
+    const isCircular = overrideType !== null ? overrideType === 'circular' : routeType === 'circular';
+    
+    let selected, disabledList, newDisabled;
+    if (skipSmartSelect) {
+      const curDisabled = disabledStopsRef.current || [];
+      selected = allStops.filter(s => !curDisabled.includes((s.name || '').toLowerCase().trim()));
+      disabledList = allStops.filter(s => curDisabled.includes((s.name || '').toLowerCase().trim()));
+      newDisabled = curDisabled;
+    } else {
+      const result = smartSelectStops(allStops, formData.interests);
+      selected = result.selected;
+      disabledList = result.disabled;
+      newDisabled = disabledList.map(s => (s.name || '').toLowerCase().trim());
+      setDisabledStops(newDisabled);
+    }
+    if (selected.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return null; }
+    
+    let autoStart = overrideStart || startPointCoordsRef.current;
+    if (!autoStart) {
+      const gps = (formData.currentLat && formData.currentLng) ? { lat: formData.currentLat, lng: formData.currentLng } : null;
+      autoStart = findSmartStart(selected, gps, isCircular);
+    }
+    
+    const optimized = optimizeStopOrder(selected, autoStart, isCircular);
+    
+    if (!autoStart && optimized.length > 0) {
+      autoStart = { lat: optimized[0].lat, lng: optimized[0].lng, address: optimized[0].name };
+    }
+    
+    setStartPointCoords(autoStart);
+    startPointCoordsRef.current = autoStart;
+    setFormData(prev => ({...prev, startPoint: autoStart?.address || (autoStart ? `${autoStart.lat},${autoStart.lng}` : '')}));
+    
+    const newStops = [...optimized, ...disabledList];
+    setRoute(prev => prev ? { ...prev, stops: newStops, circular: isCircular, optimized: true, startPoint: autoStart?.address, startPointCoords: autoStart } : prev);
+    
+    if (startTrail) startActiveTrail(optimized, formData.interests, formData.area);
+    if (openMap && autoStart) {
+      const urls = window.BKK.buildGoogleMapsUrls(
+        optimized.map(s => ({ lat: s.lat, lng: s.lng, name: s.name })),
+        `${autoStart.lat},${autoStart.lng}`, isCircular, window.BKK.googleMaxWaypoints || 12
+      );
+      if (urls.length > 0) window.open(urls[0].url, 'city_explorer_map');
+    }
+    
+    return { optimized, disabled: disabledList, autoStart, newDisabled, isCircular };
+  };
+  
   const [showRoutePreview, setShowRoutePreview] = useState(false); // Route reorder dialog
   const reorderOriginalStopsRef = React.useRef(null); // Snapshot of stops before reorder
   const [showRouteMenu, setShowRouteMenu] = useState(false); // Hamburger menu in route results
@@ -1005,6 +1083,7 @@ const FouFouApp = () => {
     }
   }, [selectedCityId]);
 
+  const recentlyAddedRef = React.useRef(new Map()); // id → timestamp of recent local adds
   useEffect(() => {
     if (isFirebaseAvailable && database) {
       const interestsRef = database.ref('customInterests');
@@ -1022,9 +1101,27 @@ const FouFouApp = () => {
           if (duplicates.length > 0) {
             duplicates.forEach(d => database.ref(`customInterests/${d.firebaseId}`).remove());
           }
-          setCustomInterests(interestsArray);
+          
+          const firebaseIds = new Set(interestsArray.map(i => i.id));
+          const now = Date.now();
+          for (const [id, ts] of recentlyAddedRef.current) {
+            if (now - ts > 30000) recentlyAddedRef.current.delete(id);
+          }
+          setCustomInterests(prev => {
+            const pendingLocal = prev.filter(i => 
+              !firebaseIds.has(i.id) && recentlyAddedRef.current.has(i.id)
+            );
+            if (pendingLocal.length > 0) {
+            }
+            return [...interestsArray, ...pendingLocal];
+          });
         } else {
-          setCustomInterests([]);
+          setCustomInterests(prev => {
+            if (prev.length > 0) {
+              return prev;
+            }
+            return [];
+          });
         }
         markLoaded('interests');
       });
@@ -1244,7 +1341,12 @@ const FouFouApp = () => {
             })).filter(i => !builtInIds.has(i.id));
             setCustomInterests(interestsArray);
           } else {
-            setCustomInterests([]);
+            setCustomInterests(prev => {
+              if (prev.length > 0) {
+                return prev;
+              }
+              return [];
+            });
           }
         } catch (e) {
           console.error('[REFRESH] Error loading interests:', e);
@@ -3129,116 +3231,9 @@ const FouFouApp = () => {
     }
   };
 
-  const computeRoute = () => {
-    if (!route || route.stops.length < 2) return;
-    if (!startPointCoords) {
-      showToast(t('form.chooseStartBeforeCalc'), 'warning');
-      return;
-    }
-    
-    const isCircular = routeType === 'circular';
-    
-    const activeStops = route.stops.filter(stop => {
-      return !disabledStops.includes((stop.name || '').toLowerCase().trim());
-    });
-    const inactiveStops = route.stops.filter(stop => {
-      return disabledStops.includes((stop.name || '').toLowerCase().trim());
-    });
-    
-    const optimized = optimizeStopOrder(activeStops, startPointCoords, isCircular);
-    
-    const newStops = [...optimized, ...inactiveStops];
-    
-    setRoute({
-      ...route,
-      stops: newStops,
-      circular: isCircular,
-      optimized: true,
-      startPoint: startPointCoords.address || formData.startPoint || '',
-      startPointCoords: startPointCoords
-    });
-    
-    showToast(`${t("route.routeCalculated")} ${optimized.length} ${t("route.stops")}`, 'success');
-    
-    if (optimized.length + 1 > googleMaxWaypoints) { // +1 for origin/startPoint
-      const parts = Math.ceil((optimized.length + 1 - 2) / (googleMaxWaypoints - 2)) + (optimized.length + 1 > googleMaxWaypoints ? 0 : 0);
-      const testUrls = window.BKK.buildGoogleMapsUrls(
-        optimized.map(s => ({ lat: s.lat, lng: s.lng })),
-        `${startPointCoords.lat},${startPointCoords.lng}`,
-        isCircular,
-        googleMaxWaypoints
-      );
-      if (testUrls.length > 1) {
-        showToast(t('route.splitRouteWarning').replace('{max}', googleMaxWaypoints).replace('{parts}', testUrls.length), 'info', 'sticky');
-      }
-    }
-    
-    setTimeout(() => {
-      const el = document.getElementById('open-google-maps-btn');
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }, 200);
-  };
-
   const recomputeForMap = (overrideStart, overrideType, skipSmartSelect) => {
-    if (!route || route.stops.length < 2) return null;
-    const allStops = route.stops.filter(s => s.lat && s.lng);
-    if (allStops.length < 2) return null;
-    
     const type = overrideType !== undefined ? overrideType : routeTypeRef.current;
-    const isCircular = type === 'circular';
-    
-    let selected, disabled, newDisabled;
-    if (skipSmartSelect) {
-      const curDisabled = disabledStopsRef.current || [];
-      selected = allStops.filter(s => !curDisabled.includes((s.name || '').toLowerCase().trim()));
-      disabled = allStops.filter(s => curDisabled.includes((s.name || '').toLowerCase().trim()));
-      newDisabled = curDisabled;
-    } else {
-      const result = smartSelectStops(allStops, formData.interests);
-      selected = result.selected;
-      disabled = result.disabled;
-      newDisabled = disabled.map(s => (s.name || '').toLowerCase().trim());
-      setDisabledStops(newDisabled);
-    }
-    if (selected.length < 2) return null;
-    
-    let autoStart = overrideStart || startPointCoordsRef.current;
-    if (!autoStart) {
-      if (formData.currentLat && formData.currentLng) {
-        const check = window.BKK.isGpsWithinCity(formData.currentLat, formData.currentLng);
-        if (check.withinCity) {
-          let minDist = Infinity, nearestStop = null;
-          selected.forEach(s => {
-            const d = calcDistance(formData.currentLat, formData.currentLng, s.lat, s.lng);
-            if (d < minDist) { minDist = d; nearestStop = s; }
-          });
-          if (nearestStop) {
-            autoStart = { lat: nearestStop.lat, lng: nearestStop.lng, address: nearestStop.name };
-          }
-        }
-      }
-      if (!autoStart) {
-        if (isCircular) {
-          autoStart = { lat: selected[0].lat, lng: selected[0].lng, address: selected[0].name };
-        }
-      }
-    }
-    const optimized = optimizeStopOrder(selected, autoStart, isCircular);
-    
-    if (!autoStart && optimized.length > 0) {
-      autoStart = { lat: optimized[0].lat, lng: optimized[0].lng, address: optimized[0].name };
-    }
-    
-    setStartPointCoords(autoStart);
-    startPointCoordsRef.current = autoStart; // Update ref immediately
-    setFormData(prev => ({...prev, startPoint: autoStart?.address || (autoStart ? `${autoStart.lat},${autoStart.lng}` : '')}));
-    
-    const newStops = [...optimized, ...disabled];
-    setRoute(prev => prev ? { ...prev, stops: newStops, circular: isCircular, optimized: true, startPoint: autoStart?.address, startPointCoords: autoStart } : prev);
-    
-    return { optimized, disabled, autoStart, newDisabled, isCircular };
+    return runSmartPlan({ overrideStart, overrideType: type, skipSmartSelect });
   };
 
   const fetchMoreForInterest = async (interest) => {
@@ -4825,9 +4820,9 @@ const FouFouApp = () => {
 
   const toggleStopActive = (stopIndex) => {
     const stop = route.stops[stopIndex];
-    const stopName = stop?.name?.toLowerCase().trim();
+    const stopName = (stop?.name || '').toLowerCase().trim();
     if (!stopName) return;
-    const isCurrentlyDisabled = disabledStops.includes(stopName);
+    const isCurrentlyDisabled = isStopDisabled(stop);
     const newDisabledStops = isCurrentlyDisabled
       ? disabledStops.filter(n => n !== stopName)
       : [...disabledStops, stopName];
@@ -5558,45 +5553,10 @@ const FouFouApp = () => {
                 const isCircular = formData.searchMode === 'radius';
                 setRouteType(isCircular ? 'circular' : 'linear');
                 
-                const allStopsWithCoords = route.stops.filter(s => s.lat && s.lng);
-                const { selected: smartStops, disabled: smartDisabled } = smartSelectStops(allStopsWithCoords, formData.interests);
-                if (smartStops.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
+                const result = runSmartPlan({ openMap: true, startTrail: true, overrideType: isCircular ? 'circular' : 'linear' });
+                if (!result) return;
                 
-                let autoStart = null;
-                if (formData.currentLat && formData.currentLng) {
-                  let minDist = Infinity, nearestStop = null;
-                  smartStops.forEach(s => {
-                    const dlat = (formData.currentLat - s.lat) * 111320;
-                    const dlng = (formData.currentLng - s.lng) * 111320 * Math.cos(formData.currentLat * Math.PI / 180);
-                    const d = Math.sqrt(dlat * dlat + dlng * dlng);
-                    if (d < minDist) { minDist = d; nearestStop = s; }
-                  });
-                  if (nearestStop) autoStart = { lat: nearestStop.lat, lng: nearestStop.lng, address: nearestStop.name };
-                }
-                if (!autoStart && isCircular) {
-                  autoStart = { lat: smartStops[0].lat, lng: smartStops[0].lng, address: smartStops[0].name };
-                }
-                
-                setFormData(prev => ({...prev, startPoint: autoStart ? `${autoStart.lat},${autoStart.lng}` : ''}));
-                
-                const newDisabled = smartDisabled.map(s => (s.name || '').toLowerCase().trim());
-                setDisabledStops(newDisabled);
-                
-                const optimized = optimizeStopOrder(smartStops, autoStart, isCircular);
-                
-                if (!autoStart && optimized.length > 0) {
-                  autoStart = { lat: optimized[0].lat, lng: optimized[0].lng, address: optimized[0].name };
-                }
-                if (!autoStart) { showToast(t('form.chooseStartBeforeCalc'), 'warning'); return; }
-                
-                setRoute({ ...route, stops: [...optimized, ...smartDisabled], circular: isCircular, optimized: true, startPoint: autoStart.address, startPointCoords: autoStart });
-                const urls = window.BKK.buildGoogleMapsUrls(
-                  optimized.map(s => ({ lat: s.lat, lng: s.lng, name: s.name })),
-                  `${autoStart.lat},${autoStart.lng}`, isCircular, window.BKK.googleMaxWaypoints || 12
-                );
-                startActiveTrail(optimized, formData.interests, formData.area);
-                if (urls.length > 0) window.open(urls[0].url, 'city_explorer_map');
-                showToast(`🚀 ${optimized.length} ${t('route.stops')} (${isCircular ? t('route.circular') : t('route.linear')})`, 'success');
+                showToast(`🚀 ${result.optimized.length} ${t('route.stops')} (${result.isCircular ? t('route.circular') : t('route.linear')})`, 'success');
               }}
               style={{
                 width: '100%', padding: '14px', border: '2px solid #22c55e', borderRadius: '14px',
@@ -6148,8 +6108,7 @@ const FouFouApp = () => {
                           <div className="space-y-1.5">
                             {filteredStops.map((stop) => {
                               const hasValidCoords = stop.lat && stop.lng && stop.lat !== 0 && stop.lng !== 0;
-                              const stopId = (stop.name || '').toLowerCase().trim();
-                              const isDisabled = disabledStops.includes(stopId);
+                              const isDisabled = isStopDisabled(stop);
                               const isCustom = stop.custom;
                               const isAddedLater = stop.addedLater;
                               const isStartPoint = hasValidCoords && startPointCoords?.lat === stop.lat && startPointCoords?.lng === stop.lng;
@@ -6389,7 +6348,7 @@ const FouFouApp = () => {
                           setMapStops(activeForMap);
                         } else {
                           const activeStops = route.stops.filter((s) => {
-                            const isActive = !disabledStops.includes((s.name || '').toLowerCase().trim());
+                            const isActive = !isStopDisabled(s);
                             const hasValidCoords = s.lat && s.lng && s.lat !== 0 && s.lng !== 0;
                             return isActive && hasValidCoords;
                           });
@@ -6423,7 +6382,7 @@ const FouFouApp = () => {
                       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)'
                     }}
                   >
-                    {`${t("route.showStopsOnMap")} (${route.stops.filter(s => !disabledStops.includes((s.name || '').toLowerCase().trim()) && s.lat && s.lng).length})`}
+                    {`${t("route.showStopsOnMap")} (${route.stops.filter(s => !isStopDisabled(s) && s.lat && s.lng).length})`}
                   </button>
                   <button
                     onClick={() => setShowRouteMenu(!showRouteMenu)}
@@ -6453,20 +6412,14 @@ const FouFouApp = () => {
                         { icon: '≡', label: t('route.reorderStops'), action: () => { setShowRouteMenu(false); reorderOriginalStopsRef.current = route?.stops ? [...route.stops] : null; setShowRoutePreview(true); }, disabled: !route?.optimized },
                         { icon: '✦', label: t('route.helpMePlan'), action: () => {
                           setShowRouteMenu(false);
-                          if (!route?.stops?.length) return;
-                          const allStopsWithCoords = route.stops.filter(s => s.lat && s.lng);
-                          if (allStopsWithCoords.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
-                          const { selected: smartStops, disabled: smartDisabled } = smartSelectStops(allStopsWithCoords, formData.interests);
-                          const newDisabled = smartDisabled.map(s => (s.name || '').toLowerCase().trim());
-                          setDisabledStops(newDisabled);
-                          setRoute(prev => prev ? { ...prev, optimized: false } : prev);
-                          showToast(`✦ ${smartStops.length} ${t('route.stops')}`, 'success');
+                          const result = runSmartPlan({});
+                          if (result) showToast(`✦ ${result.optimized.length} ${t('route.stops')}`, 'success');
                         }},
                         { icon: '↗', label: t('general.shareRoute'), action: () => {
                           setShowRouteMenu(false);
                           if (!route?.optimized) return;
                           const activeStops = (route.stops || []).filter(s => {
-                            const isActive = !disabledStops.includes((s.name || '').toLowerCase().trim());
+                            const isActive = !isStopDisabled(s);
                             const hasCoords = s.lat && s.lng && s.lat !== 0 && s.lng !== 0;
                             return isActive && hasCoords;
                           });
@@ -6511,9 +6464,7 @@ const FouFouApp = () => {
                   {/* Row 2: Open in Google Maps */}
                   {(() => {
                     const activeStops = route?.optimized ? route.stops.filter((stop) => {
-                      const isActive = !disabledStops.includes((stop.name || '').toLowerCase().trim());
-                      const hasValidCoords = stop.lat && stop.lng && stop.lat !== 0 && stop.lng !== 0;
-                      return isActive && hasValidCoords;
+                      return !isStopDisabled(stop) && stop.lat && stop.lng && stop.lat !== 0 && stop.lng !== 0;
                     }) : [];
                     const hasStartPoint = startPointCoords && startPointCoords.lat && startPointCoords.lng;
                     const origin = hasStartPoint
@@ -9102,70 +9053,6 @@ const FouFouApp = () => {
                     )}
                   </div>
                 </div>
-
-                {/* Search Configuration */}
-                <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3" style={{ opacity: (!newInterest.builtIn && newInterest.privateOnly) ? 0.4 : 1, pointerEvents: (!newInterest.builtIn && newInterest.privateOnly) ? 'none' : 'auto' }}>
-                  <label className="block text-xs font-bold mb-2 text-blue-800">{`🔍 ${t("general.searchSettings")}`}
-                    {(!newInterest.builtIn && newInterest.privateOnly) && <span className="text-[9px] text-gray-500 font-normal ml-2">({t("interests.myPlacesOnly")})</span>}
-                  </label>
-                  
-                  <div className="mb-2">
-                    <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t("general.searchMode")}:`}</label>
-                    <select
-                      value={newInterest.searchMode || 'types'}
-                      onChange={(e) => setNewInterest({...newInterest, searchMode: e.target.value})}
-                      className="w-full p-1.5 text-sm border rounded"
-                      style={{ direction: 'ltr' }}
-                    >
-                      <option value="types">{t('interests.categorySearch')}</option>
-                      <option value="text">{t('interests.textSearch')}</option>
-                    </select>
-                  </div>
-                  
-                  {newInterest.searchMode === 'text' ? (
-                    <div className="mb-2">
-                      <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t('interests.textQuery')}:`}</label>
-                      <input
-                        type="text"
-                        value={newInterest.textSearch || ''}
-                        onChange={(e) => setNewInterest({...newInterest, textSearch: e.target.value})}
-                        placeholder="e.g., street art"
-                        className="w-full p-1.5 text-sm border rounded"
-                        style={{ direction: 'ltr' }}
-                      />
-                      <p className="text-[9px] text-gray-500 mt-0.5" style={{ direction: 'ltr' }}>
-                        Searches: "[query] [area] {window.BKK.cityNameForSearch || 'City'}"
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="mb-2">
-                      <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t('interests.placeTypes')}:`}</label>
-                      <input
-                        type="text"
-                        value={newInterest.types || ''}
-                        onChange={(e) => setNewInterest({...newInterest, types: e.target.value})}
-                        placeholder="e.g., movie_theater, museum"
-                        className="w-full p-1.5 text-sm border rounded"
-                        style={{ direction: 'ltr' }}
-                      />
-                      <p className="text-[9px] text-gray-500 mt-0.5" style={{ direction: 'ltr' }}>
-                        <a href="https://developers.google.com/maps/documentation/places/web-service/place-types" target="_blank" className="text-blue-500 underline">{t('interests.seeTypesList')}</a>
-                      </p>
-                    </div>
-                  )}
-                  
-                  <div>
-                    <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t('interests.blacklistWords')}:`}</label>
-                    <input
-                      type="text"
-                      value={newInterest.blacklist || ''}
-                      onChange={(e) => setNewInterest({...newInterest, blacklist: e.target.value})}
-                      placeholder="e.g., cannabis, massage"
-                      className="w-full p-1.5 text-sm border rounded"
-                      style={{ direction: 'ltr' }}
-                    />
-                  </div>
-                </div>
                 </div>{/* close inner wrapper */}
 
                 {/* Manual toggle (custom only) + Scope (all interests) */}
@@ -9207,47 +9094,61 @@ const FouFouApp = () => {
                     )}
                   </div>
 
-                  {/* Route planning config */}
-                  <div className="mt-1 space-y-1">
-                    {/* Row 1: Category + Best Time */}
-                    <div className="flex items-center gap-1.5">
-                      <select
-                        value={newInterest.category || 'attraction'}
-                        onChange={(e) => {
-                          const cat = e.target.value;
-                          const defaults = {
-                            attraction: { weight: 3, minStops: 1, maxStops: 10, routeSlot: 'any', minGap: 1, bestTime: 'day' },
-                            break:      { weight: 1, minStops: 1, maxStops: 2, routeSlot: 'bookend', minGap: 3, bestTime: 'anytime' },
-                            meal:       { weight: 1, minStops: 1, maxStops: 2, routeSlot: 'middle', minGap: 3, bestTime: 'anytime' },
-                            experience: { weight: 1, minStops: 1, maxStops: 3, routeSlot: 'any', minGap: 1, bestTime: 'anytime' },
-                            shopping:   { weight: 2, minStops: 1, maxStops: 5, routeSlot: 'early', minGap: 2, bestTime: 'day' },
-                            nature:     { weight: 2, minStops: 1, maxStops: 5, routeSlot: 'early', minGap: 1, bestTime: 'day' }
-                          };
-                          const d = defaults[cat] || defaults.attraction;
-                          setNewInterest({...newInterest, category: cat, weight: d.weight, minStops: d.minStops, maxStops: d.maxStops, routeSlot: d.routeSlot, minGap: d.minGap, bestTime: d.bestTime});
-                        }}
-                        className="p-1 text-xs border rounded flex-1"
-                      >
-                        <option value="attraction">{t('interests.catAttraction')}</option>
-                        <option value="break">{t('interests.catBreak')}</option>
-                        <option value="meal">{t('interests.catMeal')}</option>
-                        <option value="experience">{t('interests.catExperience')}</option>
-                        <option value="shopping">{t('interests.catShopping')}</option>
-                        <option value="nature">{t('interests.catNature')}</option>
-                      </select>
+                </div>
+
+                {/* Route planning config — spacious layout */}
+                <div style={{ background: '#faf5ff', border: '2px solid #e9d5ff', borderRadius: '12px', padding: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#7c3aed', marginBottom: '10px' }}>{'🗺️ ' + t('interests.routePlanning')}</label>
+                  
+                  {/* Category */}
+                  <div style={{ marginBottom: '10px' }}>
+                    <label style={{ display: 'block', fontSize: '11px', color: '#6b7280', fontWeight: '600', marginBottom: '4px' }}>{t('interests.category')}:</label>
+                    <select
+                      value={newInterest.category || 'attraction'}
+                      onChange={(e) => {
+                        const cat = e.target.value;
+                        const defaults = {
+                          attraction: { weight: 3, minStops: 1, maxStops: 10, routeSlot: 'any', minGap: 1, bestTime: 'day' },
+                          break:      { weight: 1, minStops: 1, maxStops: 2, routeSlot: 'bookend', minGap: 3, bestTime: 'anytime' },
+                          meal:       { weight: 1, minStops: 1, maxStops: 2, routeSlot: 'middle', minGap: 3, bestTime: 'anytime' },
+                          experience: { weight: 1, minStops: 1, maxStops: 3, routeSlot: 'any', minGap: 1, bestTime: 'anytime' },
+                          shopping:   { weight: 2, minStops: 1, maxStops: 5, routeSlot: 'early', minGap: 2, bestTime: 'day' },
+                          nature:     { weight: 2, minStops: 1, maxStops: 5, routeSlot: 'early', minGap: 1, bestTime: 'day' }
+                        };
+                        const d = defaults[cat] || defaults.attraction;
+                        setNewInterest({...newInterest, category: cat, weight: d.weight, minStops: d.minStops, maxStops: d.maxStops, routeSlot: d.routeSlot, minGap: d.minGap, bestTime: d.bestTime});
+                      }}
+                      style={{ width: '100%', padding: '8px 10px', fontSize: '13px', border: '1px solid #d1d5db', borderRadius: '8px', background: 'white' }}
+                    >
+                      <option value="attraction">{t('interests.catAttraction')}</option>
+                      <option value="break">{t('interests.catBreak')}</option>
+                      <option value="meal">{t('interests.catMeal')}</option>
+                      <option value="experience">{t('interests.catExperience')}</option>
+                      <option value="shopping">{t('interests.catShopping')}</option>
+                      <option value="nature">{t('interests.catNature')}</option>
+                    </select>
+                  </div>
+                  
+                  {/* Best Time + Route Slot — side by side */}
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', fontSize: '11px', color: '#6b7280', fontWeight: '600', marginBottom: '4px' }}>{t('interests.bestTime')}:</label>
                       <select
                         value={newInterest.bestTime || 'anytime'}
                         onChange={(e) => setNewInterest({...newInterest, bestTime: e.target.value})}
-                        className="p-1 text-xs border rounded flex-1"
+                        style={{ width: '100%', padding: '7px 8px', fontSize: '13px', border: '1px solid #d1d5db', borderRadius: '8px', background: 'white' }}
                       >
                         <option value="anytime">{t('interests.timeAnytime')}</option>
                         <option value="day">{t('interests.timeDay')}</option>
                         <option value="night">{t('interests.timeNight')}</option>
                       </select>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', fontSize: '11px', color: '#6b7280', fontWeight: '600', marginBottom: '4px' }}>{t('interests.routeSlot')}:</label>
                       <select
                         value={newInterest.routeSlot || 'any'}
                         onChange={(e) => setNewInterest({...newInterest, routeSlot: e.target.value})}
-                        className="p-1 text-xs border rounded flex-1"
+                        style={{ width: '100%', padding: '7px 8px', fontSize: '13px', border: '1px solid #d1d5db', borderRadius: '8px', background: 'white' }}
                       >
                         <option value="any">{t('interests.slotAny')}</option>
                         <option value="bookend">{t('interests.slotBookend')}</option>
@@ -9257,26 +9158,48 @@ const FouFouApp = () => {
                         <option value="end">{t('interests.slotEnd')}</option>
                       </select>
                     </div>
-                    {/* Row 2: Weight + Min + Max + Gap steppers */}
-                    <div className="flex items-center gap-0.5" style={{ width: '100%' }}>
-                      {[
-                        { label: t('interests.weight'), key: 'weight', val: newInterest.weight || 2, min: 1, max: 5 },
-                        { label: t('interests.minStops'), key: 'minStops', val: newInterest.minStops != null ? newInterest.minStops : 1, min: 0, max: 10 },
-                        { label: t('interests.maxStopsLabel'), key: 'maxStops', val: newInterest.maxStops || 10, min: 1, max: 15 },
-                        { label: t('interests.minGap'), key: 'minGap', val: newInterest.minGap || 1, min: 1, max: 5 }
-                      ].map(item => (
-                        <div key={item.key} className="flex items-center gap-0.5" style={{ flex: 1, minWidth: 0, justifyContent: 'center' }}>
-                          <span className="text-[9px] text-gray-500 truncate">{item.label}:</span>
+                  </div>
+                  
+                  {/* Weight + Min — side by side */}
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '8px' }}>
+                    {[
+                      { label: t('interests.weight'), key: 'weight', val: newInterest.weight || 2, min: 1, max: 5 },
+                      { label: t('interests.minStops'), key: 'minStops', val: newInterest.minStops != null ? newInterest.minStops : 1, min: 0, max: 10 }
+                    ].map(item => (
+                      <div key={item.key} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', borderRadius: '8px', padding: '6px 10px', border: '1px solid #e5e7eb' }}>
+                        <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: '600' }}>{item.label}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <button type="button" onClick={() => setNewInterest({...newInterest, [item.key]: Math.max(item.min, item.val - 1)})}
-                            className="w-5 h-5 rounded bg-gray-200 text-gray-700 text-xs font-bold flex items-center justify-center active:bg-gray-300 flex-shrink-0"
+                            style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: '#e5e7eb', color: '#374151', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           >−</button>
-                          <span className="w-5 text-center text-xs font-bold flex-shrink-0">{item.val}</span>
+                          <span style={{ width: '20px', textAlign: 'center', fontSize: '15px', fontWeight: 'bold' }}>{item.val}</span>
                           <button type="button" onClick={() => setNewInterest({...newInterest, [item.key]: Math.min(item.max, item.val + 1)})}
-                            className="w-5 h-5 rounded bg-gray-200 text-gray-700 text-xs font-bold flex items-center justify-center active:bg-gray-300 flex-shrink-0"
+                            style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: '#e5e7eb', color: '#374151', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           >+</button>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Max + Gap — side by side */}
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    {[
+                      { label: t('interests.maxStopsLabel'), key: 'maxStops', val: newInterest.maxStops || 10, min: 1, max: 15 },
+                      { label: t('interests.minGap'), key: 'minGap', val: newInterest.minGap || 1, min: 1, max: 5 }
+                    ].map(item => (
+                      <div key={item.key} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', borderRadius: '8px', padding: '6px 10px', border: '1px solid #e5e7eb' }}>
+                        <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: '600' }}>{item.label}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <button type="button" onClick={() => setNewInterest({...newInterest, [item.key]: Math.max(item.min, item.val - 1)})}
+                            style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: '#e5e7eb', color: '#374151', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          >−</button>
+                          <span style={{ width: '20px', textAlign: 'center', fontSize: '15px', fontWeight: 'bold' }}>{item.val}</span>
+                          <button type="button" onClick={() => setNewInterest({...newInterest, [item.key]: Math.min(item.max, item.val + 1)})}
+                            style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: '#e5e7eb', color: '#374151', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          >+</button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
@@ -9360,6 +9283,70 @@ const FouFouApp = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Search Configuration — moved to end */}
+                <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3" style={{ opacity: (!newInterest.builtIn && newInterest.privateOnly) ? 0.4 : 1, pointerEvents: (!newInterest.builtIn && newInterest.privateOnly) ? 'none' : 'auto' }}>
+                  <label className="block text-xs font-bold mb-2 text-blue-800">{`🔍 ${t("general.searchSettings")}`}
+                    {(!newInterest.builtIn && newInterest.privateOnly) && <span className="text-[9px] text-gray-500 font-normal ml-2">({t("interests.myPlacesOnly")})</span>}
+                  </label>
+                  
+                  <div className="mb-2">
+                    <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t("general.searchMode")}:`}</label>
+                    <select
+                      value={newInterest.searchMode || 'types'}
+                      onChange={(e) => setNewInterest({...newInterest, searchMode: e.target.value})}
+                      className="w-full p-1.5 text-sm border rounded"
+                      style={{ direction: 'ltr' }}
+                    >
+                      <option value="types">{t('interests.categorySearch')}</option>
+                      <option value="text">{t('interests.textSearch')}</option>
+                    </select>
+                  </div>
+                  
+                  {newInterest.searchMode === 'text' ? (
+                    <div className="mb-2">
+                      <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t('interests.textQuery')}:`}</label>
+                      <input
+                        type="text"
+                        value={newInterest.textSearch || ''}
+                        onChange={(e) => setNewInterest({...newInterest, textSearch: e.target.value})}
+                        placeholder="e.g., street art"
+                        className="w-full p-1.5 text-sm border rounded"
+                        style={{ direction: 'ltr' }}
+                      />
+                      <p className="text-[9px] text-gray-500 mt-0.5" style={{ direction: 'ltr' }}>
+                        Searches: "[query] [area] {window.BKK.cityNameForSearch || 'City'}"
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mb-2">
+                      <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t('interests.placeTypes')}:`}</label>
+                      <input
+                        type="text"
+                        value={newInterest.types || ''}
+                        onChange={(e) => setNewInterest({...newInterest, types: e.target.value})}
+                        placeholder="e.g., movie_theater, museum"
+                        className="w-full p-1.5 text-sm border rounded"
+                        style={{ direction: 'ltr' }}
+                      />
+                      <p className="text-[9px] text-gray-500 mt-0.5" style={{ direction: 'ltr' }}>
+                        <a href="https://developers.google.com/maps/documentation/places/web-service/place-types" target="_blank" className="text-blue-500 underline">{t('interests.seeTypesList')}</a>
+                      </p>
+                    </div>
+                  )}
+                  
+                  <div>
+                    <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t('interests.blacklistWords')}:`}</label>
+                    <input
+                      type="text"
+                      value={newInterest.blacklist || ''}
+                      onChange={(e) => setNewInterest({...newInterest, blacklist: e.target.value})}
+                      placeholder="e.g., cannabis, massage"
+                      className="w-full p-1.5 text-sm border rounded"
+                      style={{ direction: 'ltr' }}
+                    />
+                  </div>
+                </div>
               </div>
               
               {/* Footer */}
@@ -9486,6 +9473,7 @@ const FouFouApp = () => {
                           setNewInterest({ label: '', labelEn: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10, routeSlot: 'any', minGap: 1, bestTime: 'anytime' });
                           setEditingCustomInterest(null);
                           
+                          recentlyAddedRef.current.set(interestId, Date.now());
                           setCustomInterests(prev => {
                             if (prev.some(i => i.id === interestId)) return prev;
                             return [...prev, newInterestData];
@@ -9496,6 +9484,7 @@ const FouFouApp = () => {
                           if (isFirebaseAvailable && database) {
                             database.ref(`customInterests/${interestId}`).set(newInterestData)
                               .then(() => {
+                                recentlyAddedRef.current.delete(interestId);
                                 showToast(`✅ ${newInterestData.label} — ${t('interests.interestAdded')}`, 'success');
                               })
                               .catch(e => {
@@ -11062,16 +11051,14 @@ const FouFouApp = () => {
               {/* Scrollable stop list */}
               <div style={{ flex: 1, overflowY: 'auto', padding: '8px 12px' }}>
                 {(() => {
-                  const activeStops = route.stops.filter(s => 
-                    !disabledStops.includes((s.name || '').toLowerCase().trim())
-                  );
+                  const activeStops = route.stops.filter(s => !isStopDisabled(s));
                   const moveStop = (fromActiveIdx, toActiveIdx) => {
                     if (toActiveIdx < 0 || toActiveIdx >= activeStops.length) return;
-                    const activeIndices = route.stops.map((s, i) => ({ s, i })).filter(x => !disabledStops.includes((x.s.name || '').toLowerCase().trim()));
+                    const activeIndices = route.stops.map((s, i) => ({ s, i })).filter(x => !isStopDisabled(x.s));
                     const newStops = [...route.stops];
                     const fromOrig = activeIndices[fromActiveIdx].i;
                     const [moved] = newStops.splice(fromOrig, 1);
-                    const updatedActiveIndices = newStops.map((s, i) => ({ s, i })).filter(x => !disabledStops.includes((x.s.name || '').toLowerCase().trim()));
+                    const updatedActiveIndices = newStops.map((s, i) => ({ s, i })).filter(x => !isStopDisabled(x.s));
                     const targetPos = toActiveIdx < updatedActiveIndices.length ? updatedActiveIndices[toActiveIdx].i : newStops.length;
                     newStops.splice(targetPos, 0, moved);
                     setRoute(prev => ({ ...prev, stops: newStops }));

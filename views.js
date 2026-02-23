@@ -711,51 +711,10 @@
                 const isCircular = formData.searchMode === 'radius';
                 setRouteType(isCircular ? 'circular' : 'linear');
                 
-                // Smart selection first
-                const allStopsWithCoords = route.stops.filter(s => s.lat && s.lng);
-                const { selected: smartStops, disabled: smartDisabled } = smartSelectStops(allStopsWithCoords, formData.interests);
-                if (smartStops.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
+                const result = runSmartPlan({ openMap: true, startTrail: true, overrideType: isCircular ? 'circular' : 'linear' });
+                if (!result) return;
                 
-                // Smart start point selection
-                let autoStart = null;
-                if (formData.currentLat && formData.currentLng) {
-                  // GPS available → nearest stop
-                  let minDist = Infinity, nearestStop = null;
-                  smartStops.forEach(s => {
-                    const dlat = (formData.currentLat - s.lat) * 111320;
-                    const dlng = (formData.currentLng - s.lng) * 111320 * Math.cos(formData.currentLat * Math.PI / 180);
-                    const d = Math.sqrt(dlat * dlat + dlng * dlng);
-                    if (d < minDist) { minDist = d; nearestStop = s; }
-                  });
-                  if (nearestStop) autoStart = { lat: nearestStop.lat, lng: nearestStop.lng, address: nearestStop.name };
-                }
-                if (!autoStart && isCircular) {
-                  autoStart = { lat: smartStops[0].lat, lng: smartStops[0].lng, address: smartStops[0].name };
-                }
-                // Linear without GPS: autoStart stays null → optimizeStopOrder picks best endpoint
-                
-                setFormData(prev => ({...prev, startPoint: autoStart ? `${autoStart.lat},${autoStart.lng}` : ''}));
-                
-                const newDisabled = smartDisabled.map(s => (s.name || '').toLowerCase().trim());
-                setDisabledStops(newDisabled);
-                
-                // Optimize geographic order
-                const optimized = optimizeStopOrder(smartStops, autoStart, isCircular);
-                
-                // For linear without explicit start: use first optimized stop
-                if (!autoStart && optimized.length > 0) {
-                  autoStart = { lat: optimized[0].lat, lng: optimized[0].lng, address: optimized[0].name };
-                }
-                if (!autoStart) { showToast(t('form.chooseStartBeforeCalc'), 'warning'); return; }
-                
-                setRoute({ ...route, stops: [...optimized, ...smartDisabled], circular: isCircular, optimized: true, startPoint: autoStart.address, startPointCoords: autoStart });
-                const urls = window.BKK.buildGoogleMapsUrls(
-                  optimized.map(s => ({ lat: s.lat, lng: s.lng, name: s.name })),
-                  `${autoStart.lat},${autoStart.lng}`, isCircular, window.BKK.googleMaxWaypoints || 12
-                );
-                startActiveTrail(optimized, formData.interests, formData.area);
-                if (urls.length > 0) window.open(urls[0].url, 'city_explorer_map');
-                showToast(`🚀 ${optimized.length} ${t('route.stops')} (${isCircular ? t('route.circular') : t('route.linear')})`, 'success');
+                showToast(`🚀 ${result.optimized.length} ${t('route.stops')} (${result.isCircular ? t('route.circular') : t('route.linear')})`, 'success');
               }}
               style={{
                 width: '100%', padding: '14px', border: '2px solid #22c55e', borderRadius: '14px',
@@ -1313,8 +1272,7 @@
                           <div className="space-y-1.5">
                             {filteredStops.map((stop) => {
                               const hasValidCoords = stop.lat && stop.lng && stop.lat !== 0 && stop.lng !== 0;
-                              const stopId = (stop.name || '').toLowerCase().trim();
-                              const isDisabled = disabledStops.includes(stopId);
+                              const isDisabled = isStopDisabled(stop);
                               const isCustom = stop.custom;
                               const isAddedLater = stop.addedLater;
                               const isStartPoint = hasValidCoords && startPointCoords?.lat === stop.lat && startPointCoords?.lng === stop.lng;
@@ -1556,7 +1514,7 @@
                           setMapStops(activeForMap);
                         } else {
                           const activeStops = route.stops.filter((s) => {
-                            const isActive = !disabledStops.includes((s.name || '').toLowerCase().trim());
+                            const isActive = !isStopDisabled(s);
                             const hasValidCoords = s.lat && s.lng && s.lat !== 0 && s.lng !== 0;
                             return isActive && hasValidCoords;
                           });
@@ -1590,7 +1548,7 @@
                       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)'
                     }}
                   >
-                    {`${t("route.showStopsOnMap")} (${route.stops.filter(s => !disabledStops.includes((s.name || '').toLowerCase().trim()) && s.lat && s.lng).length})`}
+                    {`${t("route.showStopsOnMap")} (${route.stops.filter(s => !isStopDisabled(s) && s.lat && s.lng).length})`}
                   </button>
                   <button
                     onClick={() => setShowRouteMenu(!showRouteMenu)}
@@ -1620,20 +1578,14 @@
                         { icon: '≡', label: t('route.reorderStops'), action: () => { setShowRouteMenu(false); reorderOriginalStopsRef.current = route?.stops ? [...route.stops] : null; setShowRoutePreview(true); }, disabled: !route?.optimized },
                         { icon: '✦', label: t('route.helpMePlan'), action: () => {
                           setShowRouteMenu(false);
-                          if (!route?.stops?.length) return;
-                          const allStopsWithCoords = route.stops.filter(s => s.lat && s.lng);
-                          if (allStopsWithCoords.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
-                          const { selected: smartStops, disabled: smartDisabled } = smartSelectStops(allStopsWithCoords, formData.interests);
-                          const newDisabled = smartDisabled.map(s => (s.name || '').toLowerCase().trim());
-                          setDisabledStops(newDisabled);
-                          setRoute(prev => prev ? { ...prev, optimized: false } : prev);
-                          showToast(`✦ ${smartStops.length} ${t('route.stops')}`, 'success');
+                          const result = runSmartPlan({});
+                          if (result) showToast(`✦ ${result.optimized.length} ${t('route.stops')}`, 'success');
                         }},
                         { icon: '↗', label: t('general.shareRoute'), action: () => {
                           setShowRouteMenu(false);
                           if (!route?.optimized) return;
                           const activeStops = (route.stops || []).filter(s => {
-                            const isActive = !disabledStops.includes((s.name || '').toLowerCase().trim());
+                            const isActive = !isStopDisabled(s);
                             const hasCoords = s.lat && s.lng && s.lat !== 0 && s.lng !== 0;
                             return isActive && hasCoords;
                           });
@@ -1678,9 +1630,7 @@
                   {/* Row 2: Open in Google Maps */}
                   {(() => {
                     const activeStops = route?.optimized ? route.stops.filter((stop) => {
-                      const isActive = !disabledStops.includes((stop.name || '').toLowerCase().trim());
-                      const hasValidCoords = stop.lat && stop.lng && stop.lat !== 0 && stop.lng !== 0;
-                      return isActive && hasValidCoords;
+                      return !isStopDisabled(stop) && stop.lat && stop.lng && stop.lat !== 0 && stop.lng !== 0;
                     }) : [];
                     const hasStartPoint = startPointCoords && startPointCoords.lat && startPointCoords.lng;
                     const origin = hasStartPoint

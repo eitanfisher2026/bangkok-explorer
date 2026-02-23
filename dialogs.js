@@ -736,70 +736,6 @@
                     )}
                   </div>
                 </div>
-
-                {/* Search Configuration */}
-                <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3" style={{ opacity: (!newInterest.builtIn && newInterest.privateOnly) ? 0.4 : 1, pointerEvents: (!newInterest.builtIn && newInterest.privateOnly) ? 'none' : 'auto' }}>
-                  <label className="block text-xs font-bold mb-2 text-blue-800">{`🔍 ${t("general.searchSettings")}`}
-                    {(!newInterest.builtIn && newInterest.privateOnly) && <span className="text-[9px] text-gray-500 font-normal ml-2">({t("interests.myPlacesOnly")})</span>}
-                  </label>
-                  
-                  <div className="mb-2">
-                    <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t("general.searchMode")}:`}</label>
-                    <select
-                      value={newInterest.searchMode || 'types'}
-                      onChange={(e) => setNewInterest({...newInterest, searchMode: e.target.value})}
-                      className="w-full p-1.5 text-sm border rounded"
-                      style={{ direction: 'ltr' }}
-                    >
-                      <option value="types">{t('interests.categorySearch')}</option>
-                      <option value="text">{t('interests.textSearch')}</option>
-                    </select>
-                  </div>
-                  
-                  {newInterest.searchMode === 'text' ? (
-                    <div className="mb-2">
-                      <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t('interests.textQuery')}:`}</label>
-                      <input
-                        type="text"
-                        value={newInterest.textSearch || ''}
-                        onChange={(e) => setNewInterest({...newInterest, textSearch: e.target.value})}
-                        placeholder="e.g., street art"
-                        className="w-full p-1.5 text-sm border rounded"
-                        style={{ direction: 'ltr' }}
-                      />
-                      <p className="text-[9px] text-gray-500 mt-0.5" style={{ direction: 'ltr' }}>
-                        Searches: "[query] [area] {window.BKK.cityNameForSearch || 'City'}"
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="mb-2">
-                      <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t('interests.placeTypes')}:`}</label>
-                      <input
-                        type="text"
-                        value={newInterest.types || ''}
-                        onChange={(e) => setNewInterest({...newInterest, types: e.target.value})}
-                        placeholder="e.g., movie_theater, museum"
-                        className="w-full p-1.5 text-sm border rounded"
-                        style={{ direction: 'ltr' }}
-                      />
-                      <p className="text-[9px] text-gray-500 mt-0.5" style={{ direction: 'ltr' }}>
-                        <a href="https://developers.google.com/maps/documentation/places/web-service/place-types" target="_blank" className="text-blue-500 underline">{t('interests.seeTypesList')}</a>
-                      </p>
-                    </div>
-                  )}
-                  
-                  <div>
-                    <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t('interests.blacklistWords')}:`}</label>
-                    <input
-                      type="text"
-                      value={newInterest.blacklist || ''}
-                      onChange={(e) => setNewInterest({...newInterest, blacklist: e.target.value})}
-                      placeholder="e.g., cannabis, massage"
-                      className="w-full p-1.5 text-sm border rounded"
-                      style={{ direction: 'ltr' }}
-                    />
-                  </div>
-                </div>
                 </div>{/* close inner wrapper */}
 
                 {/* Manual toggle (custom only) + Scope (all interests) */}
@@ -841,47 +777,61 @@
                     )}
                   </div>
 
-                  {/* Route planning config */}
-                  <div className="mt-1 space-y-1">
-                    {/* Row 1: Category + Best Time */}
-                    <div className="flex items-center gap-1.5">
-                      <select
-                        value={newInterest.category || 'attraction'}
-                        onChange={(e) => {
-                          const cat = e.target.value;
-                          const defaults = {
-                            attraction: { weight: 3, minStops: 1, maxStops: 10, routeSlot: 'any', minGap: 1, bestTime: 'day' },
-                            break:      { weight: 1, minStops: 1, maxStops: 2, routeSlot: 'bookend', minGap: 3, bestTime: 'anytime' },
-                            meal:       { weight: 1, minStops: 1, maxStops: 2, routeSlot: 'middle', minGap: 3, bestTime: 'anytime' },
-                            experience: { weight: 1, minStops: 1, maxStops: 3, routeSlot: 'any', minGap: 1, bestTime: 'anytime' },
-                            shopping:   { weight: 2, minStops: 1, maxStops: 5, routeSlot: 'early', minGap: 2, bestTime: 'day' },
-                            nature:     { weight: 2, minStops: 1, maxStops: 5, routeSlot: 'early', minGap: 1, bestTime: 'day' }
-                          };
-                          const d = defaults[cat] || defaults.attraction;
-                          setNewInterest({...newInterest, category: cat, weight: d.weight, minStops: d.minStops, maxStops: d.maxStops, routeSlot: d.routeSlot, minGap: d.minGap, bestTime: d.bestTime});
-                        }}
-                        className="p-1 text-xs border rounded flex-1"
-                      >
-                        <option value="attraction">{t('interests.catAttraction')}</option>
-                        <option value="break">{t('interests.catBreak')}</option>
-                        <option value="meal">{t('interests.catMeal')}</option>
-                        <option value="experience">{t('interests.catExperience')}</option>
-                        <option value="shopping">{t('interests.catShopping')}</option>
-                        <option value="nature">{t('interests.catNature')}</option>
-                      </select>
+                </div>
+
+                {/* Route planning config — spacious layout */}
+                <div style={{ background: '#faf5ff', border: '2px solid #e9d5ff', borderRadius: '12px', padding: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#7c3aed', marginBottom: '10px' }}>{'🗺️ ' + t('interests.routePlanning')}</label>
+                  
+                  {/* Category */}
+                  <div style={{ marginBottom: '10px' }}>
+                    <label style={{ display: 'block', fontSize: '11px', color: '#6b7280', fontWeight: '600', marginBottom: '4px' }}>{t('interests.category')}:</label>
+                    <select
+                      value={newInterest.category || 'attraction'}
+                      onChange={(e) => {
+                        const cat = e.target.value;
+                        const defaults = {
+                          attraction: { weight: 3, minStops: 1, maxStops: 10, routeSlot: 'any', minGap: 1, bestTime: 'day' },
+                          break:      { weight: 1, minStops: 1, maxStops: 2, routeSlot: 'bookend', minGap: 3, bestTime: 'anytime' },
+                          meal:       { weight: 1, minStops: 1, maxStops: 2, routeSlot: 'middle', minGap: 3, bestTime: 'anytime' },
+                          experience: { weight: 1, minStops: 1, maxStops: 3, routeSlot: 'any', minGap: 1, bestTime: 'anytime' },
+                          shopping:   { weight: 2, minStops: 1, maxStops: 5, routeSlot: 'early', minGap: 2, bestTime: 'day' },
+                          nature:     { weight: 2, minStops: 1, maxStops: 5, routeSlot: 'early', minGap: 1, bestTime: 'day' }
+                        };
+                        const d = defaults[cat] || defaults.attraction;
+                        setNewInterest({...newInterest, category: cat, weight: d.weight, minStops: d.minStops, maxStops: d.maxStops, routeSlot: d.routeSlot, minGap: d.minGap, bestTime: d.bestTime});
+                      }}
+                      style={{ width: '100%', padding: '8px 10px', fontSize: '13px', border: '1px solid #d1d5db', borderRadius: '8px', background: 'white' }}
+                    >
+                      <option value="attraction">{t('interests.catAttraction')}</option>
+                      <option value="break">{t('interests.catBreak')}</option>
+                      <option value="meal">{t('interests.catMeal')}</option>
+                      <option value="experience">{t('interests.catExperience')}</option>
+                      <option value="shopping">{t('interests.catShopping')}</option>
+                      <option value="nature">{t('interests.catNature')}</option>
+                    </select>
+                  </div>
+                  
+                  {/* Best Time + Route Slot — side by side */}
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', fontSize: '11px', color: '#6b7280', fontWeight: '600', marginBottom: '4px' }}>{t('interests.bestTime')}:</label>
                       <select
                         value={newInterest.bestTime || 'anytime'}
                         onChange={(e) => setNewInterest({...newInterest, bestTime: e.target.value})}
-                        className="p-1 text-xs border rounded flex-1"
+                        style={{ width: '100%', padding: '7px 8px', fontSize: '13px', border: '1px solid #d1d5db', borderRadius: '8px', background: 'white' }}
                       >
                         <option value="anytime">{t('interests.timeAnytime')}</option>
                         <option value="day">{t('interests.timeDay')}</option>
                         <option value="night">{t('interests.timeNight')}</option>
                       </select>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', fontSize: '11px', color: '#6b7280', fontWeight: '600', marginBottom: '4px' }}>{t('interests.routeSlot')}:</label>
                       <select
                         value={newInterest.routeSlot || 'any'}
                         onChange={(e) => setNewInterest({...newInterest, routeSlot: e.target.value})}
-                        className="p-1 text-xs border rounded flex-1"
+                        style={{ width: '100%', padding: '7px 8px', fontSize: '13px', border: '1px solid #d1d5db', borderRadius: '8px', background: 'white' }}
                       >
                         <option value="any">{t('interests.slotAny')}</option>
                         <option value="bookend">{t('interests.slotBookend')}</option>
@@ -891,26 +841,48 @@
                         <option value="end">{t('interests.slotEnd')}</option>
                       </select>
                     </div>
-                    {/* Row 2: Weight + Min + Max + Gap steppers */}
-                    <div className="flex items-center gap-0.5" style={{ width: '100%' }}>
-                      {[
-                        { label: t('interests.weight'), key: 'weight', val: newInterest.weight || 2, min: 1, max: 5 },
-                        { label: t('interests.minStops'), key: 'minStops', val: newInterest.minStops != null ? newInterest.minStops : 1, min: 0, max: 10 },
-                        { label: t('interests.maxStopsLabel'), key: 'maxStops', val: newInterest.maxStops || 10, min: 1, max: 15 },
-                        { label: t('interests.minGap'), key: 'minGap', val: newInterest.minGap || 1, min: 1, max: 5 }
-                      ].map(item => (
-                        <div key={item.key} className="flex items-center gap-0.5" style={{ flex: 1, minWidth: 0, justifyContent: 'center' }}>
-                          <span className="text-[9px] text-gray-500 truncate">{item.label}:</span>
+                  </div>
+                  
+                  {/* Weight + Min — side by side */}
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '8px' }}>
+                    {[
+                      { label: t('interests.weight'), key: 'weight', val: newInterest.weight || 2, min: 1, max: 5 },
+                      { label: t('interests.minStops'), key: 'minStops', val: newInterest.minStops != null ? newInterest.minStops : 1, min: 0, max: 10 }
+                    ].map(item => (
+                      <div key={item.key} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', borderRadius: '8px', padding: '6px 10px', border: '1px solid #e5e7eb' }}>
+                        <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: '600' }}>{item.label}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <button type="button" onClick={() => setNewInterest({...newInterest, [item.key]: Math.max(item.min, item.val - 1)})}
-                            className="w-5 h-5 rounded bg-gray-200 text-gray-700 text-xs font-bold flex items-center justify-center active:bg-gray-300 flex-shrink-0"
+                            style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: '#e5e7eb', color: '#374151', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           >−</button>
-                          <span className="w-5 text-center text-xs font-bold flex-shrink-0">{item.val}</span>
+                          <span style={{ width: '20px', textAlign: 'center', fontSize: '15px', fontWeight: 'bold' }}>{item.val}</span>
                           <button type="button" onClick={() => setNewInterest({...newInterest, [item.key]: Math.min(item.max, item.val + 1)})}
-                            className="w-5 h-5 rounded bg-gray-200 text-gray-700 text-xs font-bold flex items-center justify-center active:bg-gray-300 flex-shrink-0"
+                            style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: '#e5e7eb', color: '#374151', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           >+</button>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Max + Gap — side by side */}
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    {[
+                      { label: t('interests.maxStopsLabel'), key: 'maxStops', val: newInterest.maxStops || 10, min: 1, max: 15 },
+                      { label: t('interests.minGap'), key: 'minGap', val: newInterest.minGap || 1, min: 1, max: 5 }
+                    ].map(item => (
+                      <div key={item.key} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', borderRadius: '8px', padding: '6px 10px', border: '1px solid #e5e7eb' }}>
+                        <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: '600' }}>{item.label}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <button type="button" onClick={() => setNewInterest({...newInterest, [item.key]: Math.max(item.min, item.val - 1)})}
+                            style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: '#e5e7eb', color: '#374151', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          >−</button>
+                          <span style={{ width: '20px', textAlign: 'center', fontSize: '15px', fontWeight: 'bold' }}>{item.val}</span>
+                          <button type="button" onClick={() => setNewInterest({...newInterest, [item.key]: Math.min(item.max, item.val + 1)})}
+                            style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: '#e5e7eb', color: '#374151', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          >+</button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
@@ -994,6 +966,70 @@
                     </div>
                   </div>
                 )}
+
+                {/* Search Configuration — moved to end */}
+                <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3" style={{ opacity: (!newInterest.builtIn && newInterest.privateOnly) ? 0.4 : 1, pointerEvents: (!newInterest.builtIn && newInterest.privateOnly) ? 'none' : 'auto' }}>
+                  <label className="block text-xs font-bold mb-2 text-blue-800">{`🔍 ${t("general.searchSettings")}`}
+                    {(!newInterest.builtIn && newInterest.privateOnly) && <span className="text-[9px] text-gray-500 font-normal ml-2">({t("interests.myPlacesOnly")})</span>}
+                  </label>
+                  
+                  <div className="mb-2">
+                    <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t("general.searchMode")}:`}</label>
+                    <select
+                      value={newInterest.searchMode || 'types'}
+                      onChange={(e) => setNewInterest({...newInterest, searchMode: e.target.value})}
+                      className="w-full p-1.5 text-sm border rounded"
+                      style={{ direction: 'ltr' }}
+                    >
+                      <option value="types">{t('interests.categorySearch')}</option>
+                      <option value="text">{t('interests.textSearch')}</option>
+                    </select>
+                  </div>
+                  
+                  {newInterest.searchMode === 'text' ? (
+                    <div className="mb-2">
+                      <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t('interests.textQuery')}:`}</label>
+                      <input
+                        type="text"
+                        value={newInterest.textSearch || ''}
+                        onChange={(e) => setNewInterest({...newInterest, textSearch: e.target.value})}
+                        placeholder="e.g., street art"
+                        className="w-full p-1.5 text-sm border rounded"
+                        style={{ direction: 'ltr' }}
+                      />
+                      <p className="text-[9px] text-gray-500 mt-0.5" style={{ direction: 'ltr' }}>
+                        Searches: "[query] [area] {window.BKK.cityNameForSearch || 'City'}"
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mb-2">
+                      <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t('interests.placeTypes')}:`}</label>
+                      <input
+                        type="text"
+                        value={newInterest.types || ''}
+                        onChange={(e) => setNewInterest({...newInterest, types: e.target.value})}
+                        placeholder="e.g., movie_theater, museum"
+                        className="w-full p-1.5 text-sm border rounded"
+                        style={{ direction: 'ltr' }}
+                      />
+                      <p className="text-[9px] text-gray-500 mt-0.5" style={{ direction: 'ltr' }}>
+                        <a href="https://developers.google.com/maps/documentation/places/web-service/place-types" target="_blank" className="text-blue-500 underline">{t('interests.seeTypesList')}</a>
+                      </p>
+                    </div>
+                  )}
+                  
+                  <div>
+                    <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t('interests.blacklistWords')}:`}</label>
+                    <input
+                      type="text"
+                      value={newInterest.blacklist || ''}
+                      onChange={(e) => setNewInterest({...newInterest, blacklist: e.target.value})}
+                      placeholder="e.g., cannabis, massage"
+                      className="w-full p-1.5 text-sm border rounded"
+                      style={{ direction: 'ltr' }}
+                    />
+                  </div>
+                </div>
               </div>
               
               {/* Footer */}
@@ -1127,6 +1163,8 @@
                           setEditingCustomInterest(null);
                           
                           // Add to local state immediately so it shows in UI
+                          // Mark as recently added to protect from Firebase listener race condition
+                          recentlyAddedRef.current.set(interestId, Date.now());
                           setCustomInterests(prev => {
                             if (prev.some(i => i.id === interestId)) return prev;
                             return [...prev, newInterestData];
@@ -1140,6 +1178,7 @@
                             database.ref(`customInterests/${interestId}`).set(newInterestData)
                               .then(() => {
                                 console.log(`[INTEREST-SAVE] Saved to Firebase: ${interestId}`);
+                                recentlyAddedRef.current.delete(interestId);
                                 showToast(`✅ ${newInterestData.label} — ${t('interests.interestAdded')}`, 'success');
                               })
                               .catch(e => {
@@ -2724,16 +2763,14 @@
               {/* Scrollable stop list */}
               <div style={{ flex: 1, overflowY: 'auto', padding: '8px 12px' }}>
                 {(() => {
-                  const activeStops = route.stops.filter(s => 
-                    !disabledStops.includes((s.name || '').toLowerCase().trim())
-                  );
+                  const activeStops = route.stops.filter(s => !isStopDisabled(s));
                   const moveStop = (fromActiveIdx, toActiveIdx) => {
                     if (toActiveIdx < 0 || toActiveIdx >= activeStops.length) return;
-                    const activeIndices = route.stops.map((s, i) => ({ s, i })).filter(x => !disabledStops.includes((x.s.name || '').toLowerCase().trim()));
+                    const activeIndices = route.stops.map((s, i) => ({ s, i })).filter(x => !isStopDisabled(x.s));
                     const newStops = [...route.stops];
                     const fromOrig = activeIndices[fromActiveIdx].i;
                     const [moved] = newStops.splice(fromOrig, 1);
-                    const updatedActiveIndices = newStops.map((s, i) => ({ s, i })).filter(x => !disabledStops.includes((x.s.name || '').toLowerCase().trim()));
+                    const updatedActiveIndices = newStops.map((s, i) => ({ s, i })).filter(x => !isStopDisabled(x.s));
                     const targetPos = toActiveIdx < updatedActiveIndices.length ? updatedActiveIndices[toActiveIdx].i : newStops.length;
                     newStops.splice(targetPos, 0, moved);
                     setRoute(prev => ({ ...prev, stops: newStops }));

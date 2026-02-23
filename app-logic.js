@@ -56,6 +56,94 @@
   const disabledStopsRef = React.useRef(disabledStops);
   React.useEffect(() => { disabledStopsRef.current = disabledStops; }, [disabledStops]);
   
+  // === SHARED HELPERS (avoid code duplication) ===
+  
+  // Check if a stop is disabled — single source of truth
+  const isStopDisabled = (stop) => disabledStops.includes((stop.name || '').toLowerCase().trim());
+  const isStopDisabledRef = (stop) => (disabledStopsRef.current || []).includes((stop.name || '').toLowerCase().trim());
+  
+  // Find smart start point: GPS nearest → circular first → null (let optimizer pick)
+  const findSmartStart = (stops, gps, isCircular) => {
+    if (gps?.lat && gps?.lng) {
+      const check = window.BKK.isGpsWithinCity(gps.lat, gps.lng);
+      if (check.withinCity) {
+        let minDist = Infinity, nearest = null;
+        stops.forEach(s => {
+          const d = calcDistance(gps.lat, gps.lng, s.lat, s.lng);
+          if (d < minDist) { minDist = d; nearest = s; }
+        });
+        if (nearest) return { lat: nearest.lat, lng: nearest.lng, address: nearest.name };
+      }
+    }
+    if (isCircular && stops.length > 0) {
+      return { lat: stops[0].lat, lng: stops[0].lng, address: stops[0].name };
+    }
+    return null; // Linear without GPS: optimizer picks best endpoint
+  };
+  
+  // Full smart plan: select stops, find start, optimize, update state
+  // Returns { optimized, disabled, autoStart, isCircular } or null on failure
+  const runSmartPlan = (options = {}) => {
+    const { openMap = false, startTrail = false, skipSmartSelect = false, overrideStart = null, overrideType = null } = options;
+    
+    if (!route?.stops?.length) return null;
+    const allStops = route.stops.filter(s => s.lat && s.lng);
+    if (allStops.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return null; }
+    
+    const isCircular = overrideType !== null ? overrideType === 'circular' : routeType === 'circular';
+    
+    // Step 1: Smart select or respect manual choices
+    let selected, disabledList, newDisabled;
+    if (skipSmartSelect) {
+      const curDisabled = disabledStopsRef.current || [];
+      selected = allStops.filter(s => !curDisabled.includes((s.name || '').toLowerCase().trim()));
+      disabledList = allStops.filter(s => curDisabled.includes((s.name || '').toLowerCase().trim()));
+      newDisabled = curDisabled;
+    } else {
+      const result = smartSelectStops(allStops, formData.interests);
+      selected = result.selected;
+      disabledList = result.disabled;
+      newDisabled = disabledList.map(s => (s.name || '').toLowerCase().trim());
+      setDisabledStops(newDisabled);
+    }
+    if (selected.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return null; }
+    
+    // Step 2: Find start point
+    let autoStart = overrideStart || startPointCoordsRef.current;
+    if (!autoStart) {
+      const gps = (formData.currentLat && formData.currentLng) ? { lat: formData.currentLat, lng: formData.currentLng } : null;
+      autoStart = findSmartStart(selected, gps, isCircular);
+    }
+    
+    // Step 3: Optimize route order
+    const optimized = optimizeStopOrder(selected, autoStart, isCircular);
+    
+    // For linear without explicit start: use first optimized stop
+    if (!autoStart && optimized.length > 0) {
+      autoStart = { lat: optimized[0].lat, lng: optimized[0].lng, address: optimized[0].name };
+    }
+    
+    // Step 4: Update state
+    setStartPointCoords(autoStart);
+    startPointCoordsRef.current = autoStart;
+    setFormData(prev => ({...prev, startPoint: autoStart?.address || (autoStart ? `${autoStart.lat},${autoStart.lng}` : '')}));
+    
+    const newStops = [...optimized, ...disabledList];
+    setRoute(prev => prev ? { ...prev, stops: newStops, circular: isCircular, optimized: true, startPoint: autoStart?.address, startPointCoords: autoStart } : prev);
+    
+    // Step 5: Optional actions
+    if (startTrail) startActiveTrail(optimized, formData.interests, formData.area);
+    if (openMap && autoStart) {
+      const urls = window.BKK.buildGoogleMapsUrls(
+        optimized.map(s => ({ lat: s.lat, lng: s.lng, name: s.name })),
+        `${autoStart.lat},${autoStart.lng}`, isCircular, window.BKK.googleMaxWaypoints || 12
+      );
+      if (urls.length > 0) window.open(urls[0].url, 'city_explorer_map');
+    }
+    
+    return { optimized, disabled: disabledList, autoStart, newDisabled, isCircular };
+  };
+  
   const [showRoutePreview, setShowRoutePreview] = useState(false); // Route reorder dialog
   const reorderOriginalStopsRef = React.useRef(null); // Snapshot of stops before reorder
   const [showRouteMenu, setShowRouteMenu] = useState(false); // Hamburger menu in route results
@@ -1059,6 +1147,7 @@
   }, [selectedCityId]);
 
   // Load custom interests from Firebase
+  const recentlyAddedRef = React.useRef(new Map()); // id → timestamp of recent local adds
   useEffect(() => {
     if (isFirebaseAvailable && database) {
       const interestsRef = database.ref('customInterests');
@@ -1079,10 +1168,34 @@
             console.log('[CLEANUP] Removing', duplicates.length, 'built-in duplicates from customInterests');
             duplicates.forEach(d => database.ref(`customInterests/${d.firebaseId}`).remove());
           }
-          setCustomInterests(interestsArray);
-          console.log('[FIREBASE] Loaded', interestsArray.length, 'interests');
+          
+          // Merge: keep locally-added interests that Firebase doesn't know about yet (race condition protection)
+          const firebaseIds = new Set(interestsArray.map(i => i.id));
+          const now = Date.now();
+          // Clean up stale entries (older than 30 seconds)
+          for (const [id, ts] of recentlyAddedRef.current) {
+            if (now - ts > 30000) recentlyAddedRef.current.delete(id);
+          }
+          setCustomInterests(prev => {
+            // Find locally-added interests not yet in Firebase (added within last 30s)
+            const pendingLocal = prev.filter(i => 
+              !firebaseIds.has(i.id) && recentlyAddedRef.current.has(i.id)
+            );
+            if (pendingLocal.length > 0) {
+              console.log('[FIREBASE] Keeping', pendingLocal.length, 'pending local interests:', pendingLocal.map(i => i.label).join(', '));
+            }
+            return [...interestsArray, ...pendingLocal];
+          });
+          console.log('[FIREBASE] Loaded', interestsArray.length, 'interests from Firebase');
         } else {
-          setCustomInterests([]);
+          // Safety: don't wipe if we already have interests — Firebase might have returned null due to connection issue
+          setCustomInterests(prev => {
+            if (prev.length > 0) {
+              console.warn('[FIREBASE] customInterests returned null but we have', prev.length, 'locally — keeping them');
+              return prev;
+            }
+            return [];
+          });
         }
         markLoaded('interests');
       });
@@ -1330,7 +1443,14 @@
             setCustomInterests(interestsArray);
             console.log('[REFRESH] Loaded', interestsArray.length, 'interests');
           } else {
-            setCustomInterests([]);
+            // Don't wipe if we already have interests locally
+            setCustomInterests(prev => {
+              if (prev.length > 0) {
+                console.warn('[REFRESH] customInterests returned null but we have', prev.length, 'locally — keeping');
+                return prev;
+              }
+              return [];
+            });
           }
         } catch (e) {
           console.error('[REFRESH] Error loading interests:', e);
@@ -3554,134 +3674,13 @@
     }
   };
 
-  // Compute/recompute optimized route order from existing stops
-  const computeRoute = () => {
-    if (!route || route.stops.length < 2) return;
-    if (!startPointCoords) {
-      showToast(t('form.chooseStartBeforeCalc'), 'warning');
-      return;
-    }
-    
-    const isCircular = routeType === 'circular';
-    
-    // Filter out disabled stops for optimization, keep them at end
-    const activeStops = route.stops.filter(stop => {
-      return !disabledStops.includes((stop.name || '').toLowerCase().trim());
-    });
-    const inactiveStops = route.stops.filter(stop => {
-      return disabledStops.includes((stop.name || '').toLowerCase().trim());
-    });
-    
-    console.log(`[COMPUTE] Optimizing ${activeStops.length} active stops (${isCircular ? 'circular' : 'linear'})`);
-    const optimized = optimizeStopOrder(activeStops, startPointCoords, isCircular);
-    
-    // Recombine: optimized active stops first, then inactive at end
-    const newStops = [...optimized, ...inactiveStops];
-    
-    setRoute({
-      ...route,
-      stops: newStops,
-      circular: isCircular,
-      optimized: true,
-      startPoint: startPointCoords.address || formData.startPoint || '',
-      startPointCoords: startPointCoords
-    });
-    
-    showToast(`${t("route.routeCalculated")} ${optimized.length} ${t("route.stops")}`, 'success');
-    
-    // Warn if route will need to be split for Google Maps
-    if (optimized.length + 1 > googleMaxWaypoints) { // +1 for origin/startPoint
-      const parts = Math.ceil((optimized.length + 1 - 2) / (googleMaxWaypoints - 2)) + (optimized.length + 1 > googleMaxWaypoints ? 0 : 0);
-      // Calculate actual parts using the helper
-      const testUrls = window.BKK.buildGoogleMapsUrls(
-        optimized.map(s => ({ lat: s.lat, lng: s.lng })),
-        `${startPointCoords.lat},${startPointCoords.lng}`,
-        isCircular,
-        googleMaxWaypoints
-      );
-      if (testUrls.length > 1) {
-        showToast(t('route.splitRouteWarning').replace('{max}', googleMaxWaypoints).replace('{parts}', testUrls.length), 'info', 'sticky');
-      }
-    }
-    
-    setTimeout(() => {
-      // Scroll to bottom of results to show the Google Maps button
-      const el = document.getElementById('open-google-maps-btn');
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }, 200);
-  };
-
   // Recompute route for map — returns data for immediate use (avoids React state timing issues)
   // When skipSmartSelect=true, respects current disabledStops (for user manual changes)
+  // Thin wrapper for backward compatibility — delegates to runSmartPlan
+  // Uses routeTypeRef to avoid stale closures in useEffect/setTimeout
   const recomputeForMap = (overrideStart, overrideType, skipSmartSelect) => {
-    if (!route || route.stops.length < 2) return null;
-    const allStops = route.stops.filter(s => s.lat && s.lng);
-    if (allStops.length < 2) return null;
-    
-    // Use refs to always get current values (avoids stale closures in map callbacks)
     const type = overrideType !== undefined ? overrideType : routeTypeRef.current;
-    const isCircular = type === 'circular';
-    
-    let selected, disabled, newDisabled;
-    if (skipSmartSelect) {
-      // Respect user's manual disable choices
-      const curDisabled = disabledStopsRef.current || [];
-      selected = allStops.filter(s => !curDisabled.includes((s.name || '').toLowerCase().trim()));
-      disabled = allStops.filter(s => curDisabled.includes((s.name || '').toLowerCase().trim()));
-      newDisabled = curDisabled;
-    } else {
-      const result = smartSelectStops(allStops, formData.interests);
-      selected = result.selected;
-      disabled = result.disabled;
-      newDisabled = disabled.map(s => (s.name || '').toLowerCase().trim());
-      setDisabledStops(newDisabled);
-    }
-    if (selected.length < 2) return null;
-    
-    let autoStart = overrideStart || startPointCoordsRef.current;
-    if (!autoStart) {
-      // Radius mode + valid GPS → find nearest stop to GPS
-      if (formData.currentLat && formData.currentLng) {
-        const check = window.BKK.isGpsWithinCity(formData.currentLat, formData.currentLng);
-        if (check.withinCity) {
-          // Find nearest stop to current GPS position
-          let minDist = Infinity, nearestStop = null;
-          selected.forEach(s => {
-            const d = calcDistance(formData.currentLat, formData.currentLng, s.lat, s.lng);
-            if (d < minDist) { minDist = d; nearestStop = s; }
-          });
-          if (nearestStop) {
-            autoStart = { lat: nearestStop.lat, lng: nearestStop.lng, address: nearestStop.name };
-          }
-        }
-      }
-      // Linear mode without GPS → let optimizeStopOrder pick optimal endpoint (don't force A)
-      // Circular mode without GPS → use first stop
-      if (!autoStart) {
-        if (isCircular) {
-          autoStart = { lat: selected[0].lat, lng: selected[0].lng, address: selected[0].name };
-        }
-        // For linear: autoStart stays null → optimizeStopOrder will pick the best endpoint
-      }
-    }
-    const optimized = optimizeStopOrder(selected, autoStart, isCircular);
-    
-    // For linear routes without explicit start: use the first stop from optimized order
-    if (!autoStart && optimized.length > 0) {
-      autoStart = { lat: optimized[0].lat, lng: optimized[0].lng, address: optimized[0].name };
-    }
-    
-    setStartPointCoords(autoStart);
-    startPointCoordsRef.current = autoStart; // Update ref immediately
-    setFormData(prev => ({...prev, startPoint: autoStart?.address || (autoStart ? `${autoStart.lat},${autoStart.lng}` : '')}));
-    
-    const newStops = [...optimized, ...disabled];
-    setRoute(prev => prev ? { ...prev, stops: newStops, circular: isCircular, optimized: true, startPoint: autoStart?.address, startPointCoords: autoStart } : prev);
-    
-    // Return for immediate use (before React re-renders)
-    return { optimized, disabled, autoStart, newDisabled, isCircular };
+    return runSmartPlan({ overrideStart, overrideType: type, skipSmartSelect });
   };
 
   // Fetch more places for a specific interest
@@ -5420,9 +5419,9 @@
 
   const toggleStopActive = (stopIndex) => {
     const stop = route.stops[stopIndex];
-    const stopName = stop?.name?.toLowerCase().trim();
+    const stopName = (stop?.name || '').toLowerCase().trim();
     if (!stopName) return;
-    const isCurrentlyDisabled = disabledStops.includes(stopName);
+    const isCurrentlyDisabled = isStopDisabled(stop);
     const newDisabledStops = isCurrentlyDisabled
       ? disabledStops.filter(n => n !== stopName)
       : [...disabledStops, stopName];
