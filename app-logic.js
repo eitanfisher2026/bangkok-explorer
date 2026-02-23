@@ -324,14 +324,19 @@
           window._mapStopAction = (action, data, lat, lng) => {
             if (action === 'setstart') {
               const newStart = { lat: parseFloat(lat), lng: parseFloat(lng), address: data };
-              setStartPointCoords(newStart);
-              setFormData(prev => ({...prev, startPoint: data}));
               startPointCoordsRef_local.current = newStart;
               updateStartMarker(parseFloat(lat), parseFloat(lng), data);
-              if (route?.optimized) setRoute(prev => prev ? {...prev, optimized: false} : prev);
               map.closePopup();
               showToast(`▶ ${data}`, 'success');
-              setTimeout(() => { if (window._mapRedrawLine) window._mapRedrawLine(); }, 50);
+              // Auto-recompute route with new start point
+              const result = recomputeForMap(newStart);
+              if (result) {
+                // Refresh map markers with new order
+                setTimeout(() => {
+                  const activeForMap = result.optimized.filter(s => s.lat && s.lng);
+                  setMapStops(activeForMap);
+                }, 100);
+              }
               return;
             }
             const nameKey = data.toLowerCase().trim();
@@ -3354,6 +3359,39 @@
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }, 200);
+  };
+
+  // Recompute route for map — returns data for immediate use (avoids React state timing issues)
+  const recomputeForMap = (overrideStart, overrideType) => {
+    if (!route || route.stops.length < 2) return null;
+    const allStops = route.stops.filter(s => s.lat && s.lng);
+    if (allStops.length < 2) return null;
+    
+    const type = overrideType !== undefined ? overrideType : routeType;
+    const isCircular = type === 'circular';
+    
+    const { selected, disabled } = smartSelectStops(allStops, formData.interests);
+    const newDisabled = disabled.map(s => (s.name || '').toLowerCase().trim());
+    setDisabledStops(newDisabled);
+    if (selected.length < 2) return null;
+    
+    let autoStart = overrideStart || startPointCoords;
+    if (!autoStart) {
+      if (formData.searchMode === 'radius' && formData.currentLat && formData.currentLng) {
+        autoStart = { lat: formData.currentLat, lng: formData.currentLng, address: t('wizard.myLocation') };
+      } else {
+        autoStart = { lat: selected[0].lat, lng: selected[0].lng, address: selected[0].name };
+      }
+    }
+    setStartPointCoords(autoStart);
+    setFormData(prev => ({...prev, startPoint: autoStart.address || `${autoStart.lat},${autoStart.lng}`}));
+    
+    const optimized = optimizeStopOrder(selected, autoStart, isCircular);
+    const newStops = [...optimized, ...disabled];
+    setRoute(prev => prev ? { ...prev, stops: newStops, circular: isCircular, optimized: true, startPoint: autoStart.address, startPointCoords: autoStart } : prev);
+    
+    // Return for immediate use (before React re-renders)
+    return { optimized, disabled, autoStart, newDisabled, isCircular };
   };
 
   // Fetch more places for a specific interest

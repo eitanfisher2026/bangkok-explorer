@@ -1606,16 +1606,24 @@
                   
                   <button
                     onClick={() => {
-                      const activeStops = route.stops.filter((s, i) => {
-                        const isActive = !disabledStops.includes((s.name || '').toLowerCase().trim());
-                        const hasValidCoords = s.lat && s.lng && s.lat !== 0 && s.lng !== 0;
-                        return isActive && hasValidCoords;
-                      });
-                      if (activeStops.length === 0) {
-                        showToast(t('places.noPlacesWithCoords'), 'warning');
-                        return;
+                      // Auto-compute route before opening map
+                      const result = recomputeForMap();
+                      if (result) {
+                        const activeForMap = result.optimized.filter(s => s.lat && s.lng);
+                        setMapStops(activeForMap);
+                      } else {
+                        // Fallback: just show all stops
+                        const activeStops = route.stops.filter((s) => {
+                          const isActive = !disabledStops.includes((s.name || '').toLowerCase().trim());
+                          const hasValidCoords = s.lat && s.lng && s.lat !== 0 && s.lng !== 0;
+                          return isActive && hasValidCoords;
+                        });
+                        if (activeStops.length === 0) {
+                          showToast(t('places.noPlacesWithCoords'), 'warning');
+                          return;
+                        }
+                        setMapStops(activeStops);
                       }
-                      setMapStops(activeStops);
                       setMapMode('stops');
                       setShowMapModal(true);
                     }}
@@ -1639,8 +1647,28 @@
                     {`${t("route.showStopsOnMap")} (${route.stops.filter(s => !disabledStops.includes((s.name || '').toLowerCase().trim()) && s.lat && s.lng).length})`}
                   </button>
                   
-                  {/* Route controls - simplified (type + start + plan moved to map) */}
+                  {/* Route controls */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+
+                      {/* Help me plan */}
+                      {route.stops.length > 0 && (
+                      <button
+                        onClick={() => {
+                          const result = recomputeForMap();
+                          if (result) {
+                            showToast(`🧠 ${t('route.smartSelected', { selected: result.optimized.length, disabled: result.disabled.length })}`, 'success');
+                          }
+                        }}
+                        style={{
+                          width: '100%', height: '38px', borderRadius: '10px',
+                          border: '2px solid #f59e0b', background: 'linear-gradient(135deg, #fffbeb, #fef3c7)',
+                          color: '#b45309', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                        }}
+                      >
+                        🧠 {t('route.helpMePlan')}
+                      </button>
+                      )}
 
                       {/* Row 1: Calc Route + Reorder */}
                       <div style={{ display: 'flex', gap: '4px', alignItems: 'center', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
@@ -3549,64 +3577,46 @@
             <div className="border-t" style={{ background: mapMode === 'stops' ? '#f8fafc' : 'white' }}>
               {mapMode === 'stops' ? (
                 <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {/* Row 1: Route type toggle + Compute Route */}
-                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                    {/* Circular / Linear toggle */}
-                    <div style={{ display: 'flex', borderRadius: '8px', overflow: 'hidden', border: '1px solid #d1d5db', flexShrink: 0 }}>
+                  {/* Row 1: Route type toggle — auto-recomputes */}
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ display: 'flex', borderRadius: '8px', overflow: 'hidden', border: '1px solid #d1d5db' }}>
                       <button 
-                        onClick={() => setRouteType('linear')}
-                        style={{ padding: '6px 10px', border: 'none', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer',
+                        onClick={() => {
+                          setRouteType('linear');
+                          const result = recomputeForMap(null, 'linear');
+                          if (result) {
+                            setTimeout(() => setMapStops(result.optimized.filter(s => s.lat && s.lng)), 100);
+                          }
+                        }}
+                        style={{ padding: '8px 16px', border: 'none', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer',
                           background: routeType === 'linear' ? '#3b82f6' : 'white', color: routeType === 'linear' ? 'white' : '#6b7280'
                         }}
                       >↔ {t('route.linear')}</button>
                       <button 
-                        onClick={() => setRouteType('circular')}
-                        style={{ padding: '6px 10px', border: 'none', borderLeft: '1px solid #d1d5db', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer',
+                        onClick={() => {
+                          setRouteType('circular');
+                          const result = recomputeForMap(null, 'circular');
+                          if (result) {
+                            setTimeout(() => setMapStops(result.optimized.filter(s => s.lat && s.lng)), 100);
+                          }
+                        }}
+                        style={{ padding: '8px 16px', border: 'none', borderLeft: '1px solid #d1d5db', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer',
                           background: routeType === 'circular' ? '#3b82f6' : 'white', color: routeType === 'circular' ? 'white' : '#6b7280'
                         }}
                       >⭕ {t('route.circular')}</button>
                     </div>
-                    {/* Compute Route — stays on map */}
-                    {route?.stops?.length > 0 && (
-                    <button
-                      onClick={() => {
-                        const allStopsWithCoords = route.stops.filter(s => s.lat && s.lng);
-                        if (allStopsWithCoords.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
-                        setDisabledStops([]);
-                        const { selected, disabled } = smartSelectStops(allStopsWithCoords, formData.interests);
-                        const newDisabled = disabled.map(s => (s.name || '').toLowerCase().trim());
-                        setDisabledStops(newDisabled);
-                        if (selected.length < 2) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
-                        const isCircular = routeType === 'circular';
-                        let autoStart = startPointCoords;
-                        if (!autoStart) {
-                          if (formData.searchMode === 'radius' && formData.currentLat && formData.currentLng) {
-                            autoStart = { lat: formData.currentLat, lng: formData.currentLng, address: t('wizard.myLocation') };
-                          } else {
-                            autoStart = { lat: selected[0].lat, lng: selected[0].lng, address: selected[0].name };
-                          }
-                          setStartPointCoords(autoStart);
-                          setFormData(prev => ({...prev, startPoint: `${autoStart.lat},${autoStart.lng}`}));
-                        }
-                        const optimized = optimizeStopOrder(selected, autoStart, isCircular);
-                        const newStops = [...optimized, ...disabled];
-                        setRoute({ ...route, stops: newStops, circular: isCircular, optimized: true, startPoint: autoStart.address, startPointCoords: autoStart });
-                        // Refresh map with new order
-                        const activeForMap = optimized.filter(s => s.lat && s.lng);
-                        setMapStops(activeForMap);
-                        showToast(`✅ ${t('route.routeCalculated')} (${optimized.length})`, 'success');
-                      }}
-                      style={{ flex: 1, padding: '6px 10px', borderRadius: '8px', border: 'none',
-                        background: '#7c3aed', color: 'white', 
-                        fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
-                    >{t('route.calcRoute')}</button>
+                    {startPointCoords && (
+                      <span style={{ fontSize: '10px', color: '#22c55e', fontWeight: 'bold' }}>▶ {(startPointCoords.address || '').substring(0, 20)}{(startPointCoords.address || '').length > 20 ? '...' : ''}</span>
                     )}
                   </div>
-                  {/* Row 2: Close */}
-                  <button
-                    onClick={() => setShowMapModal(false)}
-                    style={{ width: '100%', padding: '8px', borderRadius: '8px', border: 'none', background: '#374151', color: 'white', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}
-                  >{t('general.close')}</button>
+                  {/* Hint + Close */}
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <span style={{ flex: 1, fontSize: '9px', color: '#9ca3af', textAlign: 'center' }}>{t('route.tapStopForStart')}</span>
+                    <button
+                      onClick={() => setShowMapModal(false)}
+                      style={{ padding: '8px 24px', borderRadius: '8px', border: 'none', background: '#374151', color: 'white', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}
+                    >{t('general.close')}</button>
+                  </div>
                 </div>
               ) : (
               <p className="text-[9px] text-gray-400 p-2 text-center">
