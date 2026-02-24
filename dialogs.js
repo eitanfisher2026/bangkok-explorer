@@ -47,8 +47,16 @@
                 <div className="space-y-2">
                   {/* Name - full width, buttons below */}
                   <div>
-                    <label className="block text-xs font-bold mb-1">
+                    <label className="block text-xs font-bold mb-1" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       {t("places.placeName")} <span className="text-red-500">*</span>
+                      {isUnlocked && showEditLocationDialog && (
+                        <button type="button"
+                          onClick={() => setNewLocation({...newLocation, dedupOk: !newLocation.dedupOk})}
+                          style={{ marginLeft: '8px', padding: '1px 6px', fontSize: '9px', fontWeight: 'bold', borderRadius: '4px', border: 'none', cursor: 'pointer',
+                            background: newLocation.dedupOk ? '#22c55e' : '#e5e7eb', color: newLocation.dedupOk ? 'white' : '#9ca3af' }}
+                          title="Duplicate OK"
+                        >{newLocation.dedupOk ? '✓ Dup OK' : 'Dup?'}</button>
+                      )}
                     </label>
                     <input
                       type="text"
@@ -2908,48 +2916,69 @@
         )}
 
         {/* Bulk Dedup Results Dialog */}
-        {bulkDedupResults && bulkDedupResults.length > 0 && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-            <div style={{ background: 'white', borderRadius: '16px', maxWidth: '440px', width: '100%', maxHeight: '85vh', overflow: 'auto', padding: '16px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <h3 style={{ fontSize: '15px', fontWeight: 'bold' }}>🔍 {t('dedup.title')} ({bulkDedupResults.length})</h3>
-                <button onClick={() => setBulkDedupResults(null)} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#9ca3af' }}>✕</button>
-              </div>
-              
-              {bulkDedupResults.map((cluster, ci) => {
-                // Collect all places in this cluster (main + matches)
+        {(() => {
+          const filtered = bulkDedupResults?.filter(cluster => {
+            const all = [cluster.loc, ...cluster.matches];
+            return !all.every(p => p.dedupOk);
+          }) || [];
+          return filtered.length > 0 && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'white', zIndex: 10000, display: 'flex', flexDirection: 'column' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '2px solid #eab308', background: 'linear-gradient(135deg, #fefce8, #fef9c3)' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#92400e' }}>🔍 {t('dedup.title')} ({filtered.length})</h3>
+              <button onClick={() => setBulkDedupResults(null)} style={{ padding: '6px 14px', background: 'linear-gradient(135deg, #6b7280, #4b5563)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', color: 'white' }}>
+                {t('dedup.close')} ✕
+              </button>
+            </div>
+            
+            {/* Scrollable content */}
+            <div style={{ flex: 1, overflow: 'auto', padding: '12px 16px' }}>
+              {filtered.map((cluster, ci) => {
                 const allPlaces = [cluster.loc, ...cluster.matches];
                 return (
-                <div key={ci} style={{ marginBottom: '12px', padding: '10px', background: '#fefce8', border: '2px solid #eab308', borderRadius: '12px' }}>
-                  <div style={{ fontSize: '9px', color: '#92400e', fontWeight: 'bold', marginBottom: '6px', textAlign: 'center' }}>
+                <div key={ci} style={{ marginBottom: '16px', padding: '12px', background: '#fefce8', border: '2px solid #eab308', borderRadius: '14px' }}>
+                  <div style={{ fontSize: '10px', color: '#92400e', fontWeight: 'bold', marginBottom: '8px', textAlign: 'center' }}>
                     {allPlaces.length} {t('route.places')} · {cluster.matches[0]?._distance || 0}m
                   </div>
                   {allPlaces.map((loc, li) => {
                     const interest = allInterestOptions.find(o => loc.interests?.includes(o.id));
                     const icon = interest?.icon?.startsWith?.('data:') ? '📍' : (interest?.icon || '📍');
+                    const mapsUrl = loc.mapsUrl || (loc.lat && loc.lng ? `https://www.google.com/maps?q=${loc.lat},${loc.lng}` : '');
                     return (
-                    <div key={li} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px', marginBottom: '4px', background: 'white', borderRadius: '8px', border: '1px solid #fde68a', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
-                      <span style={{ fontSize: '16px' }}>{icon}</span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{loc.name}</div>
-                        <div style={{ fontSize: '9px', color: '#9ca3af' }}>{loc.description || loc.area || ''}</div>
+                    <div key={li} style={{ marginBottom: '6px', background: 'white', borderRadius: '10px', border: '1px solid #fde68a', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
+                        <span style={{ fontSize: '20px' }}>{icon}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#374151' }}>{loc.name}</div>
+                          <div style={{ fontSize: '10px', color: '#9ca3af' }}>{loc.description || ''}</div>
+                          {loc.address && <div style={{ fontSize: '9px', color: '#6b7280', marginTop: '2px' }}>{loc.address}</div>}
+                        </div>
                       </div>
-                      <button
-                        onClick={() => mergeDedupLocations(allPlaces.find(p => p.id !== loc.id)?.id || cluster.loc.id, loc.id)}
-                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: 'bold', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                        🗑️
-                      </button>
+                      {/* Action buttons row */}
+                      <div style={{ display: 'flex', gap: '4px', padding: '0 8px 8px', direction: 'ltr' }}>
+                        {mapsUrl && (
+                          <a href={mapsUrl} target="_blank" rel="noopener noreferrer"
+                            style={{ padding: '5px 10px', fontSize: '10px', fontWeight: 'bold', background: '#22c55e', color: 'white', border: 'none', borderRadius: '6px', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                            🗺️ Google Maps
+                          </a>
+                        )}
+                        {loc.lat && loc.lng && (
+                          <span style={{ padding: '5px 8px', fontSize: '9px', color: '#6b7280', background: '#f3f4f6', borderRadius: '6px' }}>
+                            {loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}
+                          </span>
+                        )}
+                        <button
+                          onClick={() => mergeDedupLocations(allPlaces.find(p => p.id !== loc.id)?.id || cluster.loc.id, loc.id)}
+                          style={{ marginLeft: 'auto', padding: '5px 12px', fontSize: '11px', fontWeight: 'bold', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                          🗑️ {t('dedup.remove')}
+                        </button>
+                      </div>
                     </div>
                     );
                   })}
                 </div>
                 );
               })}
-              
-              <button onClick={() => setBulkDedupResults(null)}
-                style={{ width: '100%', padding: '10px', background: 'linear-gradient(135deg, #6b7280, #4b5563)', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', color: 'white', marginTop: '4px' }}>
-                {t('dedup.close')}
-              </button>
             </div>
           </div>
-        )}
+        );})()}

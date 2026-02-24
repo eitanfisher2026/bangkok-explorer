@@ -4609,7 +4609,8 @@
       address: loc.address || '',
       uploadedImage: loc.uploadedImage || null,
       imageUrls: loc.imageUrls || [],
-      locked: !!loc.locked
+      locked: !!loc.locked,
+      dedupOk: !!loc.dedupOk
     };
     
     setNewLocation(editFormData);
@@ -5356,6 +5357,7 @@
       custom: true,
       status: 'active',
       locked: locData.locked || false,
+      dedupOk: locData.dedupOk || false,
       addedAt: new Date().toISOString(),
       cityId: selectedCityId
     };
