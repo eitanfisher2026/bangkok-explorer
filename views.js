@@ -1963,7 +1963,7 @@
               {isUnlocked && customLocations.length > 1 && (
                 <button
                   onClick={scanAllDuplicates}
-                  style={{ marginLeft: 'auto', padding: '3px 8px', fontSize: '10px', fontWeight: 'bold', background: '#fef3c7', color: '#92400e', border: '1.5px solid #f59e0b', borderRadius: '8px', cursor: 'pointer' }}
+                  style={{ marginLeft: 'auto', padding: '5px 12px', fontSize: '11px', fontWeight: 'bold', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
                 >🔍 {t('dedup.scanButton')}</button>
               )}
             </div>
@@ -3388,7 +3388,7 @@
                 const isDefault = systemParams[p.key] === def;
                 const isToggle = p.min === 0 && p.max === 1 && p.step === 1;
                 return (
-                <div key={p.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', background: isDefault ? '#f9fafb' : '#fef3c7', borderRadius: '8px', border: isDefault ? '1px solid #e5e7eb' : '2px solid #f59e0b' }}>
+                <div key={p.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', background: isDefault ? '#f9fafb' : '#fffbeb', borderRadius: '8px', border: '1px solid #e5e7eb', borderLeft: isDefault ? '1px solid #e5e7eb' : '4px solid #f59e0b' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#374151' }}>{p.label}</div>
                     <div style={{ fontSize: '10px', color: '#9ca3af' }}>{p.desc}</div>

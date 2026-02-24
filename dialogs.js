@@ -2917,34 +2917,27 @@
               </div>
               
               {bulkDedupResults.map((cluster, ci) => {
-                const mainLoc = cluster.loc;
-                const mainInterest = allInterestOptions.find(o => mainLoc.interests?.includes(o.id));
+                // Collect all places in this cluster (main + matches)
+                const allPlaces = [cluster.loc, ...cluster.matches];
                 return (
                 <div key={ci} style={{ marginBottom: '12px', padding: '10px', background: '#fefce8', border: '2px solid #eab308', borderRadius: '12px' }}>
-                  {/* Main location (keeper) */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
-                    <span style={{ fontSize: '16px' }}>{mainInterest?.icon?.startsWith?.('data:') ? '📍' : (mainInterest?.icon || '📍')}</span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#92400e' }}>{mainLoc.name}</div>
-                      <div style={{ fontSize: '9px', color: '#9ca3af' }}>{mainLoc.description || ''}</div>
-                    </div>
-                    <span style={{ fontSize: '9px', background: '#22c55e', color: 'white', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>{t('dedup.keep')}</span>
+                  <div style={{ fontSize: '9px', color: '#92400e', fontWeight: 'bold', marginBottom: '6px', textAlign: 'center' }}>
+                    {allPlaces.length} {t('route.places')} · {cluster.matches[0]?._distance || 0}m
                   </div>
-                  
-                  {/* Duplicate matches */}
-                  {cluster.matches.map((dup, di) => {
-                    const dupInterest = allInterestOptions.find(o => dup.interests?.includes(o.id));
+                  {allPlaces.map((loc, li) => {
+                    const interest = allInterestOptions.find(o => loc.interests?.includes(o.id));
+                    const icon = interest?.icon?.startsWith?.('data:') ? '📍' : (interest?.icon || '📍');
                     return (
-                    <div key={di} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', marginBottom: '4px', background: 'white', borderRadius: '8px', border: '1px solid #fde68a', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
-                      <span style={{ fontSize: '14px' }}>{dupInterest?.icon?.startsWith?.('data:') ? '📍' : (dupInterest?.icon || '📍')}</span>
+                    <div key={li} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px', marginBottom: '4px', background: 'white', borderRadius: '8px', border: '1px solid #fde68a', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
+                      <span style={{ fontSize: '16px' }}>{icon}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '12px', fontWeight: '600', color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dup.name}</div>
-                        <div style={{ fontSize: '9px', color: '#9ca3af' }}>{dup._distance}m</div>
+                        <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{loc.name}</div>
+                        <div style={{ fontSize: '9px', color: '#9ca3af' }}>{loc.description || loc.area || ''}</div>
                       </div>
                       <button
-                        onClick={() => mergeDedupLocations(mainLoc.id, dup.id)}
-                        style={{ padding: '4px 8px', fontSize: '10px', fontWeight: 'bold', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                        🗑️ {t('dedup.remove')}
+                        onClick={() => mergeDedupLocations(allPlaces.find(p => p.id !== loc.id)?.id || cluster.loc.id, loc.id)}
+                        style={{ padding: '5px 10px', fontSize: '11px', fontWeight: 'bold', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        🗑️
                       </button>
                     </div>
                     );
@@ -2954,7 +2947,7 @@
               })}
               
               <button onClick={() => setBulkDedupResults(null)}
-                style={{ width: '100%', padding: '10px', background: '#f3f4f6', border: '2px solid #d1d5db', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', color: '#6b7280', marginTop: '4px' }}>
+                style={{ width: '100%', padding: '10px', background: 'linear-gradient(135deg, #6b7280, #4b5563)', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', color: 'white', marginTop: '4px' }}>
                 {t('dedup.close')}
               </button>
             </div>
