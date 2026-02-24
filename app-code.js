@@ -5481,7 +5481,7 @@ const FouFouApp = () => {
                           fontSize: '12px', flexShrink: 0, color: isSkipped ? '#22c55e' : '#dc2626'
                         }}
                         title={isSkipped ? t('trail.unskip') : t('trail.skip')}
-                      >{isSkipped ? '↩' : '✕'}</button>
+                      >{isSkipped ? '▶️' : '⏸️'}</button>
                     </div>
                     );
                   })}
@@ -11608,7 +11608,7 @@ const FouFouApp = () => {
               </div>
               
               {/* Footer Buttons */}
-              <div className="p-3 border-t flex gap-2">
+              <div className="p-3 border-t flex gap-2" style={{ direction: 'ltr' }}>
                 <button
                   onClick={handleClose}
                   className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg font-bold text-sm text-gray-600 hover:bg-gray-50"
@@ -11618,7 +11618,7 @@ const FouFouApp = () => {
                   disabled={reviewDialog.myRating === 0 && !reviewDialog.myText.trim()}
                   className="flex-1 px-4 py-2 rounded-lg font-bold text-sm text-white"
                   style={{ background: (reviewDialog.myRating > 0 || reviewDialog.myText.trim()) ? 'linear-gradient(135deg, #f59e0b, #d97706)' : '#d1d5db', cursor: (reviewDialog.myRating > 0 || reviewDialog.myText.trim()) ? 'pointer' : 'not-allowed' }}
-                >⭐ {t('reviews.save')}</button>
+                >{t('reviews.save')} ⭐</button>
               </div>
             </div>
           </div>

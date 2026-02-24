@@ -262,7 +262,7 @@
                           fontSize: '12px', flexShrink: 0, color: isSkipped ? '#22c55e' : '#dc2626'
                         }}
                         title={isSkipped ? t('trail.unskip') : t('trail.skip')}
-                      >{isSkipped ? '↩' : '✕'}</button>
+                      >{isSkipped ? '▶️' : '⏸️'}</button>
                     </div>
                     );
                   })}
