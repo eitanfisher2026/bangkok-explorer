@@ -1733,19 +1733,30 @@ const FouFouApp = () => {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   };
 
-  const [dedupMatches, setDedupMatches] = useState(null); // { google: [], custom: [], lat, lng, interests }
+  const [bulkDedupResults, setBulkDedupResults] = useState(null); // [{ loc, matches: [{...loc, _distance}] }]
   
   const findNearbyDuplicates = async (lat, lng, interests) => {
     if (!lat || !lng || !interests?.length) return null;
     const radius = sp.dedupRadiusMeters || 50;
     const results = { google: [], custom: [], lat, lng, interests };
     
+    const expandedInterests = new Set(interests);
+    for (const opt of allInterestOptions) {
+      const related = interestConfig[opt.id]?.dedupRelated || opt.dedupRelated || [];
+      if (interests.includes(opt.id)) {
+        related.forEach(r => expandedInterests.add(r));
+      }
+      if (related.some(r => interests.includes(r))) {
+        expandedInterests.add(opt.id);
+      }
+    }
+    
     if (sp.dedupCustomEnabled) {
       for (const loc of customLocations) {
         if (!loc.lat || !loc.lng) continue;
         const dist = calcDistance(lat, lng, loc.lat, loc.lng);
         if (dist <= radius) {
-          const sharedInterest = loc.interests?.some(i => interests.includes(i));
+          const sharedInterest = loc.interests?.some(i => expandedInterests.has(i));
           if (sharedInterest) {
             results.custom.push({ ...loc, _distance: Math.round(dist) });
           }
@@ -1757,47 +1768,65 @@ const FouFouApp = () => {
       try {
         const interestToGP = window.BKK.interestToGooglePlaces || {};
         const googleTypes = [];
-        for (const interest of interests) {
+        const blacklistWords = [];
+        for (const interest of expandedInterests) {
           const types = interestToGP[interest];
           if (types) googleTypes.push(...types);
+          const cfg = interestConfig[interest];
+          if (cfg?.blacklist) {
+            blacklistWords.push(...cfg.blacklist.map(w => w.toLowerCase()));
+          }
+          const ci = customInterests.find(c => c.id === interest);
+          if (ci?.baseCategory && interestConfig[ci.baseCategory]?.blacklist) {
+            blacklistWords.push(...interestConfig[ci.baseCategory].blacklist.map(w => w.toLowerCase()));
+          }
         }
         const uniqueTypes = [...new Set(googleTypes)].slice(0, 5);
+        const uniqueBlacklist = [...new Set(blacklistWords)];
         
-        const body = {
-          locationRestriction: {
-            circle: {
-              center: { latitude: lat, longitude: lng },
-              radius: Math.max(radius, 50) // Google minimum is ~50m
-            }
-          },
-          maxResultCount: 5
-        };
-        if (uniqueTypes.length > 0) body.includedTypes = uniqueTypes;
-        
-        const response = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
-            'X-Goog-FieldMask': 'places.displayName,places.location,places.formattedAddress,places.rating,places.userRatingCount,places.id,places.types,places.googleMapsUri'
-          },
-          body: JSON.stringify(body)
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          results.google = (data.places || []).map(p => ({
-            name: p.displayName?.text || '',
-            lat: p.location?.latitude,
-            lng: p.location?.longitude,
-            address: p.formattedAddress || '',
-            rating: p.rating || 0,
-            ratingCount: p.userRatingCount || 0,
-            googlePlaceId: p.id,
-            mapsUrl: p.googleMapsUri || '',
-            types: p.types || [],
-            _distance: Math.round(calcDistance(lat, lng, p.location?.latitude || 0, p.location?.longitude || 0))
-          }));
+        if (uniqueTypes.length > 0) {
+          const body = {
+            locationRestriction: {
+              circle: {
+                center: { latitude: lat, longitude: lng },
+                radius: Math.max(radius, 50)
+              }
+            },
+            includedTypes: uniqueTypes,
+            maxResultCount: 5
+          };
+          
+          const response = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
+              'X-Goog-FieldMask': 'places.displayName,places.location,places.formattedAddress,places.rating,places.userRatingCount,places.id,places.types,places.googleMapsUri'
+            },
+            body: JSON.stringify(body)
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            results.google = (data.places || [])
+              .filter(p => {
+                if (uniqueBlacklist.length === 0) return true;
+                const name = (p.displayName?.text || '').toLowerCase();
+                return !uniqueBlacklist.some(word => name.includes(word));
+              })
+              .map(p => ({
+                name: p.displayName?.text || '',
+                lat: p.location?.latitude,
+                lng: p.location?.longitude,
+                address: p.formattedAddress || '',
+                rating: p.rating || 0,
+                ratingCount: p.userRatingCount || 0,
+                googlePlaceId: p.id,
+                mapsUrl: p.googleMapsUri || '',
+                types: p.types || [],
+                _distance: Math.round(calcDistance(lat, lng, p.location?.latitude || 0, p.location?.longitude || 0))
+              }));
+          }
         }
       } catch (e) {
       }
@@ -4515,10 +4544,8 @@ const FouFouApp = () => {
     localStorage.removeItem('foufou_active_trail');
   };
 
-  const dedupPendingRef = React.useRef(null); // { closeAfter, closeQuickCapture }
-  
   const saveWithDedupCheck = async (closeAfter = true, closeQuickCapture = false) => {
-    const loc = newLocation;
+    const loc = { ...newLocation };
     if (!loc.name?.trim() || !loc.interests?.length) {
       addCustomLocation(closeAfter);
       return;
@@ -4529,61 +4556,158 @@ const FouFouApp = () => {
       return;
     }
     
-    const matches = await findNearbyDuplicates(loc.lat, loc.lng, loc.interests);
-    if (matches && (matches.google.length > 0 || matches.custom.length > 0)) {
-      dedupPendingRef.current = { closeAfter, closeQuickCapture };
-      setDedupMatches(matches);
-      return; // Dialog will handle the rest
+    if (closeQuickCapture) setShowQuickCapture(false);
+    
+    try {
+      const matches = await findNearbyDuplicates(loc.lat, loc.lng, loc.interests);
+      
+      if (matches && matches.custom.length > 0) {
+        const dup = matches.custom[0];
+        const newInterests = loc.interests.filter(i => !dup.interests?.includes(i));
+        
+        if (newInterests.length > 0) {
+          const mergedInterests = [...(dup.interests || []), ...newInterests];
+          const updated = customLocations.map(l => 
+            l.id === dup.id ? { ...l, interests: mergedInterests } : l
+          );
+          setCustomLocations(updated);
+          
+          if (isFirebaseAvailable && database && dup.firebaseKey) {
+            database.ref(`cities/${selectedCityId}/locations/${dup.firebaseKey}/interests`).set(mergedInterests);
+          }
+          
+          const interestNames = newInterests.map(id => {
+            const opt = allInterestOptions.find(o => o.id === id);
+            return opt ? (tLabel(opt) || id) : id;
+          }).join(', ');
+          showToast(`🔗 "${dup.name}" +${interestNames}`, 'success', 4000);
+        } else {
+          showToast(`⚠️ ${t('dedup.duplicateSkipped')}: "${dup.name}" (${dup._distance}m)`, 'warning', 4000);
+        }
+        
+        if (loc.uploadedImage) {
+          try { window.BKK.saveImageToDevice?.(loc.uploadedImage, dup.name); } catch(e) {}
+        }
+        return;
+      }
+      
+      if (matches && matches.google.length > 0) {
+        const best = matches.google.sort((a, b) => a._distance - b._distance || (b.rating - a.rating))[0];
+        const googleData = {
+          ...loc,
+          name: best.name,
+          lat: best.lat || loc.lat,
+          lng: best.lng || loc.lng,
+          address: best.address || '',
+          mapsUrl: best.mapsUrl || '',
+          description: `⭐ ${best.rating?.toFixed(1) || 'N/A'} (${best.ratingCount || 0})`,
+          googlePlace: true,
+          googlePlaceId: best.googlePlaceId || ''
+        };
+        addCustomLocation(closeAfter, googleData);
+        showToast(`📍 ${t('dedup.googleMatch')}: ${best.name}`, 'success', 4000);
+        return;
+      }
+    } catch (e) {
     }
     
     addCustomLocation(closeAfter);
-    if (closeQuickCapture) { setShowQuickCapture(false); showToast('✅ ' + t('trail.saved'), 'success'); }
-  };
-  
-  const dedupUseGooglePlace = (place) => {
-    const pending = dedupPendingRef.current;
-    setNewLocation(prev => ({
-      ...prev,
-      name: place.name,
-      lat: place.lat,
-      lng: place.lng,
-      address: place.address,
-      mapsUrl: place.mapsUrl || '',
-      description: `⭐ ${place.rating?.toFixed(1) || 'N/A'} (${place.ratingCount || 0})`,
-      googlePlace: true
-    }));
-    setDedupMatches(null);
-    setTimeout(() => {
-      addCustomLocation(pending?.closeAfter ?? true);
-      if (pending?.closeQuickCapture) { setShowQuickCapture(false); showToast('✅ ' + t('trail.saved'), 'success'); }
-    }, 50);
-  };
-  
-  const dedupAddAsNew = () => {
-    const pending = dedupPendingRef.current;
-    setDedupMatches(null);
-    addCustomLocation(pending?.closeAfter ?? true);
-    if (pending?.closeQuickCapture) { setShowQuickCapture(false); showToast('✅ ' + t('trail.saved'), 'success'); }
+    if (closeQuickCapture) showToast('✅ ' + t('trail.saved'), 'success');
   };
 
-  const addCustomLocation = (closeAfter = true) => {
-    if (!newLocation.name.trim() || newLocation.interests.length === 0) {
+  const scanAllDuplicates = () => {
+    const radius = sp.dedupRadiusMeters || 50;
+    const locs = customLocations.filter(l => l.lat && l.lng);
+    const clusters = [];
+    const seen = new Set();
+    
+    const relatedMap = {};
+    for (const opt of allInterestOptions) {
+      const related = interestConfig[opt.id]?.dedupRelated || opt.dedupRelated || [];
+      if (!relatedMap[opt.id]) relatedMap[opt.id] = new Set();
+      related.forEach(r => {
+        relatedMap[opt.id].add(r);
+        if (!relatedMap[r]) relatedMap[r] = new Set();
+        relatedMap[r].add(opt.id);
+      });
+    }
+    
+    const interestsOverlap = (a, b) => {
+      if (!a?.length || !b?.length) return false;
+      for (const ia of a) {
+        if (b.includes(ia)) return true;
+        const rel = relatedMap[ia];
+        if (rel && b.some(ib => rel.has(ib))) return true;
+      }
+      return false;
+    };
+    
+    for (let i = 0; i < locs.length; i++) {
+      if (seen.has(locs[i].id)) continue;
+      const matches = [];
+      for (let j = i + 1; j < locs.length; j++) {
+        if (seen.has(locs[j].id)) continue;
+        const dist = calcDistance(locs[i].lat, locs[i].lng, locs[j].lat, locs[j].lng);
+        if (dist <= radius && interestsOverlap(locs[i].interests, locs[j].interests)) {
+          matches.push({ ...locs[j], _distance: Math.round(dist) });
+          seen.add(locs[j].id);
+        }
+      }
+      if (matches.length > 0) {
+        seen.add(locs[i].id);
+        clusters.push({ loc: locs[i], matches });
+      }
+    }
+    
+    setBulkDedupResults(clusters);
+    if (clusters.length === 0) {
+      showToast('✅ ' + t('dedup.noDuplicates'), 'success');
+    } else {
+      showToast(`🔍 ${clusters.length} ${t('dedup.clustersFound')}`, 'info');
+    }
+  };
+
+  const mergeDedupLocations = (keepId, removeId) => {
+    const remove = customLocations.find(l => l.id === removeId);
+    if (!remove) return;
+    
+    const updated = customLocations.filter(l => l.id !== removeId);
+    setCustomLocations(updated);
+    
+    if (isFirebaseAvailable && database && remove.firebaseKey) {
+      database.ref(`cities/${selectedCityId}/locations/${remove.firebaseKey}`).remove();
+    }
+    
+    setBulkDedupResults(prev => {
+      if (!prev) return null;
+      return prev.map(c => ({
+        ...c,
+        matches: c.matches.filter(m => m.id !== removeId)
+      })).filter(c => c.loc.id !== removeId && c.matches.length > 0);
+    });
+    
+    showToast(`🗑️ ${remove.name} → ${t('dedup.merged')}`, 'success');
+  };
+
+  const addCustomLocation = (closeAfter = true, overrideData = null) => {
+    const locData = overrideData || newLocation;
+    if (!locData.name?.trim() || !locData.interests?.length) {
       return; // Just don't add if validation fails
     }
     
     const exists = customLocations.find(loc => 
-      loc.name.toLowerCase().trim() === newLocation.name.toLowerCase().trim()
+      loc.name.toLowerCase().trim() === locData.name.toLowerCase().trim()
     );
     if (exists) {
-      showToast(`⚠️ "${newLocation.name}" ${t("places.alreadyInList")}`, 'warning');
+      showToast(`⚠️ "${locData.name}" ${t("places.alreadyInList")}`, 'warning');
     }
     
-    let lat = newLocation.lat;
-    let lng = newLocation.lng;
+    let lat = locData.lat;
+    let lng = locData.lng;
     let outsideArea = false;
     let hasCoordinates = (lat !== null && lng !== null && lat !== 0 && lng !== 0);
     
-    let finalAreas = newLocation.areas || (newLocation.area ? [newLocation.area] : []);
+    let finalAreas = locData.areas || (locData.area ? [locData.area] : []);
     if (hasCoordinates) {
       const detected = window.BKK.getAreasForCoordinates(lat, lng);
       if (detected.length > 0) {
@@ -4594,7 +4718,7 @@ const FouFouApp = () => {
         if (outsideArea) {
           const areaNames = finalAreas.map(aId => areaOptions.find(a => a.id === aId)).filter(Boolean).map(a => tLabel(a)).join(', ');
           showToast(
-            `⚠️ ${newLocation.name.trim()} — ${t("toast.outsideAreaWarning")} (${areaNames})`,
+            `⚠️ ${locData.name.trim()} — ${t("toast.outsideAreaWarning")} (${areaNames})`,
             'warning'
           );
         }
@@ -4605,23 +4729,23 @@ const FouFouApp = () => {
     const newId = Date.now();
     const locationToAdd = {
       id: newId,
-      name: newLocation.name.trim(),
-      description: newLocation.description.trim() || newLocation.notes?.trim() || t('general.addedByUser'),
-      notes: newLocation.notes?.trim() || '',
+      name: locData.name.trim(),
+      description: (locData.description || '').trim() || (locData.notes || '').trim() || t('general.addedByUser'),
+      notes: (locData.notes || '').trim(),
       area: finalAreas[0],
       areas: finalAreas,
-      interests: newLocation.interests,
+      interests: locData.interests,
       lat: lat,
       lng: lng,
-      mapsUrl: newLocation.mapsUrl || '',
-      address: newLocation.address || '',
-      uploadedImage: newLocation.uploadedImage || null,
-      imageUrls: newLocation.imageUrls || [],
+      mapsUrl: locData.mapsUrl || '',
+      address: locData.address || '',
+      uploadedImage: locData.uploadedImage || null,
+      imageUrls: locData.imageUrls || [],
       outsideArea: outsideArea, // Flag for outside area
       missingCoordinates: !hasCoordinates, // Flag for missing coordinates
       custom: true,
       status: 'active',
-      locked: newLocation.locked || false,
+      locked: locData.locked || false,
       addedAt: new Date().toISOString(),
       cityId: selectedCityId
     };
@@ -6975,6 +7099,12 @@ const FouFouApp = () => {
               >
                 {t("general.help")}
               </button>
+              {isUnlocked && customLocations.length > 1 && (
+                <button
+                  onClick={scanAllDuplicates}
+                  style={{ marginLeft: 'auto', padding: '3px 8px', fontSize: '10px', fontWeight: 'bold', background: '#fef3c7', color: '#92400e', border: '1.5px solid #f59e0b', borderRadius: '8px', cursor: 'pointer' }}
+                >🔍 {t('dedup.scanButton')}</button>
+              )}
             </div>
             
             {/* Custom Locations Section - Tabbed */}
@@ -7275,7 +7405,8 @@ const FouFouApp = () => {
                   maxStops: config.maxStops || interest.maxStops || 10,
                   routeSlot: config.routeSlot || interest.routeSlot || 'any',
                   minGap: config.minGap || interest.minGap || 1,
-                  bestTime: config.bestTime || interest.bestTime || 'anytime'
+                  bestTime: config.bestTime || interest.bestTime || 'anytime',
+                  dedupRelated: config.dedupRelated || interest.dedupRelated || []
                 });
                 setShowAddInterestDialog(true);
               };
@@ -9202,7 +9333,7 @@ const FouFouApp = () => {
                 <button
                   onClick={() => {
                     setShowAddInterestDialog(false);
-                    setNewInterest({ label: '', labelEn: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10, routeSlot: 'any', minGap: 1, bestTime: 'anytime' });
+                    setNewInterest({ label: '', labelEn: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10, routeSlot: 'any', minGap: 1, bestTime: 'anytime', dedupRelated: [] });
                     setEditingCustomInterest(null);
                   }}
                   className="text-xl hover:bg-white hover:bg-opacity-20 rounded-full w-7 h-7 flex items-center justify-center"
@@ -9442,6 +9573,28 @@ const FouFouApp = () => {
                   </div>
                 </div>
 
+                {/* Related interests for dedup */}
+                {isUnlocked && (
+                <div style={{ padding: '8px 14px', background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: '10px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#7c3aed', marginBottom: '4px' }}>🔗 {t('interests.dedupRelated')}</div>
+                  <div style={{ fontSize: '9px', color: '#9ca3af', marginBottom: '6px' }}>{t('interests.dedupRelatedDesc')}</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                    {allInterestOptions.filter(o => o.id !== (editingCustomInterest?.id || newInterest.id) && interestStatus[o.id] !== false).map(o => {
+                      const sel = (newInterest.dedupRelated || []).includes(o.id);
+                      return (
+                        <button key={o.id} type="button"
+                          onClick={() => {
+                            const cur = newInterest.dedupRelated || [];
+                            setNewInterest({...newInterest, dedupRelated: sel ? cur.filter(x => x !== o.id) : [...cur, o.id]});
+                          }}
+                          style={{ padding: '2px 6px', fontSize: '9px', fontWeight: 'bold', borderRadius: '6px', border: sel ? '2px solid #8b5cf6' : '1px solid #e5e7eb', background: sel ? '#ede9fe' : 'white', color: sel ? '#6d28d9' : '#9ca3af', cursor: 'pointer' }}
+                        >{o.icon?.startsWith?.('data:') ? '📍' : (o.icon || '📍')} {tLabel(o)}</button>
+                      );
+                    })}
+                  </div>
+                </div>
+                )}
+
                 {/* Counter for auto-naming — only in edit mode + admin */}
                 {editingCustomInterest && isUnlocked && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '10px', direction: 'rtl' }}>
@@ -9626,6 +9779,7 @@ const FouFouApp = () => {
                             configData.routeSlot = newInterest.routeSlot || 'any';
                             configData.minGap = newInterest.minGap || 1;
                             configData.bestTime = newInterest.bestTime || 'anytime';
+                            configData.dedupRelated = newInterest.dedupRelated || [];
                             if (isUnlocked) {
                               configData.labelOverride = newInterest.label.trim();
                               configData.labelEnOverride = (newInterest.labelEn || '').trim();
@@ -9654,7 +9808,7 @@ const FouFouApp = () => {
                               maxStops: newInterest.maxStops || 10,
                               routeSlot: newInterest.routeSlot || 'any',
                               minGap: newInterest.minGap || 1,
-                              bestTime: newInterest.bestTime || 'anytime'
+                              bestTime: newInterest.bestTime || 'anytime', dedupRelated: newInterest.dedupRelated || []
                             };
                             delete updatedInterest.builtIn;
                             
@@ -9672,7 +9826,7 @@ const FouFouApp = () => {
                           
                           showToast(t('interests.interestUpdated'), 'success');
                           setShowAddInterestDialog(false);
-                          setNewInterest({ label: '', labelEn: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10, routeSlot: 'any', minGap: 1, bestTime: 'anytime' });
+                          setNewInterest({ label: '', labelEn: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10, routeSlot: 'any', minGap: 1, bestTime: 'anytime', dedupRelated: [] });
                           setEditingCustomInterest(null);
                           window._savingInterest = false;
                           return;
@@ -9704,11 +9858,11 @@ const FouFouApp = () => {
                               maxStops: newInterest.maxStops || 10,
                               routeSlot: newInterest.routeSlot || 'any',
                               minGap: newInterest.minGap || 1,
-                              bestTime: newInterest.bestTime || 'anytime'
+                              bestTime: newInterest.bestTime || 'anytime', dedupRelated: newInterest.dedupRelated || []
                           };
                           
                           setShowAddInterestDialog(false);
-                          setNewInterest({ label: '', labelEn: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10, routeSlot: 'any', minGap: 1, bestTime: 'anytime' });
+                          setNewInterest({ label: '', labelEn: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10, routeSlot: 'any', minGap: 1, bestTime: 'anytime', dedupRelated: [] });
                           setEditingCustomInterest(null);
                           
                           recentlyAddedRef.current.set(interestId, Date.now());
@@ -9755,7 +9909,7 @@ const FouFouApp = () => {
                         }
                         
                         setShowAddInterestDialog(false);
-                        setNewInterest({ label: '', labelEn: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10, routeSlot: 'any', minGap: 1, bestTime: 'anytime' });
+                        setNewInterest({ label: '', labelEn: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10, routeSlot: 'any', minGap: 1, bestTime: 'anytime', dedupRelated: [] });
                         setEditingCustomInterest(null);
                         window._savingInterest = false;
                       }}
@@ -9773,7 +9927,7 @@ const FouFouApp = () => {
                 <button
                   onClick={() => {
                     setShowAddInterestDialog(false);
-                    setNewInterest({ label: '', labelEn: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10, routeSlot: 'any', minGap: 1, bestTime: 'anytime' });
+                    setNewInterest({ label: '', labelEn: '', icon: '📍', searchMode: 'types', types: '', textSearch: '', blacklist: '', privateOnly: true, locked: false, scope: 'global', category: 'attraction', weight: 3, minStops: 1, maxStops: 10, routeSlot: 'any', minGap: 1, bestTime: 'anytime', dedupRelated: [] });
                     setEditingCustomInterest(null);
                   }}
                   className="px-5 py-2.5 rounded-lg bg-green-500 text-white text-sm font-bold hover:bg-green-600"
@@ -10688,7 +10842,21 @@ const FouFouApp = () => {
                   if (e.key === 'Enter') {
                     const hashedInput = await window.BKK.hashPassword(passwordInput);
                     if (hashedInput === adminPassword || passwordInput === adminPassword) {
+                      const userId = localStorage.getItem('bangkok_user_id');
+                      const userName = localStorage.getItem('bangkok_user_name') || 'Unknown';
+                      if (isFirebaseAvailable && database && userId) {
+                        if (passwordInput === adminPassword && hashedInput !== adminPassword) {
+                          database.ref('settings/adminPassword').set(hashedInput);
+                          setAdminPassword(hashedInput);
+                        }
+                        database.ref(`settings/adminUsers/${userId}`).set({
+                          addedAt: new Date().toISOString(),
+                          name: userName
+                        });
+                      }
                       setIsUnlocked(true);
+                      setIsCurrentUserAdmin(true);
+                      localStorage.setItem('bangkok_is_admin', 'true');
                       setShowVersionPasswordDialog(false);
                       setPasswordInput('');
                       setCurrentView('settings');
@@ -10705,7 +10873,21 @@ const FouFouApp = () => {
                   onClick={async () => {
                     const hashedInput = await window.BKK.hashPassword(passwordInput);
                     if (hashedInput === adminPassword || passwordInput === adminPassword) {
+                      const userId = localStorage.getItem('bangkok_user_id');
+                      const userName = localStorage.getItem('bangkok_user_name') || 'Unknown';
+                      if (isFirebaseAvailable && database && userId) {
+                        if (passwordInput === adminPassword && hashedInput !== adminPassword) {
+                          database.ref('settings/adminPassword').set(hashedInput);
+                          setAdminPassword(hashedInput);
+                        }
+                        database.ref(`settings/adminUsers/${userId}`).set({
+                          addedAt: new Date().toISOString(),
+                          name: userName
+                        });
+                      }
                       setIsUnlocked(true);
+                      setIsCurrentUserAdmin(true);
+                      localStorage.setItem('bangkok_is_admin', 'true');
                       setShowVersionPasswordDialog(false);
                       setPasswordInput('');
                       setCurrentView('settings');
@@ -11375,61 +11557,55 @@ const FouFouApp = () => {
           </div>
         )}
 
-        {/* ── Dedup Match Dialog ── */}
-        {dedupMatches && (
+        {/* Bulk Dedup Results Dialog */}
+        {bulkDedupResults && bulkDedupResults.length > 0 && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-            <div style={{ background: 'white', borderRadius: '16px', maxWidth: '400px', width: '100%', maxHeight: '80vh', overflow: 'auto', padding: '20px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '4px', textAlign: 'center' }}>🔍 {t('dedup.title')}</h3>
-              <p style={{ fontSize: '11px', color: '#6b7280', textAlign: 'center', marginBottom: '14px' }}>{t('dedup.subtitle')}</p>
+            <div style={{ background: 'white', borderRadius: '16px', maxWidth: '440px', width: '100%', maxHeight: '85vh', overflow: 'auto', padding: '16px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <h3 style={{ fontSize: '15px', fontWeight: 'bold' }}>🔍 {t('dedup.title')} ({bulkDedupResults.length})</h3>
+                <button onClick={() => setBulkDedupResults(null)} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#9ca3af' }}>✕</button>
+              </div>
               
-              {/* Google Places matches */}
-              {dedupMatches.google.map((place, i) => (
-                <button key={`g${i}`}
-                  onClick={() => dedupUseGooglePlace(place)}
-                  style={{ width: '100%', padding: '12px', marginBottom: '8px', background: 'linear-gradient(135deg, #eff6ff, #dbeafe)', border: '2px solid #3b82f6', borderRadius: '12px', cursor: 'pointer', textAlign: 'right', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '24px' }}>📍</span>
+              {bulkDedupResults.map((cluster, ci) => {
+                const mainLoc = cluster.loc;
+                const mainInterest = allInterestOptions.find(o => mainLoc.interests?.includes(o.id));
+                return (
+                <div key={ci} style={{ marginBottom: '12px', padding: '10px', background: '#fefce8', border: '2px solid #eab308', borderRadius: '12px' }}>
+                  {/* Main location (keeper) */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
+                    <span style={{ fontSize: '16px' }}>{mainInterest?.icon?.startsWith?.('data:') ? '📍' : (mainInterest?.icon || '📍')}</span>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#1e40af' }}>{place.name}</div>
-                      <div style={{ fontSize: '10px', color: '#6b7280' }}>
-                        {place.address && <span>{place.address.substring(0, 50)}</span>}
-                        {place.rating > 0 && <span> ⭐ {place.rating.toFixed(1)} ({place.ratingCount})</span>}
+                      <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#92400e' }}>{mainLoc.name}</div>
+                      <div style={{ fontSize: '9px', color: '#9ca3af' }}>{mainLoc.description || ''}</div>
+                    </div>
+                    <span style={{ fontSize: '9px', background: '#22c55e', color: 'white', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>{t('dedup.keep')}</span>
+                  </div>
+                  
+                  {/* Duplicate matches */}
+                  {cluster.matches.map((dup, di) => {
+                    const dupInterest = allInterestOptions.find(o => dup.interests?.includes(o.id));
+                    return (
+                    <div key={di} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', marginBottom: '4px', background: 'white', borderRadius: '8px', border: '1px solid #fde68a', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
+                      <span style={{ fontSize: '14px' }}>{dupInterest?.icon?.startsWith?.('data:') ? '📍' : (dupInterest?.icon || '📍')}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '12px', fontWeight: '600', color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dup.name}</div>
+                        <div style={{ fontSize: '9px', color: '#9ca3af' }}>{dup._distance}m</div>
                       </div>
+                      <button
+                        onClick={() => mergeDedupLocations(mainLoc.id, dup.id)}
+                        style={{ padding: '4px 8px', fontSize: '10px', fontWeight: 'bold', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        🗑️ {t('dedup.remove')}
+                      </button>
                     </div>
-                    <div style={{ fontSize: '10px', color: '#3b82f6', fontWeight: 'bold' }}>{place._distance}m</div>
-                  </div>
-                  <div style={{ fontSize: '10px', color: '#2563eb', fontWeight: 'bold', marginTop: '4px' }}>Google Places — {t('dedup.useThis')}</div>
-                </button>
-              ))}
+                    );
+                  })}
+                </div>
+                );
+              })}
               
-              {/* Custom locations matches */}
-              {dedupMatches.custom.map((loc, i) => (
-                <button key={`c${i}`}
-                  onClick={() => { setDedupMatches(null); showToast(`ℹ️ ${loc.name} — ${t('dedup.alreadyExists')}`, 'info'); }}
-                  style={{ width: '100%', padding: '12px', marginBottom: '8px', background: '#fefce8', border: '2px solid #eab308', borderRadius: '12px', cursor: 'pointer', textAlign: 'right', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '24px' }}>⚠️</span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#92400e' }}>{loc.name}</div>
-                      <div style={{ fontSize: '10px', color: '#6b7280' }}>{t('dedup.customExists')}</div>
-                    </div>
-                    <div style={{ fontSize: '10px', color: '#ca8a04', fontWeight: 'bold' }}>{loc._distance}m</div>
-                  </div>
-                </button>
-              ))}
-              
-              {/* Add as new button */}
-              <button
-                onClick={dedupAddAsNew}
-                style={{ width: '100%', padding: '12px', marginTop: '4px', background: '#f3f4f6', border: '2px solid #d1d5db', borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', color: '#6b7280' }}>
-                ➕ {t('dedup.addAsNew')}
-              </button>
-              
-              {/* Cancel */}
-              <button
-                onClick={() => setDedupMatches(null)}
-                style={{ width: '100%', padding: '8px', marginTop: '6px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: '#9ca3af' }}>
-                {t('general.cancel')}
+              <button onClick={() => setBulkDedupResults(null)}
+                style={{ width: '100%', padding: '10px', background: '#f3f4f6', border: '2px solid #d1d5db', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', color: '#6b7280', marginTop: '4px' }}>
+                {t('dedup.close')}
               </button>
             </div>
           </div>

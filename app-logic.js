@@ -1891,20 +1891,34 @@
   };
 
   // ── Duplicate Detection: find nearby Google Places + existing custom locations ──
-  const [dedupMatches, setDedupMatches] = useState(null); // { google: [], custom: [], lat, lng, interests }
+  const [bulkDedupResults, setBulkDedupResults] = useState(null); // [{ loc, matches: [{...loc, _distance}] }]
   
   const findNearbyDuplicates = async (lat, lng, interests) => {
     if (!lat || !lng || !interests?.length) return null;
     const radius = sp.dedupRadiusMeters || 50;
     const results = { google: [], custom: [], lat, lng, interests };
     
-    // 1. Check existing custom locations (same interest + within radius)
+    // Expand interests with dedupRelated (ONE level only, bidirectional)
+    const expandedInterests = new Set(interests);
+    for (const opt of allInterestOptions) {
+      const related = interestConfig[opt.id]?.dedupRelated || opt.dedupRelated || [];
+      // If this interest is in our ORIGINAL list, add its direct related
+      if (interests.includes(opt.id)) {
+        related.forEach(r => expandedInterests.add(r));
+      }
+      // If this interest lists one of our ORIGINAL interests as related (reverse link)
+      if (related.some(r => interests.includes(r))) {
+        expandedInterests.add(opt.id);
+      }
+    }
+    
+    // 1. Check existing custom locations (expanded interest + within radius)
     if (sp.dedupCustomEnabled) {
       for (const loc of customLocations) {
         if (!loc.lat || !loc.lng) continue;
         const dist = calcDistance(lat, lng, loc.lat, loc.lng);
         if (dist <= radius) {
-          const sharedInterest = loc.interests?.some(i => interests.includes(i));
+          const sharedInterest = loc.interests?.some(i => expandedInterests.has(i));
           if (sharedInterest) {
             results.custom.push({ ...loc, _distance: Math.round(dist) });
           }
@@ -1912,52 +1926,75 @@
       }
     }
     
-    // 2. Google Places Nearby Search (same interest types + within radius)
+    // 2. Google Places Nearby Search (only if expanded interests have Google types)
     if (sp.dedupGoogleEnabled && GOOGLE_PLACES_API_KEY) {
       try {
         const interestToGP = window.BKK.interestToGooglePlaces || {};
         const googleTypes = [];
-        for (const interest of interests) {
+        const blacklistWords = [];
+        for (const interest of expandedInterests) {
           const types = interestToGP[interest];
           if (types) googleTypes.push(...types);
+          // Collect blacklist from config (Firebase overrides + defaults)
+          const cfg = interestConfig[interest];
+          if (cfg?.blacklist) {
+            blacklistWords.push(...cfg.blacklist.map(w => w.toLowerCase()));
+          }
+          // Also check custom interest's base category
+          const ci = customInterests.find(c => c.id === interest);
+          if (ci?.baseCategory && interestConfig[ci.baseCategory]?.blacklist) {
+            blacklistWords.push(...interestConfig[ci.baseCategory].blacklist.map(w => w.toLowerCase()));
+          }
         }
         const uniqueTypes = [...new Set(googleTypes)].slice(0, 5);
+        const uniqueBlacklist = [...new Set(blacklistWords)];
         
-        const body = {
-          locationRestriction: {
-            circle: {
-              center: { latitude: lat, longitude: lng },
-              radius: Math.max(radius, 50) // Google minimum is ~50m
-            }
-          },
-          maxResultCount: 5
-        };
-        if (uniqueTypes.length > 0) body.includedTypes = uniqueTypes;
-        
-        const response = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
-            'X-Goog-FieldMask': 'places.displayName,places.location,places.formattedAddress,places.rating,places.userRatingCount,places.id,places.types,places.googleMapsUri'
-          },
-          body: JSON.stringify(body)
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          results.google = (data.places || []).map(p => ({
-            name: p.displayName?.text || '',
-            lat: p.location?.latitude,
-            lng: p.location?.longitude,
-            address: p.formattedAddress || '',
-            rating: p.rating || 0,
-            ratingCount: p.userRatingCount || 0,
-            googlePlaceId: p.id,
-            mapsUrl: p.googleMapsUri || '',
-            types: p.types || [],
-            _distance: Math.round(calcDistance(lat, lng, p.location?.latitude || 0, p.location?.longitude || 0))
-          }));
+        // Skip Google search if none of the expanded interests have Place Types
+        // (private-only interests → check only custom locations above)
+        if (uniqueTypes.length > 0) {
+          const body = {
+            locationRestriction: {
+              circle: {
+                center: { latitude: lat, longitude: lng },
+                radius: Math.max(radius, 50)
+              }
+            },
+            includedTypes: uniqueTypes,
+            maxResultCount: 5
+          };
+          
+          const response = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
+              'X-Goog-FieldMask': 'places.displayName,places.location,places.formattedAddress,places.rating,places.userRatingCount,places.id,places.types,places.googleMapsUri'
+            },
+            body: JSON.stringify(body)
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            results.google = (data.places || [])
+              .filter(p => {
+                // Apply blacklist: skip places whose name contains blacklisted words
+                if (uniqueBlacklist.length === 0) return true;
+                const name = (p.displayName?.text || '').toLowerCase();
+                return !uniqueBlacklist.some(word => name.includes(word));
+              })
+              .map(p => ({
+                name: p.displayName?.text || '',
+                lat: p.location?.latitude,
+                lng: p.location?.longitude,
+                address: p.formattedAddress || '',
+                rating: p.rating || 0,
+                ratingCount: p.userRatingCount || 0,
+                googlePlaceId: p.id,
+                mapsUrl: p.googleMapsUri || '',
+                types: p.types || [],
+                _distance: Math.round(calcDistance(lat, lng, p.location?.latitude || 0, p.location?.longitude || 0))
+              }));
+          }
         }
       } catch (e) {
         console.warn('[DEDUP] Google nearby search failed:', e.message);
@@ -5096,10 +5133,8 @@
   };
 
   // ── Save with duplicate detection ──
-  const dedupPendingRef = React.useRef(null); // { closeAfter, closeQuickCapture }
-  
   const saveWithDedupCheck = async (closeAfter = true, closeQuickCapture = false) => {
-    const loc = newLocation;
+    const loc = { ...newLocation };
     if (!loc.name?.trim() || !loc.interests?.length) {
       addCustomLocation(closeAfter);
       return;
@@ -5111,67 +5146,175 @@
       return;
     }
     
-    const matches = await findNearbyDuplicates(loc.lat, loc.lng, loc.interests);
-    if (matches && (matches.google.length > 0 || matches.custom.length > 0)) {
-      dedupPendingRef.current = { closeAfter, closeQuickCapture };
-      setDedupMatches(matches);
-      return; // Dialog will handle the rest
+    // Close UI immediately — don't make user wait for API
+    if (closeQuickCapture) setShowQuickCapture(false);
+    
+    // Background dedup check
+    try {
+      const matches = await findNearbyDuplicates(loc.lat, loc.lng, loc.interests);
+      
+      if (matches && matches.custom.length > 0) {
+        // Already in my places — merge any new interests, don't add duplicate
+        const dup = matches.custom[0];
+        const newInterests = loc.interests.filter(i => !dup.interests?.includes(i));
+        
+        if (newInterests.length > 0) {
+          // Merge new interests into existing place
+          const mergedInterests = [...(dup.interests || []), ...newInterests];
+          const updated = customLocations.map(l => 
+            l.id === dup.id ? { ...l, interests: mergedInterests } : l
+          );
+          setCustomLocations(updated);
+          
+          if (isFirebaseAvailable && database && dup.firebaseKey) {
+            database.ref(`cities/${selectedCityId}/locations/${dup.firebaseKey}/interests`).set(mergedInterests);
+          }
+          
+          const interestNames = newInterests.map(id => {
+            const opt = allInterestOptions.find(o => o.id === id);
+            return opt ? (tLabel(opt) || id) : id;
+          }).join(', ');
+          showToast(`🔗 "${dup.name}" +${interestNames}`, 'success', 4000);
+        } else {
+          showToast(`⚠️ ${t('dedup.duplicateSkipped')}: "${dup.name}" (${dup._distance}m)`, 'warning', 4000);
+        }
+        
+        // Save user's photo to device even if place is duplicate
+        if (loc.uploadedImage) {
+          try { window.BKK.saveImageToDevice?.(loc.uploadedImage, dup.name); } catch(e) {}
+        }
+        return;
+      }
+      
+      if (matches && matches.google.length > 0) {
+        // Save to my places with Google's name/data (user's photo is kept)
+        const best = matches.google.sort((a, b) => a._distance - b._distance || (b.rating - a.rating))[0];
+        const googleData = {
+          ...loc,
+          name: best.name,
+          lat: best.lat || loc.lat,
+          lng: best.lng || loc.lng,
+          address: best.address || '',
+          mapsUrl: best.mapsUrl || '',
+          description: `⭐ ${best.rating?.toFixed(1) || 'N/A'} (${best.ratingCount || 0})`,
+          googlePlace: true,
+          googlePlaceId: best.googlePlaceId || ''
+        };
+        addCustomLocation(closeAfter, googleData);
+        showToast(`📍 ${t('dedup.googleMatch')}: ${best.name}`, 'success', 4000);
+        return;
+      }
+    } catch (e) {
+      // Dedup check failed — save anyway, don't lose the place
     }
     
+    // No matches or check failed — save normally
     addCustomLocation(closeAfter);
-    if (closeQuickCapture) { setShowQuickCapture(false); showToast('✅ ' + t('trail.saved'), 'success'); }
-  };
-  
-  // Handle dedup choice: use Google place
-  const dedupUseGooglePlace = (place) => {
-    const pending = dedupPendingRef.current;
-    setNewLocation(prev => ({
-      ...prev,
-      name: place.name,
-      lat: place.lat,
-      lng: place.lng,
-      address: place.address,
-      mapsUrl: place.mapsUrl || '',
-      description: `⭐ ${place.rating?.toFixed(1) || 'N/A'} (${place.ratingCount || 0})`,
-      googlePlace: true
-    }));
-    setDedupMatches(null);
-    // Use setTimeout to let state update propagate
-    setTimeout(() => {
-      addCustomLocation(pending?.closeAfter ?? true);
-      if (pending?.closeQuickCapture) { setShowQuickCapture(false); showToast('✅ ' + t('trail.saved'), 'success'); }
-    }, 50);
-  };
-  
-  // Handle dedup choice: add as new (ignore matches)
-  const dedupAddAsNew = () => {
-    const pending = dedupPendingRef.current;
-    setDedupMatches(null);
-    addCustomLocation(pending?.closeAfter ?? true);
-    if (pending?.closeQuickCapture) { setShowQuickCapture(false); showToast('✅ ' + t('trail.saved'), 'success'); }
+    if (closeQuickCapture) showToast('✅ ' + t('trail.saved'), 'success');
   };
 
-  const addCustomLocation = (closeAfter = true) => {
-    if (!newLocation.name.trim() || newLocation.interests.length === 0) {
+  // Bulk dedup scan — find all suspected duplicate pairs
+  const scanAllDuplicates = () => {
+    const radius = sp.dedupRadiusMeters || 50;
+    const locs = customLocations.filter(l => l.lat && l.lng);
+    const clusters = [];
+    const seen = new Set();
+    
+    // Build related interest map (bidirectional)
+    const relatedMap = {};
+    for (const opt of allInterestOptions) {
+      const related = interestConfig[opt.id]?.dedupRelated || opt.dedupRelated || [];
+      if (!relatedMap[opt.id]) relatedMap[opt.id] = new Set();
+      related.forEach(r => {
+        relatedMap[opt.id].add(r);
+        if (!relatedMap[r]) relatedMap[r] = new Set();
+        relatedMap[r].add(opt.id);
+      });
+    }
+    
+    const interestsOverlap = (a, b) => {
+      if (!a?.length || !b?.length) return false;
+      for (const ia of a) {
+        if (b.includes(ia)) return true;
+        const rel = relatedMap[ia];
+        if (rel && b.some(ib => rel.has(ib))) return true;
+      }
+      return false;
+    };
+    
+    for (let i = 0; i < locs.length; i++) {
+      if (seen.has(locs[i].id)) continue;
+      const matches = [];
+      for (let j = i + 1; j < locs.length; j++) {
+        if (seen.has(locs[j].id)) continue;
+        const dist = calcDistance(locs[i].lat, locs[i].lng, locs[j].lat, locs[j].lng);
+        if (dist <= radius && interestsOverlap(locs[i].interests, locs[j].interests)) {
+          matches.push({ ...locs[j], _distance: Math.round(dist) });
+          seen.add(locs[j].id);
+        }
+      }
+      if (matches.length > 0) {
+        seen.add(locs[i].id);
+        clusters.push({ loc: locs[i], matches });
+      }
+    }
+    
+    setBulkDedupResults(clusters);
+    if (clusters.length === 0) {
+      showToast('✅ ' + t('dedup.noDuplicates'), 'success');
+    } else {
+      showToast(`🔍 ${clusters.length} ${t('dedup.clustersFound')}`, 'info');
+    }
+  };
+
+  // Merge: keep loc A, remove loc B
+  const mergeDedupLocations = (keepId, removeId) => {
+    const remove = customLocations.find(l => l.id === removeId);
+    if (!remove) return;
+    
+    // Remove from customLocations
+    const updated = customLocations.filter(l => l.id !== removeId);
+    setCustomLocations(updated);
+    
+    // Remove from Firebase
+    if (isFirebaseAvailable && database && remove.firebaseKey) {
+      database.ref(`cities/${selectedCityId}/locations/${remove.firebaseKey}`).remove();
+    }
+    
+    // Update bulk results
+    setBulkDedupResults(prev => {
+      if (!prev) return null;
+      return prev.map(c => ({
+        ...c,
+        matches: c.matches.filter(m => m.id !== removeId)
+      })).filter(c => c.loc.id !== removeId && c.matches.length > 0);
+    });
+    
+    showToast(`🗑️ ${remove.name} → ${t('dedup.merged')}`, 'success');
+  };
+
+  const addCustomLocation = (closeAfter = true, overrideData = null) => {
+    const locData = overrideData || newLocation;
+    if (!locData.name?.trim() || !locData.interests?.length) {
       return; // Just don't add if validation fails
     }
     
     // Check for duplicate name (warn only, don't block — auto-generated names may collide)
     const exists = customLocations.find(loc => 
-      loc.name.toLowerCase().trim() === newLocation.name.toLowerCase().trim()
+      loc.name.toLowerCase().trim() === locData.name.toLowerCase().trim()
     );
     if (exists) {
-      showToast(`⚠️ "${newLocation.name}" ${t("places.alreadyInList")}`, 'warning');
+      showToast(`⚠️ "${locData.name}" ${t("places.alreadyInList")}`, 'warning');
     }
     
     // Use provided coordinates (can be null)
-    let lat = newLocation.lat;
-    let lng = newLocation.lng;
+    let lat = locData.lat;
+    let lng = locData.lng;
     let outsideArea = false;
     let hasCoordinates = (lat !== null && lng !== null && lat !== 0 && lng !== 0);
     
     // Auto-detect areas from coordinates at save time
-    let finalAreas = newLocation.areas || (newLocation.area ? [newLocation.area] : []);
+    let finalAreas = locData.areas || (locData.area ? [locData.area] : []);
     if (hasCoordinates) {
       const detected = window.BKK.getAreasForCoordinates(lat, lng);
       if (detected.length > 0) {
@@ -5183,7 +5326,7 @@
         if (outsideArea) {
           const areaNames = finalAreas.map(aId => areaOptions.find(a => a.id === aId)).filter(Boolean).map(a => tLabel(a)).join(', ');
           showToast(
-            `⚠️ ${newLocation.name.trim()} — ${t("toast.outsideAreaWarning")} (${areaNames})`,
+            `⚠️ ${locData.name.trim()} — ${t("toast.outsideAreaWarning")} (${areaNames})`,
             'warning'
           );
         }
@@ -5194,23 +5337,23 @@
     const newId = Date.now();
     const locationToAdd = {
       id: newId,
-      name: newLocation.name.trim(),
-      description: newLocation.description.trim() || newLocation.notes?.trim() || t('general.addedByUser'),
-      notes: newLocation.notes?.trim() || '',
+      name: locData.name.trim(),
+      description: (locData.description || '').trim() || (locData.notes || '').trim() || t('general.addedByUser'),
+      notes: (locData.notes || '').trim(),
       area: finalAreas[0],
       areas: finalAreas,
-      interests: newLocation.interests,
+      interests: locData.interests,
       lat: lat,
       lng: lng,
-      mapsUrl: newLocation.mapsUrl || '',
-      address: newLocation.address || '',
-      uploadedImage: newLocation.uploadedImage || null,
-      imageUrls: newLocation.imageUrls || [],
+      mapsUrl: locData.mapsUrl || '',
+      address: locData.address || '',
+      uploadedImage: locData.uploadedImage || null,
+      imageUrls: locData.imageUrls || [],
       outsideArea: outsideArea, // Flag for outside area
       missingCoordinates: !hasCoordinates, // Flag for missing coordinates
       custom: true,
       status: 'active',
-      locked: newLocation.locked || false,
+      locked: locData.locked || false,
       addedAt: new Date().toISOString(),
       cityId: selectedCityId
     };

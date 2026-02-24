@@ -1960,6 +1960,12 @@
               >
                 {t("general.help")}
               </button>
+              {isUnlocked && customLocations.length > 1 && (
+                <button
+                  onClick={scanAllDuplicates}
+                  style={{ marginLeft: 'auto', padding: '3px 8px', fontSize: '10px', fontWeight: 'bold', background: '#fef3c7', color: '#92400e', border: '1.5px solid #f59e0b', borderRadius: '8px', cursor: 'pointer' }}
+                >🔍 {t('dedup.scanButton')}</button>
+              )}
             </div>
             
             {/* Custom Locations Section - Tabbed */}
@@ -2261,7 +2267,8 @@
                   maxStops: config.maxStops || interest.maxStops || 10,
                   routeSlot: config.routeSlot || interest.routeSlot || 'any',
                   minGap: config.minGap || interest.minGap || 1,
-                  bestTime: config.bestTime || interest.bestTime || 'anytime'
+                  bestTime: config.bestTime || interest.bestTime || 'anytime',
+                  dedupRelated: config.dedupRelated || interest.dedupRelated || []
                 });
                 setShowAddInterestDialog(true);
               };

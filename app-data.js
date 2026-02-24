@@ -636,6 +636,8 @@ interests: {
   placeTypes: 'סוגי מקומות (מופרדים בפסיק)',
   seeTypesList: 'ראה רשימת סוגים',
   blacklistWords: 'מילות סינון (מופרדות בפסיק)',
+  dedupRelated: 'תחומים קשורים (כפילויות)',
+  dedupRelatedDesc: 'תחומים שייחשבו זהים לצורך בדיקת כפילויות',
 },
 
 // --- Active Trail ---
@@ -657,6 +659,30 @@ trail: {
   detectingLocation: 'מזהה מיקום',
   nearStop: 'ליד:',
   gpsBlocked: 'לא הצלחנו לזהות מיקום — המקום יישמר בלי קואורדינטות',
+},
+
+// --- Dedup ---
+dedup: {
+  scanButton: 'בדוק כפילויות',
+  scanning: 'סורק...',
+  noDuplicates: 'לא נמצאו כפילויות!',
+  clustersFound: 'קבוצות חשודות',
+  title: 'כפילויות חשודות',
+  subtitle: 'נמצאו מקומות דומים באזור',
+  distance: 'מרחק',
+  keep: 'השאר',
+  remove: 'מחק',
+  merged: 'מוזג',
+  close: 'סגור',
+  keepThis: 'השאר את זה',
+  removeThis: 'מחק את זה',
+  locOf: 'מתוך',
+  googleMatch: 'נמצא מקום בגוגל',
+  duplicateSkipped: 'מקום כפול — לא נוסף',
+  useThis: 'השתמש בזה',
+  addAsNew: 'הוסף כחדש',
+  alreadyExists: 'כבר קיים',
+  customExists: 'מקום דומה כבר קיים במערכת',
 },
 
 // --- Toasts & Messages ---
@@ -1477,6 +1503,8 @@ interests: {
   placeTypes: 'Place Types (comma separated)',
   seeTypesList: 'See types list',
   blacklistWords: 'Blacklist Words (comma separated)',
+  dedupRelated: 'Related interests (dedup)',
+  dedupRelatedDesc: 'Interests that count as similar for duplicate detection',
 },
 
 trail: {
@@ -1497,6 +1525,29 @@ trail: {
   detectingLocation: 'Detecting location',
   nearStop: 'Near:',
   gpsBlocked: 'Could not detect location — place will be saved without coordinates',
+},
+
+dedup: {
+  scanButton: 'Check duplicates',
+  scanning: 'Scanning...',
+  noDuplicates: 'No duplicates found!',
+  clustersFound: 'suspected clusters',
+  title: 'Suspected Duplicates',
+  subtitle: 'Similar places found nearby',
+  distance: 'Distance',
+  keep: 'Keep',
+  remove: 'Remove',
+  merged: 'merged',
+  close: 'Close',
+  keepThis: 'Keep this',
+  removeThis: 'Remove this',
+  locOf: 'of',
+  googleMatch: 'Found Google place',
+  duplicateSkipped: 'Duplicate found — not added',
+  useThis: 'Use this',
+  addAsNew: 'Add as new',
+  alreadyExists: 'Already exists',
+  customExists: 'Similar place already exists',
 },
 
 toast: {
