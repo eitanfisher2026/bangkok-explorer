@@ -2505,6 +2505,22 @@
       };
       
       setGooglePlaceInfo(placeInfo);
+      
+      // Auto-apply googlePlaceId to the location being edited
+      if (placeInfo.googlePlaceId) {
+        setNewLocation(prev => {
+          const updated = {
+            ...prev,
+            googlePlaceId: placeInfo.googlePlaceId,
+            googlePlace: true,
+            ...(placeInfo.address && !prev.address ? { address: placeInfo.address } : {})
+          };
+          // Build proper mapsUrl from Place ID
+          updated.mapsUrl = window.BKK.getGoogleMapsUrl(updated);
+          return updated;
+        });
+      }
+      
       addDebugLog('API', 'Fetched Google Place Info', { name: placeInfo.name, types: placeInfo.types });
       
       return placeInfo;
@@ -4610,7 +4626,9 @@
       uploadedImage: loc.uploadedImage || null,
       imageUrls: loc.imageUrls || [],
       locked: !!loc.locked,
-      dedupOk: !!loc.dedupOk
+      dedupOk: !!loc.dedupOk,
+      googlePlaceId: loc.googlePlaceId || '',
+      googlePlace: !!loc.googlePlace
     };
     
     setNewLocation(editFormData);
@@ -4658,6 +4676,7 @@
       fromGoogle: true, // Mark as added from Google
       cityId: selectedCityId // Associate with current city
     };
+    locationToAdd.mapsUrl = window.BKK.getGoogleMapsUrl(locationToAdd);
     
     // Save to Firebase (or localStorage fallback)
     if (isFirebaseAvailable && database) {
@@ -5358,6 +5377,8 @@
       status: 'active',
       locked: locData.locked || false,
       dedupOk: locData.dedupOk || false,
+      googlePlaceId: locData.googlePlaceId || '',
+      googlePlace: !!locData.googlePlace,
       addedAt: new Date().toISOString(),
       cityId: selectedCityId
     };
@@ -5679,15 +5700,16 @@
         const detected = window.BKK.getAreasForCoordinates(location.latitude, location.longitude);
         const areaUpdates = detected.length > 0 ? { areas: detected, area: detected[0] } : {};
         
-        setNewLocation({
+        const updatedLoc = {
           ...newLocation,
           lat: location.latitude,
           lng: location.longitude,
           address: formattedAddress,
           googlePlaceId: place.id || null,
-          mapsUrl: `https://maps.google.com/?q=${location.latitude},${location.longitude}`,
           ...areaUpdates
-        });
+        };
+        updatedLoc.mapsUrl = window.BKK.getGoogleMapsUrl(updatedLoc);
+        setNewLocation(updatedLoc);
         
         showToast(`${t("toast.found")} ${formattedAddress}${detected.length > 0 ? ` (${detected.length} ${t("toast.detectedAreas")})` : ''}`, 'success');
       } else {

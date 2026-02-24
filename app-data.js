@@ -3606,6 +3606,11 @@ window.BKK.hashPassword = async function(password) {
 window.BKK.getGoogleMapsUrl = (place) => {
   if (!place) return '#';
   const hasCoords = place.lat && place.lng;
+  
+  if (place.mapsUrl && place.mapsUrl.includes('google.com/maps') && !place.mapsUrl.match(/\?q=\d+\.\d+,\d+\.\d+$/)) {
+    return place.mapsUrl;
+  }
+  
   if (!hasCoords && !place.address?.trim()) return '#';
   
   if (place.googlePlaceId) {

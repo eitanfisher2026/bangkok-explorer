@@ -2239,6 +2239,19 @@ const FouFouApp = () => {
       
       setGooglePlaceInfo(placeInfo);
       
+      if (placeInfo.googlePlaceId) {
+        setNewLocation(prev => {
+          const updated = {
+            ...prev,
+            googlePlaceId: placeInfo.googlePlaceId,
+            googlePlace: true,
+            ...(placeInfo.address && !prev.address ? { address: placeInfo.address } : {})
+          };
+          updated.mapsUrl = window.BKK.getGoogleMapsUrl(updated);
+          return updated;
+        });
+      }
+      
       return placeInfo;
     } catch (error) {
       console.error('Error fetching Google place info:', error);
@@ -4059,7 +4072,9 @@ const FouFouApp = () => {
       uploadedImage: loc.uploadedImage || null,
       imageUrls: loc.imageUrls || [],
       locked: !!loc.locked,
-      dedupOk: !!loc.dedupOk
+      dedupOk: !!loc.dedupOk,
+      googlePlaceId: loc.googlePlaceId || '',
+      googlePlace: !!loc.googlePlace
     };
     
     setNewLocation(editFormData);
@@ -4104,6 +4119,7 @@ const FouFouApp = () => {
       fromGoogle: true, // Mark as added from Google
       cityId: selectedCityId // Associate with current city
     };
+    locationToAdd.mapsUrl = window.BKK.getGoogleMapsUrl(locationToAdd);
     
     if (isFirebaseAvailable && database) {
       try {
@@ -4750,6 +4766,8 @@ const FouFouApp = () => {
       status: 'active',
       locked: locData.locked || false,
       dedupOk: locData.dedupOk || false,
+      googlePlaceId: locData.googlePlaceId || '',
+      googlePlace: !!locData.googlePlace,
       addedAt: new Date().toISOString(),
       cityId: selectedCityId
     };
@@ -5041,15 +5059,16 @@ const FouFouApp = () => {
         const detected = window.BKK.getAreasForCoordinates(location.latitude, location.longitude);
         const areaUpdates = detected.length > 0 ? { areas: detected, area: detected[0] } : {};
         
-        setNewLocation({
+        const updatedLoc = {
           ...newLocation,
           lat: location.latitude,
           lng: location.longitude,
           address: formattedAddress,
           googlePlaceId: place.id || null,
-          mapsUrl: `https://maps.google.com/?q=${location.latitude},${location.longitude}`,
           ...areaUpdates
-        });
+        };
+        updatedLoc.mapsUrl = window.BKK.getGoogleMapsUrl(updatedLoc);
+        setNewLocation(updatedLoc);
         
         showToast(`${t("toast.found")} ${formattedAddress}${detected.length > 0 ? ` (${detected.length} ${t("toast.detectedAreas")})` : ''}`, 'success');
       } else {
@@ -8871,15 +8890,17 @@ const FouFouApp = () => {
                             onClick={() => {
                               const detected = window.BKK.getAreasForCoordinates(result.lat, result.lng);
                               const areaUpdates = detected.length > 0 ? { areas: detected, area: detected[0] } : {};
-                              setNewLocation({
+                              const updatedLoc = {
                                 ...newLocation,
                                 name: result.name,
                                 lat: result.lat, lng: result.lng,
                                 address: result.address,
-                                mapsUrl: `https://maps.google.com/?q=${result.lat},${result.lng}`,
                                 googlePlaceId: result.googlePlaceId,
+                                googlePlace: true,
                                 ...areaUpdates
-                              });
+                              };
+                              updatedLoc.mapsUrl = window.BKK.getGoogleMapsUrl(updatedLoc);
+                              setNewLocation(updatedLoc);
                               setLocationSearchResults(null);
                               showToast(`✅ ${result.name} ${t("toast.selectedPlace")}${detected.length > 0 ? ` (${detected.length} ${t("toast.detectedAreas")})` : ''}`, 'success');
                             }}
@@ -9188,6 +9209,21 @@ const FouFouApp = () => {
                     >📍</button>
                   </div>
                 </div>
+
+                {/* Google Maps URL */}
+                {isUnlocked && (
+                <div>
+                  <label className="block text-xs font-bold mb-1">🔗 Google Maps URL</label>
+                  <input
+                    type="text"
+                    value={newLocation.mapsUrl || ''}
+                    onChange={(e) => setNewLocation({...newLocation, mapsUrl: e.target.value})}
+                    placeholder="https://maps.google.com/..."
+                    className="w-full p-1.5 text-xs border border-gray-300 rounded-lg"
+                    style={{ direction: 'ltr' }}
+                  />
+                </div>
+                )}
 
                 {/* Google + Lock + Actions — compact */}
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-2 space-y-1.5" style={{ position: 'relative', zIndex: 15 }}>
@@ -11661,7 +11697,7 @@ const FouFouApp = () => {
                   {allPlaces.map((loc, li) => {
                     const interest = allInterestOptions.find(o => loc.interests?.includes(o.id));
                     const icon = interest?.icon?.startsWith?.('data:') ? '📍' : (interest?.icon || '📍');
-                    const mapsUrl = loc.mapsUrl || (loc.lat && loc.lng ? `https://www.google.com/maps?q=${loc.lat},${loc.lng}` : '');
+                    const mapsUrl = window.BKK.getGoogleMapsUrl(loc);
                     return (
                     <div key={li} style={{ marginBottom: '6px', background: 'white', borderRadius: '10px', border: '1px solid #fde68a', overflow: 'hidden' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>

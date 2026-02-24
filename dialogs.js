@@ -119,15 +119,17 @@
                               // Auto-detect areas from coordinates
                               const detected = window.BKK.getAreasForCoordinates(result.lat, result.lng);
                               const areaUpdates = detected.length > 0 ? { areas: detected, area: detected[0] } : {};
-                              setNewLocation({
+                              const updatedLoc = {
                                 ...newLocation,
                                 name: result.name,
                                 lat: result.lat, lng: result.lng,
                                 address: result.address,
-                                mapsUrl: `https://maps.google.com/?q=${result.lat},${result.lng}`,
                                 googlePlaceId: result.googlePlaceId,
+                                googlePlace: true,
                                 ...areaUpdates
-                              });
+                              };
+                              updatedLoc.mapsUrl = window.BKK.getGoogleMapsUrl(updatedLoc);
+                              setNewLocation(updatedLoc);
                               setLocationSearchResults(null);
                               showToast(`✅ ${result.name} ${t("toast.selectedPlace")}${detected.length > 0 ? ` (${detected.length} ${t("toast.detectedAreas")})` : ''}`, 'success');
                             }}
@@ -439,6 +441,21 @@
                     >📍</button>
                   </div>
                 </div>
+
+                {/* Google Maps URL */}
+                {isUnlocked && (
+                <div>
+                  <label className="block text-xs font-bold mb-1">🔗 Google Maps URL</label>
+                  <input
+                    type="text"
+                    value={newLocation.mapsUrl || ''}
+                    onChange={(e) => setNewLocation({...newLocation, mapsUrl: e.target.value})}
+                    placeholder="https://maps.google.com/..."
+                    className="w-full p-1.5 text-xs border border-gray-300 rounded-lg"
+                    style={{ direction: 'ltr' }}
+                  />
+                </div>
+                )}
 
                 {/* Google + Lock + Actions — compact */}
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-2 space-y-1.5" style={{ position: 'relative', zIndex: 15 }}>
@@ -2944,7 +2961,7 @@
                   {allPlaces.map((loc, li) => {
                     const interest = allInterestOptions.find(o => loc.interests?.includes(o.id));
                     const icon = interest?.icon?.startsWith?.('data:') ? '📍' : (interest?.icon || '📍');
-                    const mapsUrl = loc.mapsUrl || (loc.lat && loc.lng ? `https://www.google.com/maps?q=${loc.lat},${loc.lng}` : '');
+                    const mapsUrl = window.BKK.getGoogleMapsUrl(loc);
                     return (
                     <div key={li} style={{ marginBottom: '6px', background: 'white', borderRadius: '10px', border: '1px solid #fde68a', overflow: 'hidden' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>

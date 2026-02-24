@@ -420,6 +420,12 @@ window.BKK.hashPassword = async function(password) {
 window.BKK.getGoogleMapsUrl = (place) => {
   if (!place) return '#';
   const hasCoords = place.lat && place.lng;
+  
+  // Top priority: user-set or API-provided mapsUrl (if it's a real Google URL, not just coords)
+  if (place.mapsUrl && place.mapsUrl.includes('google.com/maps') && !place.mapsUrl.match(/\?q=\d+\.\d+,\d+\.\d+$/)) {
+    return place.mapsUrl;
+  }
+  
   if (!hasCoords && !place.address?.trim()) return '#';
   
   // Best: use Place ID → opens the actual Google Maps place page
