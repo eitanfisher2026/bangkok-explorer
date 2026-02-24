@@ -224,9 +224,20 @@
                         background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontSize: '9px', fontWeight: 'bold', color: '#6b7280', flexShrink: 0
                       }}>{String.fromCharCode(65 + idx)}</span>
-                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span
+                        onClick={() => {
+                          const fullLoc = customLocations.find(cl => cl.name === stop.name || (cl.lat && stop.lat && Math.abs(cl.lat - stop.lat) < 0.0001 && Math.abs(cl.lng - stop.lng) < 0.0001));
+                          if (fullLoc) { handleEditLocation(fullLoc); }
+                          else { openReviewDialog(stop); }
+                        }}
+                        style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#2563eb', cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted' }}>
                         {stop.name}
                       </span>
+                      <button
+                        onClick={() => openReviewDialog(stop)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', fontSize: '14px', flexShrink: 0 }}
+                        title={t('trail.ratePlace')}
+                      >⭐</button>
                     </div>
                   ))}
                   {activeTrail.stops.length > 12 && (
@@ -239,6 +250,43 @@
             )}
 
             {/* Action buttons */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+              {/* Where Am I button */}
+              <button
+                onClick={() => {
+                  if (!activeTrail.stops?.length) { showToast(t('trail.noStopsYet'), 'warning'); return; }
+                  showToast(`📍 ${t('trail.locating')}...`, 'info');
+                  if (navigator.geolocation) {
+                    window.BKK.getValidatedGps(
+                      (pos) => {
+                        setMapUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy });
+                        setMapStops(activeTrail.stops);
+                        setMapMode('stops');
+                        setShowMapModal(true);
+                      },
+                      () => {
+                        // Even without GPS, show the stops on map
+                        setMapUserLocation(null);
+                        setMapStops(activeTrail.stops);
+                        setMapMode('stops');
+                        setShowMapModal(true);
+                      }
+                    );
+                  } else {
+                    setMapUserLocation(null);
+                    setMapStops(activeTrail.stops);
+                    setMapMode('stops');
+                    setShowMapModal(true);
+                  }
+                }}
+                style={{
+                  flex: 1, padding: '10px', background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: 'white',
+                  border: 'none', borderRadius: '12px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer'
+                }}
+              >
+                {`📍 ${t('trail.whereAmI')}`}
+              </button>
+            </div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button
                 onClick={() => {
@@ -573,6 +621,49 @@
 
         {/* Wizard Step 3 = results, or normal mode */}
         
+        {/* FAB: Quick Capture from Wizard (no active trail needed) */}
+        {wizardMode && !activeTrail && wizardStep < 3 && (
+          <button
+            onClick={() => {
+              const initLocation = {
+                name: '', description: '', notes: '',
+                area: formData.area || 'chinatown',
+                areas: formData.areas?.length > 0 ? formData.areas : [formData.area || 'chinatown'],
+                interests: formData.interests?.length > 0 ? formData.interests.slice(0, 1) : [],
+                lat: null, lng: null, mapsUrl: '', address: '',
+                uploadedImage: null, imageUrls: [],
+                gpsLoading: true
+              };
+              setNewLocation(initLocation);
+              setShowQuickCapture(true);
+              if (navigator.geolocation) {
+                window.BKK.getValidatedGps(
+                  (pos) => {
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+                    const detected = window.BKK.getAreasForCoordinates(lat, lng);
+                    const areaUpdates = detected.length > 0 ? { areas: detected, area: detected[0] } : {};
+                    setNewLocation(prev => ({ ...prev, lat, lng, gpsLoading: false, ...areaUpdates }));
+                  },
+                  (reason) => {
+                    setNewLocation(prev => ({...prev, gpsLoading: false, gpsBlocked: true}));
+                    showToast(reason === 'outside_city' ? t('toast.outsideCity') : reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'warning', 'sticky');
+                  }
+                );
+              }
+            }}
+            style={{
+              position: 'fixed', bottom: '24px', right: '24px', zIndex: 1000,
+              width: '56px', height: '56px', borderRadius: '50%',
+              background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+              color: 'white', border: 'none', boxShadow: '0 4px 15px rgba(34,197,94,0.5)',
+              fontSize: '24px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}
+            title={t('trail.capturePlace')}
+          >📸</button>
+        )}
+
         {/* Navigation Tabs - hidden in wizard mode and active trail */}
         {!wizardMode && !activeTrail && (
         <div className="flex flex-wrap gap-1 mb-4 bg-white rounded-lg p-1.5 shadow">
@@ -1961,10 +2052,18 @@
                 {t("general.help")}
               </button>
               {isUnlocked && customLocations.length > 1 && (
-                <button
-                  onClick={scanAllDuplicates}
-                  style={{ marginLeft: 'auto', padding: '5px 12px', fontSize: '11px', fontWeight: 'bold', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
-                >🔍 {t('dedup.scanButton')}</button>
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
+                  <button
+                    onClick={() => scanAllDuplicates(false)}
+                    style={{ padding: '5px 10px', fontSize: '10px', fontWeight: 'bold', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
+                    title={t('dedup.scanByInterest')}
+                  >🔍 {t('dedup.scanButton')}</button>
+                  <button
+                    onClick={() => scanAllDuplicates(true)}
+                    style={{ padding: '5px 10px', fontSize: '10px', fontWeight: 'bold', background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
+                    title={t('dedup.scanByCoords')}
+                  >📐 {t('dedup.scanCoordsButton')}</button>
+                </div>
               )}
             </div>
             
@@ -3532,7 +3631,7 @@
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b">
               <button
-                onClick={() => setShowMapModal(false)}
+                onClick={() => { setShowMapModal(false); setMapUserLocation(null); }}
                 className="text-gray-400 hover:text-gray-600 text-lg font-bold"
               >✕</button>
               <div className="flex items-center gap-2">
@@ -3606,7 +3705,7 @@
                   <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                     <span style={{ flex: 1, fontSize: '9px', color: '#9ca3af', textAlign: 'center' }}>{t('route.tapStopForStart')}</span>
                     <button
-                      onClick={() => setShowMapModal(false)}
+                      onClick={() => { setShowMapModal(false); setMapUserLocation(null); }}
                       style={{ padding: '8px 24px', borderRadius: '8px', border: 'none', background: '#374151', color: 'white', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}
                     >{t('general.close')}</button>
                   </div>

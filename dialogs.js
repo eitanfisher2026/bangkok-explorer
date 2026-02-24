@@ -1,3 +1,63 @@
+        {/* Dedup Confirmation Dialog */}
+        {dedupConfirm && (() => {
+          const { type, loc, match } = dedupConfirm;
+          const interest = allInterestOptions.find(o => match.interests?.includes(o.id) || loc.interests?.includes(o.id));
+          const icon = interest?.icon?.startsWith?.('data:') ? '📍' : (interest?.icon || '📍');
+          return (
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4" style={{ zIndex: 10200 }}>
+            <div style={{ background: 'white', borderRadius: '16px', maxWidth: '380px', width: '100%', padding: '20px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
+              {/* Header */}
+              <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                <div style={{ fontSize: '28px', marginBottom: '4px' }}>{type === 'google' ? '🌐' : '📍'}</div>
+                <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#1f2937' }}>
+                  {type === 'google' ? t('dedup.googleMatch') : t('dedup.customExists')}
+                </div>
+                <div style={{ fontSize: '11px', color: '#9ca3af' }}>{match._distance || 0}m</div>
+              </div>
+              
+              {/* Match card */}
+              <div style={{ background: '#fefce8', border: '2px solid #eab308', borderRadius: '12px', padding: '12px', marginBottom: '16px' }}>
+                {/* Show saved image for custom matches */}
+                {type === 'custom' && match.uploadedImage && (
+                  <div style={{ marginBottom: '10px', borderRadius: '8px', overflow: 'hidden', maxHeight: '140px' }}>
+                    <img src={match.uploadedImage} alt={match.name} style={{ width: '100%', height: '140px', objectFit: 'cover' }} />
+                  </div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '24px' }}>{icon}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#374151' }}>{match.name}</div>
+                    {type === 'google' && match.rating && (
+                      <div style={{ fontSize: '11px', color: '#92400e' }}>⭐ {match.rating.toFixed(1)} ({match.ratingCount || 0})</div>
+                    )}
+                    {match.address && <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '2px' }}>{match.address}</div>}
+                    {type === 'custom' && match.description && (
+                      <div style={{ fontSize: '10px', color: '#6b7280' }}>{match.description}</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* 3 action buttons */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <button onClick={() => handleDedupConfirm('accept')}
+                  style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: 'bold', background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer' }}>
+                  ✅ {type === 'google' ? t('dedup.useThis') : t('dedup.alreadyExists')}
+                </button>
+                <button onClick={() => handleDedupConfirm('addNew')}
+                  style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: 'bold', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer' }}>
+                  ➕ {t('dedup.addAsNew')}
+                </button>
+                <button onClick={() => handleDedupConfirm('cancel')}
+                  style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 'bold', background: '#f3f4f6', color: '#6b7280', border: '1px solid #d1d5db', borderRadius: '10px', cursor: 'pointer' }}>
+                  ✕ {t('general.cancel')}
+                </button>
+              </div>
+            </div>
+          </div>
+          );
+        })()}
+
         {/* Add/Edit Location Dialog - REDESIGNED */}
         {(showAddLocationDialog || showEditLocationDialog) && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2" style={{ zIndex: 10100 }}>
@@ -2990,7 +3050,11 @@
                           </span>
                         )}
                         <button
-                          onClick={() => mergeDedupLocations(allPlaces.find(p => p.id !== loc.id)?.id || cluster.loc.id, loc.id)}
+                          onClick={() => {
+                            if (window.confirm(`${t('dedup.confirmDelete')}\n\n${loc.name}`)) {
+                              mergeDedupLocations(allPlaces.find(p => p.id !== loc.id)?.id || cluster.loc.id, loc.id);
+                            }
+                          }}
                           style={{ marginLeft: 'auto', padding: '5px 12px', fontSize: '11px', fontWeight: 'bold', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                           🗑️ {t('dedup.remove')}
                         </button>

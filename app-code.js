@@ -334,6 +334,7 @@ const FouFouApp = () => {
   const [editingArea, setEditingArea] = useState(null); // area being edited on map
   const [mapMode, setMapMode] = useState('areas'); // 'areas', 'radius', or 'stops'
   const [mapStops, setMapStops] = useState([]); // stops to show when mapMode='stops'
+  const [mapUserLocation, setMapUserLocation] = useState(null); // { lat, lng } for blue dot on map
   const [startPointCoords, setStartPointCoords] = useState(null); // { lat, lng, address }
   const leafletMapRef = React.useRef(null);
   
@@ -656,6 +657,19 @@ const FouFouApp = () => {
           window._mapRedrawLine = redrawRouteLine;
           window._mapStopsOrderRef = stopsOrderRef;
           
+          if (mapUserLocation && mapUserLocation.lat && mapUserLocation.lng) {
+            const userDot = L.circleMarker([mapUserLocation.lat, mapUserLocation.lng], {
+              radius: 10, fillColor: '#4285F4', fillOpacity: 1,
+              color: 'white', weight: 3, opacity: 1
+            }).addTo(map);
+            userDot.bindPopup(`<div style="text-align:center;font-size:12px;font-weight:bold;">📍 ${t('trail.youAreHere')}</div>`).openPopup();
+            L.circle([mapUserLocation.lat, mapUserLocation.lng], {
+              radius: mapUserLocation.accuracy || 30,
+              fillColor: '#4285F4', fillOpacity: 0.1,
+              color: '#4285F4', weight: 1, opacity: 0.3
+            }).addTo(map);
+          }
+          
           leafletMapRef.current = map;
         }
       } catch(err) {
@@ -665,7 +679,7 @@ const FouFouApp = () => {
     }); // end loadLeaflet().then
     
     return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; delete window._mapRedrawLine; delete window._mapStopsOrderRef; };
-  }, [showMapModal, mapMode, mapStops, formData.currentLat, formData.currentLng, formData.radiusMeters]);
+  }, [showMapModal, mapMode, mapStops, mapUserLocation, formData.currentLat, formData.currentLng, formData.radiusMeters]);
   const [modalImage, setModalImage] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -1736,6 +1750,7 @@ const FouFouApp = () => {
   };
 
   const [bulkDedupResults, setBulkDedupResults] = useState(null); // [{ loc, matches: [{...loc, _distance}] }]
+  const [dedupConfirm, setDedupConfirm] = useState(null); // { type: 'google'|'custom', loc, match, closeAfter }
   
   const findNearbyDuplicates = async (lat, lng, interests) => {
     if (!lat || !lng || !interests?.length) return null;
@@ -4567,6 +4582,7 @@ const FouFouApp = () => {
     const loc = { ...newLocation };
     if (!loc.name?.trim() || !loc.interests?.length) {
       addCustomLocation(closeAfter);
+      if (closeQuickCapture) setShowQuickCapture(false);
       return;
     }
     if (!loc.lat || !loc.lng || (!sp.dedupGoogleEnabled && !sp.dedupCustomEnabled)) {
@@ -4575,80 +4591,99 @@ const FouFouApp = () => {
       return;
     }
     
-    if (closeQuickCapture) setShowQuickCapture(false);
-    
     try {
       const matches = await findNearbyDuplicates(loc.lat, loc.lng, loc.interests);
       
       if (matches && matches.custom.length > 0) {
         const dup = matches.custom[0];
-        const newInterests = loc.interests.filter(i => !dup.interests?.includes(i));
-        
-        if (newInterests.length > 0) {
-          const mergedInterests = [...(dup.interests || []), ...newInterests];
-          const updated = customLocations.map(l => 
-            l.id === dup.id ? { ...l, interests: mergedInterests } : l
-          );
-          setCustomLocations(updated);
-          
-          if (isFirebaseAvailable && database && dup.firebaseKey) {
-            database.ref(`cities/${selectedCityId}/locations/${dup.firebaseKey}/interests`).set(mergedInterests);
-          }
-          
-          const interestNames = newInterests.map(id => {
-            const opt = allInterestOptions.find(o => o.id === id);
-            return opt ? (tLabel(opt) || id) : id;
-          }).join(', ');
-          showToast(`🔗 "${dup.name}" +${interestNames}`, 'success', 4000);
-        } else {
-          showToast(`⚠️ ${t('dedup.duplicateSkipped')}: "${dup.name}" (${dup._distance}m)`, 'warning', 4000);
-        }
-        
-        if (loc.uploadedImage) {
-          try { window.BKK.saveImageToDevice?.(loc.uploadedImage, dup.name); } catch(e) {}
-        }
+        setDedupConfirm({ type: 'custom', loc, match: dup, closeAfter, closeQuickCapture });
         return;
       }
       
       if (matches && matches.google.length > 0) {
         const best = matches.google.sort((a, b) => a._distance - b._distance || (b.rating - a.rating))[0];
-        const googleData = {
-          ...loc,
-          name: best.name,
-          lat: best.lat || loc.lat,
-          lng: best.lng || loc.lng,
-          address: best.address || '',
-          mapsUrl: best.mapsUrl || '',
-          description: `⭐ ${best.rating?.toFixed(1) || 'N/A'} (${best.ratingCount || 0})`,
-          googlePlace: true,
-          googlePlaceId: best.googlePlaceId || ''
-        };
-        addCustomLocation(closeAfter, googleData);
-        showToast(`📍 ${t('dedup.googleMatch')}: ${best.name}`, 'success', 4000);
+        setDedupConfirm({ type: 'google', loc, match: best, closeAfter, closeQuickCapture });
         return;
       }
     } catch (e) {
     }
     
     addCustomLocation(closeAfter);
-    if (closeQuickCapture) showToast('✅ ' + t('trail.saved'), 'success');
+    if (closeQuickCapture) {
+      setShowQuickCapture(false);
+      showToast('\u2705 ' + t('trail.saved'), 'success');
+    }
   };
 
-  const scanAllDuplicates = () => {
+  const handleDedupConfirm = (action) => {
+    if (!dedupConfirm) return;
+    const { type, loc, match, closeAfter, closeQuickCapture } = dedupConfirm;
+    
+    if (loc.uploadedImage) {
+      try { window.BKK.saveImageToDevice?.(loc.uploadedImage, loc.name || match.name || 'photo'); } catch(e) {}
+    }
+    
+    if (action === 'accept') {
+      if (type === 'google') {
+        const googleData = {
+          ...loc,
+          name: match.name,
+          lat: match.lat || loc.lat,
+          lng: match.lng || loc.lng,
+          address: match.address || '',
+          mapsUrl: match.mapsUrl || '',
+          description: `\u2B50 ${match.rating?.toFixed(1) || 'N/A'} (${match.ratingCount || 0})`,
+          googlePlace: true,
+          googlePlaceId: match.googlePlaceId || ''
+        };
+        addCustomLocation(closeAfter, googleData);
+        showToast(`\uD83D\uDCCD ${t('dedup.googleMatch')}: ${match.name}`, 'success', 4000);
+      } else {
+        const newInterests = loc.interests.filter(i => !match.interests?.includes(i));
+        if (newInterests.length > 0) {
+          const mergedInterests = [...(match.interests || []), ...newInterests];
+          const updated = customLocations.map(l => 
+            l.id === match.id ? { ...l, interests: mergedInterests } : l
+          );
+          setCustomLocations(updated);
+          if (isFirebaseAvailable && database && match.firebaseKey) {
+            database.ref(`cities/${selectedCityId}/locations/${match.firebaseKey}/interests`).set(mergedInterests);
+          }
+          const interestNames = newInterests.map(id => {
+            const opt = allInterestOptions.find(o => o.id === id);
+            return opt ? (tLabel(opt) || id) : id;
+          }).join(', ');
+          showToast(`\uD83D\uDD17 "${match.name}" +${interestNames}`, 'success', 4000);
+        } else {
+          showToast(`\u2705 "${match.name}" ${t('dedup.alreadyExists')}`, 'info', 3000);
+        }
+      }
+    } else if (action === 'addNew') {
+      addCustomLocation(closeAfter);
+      showToast('\u2705 ' + t('trail.saved'), 'success');
+    }
+    
+    if (closeQuickCapture) setShowQuickCapture(false);
+    setDedupConfirm(null);
+  };
+
+  const scanAllDuplicates = (coordsOnly = false) => {
     const radius = sp.dedupRadiusMeters || 50;
     const locs = customLocations.filter(l => l.lat && l.lng);
     const clusters = [];
     const seen = new Set();
     
     const relatedMap = {};
-    for (const opt of allInterestOptions) {
-      const related = interestConfig[opt.id]?.dedupRelated || opt.dedupRelated || [];
-      if (!relatedMap[opt.id]) relatedMap[opt.id] = new Set();
-      related.forEach(r => {
-        relatedMap[opt.id].add(r);
-        if (!relatedMap[r]) relatedMap[r] = new Set();
-        relatedMap[r].add(opt.id);
-      });
+    if (!coordsOnly) {
+      for (const opt of allInterestOptions) {
+        const related = interestConfig[opt.id]?.dedupRelated || opt.dedupRelated || [];
+        if (!relatedMap[opt.id]) relatedMap[opt.id] = new Set();
+        related.forEach(r => {
+          relatedMap[opt.id].add(r);
+          if (!relatedMap[r]) relatedMap[r] = new Set();
+          relatedMap[r].add(opt.id);
+        });
+      }
     }
     
     const interestsOverlap = (a, b) => {
@@ -4667,7 +4702,7 @@ const FouFouApp = () => {
       for (let j = i + 1; j < locs.length; j++) {
         if (seen.has(locs[j].id)) continue;
         const dist = calcDistance(locs[i].lat, locs[i].lng, locs[j].lat, locs[j].lng);
-        if (dist <= radius && interestsOverlap(locs[i].interests, locs[j].interests)) {
+        if (dist <= radius && (coordsOnly || interestsOverlap(locs[i].interests, locs[j].interests))) {
           matches.push({ ...locs[j], _distance: Math.round(dist) });
           seen.add(locs[j].id);
         }
@@ -4679,10 +4714,11 @@ const FouFouApp = () => {
     }
     
     setBulkDedupResults(clusters);
+    const modeLabel = coordsOnly ? '📐' : '🔍';
     if (clusters.length === 0) {
       showToast('✅ ' + t('dedup.noDuplicates'), 'success');
     } else {
-      showToast(`🔍 ${clusters.length} ${t('dedup.clustersFound')}`, 'info');
+      showToast(`${modeLabel} ${clusters.length} ${t('dedup.clustersFound')}`, 'info');
     }
   };
 
@@ -5399,9 +5435,20 @@ const FouFouApp = () => {
                         background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontSize: '9px', fontWeight: 'bold', color: '#6b7280', flexShrink: 0
                       }}>{String.fromCharCode(65 + idx)}</span>
-                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span
+                        onClick={() => {
+                          const fullLoc = customLocations.find(cl => cl.name === stop.name || (cl.lat && stop.lat && Math.abs(cl.lat - stop.lat) < 0.0001 && Math.abs(cl.lng - stop.lng) < 0.0001));
+                          if (fullLoc) { handleEditLocation(fullLoc); }
+                          else { openReviewDialog(stop); }
+                        }}
+                        style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#2563eb', cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted' }}>
                         {stop.name}
                       </span>
+                      <button
+                        onClick={() => openReviewDialog(stop)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', fontSize: '14px', flexShrink: 0 }}
+                        title={t('trail.ratePlace')}
+                      >⭐</button>
                     </div>
                   ))}
                   {activeTrail.stops.length > 12 && (
@@ -5414,6 +5461,42 @@ const FouFouApp = () => {
             )}
 
             {/* Action buttons */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+              {/* Where Am I button */}
+              <button
+                onClick={() => {
+                  if (!activeTrail.stops?.length) { showToast(t('trail.noStopsYet'), 'warning'); return; }
+                  showToast(`📍 ${t('trail.locating')}...`, 'info');
+                  if (navigator.geolocation) {
+                    window.BKK.getValidatedGps(
+                      (pos) => {
+                        setMapUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy });
+                        setMapStops(activeTrail.stops);
+                        setMapMode('stops');
+                        setShowMapModal(true);
+                      },
+                      () => {
+                        setMapUserLocation(null);
+                        setMapStops(activeTrail.stops);
+                        setMapMode('stops');
+                        setShowMapModal(true);
+                      }
+                    );
+                  } else {
+                    setMapUserLocation(null);
+                    setMapStops(activeTrail.stops);
+                    setMapMode('stops');
+                    setShowMapModal(true);
+                  }
+                }}
+                style={{
+                  flex: 1, padding: '10px', background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: 'white',
+                  border: 'none', borderRadius: '12px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer'
+                }}
+              >
+                {`📍 ${t('trail.whereAmI')}`}
+              </button>
+            </div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button
                 onClick={() => {
@@ -5745,6 +5828,49 @@ const FouFouApp = () => {
 
         {/* Wizard Step 3 = results, or normal mode */}
         
+        {/* FAB: Quick Capture from Wizard (no active trail needed) */}
+        {wizardMode && !activeTrail && wizardStep < 3 && (
+          <button
+            onClick={() => {
+              const initLocation = {
+                name: '', description: '', notes: '',
+                area: formData.area || 'chinatown',
+                areas: formData.areas?.length > 0 ? formData.areas : [formData.area || 'chinatown'],
+                interests: formData.interests?.length > 0 ? formData.interests.slice(0, 1) : [],
+                lat: null, lng: null, mapsUrl: '', address: '',
+                uploadedImage: null, imageUrls: [],
+                gpsLoading: true
+              };
+              setNewLocation(initLocation);
+              setShowQuickCapture(true);
+              if (navigator.geolocation) {
+                window.BKK.getValidatedGps(
+                  (pos) => {
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+                    const detected = window.BKK.getAreasForCoordinates(lat, lng);
+                    const areaUpdates = detected.length > 0 ? { areas: detected, area: detected[0] } : {};
+                    setNewLocation(prev => ({ ...prev, lat, lng, gpsLoading: false, ...areaUpdates }));
+                  },
+                  (reason) => {
+                    setNewLocation(prev => ({...prev, gpsLoading: false, gpsBlocked: true}));
+                    showToast(reason === 'outside_city' ? t('toast.outsideCity') : reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'warning', 'sticky');
+                  }
+                );
+              }
+            }}
+            style={{
+              position: 'fixed', bottom: '24px', right: '24px', zIndex: 1000,
+              width: '56px', height: '56px', borderRadius: '50%',
+              background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+              color: 'white', border: 'none', boxShadow: '0 4px 15px rgba(34,197,94,0.5)',
+              fontSize: '24px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}
+            title={t('trail.capturePlace')}
+          >📸</button>
+        )}
+
         {/* Navigation Tabs - hidden in wizard mode and active trail */}
         {!wizardMode && !activeTrail && (
         <div className="flex flex-wrap gap-1 mb-4 bg-white rounded-lg p-1.5 shadow">
@@ -7123,10 +7249,18 @@ const FouFouApp = () => {
                 {t("general.help")}
               </button>
               {isUnlocked && customLocations.length > 1 && (
-                <button
-                  onClick={scanAllDuplicates}
-                  style={{ marginLeft: 'auto', padding: '5px 12px', fontSize: '11px', fontWeight: 'bold', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
-                >🔍 {t('dedup.scanButton')}</button>
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
+                  <button
+                    onClick={() => scanAllDuplicates(false)}
+                    style={{ padding: '5px 10px', fontSize: '10px', fontWeight: 'bold', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
+                    title={t('dedup.scanByInterest')}
+                  >🔍 {t('dedup.scanButton')}</button>
+                  <button
+                    onClick={() => scanAllDuplicates(true)}
+                    style={{ padding: '5px 10px', fontSize: '10px', fontWeight: 'bold', background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
+                    title={t('dedup.scanByCoords')}
+                  >📐 {t('dedup.scanCoordsButton')}</button>
+                </div>
               )}
             </div>
             
@@ -8675,7 +8809,7 @@ const FouFouApp = () => {
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b">
               <button
-                onClick={() => setShowMapModal(false)}
+                onClick={() => { setShowMapModal(false); setMapUserLocation(null); }}
                 className="text-gray-400 hover:text-gray-600 text-lg font-bold"
               >✕</button>
               <div className="flex items-center gap-2">
@@ -8749,7 +8883,7 @@ const FouFouApp = () => {
                   <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                     <span style={{ flex: 1, fontSize: '9px', color: '#9ca3af', textAlign: 'center' }}>{t('route.tapStopForStart')}</span>
                     <button
-                      onClick={() => setShowMapModal(false)}
+                      onClick={() => { setShowMapModal(false); setMapUserLocation(null); }}
                       style={{ padding: '8px 24px', borderRadius: '8px', border: 'none', background: '#374151', color: 'white', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}
                     >{t('general.close')}</button>
                   </div>
@@ -8769,6 +8903,66 @@ const FouFouApp = () => {
 
         {/* === DIALOGS (from dialogs.js) === */}
 
+
+        {/* Dedup Confirmation Dialog */}
+        {dedupConfirm && (() => {
+          const { type, loc, match } = dedupConfirm;
+          const interest = allInterestOptions.find(o => match.interests?.includes(o.id) || loc.interests?.includes(o.id));
+          const icon = interest?.icon?.startsWith?.('data:') ? '📍' : (interest?.icon || '📍');
+          return (
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4" style={{ zIndex: 10200 }}>
+            <div style={{ background: 'white', borderRadius: '16px', maxWidth: '380px', width: '100%', padding: '20px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
+              {/* Header */}
+              <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                <div style={{ fontSize: '28px', marginBottom: '4px' }}>{type === 'google' ? '🌐' : '📍'}</div>
+                <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#1f2937' }}>
+                  {type === 'google' ? t('dedup.googleMatch') : t('dedup.customExists')}
+                </div>
+                <div style={{ fontSize: '11px', color: '#9ca3af' }}>{match._distance || 0}m</div>
+              </div>
+              
+              {/* Match card */}
+              <div style={{ background: '#fefce8', border: '2px solid #eab308', borderRadius: '12px', padding: '12px', marginBottom: '16px' }}>
+                {/* Show saved image for custom matches */}
+                {type === 'custom' && match.uploadedImage && (
+                  <div style={{ marginBottom: '10px', borderRadius: '8px', overflow: 'hidden', maxHeight: '140px' }}>
+                    <img src={match.uploadedImage} alt={match.name} style={{ width: '100%', height: '140px', objectFit: 'cover' }} />
+                  </div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '24px' }}>{icon}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#374151' }}>{match.name}</div>
+                    {type === 'google' && match.rating && (
+                      <div style={{ fontSize: '11px', color: '#92400e' }}>⭐ {match.rating.toFixed(1)} ({match.ratingCount || 0})</div>
+                    )}
+                    {match.address && <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '2px' }}>{match.address}</div>}
+                    {type === 'custom' && match.description && (
+                      <div style={{ fontSize: '10px', color: '#6b7280' }}>{match.description}</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* 3 action buttons */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <button onClick={() => handleDedupConfirm('accept')}
+                  style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: 'bold', background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer' }}>
+                  ✅ {type === 'google' ? t('dedup.useThis') : t('dedup.alreadyExists')}
+                </button>
+                <button onClick={() => handleDedupConfirm('addNew')}
+                  style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: 'bold', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer' }}>
+                  ➕ {t('dedup.addAsNew')}
+                </button>
+                <button onClick={() => handleDedupConfirm('cancel')}
+                  style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 'bold', background: '#f3f4f6', color: '#6b7280', border: '1px solid #d1d5db', borderRadius: '10px', cursor: 'pointer' }}>
+                  ✕ {t('general.cancel')}
+                </button>
+              </div>
+            </div>
+          </div>
+          );
+        })()}
 
         {/* Add/Edit Location Dialog - REDESIGNED */}
         {(showAddLocationDialog || showEditLocationDialog) && (
@@ -11726,7 +11920,11 @@ const FouFouApp = () => {
                           </span>
                         )}
                         <button
-                          onClick={() => mergeDedupLocations(allPlaces.find(p => p.id !== loc.id)?.id || cluster.loc.id, loc.id)}
+                          onClick={() => {
+                            if (window.confirm(`${t('dedup.confirmDelete')}\n\n${loc.name}`)) {
+                              mergeDedupLocations(allPlaces.find(p => p.id !== loc.id)?.id || cluster.loc.id, loc.id);
+                            }
+                          }}
                           style={{ marginLeft: 'auto', padding: '5px 12px', fontSize: '11px', fontWeight: 'bold', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                           🗑️ {t('dedup.remove')}
                         </button>

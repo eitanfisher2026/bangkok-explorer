@@ -325,6 +325,7 @@
   const [editingArea, setEditingArea] = useState(null); // area being edited on map
   const [mapMode, setMapMode] = useState('areas'); // 'areas', 'radius', or 'stops'
   const [mapStops, setMapStops] = useState([]); // stops to show when mapMode='stops'
+  const [mapUserLocation, setMapUserLocation] = useState(null); // { lat, lng } for blue dot on map
   const [startPointCoords, setStartPointCoords] = useState(null); // { lat, lng, address }
   const leafletMapRef = React.useRef(null);
   
@@ -674,6 +675,21 @@
           window._mapRedrawLine = redrawRouteLine;
           window._mapStopsOrderRef = stopsOrderRef;
           
+          // User location blue dot
+          if (mapUserLocation && mapUserLocation.lat && mapUserLocation.lng) {
+            const userDot = L.circleMarker([mapUserLocation.lat, mapUserLocation.lng], {
+              radius: 10, fillColor: '#4285F4', fillOpacity: 1,
+              color: 'white', weight: 3, opacity: 1
+            }).addTo(map);
+            userDot.bindPopup(`<div style="text-align:center;font-size:12px;font-weight:bold;">📍 ${t('trail.youAreHere')}</div>`).openPopup();
+            // Add accuracy ring
+            L.circle([mapUserLocation.lat, mapUserLocation.lng], {
+              radius: mapUserLocation.accuracy || 30,
+              fillColor: '#4285F4', fillOpacity: 0.1,
+              color: '#4285F4', weight: 1, opacity: 0.3
+            }).addTo(map);
+          }
+          
           leafletMapRef.current = map;
         }
       } catch(err) {
@@ -683,7 +699,7 @@
     }); // end loadLeaflet().then
     
     return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; delete window._mapRedrawLine; delete window._mapStopsOrderRef; };
-  }, [showMapModal, mapMode, mapStops, formData.currentLat, formData.currentLng, formData.radiusMeters]);
+  }, [showMapModal, mapMode, mapStops, mapUserLocation, formData.currentLat, formData.currentLng, formData.radiusMeters]);
   const [modalImage, setModalImage] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -1894,6 +1910,7 @@
 
   // ── Duplicate Detection: find nearby Google Places + existing custom locations ──
   const [bulkDedupResults, setBulkDedupResults] = useState(null); // [{ loc, matches: [{...loc, _distance}] }]
+  const [dedupConfirm, setDedupConfirm] = useState(null); // { type: 'google'|'custom', loc, match, closeAfter }
   
   const findNearbyDuplicates = async (lat, lng, interests) => {
     if (!lat || !lng || !interests?.length) return null;
@@ -5159,6 +5176,7 @@
     const loc = { ...newLocation };
     if (!loc.name?.trim() || !loc.interests?.length) {
       addCustomLocation(closeAfter);
+      if (closeQuickCapture) setShowQuickCapture(false);
       return;
     }
     // Skip dedup if no GPS or dedup disabled
@@ -5168,62 +5186,19 @@
       return;
     }
     
-    // Close UI immediately — don't make user wait for API
-    if (closeQuickCapture) setShowQuickCapture(false);
-    
     // Background dedup check
     try {
       const matches = await findNearbyDuplicates(loc.lat, loc.lng, loc.interests);
       
       if (matches && matches.custom.length > 0) {
-        // Already in my places — merge any new interests, don't add duplicate
         const dup = matches.custom[0];
-        const newInterests = loc.interests.filter(i => !dup.interests?.includes(i));
-        
-        if (newInterests.length > 0) {
-          // Merge new interests into existing place
-          const mergedInterests = [...(dup.interests || []), ...newInterests];
-          const updated = customLocations.map(l => 
-            l.id === dup.id ? { ...l, interests: mergedInterests } : l
-          );
-          setCustomLocations(updated);
-          
-          if (isFirebaseAvailable && database && dup.firebaseKey) {
-            database.ref(`cities/${selectedCityId}/locations/${dup.firebaseKey}/interests`).set(mergedInterests);
-          }
-          
-          const interestNames = newInterests.map(id => {
-            const opt = allInterestOptions.find(o => o.id === id);
-            return opt ? (tLabel(opt) || id) : id;
-          }).join(', ');
-          showToast(`🔗 "${dup.name}" +${interestNames}`, 'success', 4000);
-        } else {
-          showToast(`⚠️ ${t('dedup.duplicateSkipped')}: "${dup.name}" (${dup._distance}m)`, 'warning', 4000);
-        }
-        
-        // Save user's photo to device even if place is duplicate
-        if (loc.uploadedImage) {
-          try { window.BKK.saveImageToDevice?.(loc.uploadedImage, dup.name); } catch(e) {}
-        }
+        setDedupConfirm({ type: 'custom', loc, match: dup, closeAfter, closeQuickCapture });
         return;
       }
       
       if (matches && matches.google.length > 0) {
-        // Save to my places with Google's name/data (user's photo is kept)
         const best = matches.google.sort((a, b) => a._distance - b._distance || (b.rating - a.rating))[0];
-        const googleData = {
-          ...loc,
-          name: best.name,
-          lat: best.lat || loc.lat,
-          lng: best.lng || loc.lng,
-          address: best.address || '',
-          mapsUrl: best.mapsUrl || '',
-          description: `⭐ ${best.rating?.toFixed(1) || 'N/A'} (${best.ratingCount || 0})`,
-          googlePlace: true,
-          googlePlaceId: best.googlePlaceId || ''
-        };
-        addCustomLocation(closeAfter, googleData);
-        showToast(`📍 ${t('dedup.googleMatch')}: ${best.name}`, 'success', 4000);
+        setDedupConfirm({ type: 'google', loc, match: best, closeAfter, closeQuickCapture });
         return;
       }
     } catch (e) {
@@ -5232,26 +5207,87 @@
     
     // No matches or check failed — save normally
     addCustomLocation(closeAfter);
-    if (closeQuickCapture) showToast('✅ ' + t('trail.saved'), 'success');
+    if (closeQuickCapture) {
+      setShowQuickCapture(false);
+      showToast('\u2705 ' + t('trail.saved'), 'success');
+    }
+  };
+
+  // Handle dedup confirmation actions
+  const handleDedupConfirm = (action) => {
+    if (!dedupConfirm) return;
+    const { type, loc, match, closeAfter, closeQuickCapture } = dedupConfirm;
+    
+    // Always save photo to device
+    if (loc.uploadedImage) {
+      try { window.BKK.saveImageToDevice?.(loc.uploadedImage, loc.name || match.name || 'photo'); } catch(e) {}
+    }
+    
+    if (action === 'accept') {
+      if (type === 'google') {
+        const googleData = {
+          ...loc,
+          name: match.name,
+          lat: match.lat || loc.lat,
+          lng: match.lng || loc.lng,
+          address: match.address || '',
+          mapsUrl: match.mapsUrl || '',
+          description: `\u2B50 ${match.rating?.toFixed(1) || 'N/A'} (${match.ratingCount || 0})`,
+          googlePlace: true,
+          googlePlaceId: match.googlePlaceId || ''
+        };
+        addCustomLocation(closeAfter, googleData);
+        showToast(`\uD83D\uDCCD ${t('dedup.googleMatch')}: ${match.name}`, 'success', 4000);
+      } else {
+        // Custom match — don't add, merge interests if needed
+        const newInterests = loc.interests.filter(i => !match.interests?.includes(i));
+        if (newInterests.length > 0) {
+          const mergedInterests = [...(match.interests || []), ...newInterests];
+          const updated = customLocations.map(l => 
+            l.id === match.id ? { ...l, interests: mergedInterests } : l
+          );
+          setCustomLocations(updated);
+          if (isFirebaseAvailable && database && match.firebaseKey) {
+            database.ref(`cities/${selectedCityId}/locations/${match.firebaseKey}/interests`).set(mergedInterests);
+          }
+          const interestNames = newInterests.map(id => {
+            const opt = allInterestOptions.find(o => o.id === id);
+            return opt ? (tLabel(opt) || id) : id;
+          }).join(', ');
+          showToast(`\uD83D\uDD17 "${match.name}" +${interestNames}`, 'success', 4000);
+        } else {
+          showToast(`\u2705 "${match.name}" ${t('dedup.alreadyExists')}`, 'info', 3000);
+        }
+      }
+    } else if (action === 'addNew') {
+      addCustomLocation(closeAfter);
+      showToast('\u2705 ' + t('trail.saved'), 'success');
+    }
+    // action === 'cancel' — do nothing (photo already saved above)
+    
+    if (closeQuickCapture) setShowQuickCapture(false);
+    setDedupConfirm(null);
   };
 
   // Bulk dedup scan — find all suspected duplicate pairs
-  const scanAllDuplicates = () => {
+  const scanAllDuplicates = (coordsOnly = false) => {
     const radius = sp.dedupRadiusMeters || 50;
     const locs = customLocations.filter(l => l.lat && l.lng);
     const clusters = [];
     const seen = new Set();
     
-    // Build related interest map (bidirectional)
+    // Build related interest map (bidirectional) — only for interest-based mode
     const relatedMap = {};
-    for (const opt of allInterestOptions) {
-      const related = interestConfig[opt.id]?.dedupRelated || opt.dedupRelated || [];
-      if (!relatedMap[opt.id]) relatedMap[opt.id] = new Set();
-      related.forEach(r => {
-        relatedMap[opt.id].add(r);
-        if (!relatedMap[r]) relatedMap[r] = new Set();
-        relatedMap[r].add(opt.id);
-      });
+    if (!coordsOnly) {
+      for (const opt of allInterestOptions) {
+        const related = interestConfig[opt.id]?.dedupRelated || opt.dedupRelated || [];
+        if (!relatedMap[opt.id]) relatedMap[opt.id] = new Set();
+        related.forEach(r => {
+          relatedMap[opt.id].add(r);
+          if (!relatedMap[r]) relatedMap[r] = new Set();
+          relatedMap[r].add(opt.id);
+        });
+      }
     }
     
     const interestsOverlap = (a, b) => {
@@ -5270,7 +5306,7 @@
       for (let j = i + 1; j < locs.length; j++) {
         if (seen.has(locs[j].id)) continue;
         const dist = calcDistance(locs[i].lat, locs[i].lng, locs[j].lat, locs[j].lng);
-        if (dist <= radius && interestsOverlap(locs[i].interests, locs[j].interests)) {
+        if (dist <= radius && (coordsOnly || interestsOverlap(locs[i].interests, locs[j].interests))) {
           matches.push({ ...locs[j], _distance: Math.round(dist) });
           seen.add(locs[j].id);
         }
@@ -5282,10 +5318,11 @@
     }
     
     setBulkDedupResults(clusters);
+    const modeLabel = coordsOnly ? '📐' : '🔍';
     if (clusters.length === 0) {
       showToast('✅ ' + t('dedup.noDuplicates'), 'success');
     } else {
-      showToast(`🔍 ${clusters.length} ${t('dedup.clustersFound')}`, 'info');
+      showToast(`${modeLabel} ${clusters.length} ${t('dedup.clustersFound')}`, 'info');
     }
   };
 
