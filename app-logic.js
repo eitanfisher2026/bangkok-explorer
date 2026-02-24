@@ -320,6 +320,8 @@
   const [showAddressDialog, setShowAddressDialog] = useState(false);
   const [showMapModal, setShowMapModal] = useState(false);
   const [settingsTab, setSettingsTab] = useState('cities'); // 'cities' or 'general'
+  const [editingParamKey, setEditingParamKey] = useState(null); // key of param being edited inline
+  const [editingParamVal, setEditingParamVal] = useState('');
   const [editingArea, setEditingArea] = useState(null); // area being edited on map
   const [mapMode, setMapMode] = useState('areas'); // 'areas', 'radius', or 'stops'
   const [mapStops, setMapStops] = useState([]); // stops to show when mapMode='stops'

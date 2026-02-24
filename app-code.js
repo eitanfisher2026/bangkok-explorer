@@ -329,6 +329,8 @@ const FouFouApp = () => {
   const [showAddressDialog, setShowAddressDialog] = useState(false);
   const [showMapModal, setShowMapModal] = useState(false);
   const [settingsTab, setSettingsTab] = useState('cities'); // 'cities' or 'general'
+  const [editingParamKey, setEditingParamKey] = useState(null); // key of param being edited inline
+  const [editingParamVal, setEditingParamVal] = useState('');
   const [editingArea, setEditingArea] = useState(null); // area being edited on map
   const [mapMode, setMapMode] = useState('areas'); // 'areas', 'radius', or 'stops'
   const [mapStops, setMapStops] = useState([]); // stops to show when mapMode='stops'
@@ -8524,15 +8526,44 @@ const FouFouApp = () => {
                     ) : (() => {
                       const step = p.step || 1;
                       const val = systemParams[p.key];
+                      const isEditing = editingParamKey === p.key;
                       return (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <button onClick={() => updateParam(p.key, Math.max(p.min, val - step), p.type)}
-                          style={{ width: '30px', height: '30px', borderRadius: '8px', border: 'none', background: val <= p.min ? '#e5e7eb' : '#3b82f6', color: val <= p.min ? '#9ca3af' : 'white', fontSize: '16px', fontWeight: 'bold', cursor: val <= p.min ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                          disabled={val <= p.min}>−</button>
-                        <span style={{ minWidth: '40px', textAlign: 'center', fontSize: '15px', fontWeight: 'bold', color: '#374151' }}>{p.type === 'float' ? val.toFixed(1) : val}</span>
-                        <button onClick={() => updateParam(p.key, Math.min(p.max, val + step), p.type)}
-                          style={{ width: '30px', height: '30px', borderRadius: '8px', border: 'none', background: val >= p.max ? '#e5e7eb' : '#3b82f6', color: val >= p.max ? '#9ca3af' : 'white', fontSize: '16px', fontWeight: 'bold', cursor: val >= p.max ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                          disabled={val >= p.max}>+</button>
+                        {isEditing ? (
+                          <>
+                            <button onClick={() => {
+                                const parsed = p.type === 'float' ? parseFloat(editingParamVal) : parseInt(editingParamVal);
+                                if (!isNaN(parsed)) updateParam(p.key, Math.max(p.min, Math.min(p.max, parsed)), p.type);
+                                setEditingParamKey(null);
+                              }}
+                              style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: '#22c55e', color: 'white', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✓</button>
+                            <input type="text" inputMode="decimal" autoFocus
+                              value={editingParamVal}
+                              onChange={(e) => setEditingParamVal(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  const parsed = p.type === 'float' ? parseFloat(editingParamVal) : parseInt(editingParamVal);
+                                  if (!isNaN(parsed)) updateParam(p.key, Math.max(p.min, Math.min(p.max, parsed)), p.type);
+                                  setEditingParamKey(null);
+                                } else if (e.key === 'Escape') { setEditingParamKey(null); }
+                              }}
+                              style={{ width: '55px', padding: '4px', fontSize: '15px', fontWeight: 'bold', border: '2px solid #3b82f6', borderRadius: '8px', textAlign: 'center', outline: 'none' }}
+                            />
+                            <button onClick={() => setEditingParamKey(null)}
+                              style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: '#ef4444', color: 'white', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✗</button>
+                          </>
+                        ) : (
+                          <>
+                            <button onClick={() => updateParam(p.key, Math.max(p.min, val - step), p.type)}
+                              style={{ width: '30px', height: '30px', borderRadius: '8px', border: 'none', background: val <= p.min ? '#e5e7eb' : '#3b82f6', color: val <= p.min ? '#9ca3af' : 'white', fontSize: '16px', fontWeight: 'bold', cursor: val <= p.min ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              disabled={val <= p.min}>−</button>
+                            <span onClick={() => { setEditingParamKey(p.key); setEditingParamVal(p.type === 'float' ? val.toFixed(1) : String(val)); }}
+                              style={{ minWidth: '40px', textAlign: 'center', fontSize: '15px', fontWeight: 'bold', color: '#374151', cursor: 'pointer', padding: '2px 4px', borderRadius: '6px', border: '1px dashed #d1d5db' }}>{p.type === 'float' ? val.toFixed(1) : val}</span>
+                            <button onClick={() => updateParam(p.key, Math.min(p.max, val + step), p.type)}
+                              style={{ width: '30px', height: '30px', borderRadius: '8px', border: 'none', background: val >= p.max ? '#e5e7eb' : '#3b82f6', color: val >= p.max ? '#9ca3af' : 'white', fontSize: '16px', fontWeight: 'bold', cursor: val >= p.max ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              disabled={val >= p.max}>+</button>
+                          </>
+                        )}
                       </div>
                       );
                     })()}
