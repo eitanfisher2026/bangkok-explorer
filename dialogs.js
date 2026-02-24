@@ -585,7 +585,7 @@
                     if (showEditLocationDialog) {
                       updateCustomLocation(false);
                     } else {
-                      addCustomLocation(false);
+                      saveWithDedupCheck(false);
                     }
                   }}
                   disabled={!newLocation.name?.trim()}
@@ -2736,9 +2736,7 @@
                         );
                         newLocation.name = result?.name || ('Spotted #' + Date.now().toString().slice(-4));
                       }
-                      addCustomLocation(true);
-                      setShowQuickCapture(false);
-                      showToast('✅ ' + t('trail.saved'), 'success');
+                      saveWithDedupCheck(true, true);
                     }}
                     disabled={!newLocation.uploadedImage}
                     style={{
@@ -2849,6 +2847,66 @@
                   {t('general.cancel')}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Dedup Match Dialog ── */}
+        {dedupMatches && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+            <div style={{ background: 'white', borderRadius: '16px', maxWidth: '400px', width: '100%', maxHeight: '80vh', overflow: 'auto', padding: '20px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '4px', textAlign: 'center' }}>🔍 {t('dedup.title')}</h3>
+              <p style={{ fontSize: '11px', color: '#6b7280', textAlign: 'center', marginBottom: '14px' }}>{t('dedup.subtitle')}</p>
+              
+              {/* Google Places matches */}
+              {dedupMatches.google.map((place, i) => (
+                <button key={`g${i}`}
+                  onClick={() => dedupUseGooglePlace(place)}
+                  style={{ width: '100%', padding: '12px', marginBottom: '8px', background: 'linear-gradient(135deg, #eff6ff, #dbeafe)', border: '2px solid #3b82f6', borderRadius: '12px', cursor: 'pointer', textAlign: 'right', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '24px' }}>📍</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#1e40af' }}>{place.name}</div>
+                      <div style={{ fontSize: '10px', color: '#6b7280' }}>
+                        {place.address && <span>{place.address.substring(0, 50)}</span>}
+                        {place.rating > 0 && <span> ⭐ {place.rating.toFixed(1)} ({place.ratingCount})</span>}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '10px', color: '#3b82f6', fontWeight: 'bold' }}>{place._distance}m</div>
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#2563eb', fontWeight: 'bold', marginTop: '4px' }}>Google Places — {t('dedup.useThis')}</div>
+                </button>
+              ))}
+              
+              {/* Custom locations matches */}
+              {dedupMatches.custom.map((loc, i) => (
+                <button key={`c${i}`}
+                  onClick={() => { setDedupMatches(null); showToast(`ℹ️ ${loc.name} — ${t('dedup.alreadyExists')}`, 'info'); }}
+                  style={{ width: '100%', padding: '12px', marginBottom: '8px', background: '#fefce8', border: '2px solid #eab308', borderRadius: '12px', cursor: 'pointer', textAlign: 'right', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '24px' }}>⚠️</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#92400e' }}>{loc.name}</div>
+                      <div style={{ fontSize: '10px', color: '#6b7280' }}>{t('dedup.customExists')}</div>
+                    </div>
+                    <div style={{ fontSize: '10px', color: '#ca8a04', fontWeight: 'bold' }}>{loc._distance}m</div>
+                  </div>
+                </button>
+              ))}
+              
+              {/* Add as new button */}
+              <button
+                onClick={dedupAddAsNew}
+                style={{ width: '100%', padding: '12px', marginTop: '4px', background: '#f3f4f6', border: '2px solid #d1d5db', borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', color: '#6b7280' }}>
+                ➕ {t('dedup.addAsNew')}
+              </button>
+              
+              {/* Cancel */}
+              <button
+                onClick={() => setDedupMatches(null)}
+                style={{ width: '100%', padding: '8px', marginTop: '6px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: '#9ca3af' }}>
+                {t('general.cancel')}
+              </button>
             </div>
           </div>
         )}

@@ -288,7 +288,16 @@ const FouFouApp = () => {
 
   if (!window.BKK._defaultSystemParams) {
     window.BKK._defaultSystemParams = {
+      maxStops: 10,
+      fetchMoreCount: 3,
+      googleMaxWaypoints: 12,
+      defaultRadius: 500,
+      dedupRadiusMeters: 50,
+      dedupGoogleEnabled: 1,
+      dedupCustomEnabled: 1,
       trailTimeoutHours: 8,
+      defaultInterestWeight: 3,
+      maxContentPasses: 3,
       timeScoreMatch: 2,
       timeScoreAnytime: 1,
       timeScoreConflict: 0,
@@ -299,8 +308,6 @@ const FouFouApp = () => {
       slotPenaltyMultiplier: 3,
       slotEndPenaltyMultiplier: 4,
       gapPenaltyMultiplier: 2,
-      maxContentPasses: 3,
-      defaultInterestWeight: 3
     };
     window.BKK.systemParams = { ...window.BKK._defaultSystemParams };
   }
@@ -1432,6 +1439,11 @@ const FouFouApp = () => {
             const merged = { ...window.BKK._defaultSystemParams, ...s.systemParams };
             window.BKK.systemParams = merged;
             setSystemParams(merged);
+            if (s.systemParams.maxStops != null) updates.maxStops = s.systemParams.maxStops;
+            if (s.systemParams.fetchMoreCount != null) updates.fetchMoreCount = s.systemParams.fetchMoreCount;
+            if (s.systemParams.googleMaxWaypoints != null) setGoogleMaxWaypoints(s.systemParams.googleMaxWaypoints);
+            if (s.systemParams.defaultRadius != null) window.BKK._defaultRadius = s.systemParams.defaultRadius;
+            if (Object.keys(updates).length > 0) setFormData(prev => ({...prev, ...updates}));
           }
           
         } catch (e) {
@@ -1510,10 +1522,23 @@ const FouFouApp = () => {
         window.BKK._defaultRadius = s.defaultRadius;
         if (!hasSavedPrefs) formUpdates.radiusMeters = s.defaultRadius;
       }
+      
+      if (s.systemParams) {
+        const merged = { ...window.BKK._defaultSystemParams, ...s.systemParams };
+        window.BKK.systemParams = merged;
+        setSystemParams(merged);
+        if (s.systemParams.maxStops != null) formUpdates.maxStops = s.systemParams.maxStops;
+        if (s.systemParams.fetchMoreCount != null) formUpdates.fetchMoreCount = s.systemParams.fetchMoreCount;
+        if (s.systemParams.googleMaxWaypoints != null) setGoogleMaxWaypoints(s.systemParams.googleMaxWaypoints);
+        if (s.systemParams.defaultRadius != null) {
+          window.BKK._defaultRadius = s.systemParams.defaultRadius;
+          if (!hasSavedPrefs) formUpdates.radiusMeters = s.systemParams.defaultRadius;
+        }
+      }
+      
       if (Object.keys(formUpdates).length > 0) {
         setFormData(prev => ({...prev, ...formUpdates}));
       }
-      
       if (s.cityOverrides) {
         window.BKK._cityOverrides = s.cityOverrides;
         const cityId = window.BKK.selectedCityId;
@@ -1527,12 +1552,6 @@ const FouFouApp = () => {
             if (co.nightStartHour != null) city.nightStartHour = co.nightStartHour;
           }
         }
-      }
-      
-      if (s.systemParams) {
-        const merged = { ...window.BKK._defaultSystemParams, ...s.systemParams };
-        window.BKK.systemParams = merged;
-        setSystemParams(merged);
       }
       
     });
@@ -1712,6 +1731,83 @@ const FouFouApp = () => {
     const dLng = (lng2 - lng1) * Math.PI / 180;
     const a = Math.sin(dLat/2)**2 + Math.cos(r1)*Math.cos(r2)*Math.sin(dLng/2)**2;
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  };
+
+  const [dedupMatches, setDedupMatches] = useState(null); // { google: [], custom: [], lat, lng, interests }
+  
+  const findNearbyDuplicates = async (lat, lng, interests) => {
+    if (!lat || !lng || !interests?.length) return null;
+    const radius = sp.dedupRadiusMeters || 50;
+    const results = { google: [], custom: [], lat, lng, interests };
+    
+    if (sp.dedupCustomEnabled) {
+      for (const loc of customLocations) {
+        if (!loc.lat || !loc.lng) continue;
+        const dist = calcDistance(lat, lng, loc.lat, loc.lng);
+        if (dist <= radius) {
+          const sharedInterest = loc.interests?.some(i => interests.includes(i));
+          if (sharedInterest) {
+            results.custom.push({ ...loc, _distance: Math.round(dist) });
+          }
+        }
+      }
+    }
+    
+    if (sp.dedupGoogleEnabled && GOOGLE_PLACES_API_KEY) {
+      try {
+        const interestToGP = window.BKK.interestToGooglePlaces || {};
+        const googleTypes = [];
+        for (const interest of interests) {
+          const types = interestToGP[interest];
+          if (types) googleTypes.push(...types);
+        }
+        const uniqueTypes = [...new Set(googleTypes)].slice(0, 5);
+        
+        const body = {
+          locationRestriction: {
+            circle: {
+              center: { latitude: lat, longitude: lng },
+              radius: Math.max(radius, 50) // Google minimum is ~50m
+            }
+          },
+          maxResultCount: 5
+        };
+        if (uniqueTypes.length > 0) body.includedTypes = uniqueTypes;
+        
+        const response = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
+            'X-Goog-FieldMask': 'places.displayName,places.location,places.formattedAddress,places.rating,places.userRatingCount,places.id,places.types,places.googleMapsUri'
+          },
+          body: JSON.stringify(body)
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          results.google = (data.places || []).map(p => ({
+            name: p.displayName?.text || '',
+            lat: p.location?.latitude,
+            lng: p.location?.longitude,
+            address: p.formattedAddress || '',
+            rating: p.rating || 0,
+            ratingCount: p.userRatingCount || 0,
+            googlePlaceId: p.id,
+            mapsUrl: p.googleMapsUri || '',
+            types: p.types || [],
+            _distance: Math.round(calcDistance(lat, lng, p.location?.latitude || 0, p.location?.longitude || 0))
+          }));
+        }
+      } catch (e) {
+      }
+    }
+    
+    const total = results.google.length + results.custom.length;
+    if (total > 0) {
+      return results;
+    }
+    return null;
   };
 
   const detectAreaFromCoords = (lat, lng) => {
@@ -4417,6 +4513,57 @@ const FouFouApp = () => {
   const endActiveTrail = () => {
     setActiveTrail(null);
     localStorage.removeItem('foufou_active_trail');
+  };
+
+  const dedupPendingRef = React.useRef(null); // { closeAfter, closeQuickCapture }
+  
+  const saveWithDedupCheck = async (closeAfter = true, closeQuickCapture = false) => {
+    const loc = newLocation;
+    if (!loc.name?.trim() || !loc.interests?.length) {
+      addCustomLocation(closeAfter);
+      return;
+    }
+    if (!loc.lat || !loc.lng || (!sp.dedupGoogleEnabled && !sp.dedupCustomEnabled)) {
+      addCustomLocation(closeAfter);
+      if (closeQuickCapture) setShowQuickCapture(false);
+      return;
+    }
+    
+    const matches = await findNearbyDuplicates(loc.lat, loc.lng, loc.interests);
+    if (matches && (matches.google.length > 0 || matches.custom.length > 0)) {
+      dedupPendingRef.current = { closeAfter, closeQuickCapture };
+      setDedupMatches(matches);
+      return; // Dialog will handle the rest
+    }
+    
+    addCustomLocation(closeAfter);
+    if (closeQuickCapture) { setShowQuickCapture(false); showToast('✅ ' + t('trail.saved'), 'success'); }
+  };
+  
+  const dedupUseGooglePlace = (place) => {
+    const pending = dedupPendingRef.current;
+    setNewLocation(prev => ({
+      ...prev,
+      name: place.name,
+      lat: place.lat,
+      lng: place.lng,
+      address: place.address,
+      mapsUrl: place.mapsUrl || '',
+      description: `⭐ ${place.rating?.toFixed(1) || 'N/A'} (${place.ratingCount || 0})`,
+      googlePlace: true
+    }));
+    setDedupMatches(null);
+    setTimeout(() => {
+      addCustomLocation(pending?.closeAfter ?? true);
+      if (pending?.closeQuickCapture) { setShowQuickCapture(false); showToast('✅ ' + t('trail.saved'), 'success'); }
+    }, 50);
+  };
+  
+  const dedupAddAsNew = () => {
+    const pending = dedupPendingRef.current;
+    setDedupMatches(null);
+    addCustomLocation(pending?.closeAfter ?? true);
+    if (pending?.closeQuickCapture) { setShowQuickCapture(false); showToast('✅ ' + t('trail.saved'), 'success'); }
   };
 
   const addCustomLocation = (closeAfter = true) => {
@@ -7776,114 +7923,6 @@ const FouFouApp = () => {
               </div>
             </div>
 
-            {/* Max Stops Setting */}
-            <div className="mb-3">
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-400 rounded-lg p-2">
-                <h3 className="text-sm font-bold text-gray-800 mb-1">{`📍 ${t("settings.maxStops")}`}</h3>
-                <input
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={formData.maxStops}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value) || 12;
-                    const clamped = Math.min(100, Math.max(1, val));
-                    setFormData({...formData, maxStops: clamped});
-                    try {
-                      const database = window.BKK.database;
-                      if (database && isUnlocked) database.ref('settings/maxStops').set(clamped);
-                    } catch (err) { console.error('[SETTINGS] Error saving maxStops:', err); }
-                  }}
-                  className="w-20 p-1 border-2 border-blue-300 rounded text-center font-bold text-sm"
-                  placeholder="10"
-                />
-                <span className="text-[10px] text-gray-500 mr-2">(1-100)</span>
-              </div>
-            </div>
-            
-            {/* Fetch More Count Setting - NEW */}
-            <div className="mb-3">
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-400 rounded-lg p-2">
-                <h3 className="text-sm font-bold text-gray-800 mb-1">{`➕ ${t("route.moreFromCategory")}`}</h3>
-                <input
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={formData.fetchMoreCount || 3}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value) || 3;
-                    const clamped = Math.min(100, Math.max(1, val));
-                    setFormData({...formData, fetchMoreCount: clamped});
-                    try {
-                      const database = window.BKK.database;
-                      if (database && isUnlocked) database.ref('settings/fetchMoreCount').set(clamped);
-                    } catch (err) { console.error('[SETTINGS] Error saving fetchMoreCount:', err); }
-                  }}
-                  className="w-20 p-1 border-2 border-green-300 rounded text-center font-bold text-sm"
-                  placeholder="5"
-                />
-                <span className="text-[10px] text-gray-500 mr-2">(1-100)</span>
-              </div>
-            </div>
-            
-            {/* Google Max Waypoints Setting (admin only) */}
-            {isUnlocked && (
-            <div className="mb-3">
-              <div className="bg-gradient-to-r from-orange-50 to-amber-50 border-2 border-orange-400 rounded-lg p-2">
-                <h3 className="text-sm font-bold text-gray-800 mb-1">{`🗺️ ${t("settings.googleMaxWaypoints")}`}</h3>
-                <p className="text-[10px] text-gray-600 mb-1">{t("settings.googleMaxWaypointsDesc")}</p>
-                <input
-                  type="number"
-                  min="4"
-                  max="50"
-                  value={googleMaxWaypoints}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value) || 12;
-                    const clamped = Math.min(50, Math.max(4, val));
-                    setGoogleMaxWaypoints(clamped);
-                    try {
-                      const database = window.BKK.database;
-                      if (database) database.ref('settings/googleMaxWaypoints').set(clamped);
-                    } catch (err) { console.error('[SETTINGS] Error saving googleMaxWaypoints:', err); }
-                  }}
-                  className="w-20 p-1 border-2 border-orange-300 rounded text-center font-bold text-sm"
-                  placeholder="12"
-                />
-                <span className="text-[10px] text-gray-500 mr-2">(4-50)</span>
-              </div>
-            </div>
-            )}
-            
-            {/* Default Radius Setting */}
-            <div className="mb-3">
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-lg p-2">
-                <h3 className="text-sm font-bold text-gray-800 mb-1">{`📍 ${t("settings.defaultRadius")}`}</h3>
-                <p className="text-[10px] text-gray-600 mb-1">{t("settings.radiusDescription")}</p>
-                <input
-                  type="range"
-                  min="100"
-                  max="2000"
-                  step="100"
-                  value={formData.radiusMeters}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value);
-                    setFormData({...formData, radiusMeters: val});
-                    try {
-                      const database = window.BKK.database;
-                      if (database && isUnlocked) database.ref('settings/defaultRadius').set(val);
-                    } catch (err) { console.error('[SETTINGS] Error saving defaultRadius:', err); }
-                  }}
-                  className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
-                  style={{ accentColor: '#ea580c' }}
-                />
-                <div className="flex justify-between items-center mt-1">
-                  <span className="text-[10px] text-gray-400">100m</span>
-                  <span className="text-sm font-bold text-blue-600">{formData.radiusMeters}m</span>
-                  <span className="text-[10px] text-gray-400">2000m</span>
-                </div>
-              </div>
-            </div>
-            
             {/* Refresh Data Button */}
             <div className="mb-3">
               <div className="bg-gradient-to-r from-cyan-50 to-teal-50 border-2 border-cyan-400 rounded-xl p-3">
@@ -8261,20 +8300,33 @@ const FouFouApp = () => {
             {/* ===== SYSTEM PARAMS TAB ===== */}
             {settingsTab === 'sysparams' && isUnlocked && (<div>
             {(() => {
-              const paramDefs = [
-                { key: 'trailTimeoutHours', label: t('sysParams.trailTimeout'), desc: t('sysParams.trailTimeoutDesc'), min: 1, max: 48, step: 1, type: 'int' },
-                { key: 'defaultInterestWeight', label: t('sysParams.defaultWeight'), desc: t('sysParams.defaultWeightDesc'), min: 1, max: 10, step: 1, type: 'int' },
-                { key: 'maxContentPasses', label: t('sysParams.maxPasses'), desc: t('sysParams.maxPassesDesc'), min: 1, max: 20, step: 1, type: 'int' },
-                { key: 'timeScoreMatch', label: t('sysParams.timeMatch'), desc: t('sysParams.timeMatchDesc'), min: 0, max: 10, step: 1, type: 'int' },
-                { key: 'timeScoreAnytime', label: t('sysParams.timeAnytime'), desc: t('sysParams.timeAnytimeDesc'), min: 0, max: 10, step: 1, type: 'int' },
-                { key: 'timeScoreConflict', label: t('sysParams.timeConflict'), desc: t('sysParams.timeConflictDesc'), min: 0, max: 10, step: 1, type: 'int' },
-                { key: 'timeConflictPenalty', label: t('sysParams.timePenalty'), desc: t('sysParams.timePenaltyDesc'), min: 0, max: 20, step: 1, type: 'int' },
-                { key: 'slotEarlyThreshold', label: t('sysParams.earlyThreshold'), desc: t('sysParams.earlyThresholdDesc'), min: 0.1, max: 0.9, step: 0.05, type: 'float' },
-                { key: 'slotLateThreshold', label: t('sysParams.lateThreshold'), desc: t('sysParams.lateThresholdDesc'), min: 0.1, max: 0.9, step: 0.05, type: 'float' },
-                { key: 'slotEndThreshold', label: t('sysParams.endThreshold'), desc: t('sysParams.endThresholdDesc'), min: 0.1, max: 0.9, step: 0.05, type: 'float' },
-                { key: 'slotPenaltyMultiplier', label: t('sysParams.slotPenalty'), desc: t('sysParams.slotPenaltyDesc'), min: 1, max: 20, step: 1, type: 'int' },
-                { key: 'slotEndPenaltyMultiplier', label: t('sysParams.endPenalty'), desc: t('sysParams.endPenaltyDesc'), min: 1, max: 20, step: 1, type: 'int' },
-                { key: 'gapPenaltyMultiplier', label: t('sysParams.gapPenalty'), desc: t('sysParams.gapPenaltyDesc'), min: 1, max: 20, step: 1, type: 'int' },
+              const sections = [
+                { title: t('sysParams.sectionApp'), icon: '📱', color: '#3b82f6', params: [
+                  { key: 'maxStops', label: t('sysParams.maxStops'), desc: t('sysParams.maxStopsDesc'), min: 3, max: 30, step: 1, type: 'int' },
+                  { key: 'fetchMoreCount', label: t('sysParams.fetchMore'), desc: t('sysParams.fetchMoreDesc'), min: 1, max: 10, step: 1, type: 'int' },
+                  { key: 'googleMaxWaypoints', label: t('sysParams.maxWaypoints'), desc: t('sysParams.maxWaypointsDesc'), min: 5, max: 25, step: 1, type: 'int' },
+                  { key: 'defaultRadius', label: t('sysParams.defaultRadius'), desc: t('sysParams.defaultRadiusDesc'), min: 100, max: 5000, step: 100, type: 'int' },
+                ]},
+                { title: t('sysParams.sectionDedup'), icon: '🔍', color: '#8b5cf6', params: [
+                  { key: 'dedupRadiusMeters', label: t('sysParams.dedupRadius'), desc: t('sysParams.dedupRadiusDesc'), min: 10, max: 200, step: 10, type: 'int' },
+                  { key: 'dedupGoogleEnabled', label: t('sysParams.dedupGoogle'), desc: t('sysParams.dedupGoogleDesc'), min: 0, max: 1, step: 1, type: 'int' },
+                  { key: 'dedupCustomEnabled', label: t('sysParams.dedupCustom'), desc: t('sysParams.dedupCustomDesc'), min: 0, max: 1, step: 1, type: 'int' },
+                ]},
+                { title: t('sysParams.sectionAlgo'), icon: '🧮', color: '#f59e0b', params: [
+                  { key: 'trailTimeoutHours', label: t('sysParams.trailTimeout'), desc: t('sysParams.trailTimeoutDesc'), min: 1, max: 48, step: 1, type: 'int' },
+                  { key: 'defaultInterestWeight', label: t('sysParams.defaultWeight'), desc: t('sysParams.defaultWeightDesc'), min: 1, max: 10, step: 1, type: 'int' },
+                  { key: 'maxContentPasses', label: t('sysParams.maxPasses'), desc: t('sysParams.maxPassesDesc'), min: 1, max: 20, step: 1, type: 'int' },
+                  { key: 'timeScoreMatch', label: t('sysParams.timeMatch'), desc: t('sysParams.timeMatchDesc'), min: 0, max: 10, step: 1, type: 'int' },
+                  { key: 'timeScoreAnytime', label: t('sysParams.timeAnytime'), desc: t('sysParams.timeAnytimeDesc'), min: 0, max: 10, step: 1, type: 'int' },
+                  { key: 'timeScoreConflict', label: t('sysParams.timeConflict'), desc: t('sysParams.timeConflictDesc'), min: 0, max: 10, step: 1, type: 'int' },
+                  { key: 'timeConflictPenalty', label: t('sysParams.timePenalty'), desc: t('sysParams.timePenaltyDesc'), min: 0, max: 20, step: 1, type: 'int' },
+                  { key: 'slotEarlyThreshold', label: t('sysParams.earlyThreshold'), desc: t('sysParams.earlyThresholdDesc'), min: 0.1, max: 0.9, step: 0.05, type: 'float' },
+                  { key: 'slotLateThreshold', label: t('sysParams.lateThreshold'), desc: t('sysParams.lateThresholdDesc'), min: 0.1, max: 0.9, step: 0.05, type: 'float' },
+                  { key: 'slotEndThreshold', label: t('sysParams.endThreshold'), desc: t('sysParams.endThresholdDesc'), min: 0.1, max: 0.9, step: 0.05, type: 'float' },
+                  { key: 'slotPenaltyMultiplier', label: t('sysParams.slotPenalty'), desc: t('sysParams.slotPenaltyDesc'), min: 1, max: 20, step: 1, type: 'int' },
+                  { key: 'slotEndPenaltyMultiplier', label: t('sysParams.endPenalty'), desc: t('sysParams.endPenaltyDesc'), min: 1, max: 20, step: 1, type: 'int' },
+                  { key: 'gapPenaltyMultiplier', label: t('sysParams.gapPenalty'), desc: t('sysParams.gapPenaltyDesc'), min: 1, max: 20, step: 1, type: 'int' },
+                ]},
               ];
               const updateParam = (key, val, type) => {
                 const parsed = type === 'float' ? parseFloat(val) : parseInt(val);
@@ -8285,46 +8337,68 @@ const FouFouApp = () => {
                 if (isFirebaseAvailable && database) {
                   database.ref(`settings/systemParams/${key}`).set(parsed);
                 }
+                if (key === 'maxStops') setFormData(prev => ({...prev, maxStops: parsed}));
+                if (key === 'fetchMoreCount') setFormData(prev => ({...prev, fetchMoreCount: parsed}));
+                if (key === 'googleMaxWaypoints') setGoogleMaxWaypoints(parsed);
+                if (key === 'defaultRadius') window.BKK._defaultRadius = parsed;
               };
               const resetAll = () => {
                 const defaults = { ...window.BKK._defaultSystemParams };
                 window.BKK.systemParams = defaults;
                 setSystemParams(defaults);
+                setFormData(prev => ({...prev, maxStops: defaults.maxStops, fetchMoreCount: defaults.fetchMoreCount}));
+                setGoogleMaxWaypoints(defaults.googleMaxWaypoints);
+                window.BKK._defaultRadius = defaults.defaultRadius;
                 if (isFirebaseAvailable && database) {
                   database.ref('settings/systemParams').set(defaults);
                 }
                 showToast(t('sysParams.resetDone'), 'success');
               };
+              const renderRow = (p) => {
+                const def = window.BKK._defaultSystemParams[p.key];
+                const isDefault = systemParams[p.key] === def;
+                const isToggle = p.min === 0 && p.max === 1 && p.step === 1;
+                return (
+                <div key={p.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', background: isDefault ? '#f9fafb' : '#fef3c7', borderRadius: '8px', border: isDefault ? '1px solid #e5e7eb' : '2px solid #f59e0b' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#374151' }}>{p.label}</div>
+                    <div style={{ fontSize: '10px', color: '#9ca3af' }}>{p.desc}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {isToggle ? (
+                      <button onClick={() => updateParam(p.key, systemParams[p.key] ? 0 : 1, 'int')}
+                        style={{ padding: '4px 12px', fontSize: '12px', fontWeight: 'bold', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                          background: systemParams[p.key] ? '#22c55e' : '#ef4444', color: 'white' }}>
+                        {systemParams[p.key] ? '✓ ON' : '✗ OFF'}
+                      </button>
+                    ) : (
+                      <input type="number" min={p.min} max={p.max} step={p.step}
+                        value={systemParams[p.key]} onChange={(e) => updateParam(p.key, e.target.value, p.type)}
+                        style={{ width: '65px', padding: '4px', fontSize: '14px', fontWeight: 'bold', border: '2px solid #d1d5db', borderRadius: '8px', textAlign: 'center' }} />
+                    )}
+                    {!isDefault && (
+                      <button onClick={() => updateParam(p.key, def, p.type)} title={`Default: ${def}`}
+                        style={{ padding: '3px 6px', fontSize: '9px', fontWeight: 'bold', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        ↩ {def}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                );
+              };
               return (
               <div className="space-y-3">
                 <p className="text-[11px] text-gray-500">{t('sysParams.subtitle')}</p>
-                {paramDefs.map(p => {
-                  const def = window.BKK._defaultSystemParams[p.key];
-                  const isDefault = systemParams[p.key] === def;
-                  return (
-                  <div key={p.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', background: isDefault ? '#f9fafb' : '#fef3c7', borderRadius: '8px', border: isDefault ? '1px solid #e5e7eb' : '2px solid #f59e0b' }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#374151' }}>{p.label}</div>
-                      <div style={{ fontSize: '10px', color: '#9ca3af' }}>{p.desc}</div>
+                {sections.map(sec => (
+                  <details key={sec.title} open>
+                    <summary style={{ cursor: 'pointer', padding: '6px 10px', borderRadius: '8px', fontWeight: 'bold', fontSize: '13px', color: 'white', background: sec.color }}>
+                      {sec.icon} {sec.title}
+                    </summary>
+                    <div className="space-y-2 mt-2">
+                      {sec.params.map(p => renderRow(p))}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <input
-                        type="number" min={p.min} max={p.max} step={p.step}
-                        value={systemParams[p.key]}
-                        onChange={(e) => updateParam(p.key, e.target.value, p.type)}
-                        style={{ width: '65px', padding: '4px', fontSize: '14px', fontWeight: 'bold', border: '2px solid #d1d5db', borderRadius: '8px', textAlign: 'center' }}
-                      />
-                      {!isDefault && (
-                        <button onClick={() => updateParam(p.key, def, p.type)}
-                          title={`Default: ${def}`}
-                          style={{ padding: '3px 6px', fontSize: '9px', fontWeight: 'bold', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                          ↩ {def}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  );
-                })}
+                  </details>
+                ))}
                 <button onClick={resetAll}
                   className="w-full py-1.5 bg-gray-500 text-white rounded-lg text-xs font-bold hover:bg-gray-600">
                   🔄 {t('sysParams.resetAll')}
@@ -9067,7 +9141,7 @@ const FouFouApp = () => {
                     if (showEditLocationDialog) {
                       updateCustomLocation(false);
                     } else {
-                      addCustomLocation(false);
+                      saveWithDedupCheck(false);
                     }
                   }}
                   disabled={!newLocation.name?.trim()}
@@ -11187,9 +11261,7 @@ const FouFouApp = () => {
                         );
                         newLocation.name = result?.name || ('Spotted #' + Date.now().toString().slice(-4));
                       }
-                      addCustomLocation(true);
-                      setShowQuickCapture(false);
-                      showToast('✅ ' + t('trail.saved'), 'success');
+                      saveWithDedupCheck(true, true);
                     }}
                     disabled={!newLocation.uploadedImage}
                     style={{
@@ -11299,6 +11371,66 @@ const FouFouApp = () => {
                   {t('general.cancel')}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Dedup Match Dialog ── */}
+        {dedupMatches && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+            <div style={{ background: 'white', borderRadius: '16px', maxWidth: '400px', width: '100%', maxHeight: '80vh', overflow: 'auto', padding: '20px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '4px', textAlign: 'center' }}>🔍 {t('dedup.title')}</h3>
+              <p style={{ fontSize: '11px', color: '#6b7280', textAlign: 'center', marginBottom: '14px' }}>{t('dedup.subtitle')}</p>
+              
+              {/* Google Places matches */}
+              {dedupMatches.google.map((place, i) => (
+                <button key={`g${i}`}
+                  onClick={() => dedupUseGooglePlace(place)}
+                  style={{ width: '100%', padding: '12px', marginBottom: '8px', background: 'linear-gradient(135deg, #eff6ff, #dbeafe)', border: '2px solid #3b82f6', borderRadius: '12px', cursor: 'pointer', textAlign: 'right', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '24px' }}>📍</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#1e40af' }}>{place.name}</div>
+                      <div style={{ fontSize: '10px', color: '#6b7280' }}>
+                        {place.address && <span>{place.address.substring(0, 50)}</span>}
+                        {place.rating > 0 && <span> ⭐ {place.rating.toFixed(1)} ({place.ratingCount})</span>}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '10px', color: '#3b82f6', fontWeight: 'bold' }}>{place._distance}m</div>
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#2563eb', fontWeight: 'bold', marginTop: '4px' }}>Google Places — {t('dedup.useThis')}</div>
+                </button>
+              ))}
+              
+              {/* Custom locations matches */}
+              {dedupMatches.custom.map((loc, i) => (
+                <button key={`c${i}`}
+                  onClick={() => { setDedupMatches(null); showToast(`ℹ️ ${loc.name} — ${t('dedup.alreadyExists')}`, 'info'); }}
+                  style={{ width: '100%', padding: '12px', marginBottom: '8px', background: '#fefce8', border: '2px solid #eab308', borderRadius: '12px', cursor: 'pointer', textAlign: 'right', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '24px' }}>⚠️</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#92400e' }}>{loc.name}</div>
+                      <div style={{ fontSize: '10px', color: '#6b7280' }}>{t('dedup.customExists')}</div>
+                    </div>
+                    <div style={{ fontSize: '10px', color: '#ca8a04', fontWeight: 'bold' }}>{loc._distance}m</div>
+                  </div>
+                </button>
+              ))}
+              
+              {/* Add as new button */}
+              <button
+                onClick={dedupAddAsNew}
+                style={{ width: '100%', padding: '12px', marginTop: '4px', background: '#f3f4f6', border: '2px solid #d1d5db', borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', color: '#6b7280' }}>
+                ➕ {t('dedup.addAsNew')}
+              </button>
+              
+              {/* Cancel */}
+              <button
+                onClick={() => setDedupMatches(null)}
+                style={{ width: '100%', padding: '8px', marginTop: '6px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: '#9ca3af' }}>
+                {t('general.cancel')}
+              </button>
             </div>
           </div>
         )}

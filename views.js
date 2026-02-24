@@ -2914,113 +2914,6 @@
               </div>
             </div>
 
-            {/* Max Stops Setting */}
-            <div className="mb-3">
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-400 rounded-lg p-2">
-                <h3 className="text-sm font-bold text-gray-800 mb-1">{`📍 ${t("settings.maxStops")}`}</h3>
-                <input
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={formData.maxStops}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value) || 12;
-                    const clamped = Math.min(100, Math.max(1, val));
-                    setFormData({...formData, maxStops: clamped});
-                    try {
-                      const database = window.BKK.database;
-                      if (database && isUnlocked) database.ref('settings/maxStops').set(clamped);
-                    } catch (err) { console.error('[SETTINGS] Error saving maxStops:', err); }
-                  }}
-                  className="w-20 p-1 border-2 border-blue-300 rounded text-center font-bold text-sm"
-                  placeholder="10"
-                />
-                <span className="text-[10px] text-gray-500 mr-2">(1-100)</span>
-              </div>
-            </div>
-            
-            {/* Fetch More Count Setting - NEW */}
-            <div className="mb-3">
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-400 rounded-lg p-2">
-                <h3 className="text-sm font-bold text-gray-800 mb-1">{`➕ ${t("route.moreFromCategory")}`}</h3>
-                <input
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={formData.fetchMoreCount || 3}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value) || 3;
-                    const clamped = Math.min(100, Math.max(1, val));
-                    setFormData({...formData, fetchMoreCount: clamped});
-                    try {
-                      const database = window.BKK.database;
-                      if (database && isUnlocked) database.ref('settings/fetchMoreCount').set(clamped);
-                    } catch (err) { console.error('[SETTINGS] Error saving fetchMoreCount:', err); }
-                  }}
-                  className="w-20 p-1 border-2 border-green-300 rounded text-center font-bold text-sm"
-                  placeholder="5"
-                />
-                <span className="text-[10px] text-gray-500 mr-2">(1-100)</span>
-              </div>
-            </div>
-            
-            {/* Google Max Waypoints Setting (admin only) */}
-            {isUnlocked && (
-            <div className="mb-3">
-              <div className="bg-gradient-to-r from-orange-50 to-amber-50 border-2 border-orange-400 rounded-lg p-2">
-                <h3 className="text-sm font-bold text-gray-800 mb-1">{`🗺️ ${t("settings.googleMaxWaypoints")}`}</h3>
-                <p className="text-[10px] text-gray-600 mb-1">{t("settings.googleMaxWaypointsDesc")}</p>
-                <input
-                  type="number"
-                  min="4"
-                  max="50"
-                  value={googleMaxWaypoints}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value) || 12;
-                    const clamped = Math.min(50, Math.max(4, val));
-                    setGoogleMaxWaypoints(clamped);
-                    try {
-                      const database = window.BKK.database;
-                      if (database) database.ref('settings/googleMaxWaypoints').set(clamped);
-                    } catch (err) { console.error('[SETTINGS] Error saving googleMaxWaypoints:', err); }
-                  }}
-                  className="w-20 p-1 border-2 border-orange-300 rounded text-center font-bold text-sm"
-                  placeholder="12"
-                />
-                <span className="text-[10px] text-gray-500 mr-2">(4-50)</span>
-              </div>
-            </div>
-            )}
-            
-            {/* Default Radius Setting */}
-            <div className="mb-3">
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-lg p-2">
-                <h3 className="text-sm font-bold text-gray-800 mb-1">{`📍 ${t("settings.defaultRadius")}`}</h3>
-                <p className="text-[10px] text-gray-600 mb-1">{t("settings.radiusDescription")}</p>
-                <input
-                  type="range"
-                  min="100"
-                  max="2000"
-                  step="100"
-                  value={formData.radiusMeters}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value);
-                    setFormData({...formData, radiusMeters: val});
-                    try {
-                      const database = window.BKK.database;
-                      if (database && isUnlocked) database.ref('settings/defaultRadius').set(val);
-                    } catch (err) { console.error('[SETTINGS] Error saving defaultRadius:', err); }
-                  }}
-                  className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
-                  style={{ accentColor: '#ea580c' }}
-                />
-                <div className="flex justify-between items-center mt-1">
-                  <span className="text-[10px] text-gray-400">100m</span>
-                  <span className="text-sm font-bold text-blue-600">{formData.radiusMeters}m</span>
-                  <span className="text-[10px] text-gray-400">2000m</span>
-                </div>
-              </div>
-            </div>
             
             {/* Refresh Data Button */}
             <div className="mb-3">
@@ -3409,20 +3302,33 @@
             {/* ===== SYSTEM PARAMS TAB ===== */}
             {settingsTab === 'sysparams' && isUnlocked && (<div>
             {(() => {
-              const paramDefs = [
-                { key: 'trailTimeoutHours', label: t('sysParams.trailTimeout'), desc: t('sysParams.trailTimeoutDesc'), min: 1, max: 48, step: 1, type: 'int' },
-                { key: 'defaultInterestWeight', label: t('sysParams.defaultWeight'), desc: t('sysParams.defaultWeightDesc'), min: 1, max: 10, step: 1, type: 'int' },
-                { key: 'maxContentPasses', label: t('sysParams.maxPasses'), desc: t('sysParams.maxPassesDesc'), min: 1, max: 20, step: 1, type: 'int' },
-                { key: 'timeScoreMatch', label: t('sysParams.timeMatch'), desc: t('sysParams.timeMatchDesc'), min: 0, max: 10, step: 1, type: 'int' },
-                { key: 'timeScoreAnytime', label: t('sysParams.timeAnytime'), desc: t('sysParams.timeAnytimeDesc'), min: 0, max: 10, step: 1, type: 'int' },
-                { key: 'timeScoreConflict', label: t('sysParams.timeConflict'), desc: t('sysParams.timeConflictDesc'), min: 0, max: 10, step: 1, type: 'int' },
-                { key: 'timeConflictPenalty', label: t('sysParams.timePenalty'), desc: t('sysParams.timePenaltyDesc'), min: 0, max: 20, step: 1, type: 'int' },
-                { key: 'slotEarlyThreshold', label: t('sysParams.earlyThreshold'), desc: t('sysParams.earlyThresholdDesc'), min: 0.1, max: 0.9, step: 0.05, type: 'float' },
-                { key: 'slotLateThreshold', label: t('sysParams.lateThreshold'), desc: t('sysParams.lateThresholdDesc'), min: 0.1, max: 0.9, step: 0.05, type: 'float' },
-                { key: 'slotEndThreshold', label: t('sysParams.endThreshold'), desc: t('sysParams.endThresholdDesc'), min: 0.1, max: 0.9, step: 0.05, type: 'float' },
-                { key: 'slotPenaltyMultiplier', label: t('sysParams.slotPenalty'), desc: t('sysParams.slotPenaltyDesc'), min: 1, max: 20, step: 1, type: 'int' },
-                { key: 'slotEndPenaltyMultiplier', label: t('sysParams.endPenalty'), desc: t('sysParams.endPenaltyDesc'), min: 1, max: 20, step: 1, type: 'int' },
-                { key: 'gapPenaltyMultiplier', label: t('sysParams.gapPenalty'), desc: t('sysParams.gapPenaltyDesc'), min: 1, max: 20, step: 1, type: 'int' },
+              const sections = [
+                { title: t('sysParams.sectionApp'), icon: '📱', color: '#3b82f6', params: [
+                  { key: 'maxStops', label: t('sysParams.maxStops'), desc: t('sysParams.maxStopsDesc'), min: 3, max: 30, step: 1, type: 'int' },
+                  { key: 'fetchMoreCount', label: t('sysParams.fetchMore'), desc: t('sysParams.fetchMoreDesc'), min: 1, max: 10, step: 1, type: 'int' },
+                  { key: 'googleMaxWaypoints', label: t('sysParams.maxWaypoints'), desc: t('sysParams.maxWaypointsDesc'), min: 5, max: 25, step: 1, type: 'int' },
+                  { key: 'defaultRadius', label: t('sysParams.defaultRadius'), desc: t('sysParams.defaultRadiusDesc'), min: 100, max: 5000, step: 100, type: 'int' },
+                ]},
+                { title: t('sysParams.sectionDedup'), icon: '🔍', color: '#8b5cf6', params: [
+                  { key: 'dedupRadiusMeters', label: t('sysParams.dedupRadius'), desc: t('sysParams.dedupRadiusDesc'), min: 10, max: 200, step: 10, type: 'int' },
+                  { key: 'dedupGoogleEnabled', label: t('sysParams.dedupGoogle'), desc: t('sysParams.dedupGoogleDesc'), min: 0, max: 1, step: 1, type: 'int' },
+                  { key: 'dedupCustomEnabled', label: t('sysParams.dedupCustom'), desc: t('sysParams.dedupCustomDesc'), min: 0, max: 1, step: 1, type: 'int' },
+                ]},
+                { title: t('sysParams.sectionAlgo'), icon: '🧮', color: '#f59e0b', params: [
+                  { key: 'trailTimeoutHours', label: t('sysParams.trailTimeout'), desc: t('sysParams.trailTimeoutDesc'), min: 1, max: 48, step: 1, type: 'int' },
+                  { key: 'defaultInterestWeight', label: t('sysParams.defaultWeight'), desc: t('sysParams.defaultWeightDesc'), min: 1, max: 10, step: 1, type: 'int' },
+                  { key: 'maxContentPasses', label: t('sysParams.maxPasses'), desc: t('sysParams.maxPassesDesc'), min: 1, max: 20, step: 1, type: 'int' },
+                  { key: 'timeScoreMatch', label: t('sysParams.timeMatch'), desc: t('sysParams.timeMatchDesc'), min: 0, max: 10, step: 1, type: 'int' },
+                  { key: 'timeScoreAnytime', label: t('sysParams.timeAnytime'), desc: t('sysParams.timeAnytimeDesc'), min: 0, max: 10, step: 1, type: 'int' },
+                  { key: 'timeScoreConflict', label: t('sysParams.timeConflict'), desc: t('sysParams.timeConflictDesc'), min: 0, max: 10, step: 1, type: 'int' },
+                  { key: 'timeConflictPenalty', label: t('sysParams.timePenalty'), desc: t('sysParams.timePenaltyDesc'), min: 0, max: 20, step: 1, type: 'int' },
+                  { key: 'slotEarlyThreshold', label: t('sysParams.earlyThreshold'), desc: t('sysParams.earlyThresholdDesc'), min: 0.1, max: 0.9, step: 0.05, type: 'float' },
+                  { key: 'slotLateThreshold', label: t('sysParams.lateThreshold'), desc: t('sysParams.lateThresholdDesc'), min: 0.1, max: 0.9, step: 0.05, type: 'float' },
+                  { key: 'slotEndThreshold', label: t('sysParams.endThreshold'), desc: t('sysParams.endThresholdDesc'), min: 0.1, max: 0.9, step: 0.05, type: 'float' },
+                  { key: 'slotPenaltyMultiplier', label: t('sysParams.slotPenalty'), desc: t('sysParams.slotPenaltyDesc'), min: 1, max: 20, step: 1, type: 'int' },
+                  { key: 'slotEndPenaltyMultiplier', label: t('sysParams.endPenalty'), desc: t('sysParams.endPenaltyDesc'), min: 1, max: 20, step: 1, type: 'int' },
+                  { key: 'gapPenaltyMultiplier', label: t('sysParams.gapPenalty'), desc: t('sysParams.gapPenaltyDesc'), min: 1, max: 20, step: 1, type: 'int' },
+                ]},
               ];
               const updateParam = (key, val, type) => {
                 const parsed = type === 'float' ? parseFloat(val) : parseInt(val);
@@ -3433,46 +3339,69 @@
                 if (isFirebaseAvailable && database) {
                   database.ref(`settings/systemParams/${key}`).set(parsed);
                 }
+                // Live-apply app settings
+                if (key === 'maxStops') setFormData(prev => ({...prev, maxStops: parsed}));
+                if (key === 'fetchMoreCount') setFormData(prev => ({...prev, fetchMoreCount: parsed}));
+                if (key === 'googleMaxWaypoints') setGoogleMaxWaypoints(parsed);
+                if (key === 'defaultRadius') window.BKK._defaultRadius = parsed;
               };
               const resetAll = () => {
                 const defaults = { ...window.BKK._defaultSystemParams };
                 window.BKK.systemParams = defaults;
                 setSystemParams(defaults);
+                setFormData(prev => ({...prev, maxStops: defaults.maxStops, fetchMoreCount: defaults.fetchMoreCount}));
+                setGoogleMaxWaypoints(defaults.googleMaxWaypoints);
+                window.BKK._defaultRadius = defaults.defaultRadius;
                 if (isFirebaseAvailable && database) {
                   database.ref('settings/systemParams').set(defaults);
                 }
                 showToast(t('sysParams.resetDone'), 'success');
               };
+              const renderRow = (p) => {
+                const def = window.BKK._defaultSystemParams[p.key];
+                const isDefault = systemParams[p.key] === def;
+                const isToggle = p.min === 0 && p.max === 1 && p.step === 1;
+                return (
+                <div key={p.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', background: isDefault ? '#f9fafb' : '#fef3c7', borderRadius: '8px', border: isDefault ? '1px solid #e5e7eb' : '2px solid #f59e0b' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#374151' }}>{p.label}</div>
+                    <div style={{ fontSize: '10px', color: '#9ca3af' }}>{p.desc}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {isToggle ? (
+                      <button onClick={() => updateParam(p.key, systemParams[p.key] ? 0 : 1, 'int')}
+                        style={{ padding: '4px 12px', fontSize: '12px', fontWeight: 'bold', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                          background: systemParams[p.key] ? '#22c55e' : '#ef4444', color: 'white' }}>
+                        {systemParams[p.key] ? '✓ ON' : '✗ OFF'}
+                      </button>
+                    ) : (
+                      <input type="number" min={p.min} max={p.max} step={p.step}
+                        value={systemParams[p.key]} onChange={(e) => updateParam(p.key, e.target.value, p.type)}
+                        style={{ width: '65px', padding: '4px', fontSize: '14px', fontWeight: 'bold', border: '2px solid #d1d5db', borderRadius: '8px', textAlign: 'center' }} />
+                    )}
+                    {!isDefault && (
+                      <button onClick={() => updateParam(p.key, def, p.type)} title={`Default: ${def}`}
+                        style={{ padding: '3px 6px', fontSize: '9px', fontWeight: 'bold', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        ↩ {def}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                );
+              };
               return (
               <div className="space-y-3">
                 <p className="text-[11px] text-gray-500">{t('sysParams.subtitle')}</p>
-                {paramDefs.map(p => {
-                  const def = window.BKK._defaultSystemParams[p.key];
-                  const isDefault = systemParams[p.key] === def;
-                  return (
-                  <div key={p.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', background: isDefault ? '#f9fafb' : '#fef3c7', borderRadius: '8px', border: isDefault ? '1px solid #e5e7eb' : '2px solid #f59e0b' }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#374151' }}>{p.label}</div>
-                      <div style={{ fontSize: '10px', color: '#9ca3af' }}>{p.desc}</div>
+                {sections.map(sec => (
+                  <details key={sec.title} open>
+                    <summary style={{ cursor: 'pointer', padding: '6px 10px', borderRadius: '8px', fontWeight: 'bold', fontSize: '13px', color: 'white', background: sec.color }}>
+                      {sec.icon} {sec.title}
+                    </summary>
+                    <div className="space-y-2 mt-2">
+                      {sec.params.map(p => renderRow(p))}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <input
-                        type="number" min={p.min} max={p.max} step={p.step}
-                        value={systemParams[p.key]}
-                        onChange={(e) => updateParam(p.key, e.target.value, p.type)}
-                        style={{ width: '65px', padding: '4px', fontSize: '14px', fontWeight: 'bold', border: '2px solid #d1d5db', borderRadius: '8px', textAlign: 'center' }}
-                      />
-                      {!isDefault && (
-                        <button onClick={() => updateParam(p.key, def, p.type)}
-                          title={`Default: ${def}`}
-                          style={{ padding: '3px 6px', fontSize: '9px', fontWeight: 'bold', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                          ↩ {def}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  );
-                })}
+                  </details>
+                ))}
                 <button onClick={resetAll}
                   className="w-full py-1.5 bg-gray-500 text-white rounded-lg text-xs font-bold hover:bg-gray-600">
                   🔄 {t('sysParams.resetAll')}

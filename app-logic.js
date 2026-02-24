@@ -274,19 +274,31 @@
   // System parameters — configurable scoring/optimization values
   if (!window.BKK._defaultSystemParams) {
     window.BKK._defaultSystemParams = {
+      // App settings (admin-controlled)
+      maxStops: 10,
+      fetchMoreCount: 3,
+      googleMaxWaypoints: 12,
+      defaultRadius: 500,
+      // Dedup
+      dedupRadiusMeters: 50,
+      dedupGoogleEnabled: 1,
+      dedupCustomEnabled: 1,
+      // Trail
       trailTimeoutHours: 8,
+      defaultInterestWeight: 3,
+      maxContentPasses: 3,
+      // Time scoring
       timeScoreMatch: 2,
       timeScoreAnytime: 1,
       timeScoreConflict: 0,
       timeConflictPenalty: 3,
+      // Slot positioning
       slotEarlyThreshold: 0.4,
       slotLateThreshold: 0.6,
       slotEndThreshold: 0.7,
       slotPenaltyMultiplier: 3,
       slotEndPenaltyMultiplier: 4,
       gapPenaltyMultiplier: 2,
-      maxContentPasses: 3,
-      defaultInterestWeight: 3
     };
     window.BKK.systemParams = { ...window.BKK._defaultSystemParams };
   }
@@ -1553,6 +1565,12 @@
             const merged = { ...window.BKK._defaultSystemParams, ...s.systemParams };
             window.BKK.systemParams = merged;
             setSystemParams(merged);
+            // systemParams overrides (higher priority)
+            if (s.systemParams.maxStops != null) updates.maxStops = s.systemParams.maxStops;
+            if (s.systemParams.fetchMoreCount != null) updates.fetchMoreCount = s.systemParams.fetchMoreCount;
+            if (s.systemParams.googleMaxWaypoints != null) setGoogleMaxWaypoints(s.systemParams.googleMaxWaypoints);
+            if (s.systemParams.defaultRadius != null) window.BKK._defaultRadius = s.systemParams.defaultRadius;
+            if (Object.keys(updates).length > 0) setFormData(prev => ({...prev, ...updates}));
           }
           
           console.log('[REFRESH] All settings loaded (single read)');
@@ -1633,7 +1651,7 @@
       setIsCurrentUserAdmin(userIsAdmin);
       localStorage.setItem('bangkok_is_admin', userIsAdmin ? 'true' : 'false');
       
-      // App settings
+      // App settings — prefer systemParams, fallback to top-level keys for backward compatibility
       if (s.googleMaxWaypoints != null) setGoogleMaxWaypoints(s.googleMaxWaypoints);
       
       const formUpdates = {};
@@ -1643,11 +1661,25 @@
         window.BKK._defaultRadius = s.defaultRadius;
         if (!hasSavedPrefs) formUpdates.radiusMeters = s.defaultRadius;
       }
+      
+      // System parameters (algorithm tuning + app settings overrides)
+      if (s.systemParams) {
+        const merged = { ...window.BKK._defaultSystemParams, ...s.systemParams };
+        window.BKK.systemParams = merged;
+        setSystemParams(merged);
+        // systemParams overrides for app settings (higher priority than top-level)
+        if (s.systemParams.maxStops != null) formUpdates.maxStops = s.systemParams.maxStops;
+        if (s.systemParams.fetchMoreCount != null) formUpdates.fetchMoreCount = s.systemParams.fetchMoreCount;
+        if (s.systemParams.googleMaxWaypoints != null) setGoogleMaxWaypoints(s.systemParams.googleMaxWaypoints);
+        if (s.systemParams.defaultRadius != null) {
+          window.BKK._defaultRadius = s.systemParams.defaultRadius;
+          if (!hasSavedPrefs) formUpdates.radiusMeters = s.systemParams.defaultRadius;
+        }
+      }
+      
       if (Object.keys(formUpdates).length > 0) {
         setFormData(prev => ({...prev, ...formUpdates}));
       }
-      
-      // City day/night overrides
       if (s.cityOverrides) {
         window.BKK._cityOverrides = s.cityOverrides;
         const cityId = window.BKK.selectedCityId;
@@ -1661,13 +1693,6 @@
             if (co.nightStartHour != null) city.nightStartHour = co.nightStartHour;
           }
         }
-      }
-      
-      // System parameters (algorithm tuning)
-      if (s.systemParams) {
-        const merged = { ...window.BKK._defaultSystemParams, ...s.systemParams };
-        window.BKK.systemParams = merged;
-        setSystemParams(merged);
       }
       
       console.log('[FIREBASE] Settings loaded (single listener):', Object.keys(s).filter(k => s[k] != null).join(', '));
@@ -1863,6 +1888,88 @@
     const dLng = (lng2 - lng1) * Math.PI / 180;
     const a = Math.sin(dLat/2)**2 + Math.cos(r1)*Math.cos(r2)*Math.sin(dLng/2)**2;
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  };
+
+  // ── Duplicate Detection: find nearby Google Places + existing custom locations ──
+  const [dedupMatches, setDedupMatches] = useState(null); // { google: [], custom: [], lat, lng, interests }
+  
+  const findNearbyDuplicates = async (lat, lng, interests) => {
+    if (!lat || !lng || !interests?.length) return null;
+    const radius = sp.dedupRadiusMeters || 50;
+    const results = { google: [], custom: [], lat, lng, interests };
+    
+    // 1. Check existing custom locations (same interest + within radius)
+    if (sp.dedupCustomEnabled) {
+      for (const loc of customLocations) {
+        if (!loc.lat || !loc.lng) continue;
+        const dist = calcDistance(lat, lng, loc.lat, loc.lng);
+        if (dist <= radius) {
+          const sharedInterest = loc.interests?.some(i => interests.includes(i));
+          if (sharedInterest) {
+            results.custom.push({ ...loc, _distance: Math.round(dist) });
+          }
+        }
+      }
+    }
+    
+    // 2. Google Places Nearby Search (same interest types + within radius)
+    if (sp.dedupGoogleEnabled && GOOGLE_PLACES_API_KEY) {
+      try {
+        const interestToGP = window.BKK.interestToGooglePlaces || {};
+        const googleTypes = [];
+        for (const interest of interests) {
+          const types = interestToGP[interest];
+          if (types) googleTypes.push(...types);
+        }
+        const uniqueTypes = [...new Set(googleTypes)].slice(0, 5);
+        
+        const body = {
+          locationRestriction: {
+            circle: {
+              center: { latitude: lat, longitude: lng },
+              radius: Math.max(radius, 50) // Google minimum is ~50m
+            }
+          },
+          maxResultCount: 5
+        };
+        if (uniqueTypes.length > 0) body.includedTypes = uniqueTypes;
+        
+        const response = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
+            'X-Goog-FieldMask': 'places.displayName,places.location,places.formattedAddress,places.rating,places.userRatingCount,places.id,places.types,places.googleMapsUri'
+          },
+          body: JSON.stringify(body)
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          results.google = (data.places || []).map(p => ({
+            name: p.displayName?.text || '',
+            lat: p.location?.latitude,
+            lng: p.location?.longitude,
+            address: p.formattedAddress || '',
+            rating: p.rating || 0,
+            ratingCount: p.userRatingCount || 0,
+            googlePlaceId: p.id,
+            mapsUrl: p.googleMapsUri || '',
+            types: p.types || [],
+            _distance: Math.round(calcDistance(lat, lng, p.location?.latitude || 0, p.location?.longitude || 0))
+          }));
+        }
+      } catch (e) {
+        console.warn('[DEDUP] Google nearby search failed:', e.message);
+      }
+    }
+    
+    const total = results.google.length + results.custom.length;
+    if (total > 0) {
+      console.log(`[DEDUP] Found ${results.google.length} Google + ${results.custom.length} custom within ${radius}m`);
+      return results;
+    }
+    return null;
   };
 
   // Detect which area a coordinate belongs to (returns areaId or null)
@@ -4986,6 +5093,62 @@
   const endActiveTrail = () => {
     setActiveTrail(null);
     localStorage.removeItem('foufou_active_trail');
+  };
+
+  // ── Save with duplicate detection ──
+  const dedupPendingRef = React.useRef(null); // { closeAfter, closeQuickCapture }
+  
+  const saveWithDedupCheck = async (closeAfter = true, closeQuickCapture = false) => {
+    const loc = newLocation;
+    if (!loc.name?.trim() || !loc.interests?.length) {
+      addCustomLocation(closeAfter);
+      return;
+    }
+    // Skip dedup if no GPS or dedup disabled
+    if (!loc.lat || !loc.lng || (!sp.dedupGoogleEnabled && !sp.dedupCustomEnabled)) {
+      addCustomLocation(closeAfter);
+      if (closeQuickCapture) setShowQuickCapture(false);
+      return;
+    }
+    
+    const matches = await findNearbyDuplicates(loc.lat, loc.lng, loc.interests);
+    if (matches && (matches.google.length > 0 || matches.custom.length > 0)) {
+      dedupPendingRef.current = { closeAfter, closeQuickCapture };
+      setDedupMatches(matches);
+      return; // Dialog will handle the rest
+    }
+    
+    addCustomLocation(closeAfter);
+    if (closeQuickCapture) { setShowQuickCapture(false); showToast('✅ ' + t('trail.saved'), 'success'); }
+  };
+  
+  // Handle dedup choice: use Google place
+  const dedupUseGooglePlace = (place) => {
+    const pending = dedupPendingRef.current;
+    setNewLocation(prev => ({
+      ...prev,
+      name: place.name,
+      lat: place.lat,
+      lng: place.lng,
+      address: place.address,
+      mapsUrl: place.mapsUrl || '',
+      description: `⭐ ${place.rating?.toFixed(1) || 'N/A'} (${place.ratingCount || 0})`,
+      googlePlace: true
+    }));
+    setDedupMatches(null);
+    // Use setTimeout to let state update propagate
+    setTimeout(() => {
+      addCustomLocation(pending?.closeAfter ?? true);
+      if (pending?.closeQuickCapture) { setShowQuickCapture(false); showToast('✅ ' + t('trail.saved'), 'success'); }
+    }, 50);
+  };
+  
+  // Handle dedup choice: add as new (ignore matches)
+  const dedupAddAsNew = () => {
+    const pending = dedupPendingRef.current;
+    setDedupMatches(null);
+    addCustomLocation(pending?.closeAfter ?? true);
+    if (pending?.closeQuickCapture) { setShowQuickCapture(false); showToast('✅ ' + t('trail.saved'), 'success'); }
   };
 
   const addCustomLocation = (closeAfter = true) => {
