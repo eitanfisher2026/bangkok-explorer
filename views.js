@@ -211,35 +211,61 @@
             {activeTrail.stops?.length > 0 && (
               <div style={{ background: 'white', borderRadius: '12px', padding: '8px', marginBottom: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                 <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#6b7280', marginBottom: '4px' }}>
-                  {`📍 ${t('trail.stops')} (${activeTrail.stops.length})`}
+                  {`📍 ${t('trail.stops')} (${activeTrail.stops.length - skippedTrailStops.size}/${activeTrail.stops.length})`}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                  {activeTrail.stops.slice(0, 12).map((stop, idx) => (
+                  {activeTrail.stops.slice(0, 12).map((stop, idx) => {
+                    const isSkipped = skippedTrailStops.has(idx);
+                    return (
                     <div key={idx} style={{
                       display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 8px',
-                      background: '#f9fafb', borderRadius: '6px', fontSize: '11px'
+                      background: isSkipped ? '#fef2f2' : '#f9fafb', borderRadius: '6px', fontSize: '11px',
+                      opacity: isSkipped ? 0.5 : 1
                     }}>
                       <span style={{
                         width: '18px', height: '18px', borderRadius: '50%',
-                        background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '9px', fontWeight: 'bold', color: '#6b7280', flexShrink: 0
+                        background: isSkipped ? '#fecaca' : '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '9px', fontWeight: 'bold', color: isSkipped ? '#dc2626' : '#6b7280', flexShrink: 0
                       }}>{String.fromCharCode(65 + idx)}</span>
                       <span
                         onClick={() => {
+                          if (isSkipped) return;
                           const fullLoc = customLocations.find(cl => cl.name === stop.name || (cl.lat && stop.lat && Math.abs(cl.lat - stop.lat) < 0.0001 && Math.abs(cl.lng - stop.lng) < 0.0001));
                           if (fullLoc) { handleEditLocation(fullLoc); }
                           else { openReviewDialog(stop); }
                         }}
-                        style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#2563eb', cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted' }}>
+                        style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          color: isSkipped ? '#9ca3af' : '#2563eb',
+                          cursor: isSkipped ? 'default' : 'pointer',
+                          textDecoration: isSkipped ? 'line-through' : 'underline',
+                          textDecorationStyle: isSkipped ? 'solid' : 'dotted'
+                        }}>
                         {stop.name}
                       </span>
+                      {!isSkipped && (
+                        <button
+                          onClick={() => openReviewDialog(stop)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', fontSize: '14px', flexShrink: 0 }}
+                          title={t('trail.ratePlace')}
+                        >⭐</button>
+                      )}
                       <button
-                        onClick={() => openReviewDialog(stop)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', fontSize: '14px', flexShrink: 0 }}
-                        title={t('trail.ratePlace')}
-                      >⭐</button>
+                        onClick={() => {
+                          setSkippedTrailStops(prev => {
+                            const next = new Set(prev);
+                            if (next.has(idx)) next.delete(idx); else next.add(idx);
+                            return next;
+                          });
+                        }}
+                        style={{
+                          background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px',
+                          fontSize: '12px', flexShrink: 0, color: isSkipped ? '#22c55e' : '#dc2626'
+                        }}
+                        title={isSkipped ? t('trail.unskip') : t('trail.skip')}
+                      >{isSkipped ? '↩' : '✕'}</button>
                     </div>
-                  ))}
+                    );
+                  })}
                   {activeTrail.stops.length > 12 && (
                     <div style={{ fontSize: '9px', color: '#9ca3af', padding: '3px 6px' }}>
                       +{activeTrail.stops.length - 12}
@@ -260,21 +286,21 @@
                     window.BKK.getValidatedGps(
                       (pos) => {
                         setMapUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy });
-                        setMapStops(activeTrail.stops);
+                        setMapStops(activeTrail.stops.filter((_, i) => !skippedTrailStops.has(i)));
                         setMapMode('stops');
                         setShowMapModal(true);
                       },
                       () => {
                         // Even without GPS, show the stops on map
                         setMapUserLocation(null);
-                        setMapStops(activeTrail.stops);
+                        setMapStops(activeTrail.stops.filter((_, i) => !skippedTrailStops.has(i)));
                         setMapMode('stops');
                         setShowMapModal(true);
                       }
                     );
                   } else {
                     setMapUserLocation(null);
-                    setMapStops(activeTrail.stops);
+                    setMapStops(activeTrail.stops.filter((_, i) => !skippedTrailStops.has(i)));
                     setMapMode('stops');
                     setShowMapModal(true);
                   }
@@ -290,10 +316,13 @@
             <div style={{ display: 'flex', gap: '8px' }}>
               <button
                 onClick={() => {
-                  // Reopen Google Maps with the route
-                  if (activeTrail.stops?.length >= 2) {
-                    const coords = activeTrail.stops.map(s => `${s.lat},${s.lng}`).join('/');
+                  // Reopen Google Maps with active (non-skipped) stops
+                  const activeStops = activeTrail.stops?.filter((_, i) => !skippedTrailStops.has(i));
+                  if (activeStops?.length >= 2) {
+                    const coords = activeStops.map(s => `${s.lat},${s.lng}`).join('/');
                     window.open(`https://www.google.com/maps/dir//${coords}/data=!4m2!4m1!3e2`, 'city_explorer_map');
+                  } else {
+                    showToast(t('trail.needTwoStops'), 'warning');
                   }
                 }}
                 style={{

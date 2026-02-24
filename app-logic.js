@@ -182,6 +182,7 @@
     } catch(e) {}
     return null;
   });
+  const [skippedTrailStops, setSkippedTrailStops] = useState(new Set());
   const [showQuickCapture, setShowQuickCapture] = useState(false);
   const [fabPos, setFabPos] = useState(() => {
     try { const s = localStorage.getItem('foufou_fab_pos'); return s ? JSON.parse(s) : null; } catch(e) { return null; }
@@ -5172,6 +5173,7 @@
 
   const endActiveTrail = () => {
     setActiveTrail(null);
+    setSkippedTrailStops(new Set());
     localStorage.removeItem('foufou_active_trail');
   };
 
