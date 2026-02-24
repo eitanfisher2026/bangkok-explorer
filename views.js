@@ -286,21 +286,24 @@
                     window.BKK.getValidatedGps(
                       (pos) => {
                         setMapUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy });
-                        setMapStops(activeTrail.stops.filter((_, i) => !skippedTrailStops.has(i)));
+                        setMapStops(activeTrail.stops);
+                        setMapSkippedStops(new Set(skippedTrailStops));
                         setMapMode('stops');
                         setShowMapModal(true);
                       },
                       () => {
                         // Even without GPS, show the stops on map
                         setMapUserLocation(null);
-                        setMapStops(activeTrail.stops.filter((_, i) => !skippedTrailStops.has(i)));
+                        setMapStops(activeTrail.stops);
+                        setMapSkippedStops(new Set(skippedTrailStops));
                         setMapMode('stops');
                         setShowMapModal(true);
                       }
                     );
                   } else {
                     setMapUserLocation(null);
-                    setMapStops(activeTrail.stops.filter((_, i) => !skippedTrailStops.has(i)));
+                    setMapStops(activeTrail.stops);
+                    setMapSkippedStops(new Set(skippedTrailStops));
                     setMapMode('stops');
                     setShowMapModal(true);
                   }
@@ -1667,18 +1670,10 @@
                     onClick={() => {
                       const openMap = (gpsStart) => {
                         const result = recomputeForMap(gpsStart || null, undefined, true);
-                        if (result) {
-                          const activeForMap = result.optimized.filter(s => s.lat && s.lng);
-                          setMapStops(activeForMap);
-                        } else {
-                          const activeStops = route.stops.filter((s) => {
-                            const isActive = !isStopDisabled(s);
-                            const hasValidCoords = s.lat && s.lng && s.lat !== 0 && s.lng !== 0;
-                            return isActive && hasValidCoords;
-                          });
-                          if (activeStops.length === 0) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
-                          setMapStops(activeStops);
-                        }
+                        // Always show ALL stops on map — disabled ones rendered dimmed
+                        const allStops = route.stops.filter(s => s.lat && s.lng && s.lat !== 0 && s.lng !== 0);
+                        if (allStops.length === 0) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
+                        setMapStops(allStops);
                         setMapMode('stops');
                         setShowMapModal(true);
                       };
@@ -3698,7 +3693,7 @@
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b">
               <button
-                onClick={() => { setShowMapModal(false); setMapUserLocation(null); }}
+                onClick={() => { setShowMapModal(false); setMapUserLocation(null); setMapSkippedStops(new Set()); }}
                 className="text-gray-400 hover:text-gray-600 text-lg font-bold"
               >✕</button>
               <div className="flex items-center gap-2">
@@ -3772,7 +3767,7 @@
                   <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                     <span style={{ flex: 1, fontSize: '9px', color: '#9ca3af', textAlign: 'center' }}>{t('route.tapStopForStart')}</span>
                     <button
-                      onClick={() => { setShowMapModal(false); setMapUserLocation(null); }}
+                      onClick={() => { setShowMapModal(false); setMapUserLocation(null); setMapSkippedStops(new Set()); }}
                       style={{ padding: '8px 24px', borderRadius: '8px', border: 'none', background: '#374151', color: 'white', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}
                     >{t('general.close')}</button>
                   </div>

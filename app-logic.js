@@ -331,6 +331,7 @@
   const [mapMode, setMapMode] = useState('areas'); // 'areas', 'radius', or 'stops'
   const [mapStops, setMapStops] = useState([]); // stops to show when mapMode='stops'
   const [mapUserLocation, setMapUserLocation] = useState(null); // { lat, lng } for blue dot on map
+  const [mapSkippedStops, setMapSkippedStops] = useState(new Set()); // indices of skipped stops on map
   const [startPointCoords, setStartPointCoords] = useState(null); // { lat, lng, address }
   const leafletMapRef = React.useRef(null);
   
@@ -554,7 +555,7 @@
           stops.forEach((stop, i) => {
             const color = colorPalette[i % colorPalette.length];
             const nameKey = (stop.name || '').toLowerCase().trim();
-            const isDisabled = disabledStops.includes(nameKey);
+            const isDisabled = disabledStops.includes(nameKey) || mapSkippedStops.has(i);
             const isStart = startPointCoordsRef_local.current && Math.abs(stop.lat - startPointCoordsRef_local.current.lat) < 0.0001 && Math.abs(stop.lng - startPointCoordsRef_local.current.lng) < 0.0001;
             
             // Green outer ring for start point
@@ -616,8 +617,16 @@
             if (routeLine) map.removeLayer(routeLine);
             routeLine = null;
             const curDisabled = disabledStopsRef.current || [];
+            const skippedNames = new Set();
+            mapSkippedStops.forEach(idx => {
+              const s = stops[idx];
+              if (s) skippedNames.add((s.name || '').toLowerCase().trim());
+            });
             const curStops = stopsOrderRef.current || [];
-            const activeStops = curStops.filter(s => !curDisabled.includes((s.name || '').toLowerCase().trim()));
+            const activeStops = curStops.filter(s => {
+              const nk = (s.name || '').toLowerCase().trim();
+              return !curDisabled.includes(nk) && !skippedNames.has(nk);
+            });
             if (activeStops.length > 1) {
               const pts = [];
               const sp = startPointCoordsRef_local.current;
@@ -704,7 +713,7 @@
     }); // end loadLeaflet().then
     
     return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; delete window._mapRedrawLine; delete window._mapStopsOrderRef; };
-  }, [showMapModal, mapMode, mapStops, mapUserLocation, formData.currentLat, formData.currentLng, formData.radiusMeters]);
+  }, [showMapModal, mapMode, mapStops, mapUserLocation, mapSkippedStops, formData.currentLat, formData.currentLng, formData.radiusMeters]);
   const [modalImage, setModalImage] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');

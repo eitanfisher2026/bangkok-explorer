@@ -340,6 +340,7 @@ const FouFouApp = () => {
   const [mapMode, setMapMode] = useState('areas'); // 'areas', 'radius', or 'stops'
   const [mapStops, setMapStops] = useState([]); // stops to show when mapMode='stops'
   const [mapUserLocation, setMapUserLocation] = useState(null); // { lat, lng } for blue dot on map
+  const [mapSkippedStops, setMapSkippedStops] = useState(new Set()); // indices of skipped stops on map
   const [startPointCoords, setStartPointCoords] = useState(null); // { lat, lng, address }
   const leafletMapRef = React.useRef(null);
   
@@ -542,7 +543,7 @@ const FouFouApp = () => {
           stops.forEach((stop, i) => {
             const color = colorPalette[i % colorPalette.length];
             const nameKey = (stop.name || '').toLowerCase().trim();
-            const isDisabled = disabledStops.includes(nameKey);
+            const isDisabled = disabledStops.includes(nameKey) || mapSkippedStops.has(i);
             const isStart = startPointCoordsRef_local.current && Math.abs(stop.lat - startPointCoordsRef_local.current.lat) < 0.0001 && Math.abs(stop.lng - startPointCoordsRef_local.current.lng) < 0.0001;
             
             if (isStart && !isDisabled) {
@@ -601,8 +602,16 @@ const FouFouApp = () => {
             if (routeLine) map.removeLayer(routeLine);
             routeLine = null;
             const curDisabled = disabledStopsRef.current || [];
+            const skippedNames = new Set();
+            mapSkippedStops.forEach(idx => {
+              const s = stops[idx];
+              if (s) skippedNames.add((s.name || '').toLowerCase().trim());
+            });
             const curStops = stopsOrderRef.current || [];
-            const activeStops = curStops.filter(s => !curDisabled.includes((s.name || '').toLowerCase().trim()));
+            const activeStops = curStops.filter(s => {
+              const nk = (s.name || '').toLowerCase().trim();
+              return !curDisabled.includes(nk) && !skippedNames.has(nk);
+            });
             if (activeStops.length > 1) {
               const pts = [];
               const sp = startPointCoordsRef_local.current;
@@ -684,7 +693,7 @@ const FouFouApp = () => {
     }); // end loadLeaflet().then
     
     return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; delete window._mapRedrawLine; delete window._mapStopsOrderRef; };
-  }, [showMapModal, mapMode, mapStops, mapUserLocation, formData.currentLat, formData.currentLng, formData.radiusMeters]);
+  }, [showMapModal, mapMode, mapStops, mapUserLocation, mapSkippedStops, formData.currentLat, formData.currentLng, formData.radiusMeters]);
   const [modalImage, setModalImage] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -5505,20 +5514,23 @@ const FouFouApp = () => {
                     window.BKK.getValidatedGps(
                       (pos) => {
                         setMapUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy });
-                        setMapStops(activeTrail.stops.filter((_, i) => !skippedTrailStops.has(i)));
+                        setMapStops(activeTrail.stops);
+                        setMapSkippedStops(new Set(skippedTrailStops));
                         setMapMode('stops');
                         setShowMapModal(true);
                       },
                       () => {
                         setMapUserLocation(null);
-                        setMapStops(activeTrail.stops.filter((_, i) => !skippedTrailStops.has(i)));
+                        setMapStops(activeTrail.stops);
+                        setMapSkippedStops(new Set(skippedTrailStops));
                         setMapMode('stops');
                         setShowMapModal(true);
                       }
                     );
                   } else {
                     setMapUserLocation(null);
-                    setMapStops(activeTrail.stops.filter((_, i) => !skippedTrailStops.has(i)));
+                    setMapStops(activeTrail.stops);
+                    setMapSkippedStops(new Set(skippedTrailStops));
                     setMapMode('stops');
                     setShowMapModal(true);
                   }
@@ -6874,18 +6886,9 @@ const FouFouApp = () => {
                     onClick={() => {
                       const openMap = (gpsStart) => {
                         const result = recomputeForMap(gpsStart || null, undefined, true);
-                        if (result) {
-                          const activeForMap = result.optimized.filter(s => s.lat && s.lng);
-                          setMapStops(activeForMap);
-                        } else {
-                          const activeStops = route.stops.filter((s) => {
-                            const isActive = !isStopDisabled(s);
-                            const hasValidCoords = s.lat && s.lng && s.lat !== 0 && s.lng !== 0;
-                            return isActive && hasValidCoords;
-                          });
-                          if (activeStops.length === 0) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
-                          setMapStops(activeStops);
-                        }
+                        const allStops = route.stops.filter(s => s.lat && s.lng && s.lat !== 0 && s.lng !== 0);
+                        if (allStops.length === 0) { showToast(t('places.noPlacesWithCoords'), 'warning'); return; }
+                        setMapStops(allStops);
                         setMapMode('stops');
                         setShowMapModal(true);
                       };
@@ -8884,7 +8887,7 @@ const FouFouApp = () => {
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b">
               <button
-                onClick={() => { setShowMapModal(false); setMapUserLocation(null); }}
+                onClick={() => { setShowMapModal(false); setMapUserLocation(null); setMapSkippedStops(new Set()); }}
                 className="text-gray-400 hover:text-gray-600 text-lg font-bold"
               >✕</button>
               <div className="flex items-center gap-2">
@@ -8958,7 +8961,7 @@ const FouFouApp = () => {
                   <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                     <span style={{ flex: 1, fontSize: '9px', color: '#9ca3af', textAlign: 'center' }}>{t('route.tapStopForStart')}</span>
                     <button
-                      onClick={() => { setShowMapModal(false); setMapUserLocation(null); }}
+                      onClick={() => { setShowMapModal(false); setMapUserLocation(null); setMapSkippedStops(new Set()); }}
                       style={{ padding: '8px 24px', borderRadius: '8px', border: 'none', background: '#374151', color: 'white', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}
                     >{t('general.close')}</button>
                   </div>
