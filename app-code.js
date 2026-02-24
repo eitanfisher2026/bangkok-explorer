@@ -8753,7 +8753,7 @@ const FouFouApp = () => {
 
         {/* Add/Edit Location Dialog - REDESIGNED */}
         {(showAddLocationDialog || showEditLocationDialog) && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2" style={{ zIndex: 10100 }}>
             <div className="bg-white rounded-xl w-full max-w-2xl max-h-[95vh] flex flex-col shadow-2xl">
               
               {/* Header - Compact */}
@@ -8800,17 +8800,10 @@ const FouFouApp = () => {
                 <div className="space-y-2">
                   {/* Name - full width, buttons below */}
                   <div>
-                    <label className="block text-xs font-bold mb-1" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <label className="block text-xs font-bold mb-1">
                       {t("places.placeName")} <span className="text-red-500">*</span>
-                      {isUnlocked && showEditLocationDialog && (
-                        <button type="button"
-                          onClick={() => setNewLocation({...newLocation, dedupOk: !newLocation.dedupOk})}
-                          style={{ marginLeft: '8px', padding: '1px 6px', fontSize: '9px', fontWeight: 'bold', borderRadius: '4px', border: 'none', cursor: 'pointer',
-                            background: newLocation.dedupOk ? '#22c55e' : '#e5e7eb', color: newLocation.dedupOk ? 'white' : '#9ca3af' }}
-                          title="Duplicate OK"
-                        >{newLocation.dedupOk ? '✓ Dup OK' : 'Dup?'}</button>
-                      )}
                     </label>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                     <input
                       type="text"
                       value={newLocation.name}
@@ -8833,6 +8826,14 @@ const FouFouApp = () => {
                       style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}
                       autoFocus={!showEditLocationDialog}
                     />
+                    {isUnlocked && showEditLocationDialog && (
+                      <button type="button"
+                        onClick={() => setNewLocation({...newLocation, dedupOk: !newLocation.dedupOk})}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${newLocation.dedupOk ? 'border-green-500 bg-green-500 text-white' : 'border-gray-300 bg-white text-gray-400'}`}
+                        title="Duplicate OK"
+                      >{newLocation.dedupOk ? '✓✓' : '✓'}</button>
+                    )}
+                    </div>
                     <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
                       <button
                         onClick={() => searchPlacesByName(newLocation.name)}
@@ -11666,7 +11667,11 @@ const FouFouApp = () => {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
                         <span style={{ fontSize: '20px' }}>{icon}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#374151' }}>{loc.name}</div>
+                          <div onClick={() => {
+                              const fullLoc = customLocations.find(cl => cl.id === loc.id);
+                              if (fullLoc) handleEditLocation(fullLoc);
+                            }}
+                            style={{ fontSize: '14px', fontWeight: 'bold', color: '#2563eb', cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted' }}>{loc.name}</div>
                           <div style={{ fontSize: '10px', color: '#9ca3af' }}>{loc.description || ''}</div>
                           {loc.address && <div style={{ fontSize: '9px', color: '#6b7280', marginTop: '2px' }}>{loc.address}</div>}
                         </div>
