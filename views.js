@@ -214,8 +214,19 @@
                   {`📍 ${t('trail.stops')} (${activeTrail.stops.length - skippedTrailStops.size}/${activeTrail.stops.length})`}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                  {activeTrail.stops.slice(0, 12).map((stop, idx) => {
+                  {(() => {
+                    // Build sequential letter map: only active stops get letters
+                    const trailLetterMap = {};
+                    let tLetterIdx = 0;
+                    activeTrail.stops.forEach((_, idx) => {
+                      if (!skippedTrailStops.has(idx)) {
+                        trailLetterMap[idx] = String.fromCharCode(65 + tLetterIdx);
+                        tLetterIdx++;
+                      }
+                    });
+                    return activeTrail.stops.slice(0, 12).map((stop, idx) => {
                     const isSkipped = skippedTrailStops.has(idx);
+                    const letter = trailLetterMap[idx] || '';
                     return (
                     <div key={idx} style={{
                       display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 8px',
@@ -226,7 +237,7 @@
                         width: '18px', height: '18px', borderRadius: '50%',
                         background: isSkipped ? '#fecaca' : '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontSize: '9px', fontWeight: 'bold', color: isSkipped ? '#dc2626' : '#6b7280', flexShrink: 0
-                      }}>{String.fromCharCode(65 + idx)}</span>
+                      }}>{letter}</span>
                       <span
                         onClick={() => {
                           if (isSkipped) return;
@@ -265,7 +276,8 @@
                       >{isSkipped ? '▶️' : '⏸️'}</button>
                     </div>
                     );
-                  })}
+                    });
+                  })()}
                   {activeTrail.stops.length > 12 && (
                     <div style={{ fontSize: '9px', color: '#9ca3af', padding: '3px 6px' }}>
                       +{activeTrail.stops.length - 12}
@@ -1379,6 +1391,16 @@
                 {/* Normal stop list grouped by interest */}
                 <div className="max-h-96 overflow-y-auto" style={{ contain: 'content' }}>
                   {(() => {
+                    // Build sequential letter map: only active stops get letters
+                    const activeLetterMap = {};
+                    let letterIdx = 0;
+                    route.stops.forEach((stop, i) => {
+                      if (!isStopDisabled(stop)) {
+                        activeLetterMap[i] = window.BKK.stopLabel(letterIdx);
+                        letterIdx++;
+                      }
+                    });
+                    
                     // Group stops by interest
                     const groupedStops = {};
                     let stopCounter = 0;
@@ -1593,9 +1615,9 @@
                                       textDecoration: isDisabled ? 'line-through' : 'none',
                                       flexWrap: 'wrap'
                                     }}>
-                                      {route?.optimized && !isDisabled && hasValidCoords && (
+                                      {route?.optimized && !isDisabled && hasValidCoords && activeLetterMap[stop.originalIndex] && (
                                         <span className="bg-purple-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[8px] font-bold flex-shrink-0">
-                                          {window.BKK.stopLabel(stop.originalIndex)}
+                                          {activeLetterMap[stop.originalIndex]}
                                         </span>
                                       )}
                                       {!hasValidCoords && (

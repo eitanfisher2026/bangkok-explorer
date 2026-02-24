@@ -552,10 +552,23 @@
               updateStartMarker(startPointCoords.lat, startPointCoords.lng, startPointCoords.address);
             }
           }
+          // Build sequential letter map: only active stops get letters
+          const mapLetterMap = {};
+          let mapLetterIdx = 0;
+          stops.forEach((s, idx) => {
+            const nk = (s.name || '').toLowerCase().trim();
+            const disabled = disabledStops.includes(nk) || mapSkippedStops.has(idx);
+            if (!disabled) {
+              mapLetterMap[idx] = window.BKK.stopLabel(mapLetterIdx);
+              mapLetterIdx++;
+            }
+          });
+          
           stops.forEach((stop, i) => {
             const color = colorPalette[i % colorPalette.length];
             const nameKey = (stop.name || '').toLowerCase().trim();
             const isDisabled = disabledStops.includes(nameKey) || mapSkippedStops.has(i);
+            const stopLetter = mapLetterMap[i] || '';
             const isStart = startPointCoordsRef_local.current && Math.abs(stop.lat - startPointCoordsRef_local.current.lat) < 0.0001 && Math.abs(stop.lng - startPointCoordsRef_local.current.lng) < 0.0001;
             
             // Green outer ring for start point
@@ -576,7 +589,7 @@
             const label = L.marker([stop.lat, stop.lng], {
               icon: L.divIcon({
                 className: '',
-                html: '<div style="font-size:10px;font-weight:bold;text-align:center;color:white;width:22px;height:22px;line-height:22px;border-radius:50%;background:' + color + ';border:2px solid ' + (isStart ? '#22c55e' : 'white') + ';box-shadow:0 1px 4px rgba(0,0,0,0.3);opacity:' + (isDisabled ? '0.3' : '1') + ';">' + (isStart ? '▶' : window.BKK.stopLabel(i)) + '</div>',
+                html: '<div style="font-size:10px;font-weight:bold;text-align:center;color:white;width:22px;height:22px;line-height:22px;border-radius:50%;background:' + color + ';border:2px solid ' + (isStart ? '#22c55e' : 'white') + ';box-shadow:0 1px 4px rgba(0,0,0,0.3);opacity:' + (isDisabled ? '0.3' : '1') + ';">' + (isStart ? '▶' : stopLetter) + '</div>',
                 iconSize: [22, 22], iconAnchor: [11, 11]
               }),
               opacity: isDisabled ? 0.3 : 1
@@ -595,7 +608,7 @@
               const toggleLabel = curIsDisabled ? '▶️ ' + t('route.returnPlace') : '⏸️ ' + t('route.skipPlace');
               const toggleColor = curIsDisabled ? '#22c55e' : '#9ca3af';
               return '<div style="text-align:center;direction:' + (isRTL ? 'rtl' : 'ltr') + ';font-size:13px;min-width:160px;padding:4px 0;">' +
-                '<div style="font-weight:bold;font-size:14px;margin-bottom:6px;">' + window.BKK.stopLabel(i) + '. ' + (stop.name || '') + '</div>' +
+                '<div style="font-weight:bold;font-size:14px;margin-bottom:6px;">' + (stopLetter ? stopLetter + '. ' : '') + (stop.name || '') + '</div>' +
                 (stop.rating ? '<div style="color:#f59e0b;margin-bottom:6px;">⭐ ' + stop.rating + (stop.ratingCount ? ' (' + stop.ratingCount + ')' : '') + '</div>' : '') +
                 '<div style="display:flex;gap:6px;justify-content:center;margin-bottom:6px;">' +
                   '<a href="' + googleUrl + '" target="_blank" style="flex:1;display:inline-block;padding:6px 10px;border-radius:8px;background:#3b82f6;color:white;text-decoration:none;font-size:12px;font-weight:bold;">Google Maps ↗</a>' +
