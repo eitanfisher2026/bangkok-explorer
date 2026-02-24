@@ -183,6 +183,10 @@
     return null;
   });
   const [showQuickCapture, setShowQuickCapture] = useState(false);
+  const [fabPos, setFabPos] = useState(() => {
+    try { const s = localStorage.getItem('foufou_fab_pos'); return s ? JSON.parse(s) : null; } catch(e) { return null; }
+  });
+  const fabDragRef = React.useRef({ dragging: false, startX: 0, startY: 0, offsetX: 0, offsetY: 0, moved: false });
   const [isRecording, setIsRecording] = useState(false);
   const stopRecordingRef = React.useRef(null);
 
@@ -5543,7 +5547,9 @@
       if (s(n.mapsUrl) !== s(e.mapsUrl)) return true;
       if (s(n.address) !== s(e.address)) return true;
       if (!!n.locked !== !!e.locked) return true;
+      if (!!n.dedupOk !== !!e.dedupOk) return true;
       if (nn(n.uploadedImage) !== nn(e.uploadedImage)) return true;
+      if (s(n.googlePlaceId) !== s(e.googlePlaceId)) return true;
       return false;
     })();
     

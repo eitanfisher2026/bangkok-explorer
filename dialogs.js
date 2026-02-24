@@ -129,8 +129,8 @@
                       }}
                       onKeyDown={(e) => { if (e.key === 'Enter' && newLocation.name?.trim()) { e.preventDefault(); searchPlacesByName(newLocation.name); } }}
                       placeholder={t("places.placeName")}
-                      className="w-full p-2 text-sm border-2 border-purple-300 rounded-lg focus:border-purple-500"
-                      style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}
+                      className="w-full p-2 border-2 border-purple-300 rounded-lg focus:border-purple-500"
+                      style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', fontSize: '16px' }}
                       autoFocus={!showEditLocationDialog}
                     />
                     {isUnlocked && showEditLocationDialog && (
@@ -389,8 +389,8 @@
                         value={newLocation.description || ''}
                         onChange={(e) => setNewLocation({...newLocation, description: e.target.value})}
                         placeholder={t("places.description")}
-                        className="flex-1 p-2 text-sm border-2 border-gray-300 rounded-lg focus:border-purple-500"
-                        style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}
+                        className="flex-1 p-2 border-2 border-gray-300 rounded-lg focus:border-purple-500"
+                        style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', fontSize: '16px' }}
                       />
                       {window.BKK.speechSupported && (
                         <button
@@ -436,8 +436,8 @@
                       value={newLocation.notes || ''}
                       onChange={(e) => setNewLocation({...newLocation, notes: e.target.value})}
                       placeholder={t("places.notes")}
-                      className="w-full p-2 text-xs border border-gray-300 rounded-lg focus:border-purple-500"
-                      style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', minHeight: '50px' }}
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:border-purple-500"
+                      style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', minHeight: '50px', fontSize: '16px' }}
                       rows="2"
                     />
                   </div>
@@ -453,8 +453,8 @@
                         value={newLocation.address || ''}
                         onChange={(e) => setNewLocation({...newLocation, address: e.target.value})}
                         placeholder={t("places.address")}
-                        className="flex-1 p-1.5 text-xs border border-gray-300 rounded-lg focus:border-purple-500"
-                        style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}
+                        className="flex-1 p-1.5 border border-gray-300 rounded-lg focus:border-purple-500"
+                        style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', fontSize: '16px' }}
                       />
                       <button
                         onClick={() => geocodeAddress(newLocation.address || newLocation.name)}
@@ -511,8 +511,8 @@
                     value={newLocation.mapsUrl || ''}
                     onChange={(e) => setNewLocation({...newLocation, mapsUrl: e.target.value})}
                     placeholder="https://maps.google.com/..."
-                    className="w-full p-1.5 text-xs border border-gray-300 rounded-lg"
-                    style={{ direction: 'ltr' }}
+                    className="w-full p-1.5 border border-gray-300 rounded-lg"
+                    style={{ direction: 'ltr', fontSize: '16px' }}
                   />
                 </div>
                 )}
@@ -669,9 +669,9 @@
                       showToast(`⚠️ ${t('places.placeExists')}`, 'warning');
                     }
                     if (showEditLocationDialog) {
-                      updateCustomLocation(false);
+                      updateCustomLocation(true);
                     } else {
-                      saveWithDedupCheck(false);
+                      saveWithDedupCheck(true);
                     }
                   }}
                   disabled={!newLocation.name?.trim()}
@@ -696,7 +696,7 @@
                   }}
                   className="px-5 py-2.5 rounded-lg bg-gray-400 text-white text-sm font-bold hover:bg-gray-500"
                 >
-                  {`✕ ${t("general.close")}`}
+                  {`✕ ${t("general.cancel")}`}
                 </button>
               </div>
                 );
@@ -754,8 +754,8 @@
                       value={newInterest.label}
                       onChange={(e) => setNewInterest({...newInterest, label: e.target.value})}
                       placeholder={t("interests.exampleTypes")}
-                      className="w-full p-2 text-sm border-2 border-purple-300 rounded-lg focus:border-purple-500"
-                      style={{ direction: 'rtl' }}
+                      className="w-full p-2 border-2 border-purple-300 rounded-lg focus:border-purple-500"
+                      style={{ direction: 'rtl', fontSize: '16px' }}
                       disabled={newInterest.builtIn && !isUnlocked}
                       autoFocus={!newInterest.builtIn}
                     />
@@ -766,8 +766,8 @@
                         value={newInterest.labelEn || ''}
                         onChange={(e) => setNewInterest({...newInterest, labelEn: e.target.value})}
                         placeholder={t("interests.englishName")}
-                        className="flex-1 p-1.5 text-xs border border-gray-300 rounded-lg focus:border-purple-500"
-                        style={{ direction: 'ltr' }}
+                        className="flex-1 p-1.5 border border-gray-300 rounded-lg focus:border-purple-500"
+                        style={{ direction: 'ltr', fontSize: '16px' }}
                         disabled={newInterest.builtIn && !isUnlocked}
                       />
                     </div>
@@ -2757,7 +2757,7 @@
                     value={newLocation.description || ''}
                     onChange={(e) => setNewLocation(prev => ({...prev, description: e.target.value}))}
                     placeholder={`📝 ${t("places.description")} (${t("general.optional")})`}
-                    style={{ flex: 1, padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13px', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}
+                    style={{ flex: 1, padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '16px', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}
                   />
                   {window.BKK.speechSupported && (
                     <button

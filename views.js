@@ -621,48 +621,86 @@
 
         {/* Wizard Step 3 = results, or normal mode */}
         
-        {/* FAB: Quick Capture from Wizard (no active trail needed) */}
-        {wizardMode && !activeTrail && wizardStep < 3 && (
-          <button
-            onClick={() => {
-              const initLocation = {
-                name: '', description: '', notes: '',
-                area: formData.area || 'chinatown',
-                areas: formData.areas?.length > 0 ? formData.areas : [formData.area || 'chinatown'],
-                interests: formData.interests?.length > 0 ? formData.interests.slice(0, 1) : [],
-                lat: null, lng: null, mapsUrl: '', address: '',
-                uploadedImage: null, imageUrls: [],
-                gpsLoading: true
+        {/* FAB: Quick Capture — draggable, available when no active trail */}
+        {!activeTrail && !showQuickCapture && !showAddLocationDialog && !showEditLocationDialog && (() => {
+          const pos = fabPos || { right: 16, bottom: 80 };
+          const style = fabPos 
+            ? { position: 'fixed', left: pos.left + 'px', top: pos.top + 'px', zIndex: 1000 }
+            : { position: 'fixed', right: pos.right + 'px', bottom: pos.bottom + 'px', zIndex: 1000 };
+          
+          const onStart = (clientX, clientY, el) => {
+            const rect = el.getBoundingClientRect();
+            fabDragRef.current = { dragging: true, startX: clientX, startY: clientY, offsetX: clientX - rect.left, offsetY: clientY - rect.top, moved: false };
+          };
+          const onMove = (clientX, clientY) => {
+            if (!fabDragRef.current.dragging) return;
+            const dx = Math.abs(clientX - fabDragRef.current.startX);
+            const dy = Math.abs(clientY - fabDragRef.current.startY);
+            if (dx > 5 || dy > 5) fabDragRef.current.moved = true;
+            if (fabDragRef.current.moved) {
+              const newPos = {
+                left: Math.max(0, Math.min(window.innerWidth - 48, clientX - fabDragRef.current.offsetX)),
+                top: Math.max(0, Math.min(window.innerHeight - 48, clientY - fabDragRef.current.offsetY))
               };
-              setNewLocation(initLocation);
-              setShowQuickCapture(true);
-              if (navigator.geolocation) {
-                window.BKK.getValidatedGps(
-                  (pos) => {
-                    const lat = pos.coords.latitude;
-                    const lng = pos.coords.longitude;
-                    const detected = window.BKK.getAreasForCoordinates(lat, lng);
-                    const areaUpdates = detected.length > 0 ? { areas: detected, area: detected[0] } : {};
-                    setNewLocation(prev => ({ ...prev, lat, lng, gpsLoading: false, ...areaUpdates }));
-                  },
-                  (reason) => {
-                    setNewLocation(prev => ({...prev, gpsLoading: false, gpsBlocked: true}));
-                    showToast(reason === 'outside_city' ? t('toast.outsideCity') : reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'warning', 'sticky');
-                  }
-                );
-              }
-            }}
-            style={{
-              position: 'fixed', bottom: '24px', right: '24px', zIndex: 1000,
-              width: '56px', height: '56px', borderRadius: '50%',
-              background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-              color: 'white', border: 'none', boxShadow: '0 4px 15px rgba(34,197,94,0.5)',
-              fontSize: '24px', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}
-            title={t('trail.capturePlace')}
-          >📸</button>
-        )}
+              setFabPos(newPos);
+            }
+          };
+          const onEnd = () => {
+            if (fabDragRef.current.moved && fabPos) {
+              try { localStorage.setItem('foufou_fab_pos', JSON.stringify(fabPos)); } catch(e) {}
+            }
+            fabDragRef.current.dragging = false;
+          };
+          const openCapture = () => {
+            if (fabDragRef.current.moved) return;
+            const initLocation = {
+              name: '', description: '', notes: '',
+              area: formData.area || 'chinatown',
+              areas: formData.areas?.length > 0 ? formData.areas : [formData.area || 'chinatown'],
+              interests: formData.interests?.length > 0 ? formData.interests.slice(0, 1) : [],
+              lat: null, lng: null, mapsUrl: '', address: '',
+              uploadedImage: null, imageUrls: [], gpsLoading: true
+            };
+            setNewLocation(initLocation);
+            setShowQuickCapture(true);
+            if (navigator.geolocation) {
+              window.BKK.getValidatedGps(
+                (pos) => {
+                  const lat = pos.coords.latitude;
+                  const lng = pos.coords.longitude;
+                  const detected = window.BKK.getAreasForCoordinates(lat, lng);
+                  const areaUpdates = detected.length > 0 ? { areas: detected, area: detected[0] } : {};
+                  setNewLocation(prev => ({ ...prev, lat, lng, gpsLoading: false, ...areaUpdates }));
+                },
+                (reason) => {
+                  setNewLocation(prev => ({...prev, gpsLoading: false, gpsBlocked: true}));
+                  showToast(reason === 'outside_city' ? t('toast.outsideCity') : reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'warning', 'sticky');
+                }
+              );
+            }
+          };
+          return (
+            <div
+              onMouseDown={(e) => onStart(e.clientX, e.clientY, e.currentTarget)}
+              onMouseMove={(e) => onMove(e.clientX, e.clientY)}
+              onMouseUp={onEnd}
+              onMouseLeave={onEnd}
+              onTouchStart={(e) => { const t = e.touches[0]; onStart(t.clientX, t.clientY, e.currentTarget); }}
+              onTouchMove={(e) => { const t = e.touches[0]; onMove(t.clientX, t.clientY); e.preventDefault(); }}
+              onTouchEnd={onEnd}
+              onClick={openCapture}
+              style={{
+                ...style,
+                width: '46px', height: '46px', borderRadius: '50%',
+                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                color: 'white', boxShadow: '0 4px 12px rgba(34,197,94,0.5)',
+                fontSize: '20px', cursor: 'grab', userSelect: 'none', touchAction: 'none',
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}
+              title={t('trail.capturePlace')}
+            >📸</div>
+          );
+        })()}
 
         {/* Navigation Tabs - hidden in wizard mode and active trail */}
         {!wizardMode && !activeTrail && (

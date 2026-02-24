@@ -206,6 +206,10 @@ const FouFouApp = () => {
     return null;
   });
   const [showQuickCapture, setShowQuickCapture] = useState(false);
+  const [fabPos, setFabPos] = useState(() => {
+    try { const s = localStorage.getItem('foufou_fab_pos'); return s ? JSON.parse(s) : null; } catch(e) { return null; }
+  });
+  const fabDragRef = React.useRef({ dragging: false, startX: 0, startY: 0, offsetX: 0, offsetY: 0, moved: false });
   const [isRecording, setIsRecording] = useState(false);
   const stopRecordingRef = React.useRef(null);
 
@@ -4916,7 +4920,9 @@ const FouFouApp = () => {
       if (s(n.mapsUrl) !== s(e.mapsUrl)) return true;
       if (s(n.address) !== s(e.address)) return true;
       if (!!n.locked !== !!e.locked) return true;
+      if (!!n.dedupOk !== !!e.dedupOk) return true;
       if (nn(n.uploadedImage) !== nn(e.uploadedImage)) return true;
+      if (s(n.googlePlaceId) !== s(e.googlePlaceId)) return true;
       return false;
     })();
     
@@ -5828,48 +5834,86 @@ const FouFouApp = () => {
 
         {/* Wizard Step 3 = results, or normal mode */}
         
-        {/* FAB: Quick Capture from Wizard (no active trail needed) */}
-        {wizardMode && !activeTrail && wizardStep < 3 && (
-          <button
-            onClick={() => {
-              const initLocation = {
-                name: '', description: '', notes: '',
-                area: formData.area || 'chinatown',
-                areas: formData.areas?.length > 0 ? formData.areas : [formData.area || 'chinatown'],
-                interests: formData.interests?.length > 0 ? formData.interests.slice(0, 1) : [],
-                lat: null, lng: null, mapsUrl: '', address: '',
-                uploadedImage: null, imageUrls: [],
-                gpsLoading: true
+        {/* FAB: Quick Capture — draggable, available when no active trail */}
+        {!activeTrail && !showQuickCapture && !showAddLocationDialog && !showEditLocationDialog && (() => {
+          const pos = fabPos || { right: 16, bottom: 80 };
+          const style = fabPos 
+            ? { position: 'fixed', left: pos.left + 'px', top: pos.top + 'px', zIndex: 1000 }
+            : { position: 'fixed', right: pos.right + 'px', bottom: pos.bottom + 'px', zIndex: 1000 };
+          
+          const onStart = (clientX, clientY, el) => {
+            const rect = el.getBoundingClientRect();
+            fabDragRef.current = { dragging: true, startX: clientX, startY: clientY, offsetX: clientX - rect.left, offsetY: clientY - rect.top, moved: false };
+          };
+          const onMove = (clientX, clientY) => {
+            if (!fabDragRef.current.dragging) return;
+            const dx = Math.abs(clientX - fabDragRef.current.startX);
+            const dy = Math.abs(clientY - fabDragRef.current.startY);
+            if (dx > 5 || dy > 5) fabDragRef.current.moved = true;
+            if (fabDragRef.current.moved) {
+              const newPos = {
+                left: Math.max(0, Math.min(window.innerWidth - 48, clientX - fabDragRef.current.offsetX)),
+                top: Math.max(0, Math.min(window.innerHeight - 48, clientY - fabDragRef.current.offsetY))
               };
-              setNewLocation(initLocation);
-              setShowQuickCapture(true);
-              if (navigator.geolocation) {
-                window.BKK.getValidatedGps(
-                  (pos) => {
-                    const lat = pos.coords.latitude;
-                    const lng = pos.coords.longitude;
-                    const detected = window.BKK.getAreasForCoordinates(lat, lng);
-                    const areaUpdates = detected.length > 0 ? { areas: detected, area: detected[0] } : {};
-                    setNewLocation(prev => ({ ...prev, lat, lng, gpsLoading: false, ...areaUpdates }));
-                  },
-                  (reason) => {
-                    setNewLocation(prev => ({...prev, gpsLoading: false, gpsBlocked: true}));
-                    showToast(reason === 'outside_city' ? t('toast.outsideCity') : reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'warning', 'sticky');
-                  }
-                );
-              }
-            }}
-            style={{
-              position: 'fixed', bottom: '24px', right: '24px', zIndex: 1000,
-              width: '56px', height: '56px', borderRadius: '50%',
-              background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-              color: 'white', border: 'none', boxShadow: '0 4px 15px rgba(34,197,94,0.5)',
-              fontSize: '24px', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}
-            title={t('trail.capturePlace')}
-          >📸</button>
-        )}
+              setFabPos(newPos);
+            }
+          };
+          const onEnd = () => {
+            if (fabDragRef.current.moved && fabPos) {
+              try { localStorage.setItem('foufou_fab_pos', JSON.stringify(fabPos)); } catch(e) {}
+            }
+            fabDragRef.current.dragging = false;
+          };
+          const openCapture = () => {
+            if (fabDragRef.current.moved) return;
+            const initLocation = {
+              name: '', description: '', notes: '',
+              area: formData.area || 'chinatown',
+              areas: formData.areas?.length > 0 ? formData.areas : [formData.area || 'chinatown'],
+              interests: formData.interests?.length > 0 ? formData.interests.slice(0, 1) : [],
+              lat: null, lng: null, mapsUrl: '', address: '',
+              uploadedImage: null, imageUrls: [], gpsLoading: true
+            };
+            setNewLocation(initLocation);
+            setShowQuickCapture(true);
+            if (navigator.geolocation) {
+              window.BKK.getValidatedGps(
+                (pos) => {
+                  const lat = pos.coords.latitude;
+                  const lng = pos.coords.longitude;
+                  const detected = window.BKK.getAreasForCoordinates(lat, lng);
+                  const areaUpdates = detected.length > 0 ? { areas: detected, area: detected[0] } : {};
+                  setNewLocation(prev => ({ ...prev, lat, lng, gpsLoading: false, ...areaUpdates }));
+                },
+                (reason) => {
+                  setNewLocation(prev => ({...prev, gpsLoading: false, gpsBlocked: true}));
+                  showToast(reason === 'outside_city' ? t('toast.outsideCity') : reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'warning', 'sticky');
+                }
+              );
+            }
+          };
+          return (
+            <div
+              onMouseDown={(e) => onStart(e.clientX, e.clientY, e.currentTarget)}
+              onMouseMove={(e) => onMove(e.clientX, e.clientY)}
+              onMouseUp={onEnd}
+              onMouseLeave={onEnd}
+              onTouchStart={(e) => { const t = e.touches[0]; onStart(t.clientX, t.clientY, e.currentTarget); }}
+              onTouchMove={(e) => { const t = e.touches[0]; onMove(t.clientX, t.clientY); e.preventDefault(); }}
+              onTouchEnd={onEnd}
+              onClick={openCapture}
+              style={{
+                ...style,
+                width: '46px', height: '46px', borderRadius: '50%',
+                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                color: 'white', boxShadow: '0 4px 12px rgba(34,197,94,0.5)',
+                fontSize: '20px', cursor: 'grab', userSelect: 'none', touchAction: 'none',
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}
+              title={t('trail.capturePlace')}
+            >📸</div>
+          );
+        })()}
 
         {/* Navigation Tabs - hidden in wizard mode and active trail */}
         {!wizardMode && !activeTrail && (
@@ -9035,8 +9079,8 @@ const FouFouApp = () => {
                       }}
                       onKeyDown={(e) => { if (e.key === 'Enter' && newLocation.name?.trim()) { e.preventDefault(); searchPlacesByName(newLocation.name); } }}
                       placeholder={t("places.placeName")}
-                      className="w-full p-2 text-sm border-2 border-purple-300 rounded-lg focus:border-purple-500"
-                      style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}
+                      className="w-full p-2 border-2 border-purple-300 rounded-lg focus:border-purple-500"
+                      style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', fontSize: '16px' }}
                       autoFocus={!showEditLocationDialog}
                     />
                     {isUnlocked && showEditLocationDialog && (
@@ -9291,8 +9335,8 @@ const FouFouApp = () => {
                         value={newLocation.description || ''}
                         onChange={(e) => setNewLocation({...newLocation, description: e.target.value})}
                         placeholder={t("places.description")}
-                        className="flex-1 p-2 text-sm border-2 border-gray-300 rounded-lg focus:border-purple-500"
-                        style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}
+                        className="flex-1 p-2 border-2 border-gray-300 rounded-lg focus:border-purple-500"
+                        style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', fontSize: '16px' }}
                       />
                       {window.BKK.speechSupported && (
                         <button
@@ -9338,8 +9382,8 @@ const FouFouApp = () => {
                       value={newLocation.notes || ''}
                       onChange={(e) => setNewLocation({...newLocation, notes: e.target.value})}
                       placeholder={t("places.notes")}
-                      className="w-full p-2 text-xs border border-gray-300 rounded-lg focus:border-purple-500"
-                      style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', minHeight: '50px' }}
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:border-purple-500"
+                      style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', minHeight: '50px', fontSize: '16px' }}
                       rows="2"
                     />
                   </div>
@@ -9355,8 +9399,8 @@ const FouFouApp = () => {
                         value={newLocation.address || ''}
                         onChange={(e) => setNewLocation({...newLocation, address: e.target.value})}
                         placeholder={t("places.address")}
-                        className="flex-1 p-1.5 text-xs border border-gray-300 rounded-lg focus:border-purple-500"
-                        style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}
+                        className="flex-1 p-1.5 border border-gray-300 rounded-lg focus:border-purple-500"
+                        style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', fontSize: '16px' }}
                       />
                       <button
                         onClick={() => geocodeAddress(newLocation.address || newLocation.name)}
@@ -9413,8 +9457,8 @@ const FouFouApp = () => {
                     value={newLocation.mapsUrl || ''}
                     onChange={(e) => setNewLocation({...newLocation, mapsUrl: e.target.value})}
                     placeholder="https://maps.google.com/..."
-                    className="w-full p-1.5 text-xs border border-gray-300 rounded-lg"
-                    style={{ direction: 'ltr' }}
+                    className="w-full p-1.5 border border-gray-300 rounded-lg"
+                    style={{ direction: 'ltr', fontSize: '16px' }}
                   />
                 </div>
                 )}
@@ -9571,9 +9615,9 @@ const FouFouApp = () => {
                       showToast(`⚠️ ${t('places.placeExists')}`, 'warning');
                     }
                     if (showEditLocationDialog) {
-                      updateCustomLocation(false);
+                      updateCustomLocation(true);
                     } else {
-                      saveWithDedupCheck(false);
+                      saveWithDedupCheck(true);
                     }
                   }}
                   disabled={!newLocation.name?.trim()}
@@ -9598,7 +9642,7 @@ const FouFouApp = () => {
                   }}
                   className="px-5 py-2.5 rounded-lg bg-gray-400 text-white text-sm font-bold hover:bg-gray-500"
                 >
-                  {`✕ ${t("general.close")}`}
+                  {`✕ ${t("general.cancel")}`}
                 </button>
               </div>
                 );
@@ -9656,8 +9700,8 @@ const FouFouApp = () => {
                       value={newInterest.label}
                       onChange={(e) => setNewInterest({...newInterest, label: e.target.value})}
                       placeholder={t("interests.exampleTypes")}
-                      className="w-full p-2 text-sm border-2 border-purple-300 rounded-lg focus:border-purple-500"
-                      style={{ direction: 'rtl' }}
+                      className="w-full p-2 border-2 border-purple-300 rounded-lg focus:border-purple-500"
+                      style={{ direction: 'rtl', fontSize: '16px' }}
                       disabled={newInterest.builtIn && !isUnlocked}
                       autoFocus={!newInterest.builtIn}
                     />
@@ -9668,8 +9712,8 @@ const FouFouApp = () => {
                         value={newInterest.labelEn || ''}
                         onChange={(e) => setNewInterest({...newInterest, labelEn: e.target.value})}
                         placeholder={t("interests.englishName")}
-                        className="flex-1 p-1.5 text-xs border border-gray-300 rounded-lg focus:border-purple-500"
-                        style={{ direction: 'ltr' }}
+                        className="flex-1 p-1.5 border border-gray-300 rounded-lg focus:border-purple-500"
+                        style={{ direction: 'ltr', fontSize: '16px' }}
                         disabled={newInterest.builtIn && !isUnlocked}
                       />
                     </div>
@@ -11633,7 +11677,7 @@ const FouFouApp = () => {
                     value={newLocation.description || ''}
                     onChange={(e) => setNewLocation(prev => ({...prev, description: e.target.value}))}
                     placeholder={`📝 ${t("places.description")} (${t("general.optional")})`}
-                    style={{ flex: 1, padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '13px', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}
+                    style={{ flex: 1, padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '16px', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}
                   />
                   {window.BKK.speechSupported && (
                     <button
