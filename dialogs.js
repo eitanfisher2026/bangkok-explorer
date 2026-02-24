@@ -912,19 +912,24 @@
                 {editingCustomInterest && isUnlocked && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '10px', direction: 'rtl' }}>
                   <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#6b7280' }}>{t('interests.nextNumber')}:</span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={(interestCounters[editingCustomInterest.id] || 0) + 1}
-                    onChange={(e) => {
-                      const val = Math.max(0, parseInt(e.target.value) || 0);
-                      const newCounter = Math.max(0, val - 1);
+                  {(() => {
+                    const val = (interestCounters[editingCustomInterest.id] || 0) + 1;
+                    const update = (v) => {
+                      const newCounter = Math.max(0, v - 1);
                       if (isFirebaseAvailable && database) {
                         database.ref(`cities/${selectedCityId}/interestCounters/${editingCustomInterest.id}`).set(newCounter);
                       }
-                    }}
-                    style={{ width: '56px', padding: '5px', fontSize: '14px', fontWeight: 'bold', border: '1px solid #d1d5db', borderRadius: '8px', textAlign: 'center' }}
-                  />
+                    };
+                    return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <button type="button" onClick={() => update(Math.max(1, val - 1))}
+                        style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: val <= 1 ? '#e5e7eb' : '#6b7280', color: val <= 1 ? '#9ca3af' : 'white', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                      <span style={{ minWidth: '24px', textAlign: 'center', fontSize: '15px', fontWeight: 'bold' }}>{val}</span>
+                      <button type="button" onClick={() => update(val + 1)}
+                        style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: '#6b7280', color: 'white', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                    </div>
+                    );
+                  })()}
                   <span style={{ fontSize: '11px', color: '#9ca3af' }}>({tLabel(editingCustomInterest)} · {tLabel(window.BKK.selectedCity)} #{(interestCounters[editingCustomInterest.id] || 0) + 1})</span>
                 </div>
                 )}
@@ -998,9 +1003,9 @@
                 <div className="flex gap-3 px-4 py-2 bg-gray-50 border-t border-gray-100">
                   <button type="button"
                     onClick={() => setNewInterest({...newInterest, locked: !newInterest.locked})}
-                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${newInterest.locked ? 'border-gray-600 bg-gray-600 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-gray-400'}`}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${newInterest.locked ? 'border-gray-600 bg-gray-600 text-white' : 'border-gray-300 bg-white text-gray-400'}`}
                   >
-                    {newInterest.locked ? '🔒' : '○'} {t("general.locked")}
+                    {newInterest.locked ? '🔒' : '🔓'}
                   </button>
                 </div>
                 )}

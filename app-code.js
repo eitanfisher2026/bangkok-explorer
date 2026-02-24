@@ -5776,7 +5776,7 @@ const FouFouApp = () => {
               }
               window.scrollTo(0, 0);
             }}
-            className={`hidden sm:flex flex-1 min-w-0 py-1.5 px-1 rounded-lg font-medium transition text-[9px] sm:text-xs leading-tight ${
+            className={`${isUnlocked ? 'flex' : 'hidden sm:flex'} flex-1 min-w-0 py-1.5 px-1 rounded-lg font-medium transition text-[9px] sm:text-xs leading-tight ${
               currentView === 'settings' ? 'bg-slate-500 text-white' : 'text-gray-600 hover:bg-gray-100'
             }`}
             style={{ flexDirection: 'column', alignItems: 'center' }}
@@ -7687,35 +7687,47 @@ const FouFouApp = () => {
                   <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#7c3aed' }}>🌅 {t('settings.dayNightHours')}</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <label style={{ fontSize: '10px', color: '#6b7280', fontWeight: '600' }}>☀️</label>
-                    <input type="number" min="0" max="23"
-                      value={window.BKK.dayStartHour ?? 6}
-                      onChange={(e) => {
-                        const val = Math.min(23, Math.max(0, parseInt(e.target.value) || 0));
-                        window.BKK.dayStartHour = val;
+                    {(() => {
+                      const val = window.BKK.dayStartHour ?? 6;
+                      const update = (v) => {
+                        const clamped = Math.min(23, Math.max(0, v));
+                        window.BKK.dayStartHour = clamped;
                         const city = window.BKK.selectedCity;
-                        if (city) city.dayStartHour = val;
+                        if (city) city.dayStartHour = clamped;
                         if (isFirebaseAvailable && database && isUnlocked) {
-                          database.ref(`settings/cityOverrides/${selectedCityId}/dayStartHour`).set(val);
+                          database.ref(`settings/cityOverrides/${selectedCityId}/dayStartHour`).set(clamped);
                         }
                         setFormData(prev => ({...prev}));
-                      }}
-                      style={{ width: '50px', padding: '3px', fontSize: '13px', fontWeight: 'bold', border: '2px solid #c084fc', borderRadius: '6px', textAlign: 'center' }}
-                    />
+                      };
+                      return (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <button onClick={() => update(val - 1)} style={{ width: '26px', height: '26px', borderRadius: '6px', border: 'none', background: val <= 0 ? '#e5e7eb' : '#7c3aed', color: val <= 0 ? '#9ca3af' : 'white', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                        <span style={{ minWidth: '28px', textAlign: 'center', fontSize: '14px', fontWeight: 'bold' }}>{val}</span>
+                        <button onClick={() => update(val + 1)} style={{ width: '26px', height: '26px', borderRadius: '6px', border: 'none', background: val >= 23 ? '#e5e7eb' : '#7c3aed', color: val >= 23 ? '#9ca3af' : 'white', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                      </div>
+                      );
+                    })()}
                     <label style={{ fontSize: '10px', color: '#6b7280', fontWeight: '600' }}>🌙</label>
-                    <input type="number" min="0" max="23"
-                      value={window.BKK.nightStartHour ?? 17}
-                      onChange={(e) => {
-                        const val = Math.min(23, Math.max(0, parseInt(e.target.value) || 0));
-                        window.BKK.nightStartHour = val;
+                    {(() => {
+                      const val = window.BKK.nightStartHour ?? 17;
+                      const update = (v) => {
+                        const clamped = Math.min(23, Math.max(0, v));
+                        window.BKK.nightStartHour = clamped;
                         const city = window.BKK.selectedCity;
-                        if (city) city.nightStartHour = val;
+                        if (city) city.nightStartHour = clamped;
                         if (isFirebaseAvailable && database && isUnlocked) {
-                          database.ref(`settings/cityOverrides/${selectedCityId}/nightStartHour`).set(val);
+                          database.ref(`settings/cityOverrides/${selectedCityId}/nightStartHour`).set(clamped);
                         }
                         setFormData(prev => ({...prev}));
-                      }}
-                      style={{ width: '50px', padding: '3px', fontSize: '13px', fontWeight: 'bold', border: '2px solid #c084fc', borderRadius: '6px', textAlign: 'center' }}
-                    />
+                      };
+                      return (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <button onClick={() => update(val - 1)} style={{ width: '26px', height: '26px', borderRadius: '6px', border: 'none', background: val <= 0 ? '#e5e7eb' : '#7c3aed', color: val <= 0 ? '#9ca3af' : 'white', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                        <span style={{ minWidth: '28px', textAlign: 'center', fontSize: '14px', fontWeight: 'bold' }}>{val}</span>
+                        <button onClick={() => update(val + 1)} style={{ width: '26px', height: '26px', borderRadius: '6px', border: 'none', background: val >= 23 ? '#e5e7eb' : '#7c3aed', color: val >= 23 ? '#9ca3af' : 'white', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                      </div>
+                      );
+                    })()}
                   </div>
                   <span style={{ fontSize: '10px', color: '#9ca3af' }}>
                     {`☀️ ${String(window.BKK.dayStartHour ?? 6).padStart(2,'0')}:00–${String(window.BKK.nightStartHour ?? 17).padStart(2,'0')}:00`}
@@ -7976,10 +7988,17 @@ const FouFouApp = () => {
                                 {!area.isWholeCity && (
                                   <label className="text-[9px] text-gray-600 flex items-center gap-1">
                                     {t('general.multiplier')}:
-                                    <input type="number" step="0.1" value={area.distanceMultiplier || city.distanceMultiplier || 1.2}
-                                      style={{ width: '40px', fontSize: '9px', padding: '1px 3px', border: '1px solid #d1d5db', borderRadius: '4px' }}
-                                      onChange={(e) => { area.distanceMultiplier = parseFloat(e.target.value) || 1.2; const ac = window.BKK.areaCoordinates?.[area.id]; if (ac) ac.distanceMultiplier = area.distanceMultiplier; setFormData(prev => ({...prev})); }}
-                                    />
+                                    {(() => {
+                                      const val = area.distanceMultiplier || city.distanceMultiplier || 1.2;
+                                      const set = (v) => { const clamped = Math.round(Math.max(0.5, Math.min(5, v)) * 10) / 10; area.distanceMultiplier = clamped; const ac = window.BKK.areaCoordinates?.[area.id]; if (ac) ac.distanceMultiplier = clamped; setFormData(prev => ({...prev})); };
+                                      return (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                        <button onClick={() => set(val - 0.1)} style={{ width: '20px', height: '20px', borderRadius: '4px', border: 'none', background: '#e5e7eb', color: '#374151', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>−</button>
+                                        <span style={{ minWidth: '26px', textAlign: 'center', fontSize: '10px', fontWeight: 'bold' }}>{val.toFixed(1)}</span>
+                                        <button onClick={() => set(val + 0.1)} style={{ width: '20px', height: '20px', borderRadius: '4px', border: 'none', background: '#e5e7eb', color: '#374151', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>+</button>
+                                      </div>
+                                      );
+                                    })()}
                                   </label>
                                 )}
                                 {!area.isWholeCity && (
@@ -8502,11 +8521,21 @@ const FouFouApp = () => {
                           background: systemParams[p.key] ? '#22c55e' : '#ef4444', color: 'white' }}>
                         {systemParams[p.key] ? '✓ ON' : '✗ OFF'}
                       </button>
-                    ) : (
-                      <input type="number" min={p.min} max={p.max} step={p.step}
-                        value={systemParams[p.key]} onChange={(e) => updateParam(p.key, e.target.value, p.type)}
-                        style={{ width: '65px', padding: '4px', fontSize: '14px', fontWeight: 'bold', border: '2px solid #d1d5db', borderRadius: '8px', textAlign: 'center' }} />
-                    )}
+                    ) : (() => {
+                      const step = p.step || 1;
+                      const val = systemParams[p.key];
+                      return (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <button onClick={() => updateParam(p.key, Math.max(p.min, val - step), p.type)}
+                          style={{ width: '30px', height: '30px', borderRadius: '8px', border: 'none', background: val <= p.min ? '#e5e7eb' : '#3b82f6', color: val <= p.min ? '#9ca3af' : 'white', fontSize: '16px', fontWeight: 'bold', cursor: val <= p.min ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          disabled={val <= p.min}>−</button>
+                        <span style={{ minWidth: '40px', textAlign: 'center', fontSize: '15px', fontWeight: 'bold', color: '#374151' }}>{p.type === 'float' ? val.toFixed(1) : val}</span>
+                        <button onClick={() => updateParam(p.key, Math.min(p.max, val + step), p.type)}
+                          style={{ width: '30px', height: '30px', borderRadius: '8px', border: 'none', background: val >= p.max ? '#e5e7eb' : '#3b82f6', color: val >= p.max ? '#9ca3af' : 'white', fontSize: '16px', fontWeight: 'bold', cursor: val >= p.max ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          disabled={val >= p.max}>+</button>
+                      </div>
+                      );
+                    })()}
                     {!isDefault && (
                       <button onClick={() => updateParam(p.key, def, p.type)} title={`Default: ${def}`}
                         style={{ padding: '3px 6px', fontSize: '9px', fontWeight: 'bold', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
@@ -9599,19 +9628,24 @@ const FouFouApp = () => {
                 {editingCustomInterest && isUnlocked && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '10px', direction: 'rtl' }}>
                   <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#6b7280' }}>{t('interests.nextNumber')}:</span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={(interestCounters[editingCustomInterest.id] || 0) + 1}
-                    onChange={(e) => {
-                      const val = Math.max(0, parseInt(e.target.value) || 0);
-                      const newCounter = Math.max(0, val - 1);
+                  {(() => {
+                    const val = (interestCounters[editingCustomInterest.id] || 0) + 1;
+                    const update = (v) => {
+                      const newCounter = Math.max(0, v - 1);
                       if (isFirebaseAvailable && database) {
                         database.ref(`cities/${selectedCityId}/interestCounters/${editingCustomInterest.id}`).set(newCounter);
                       }
-                    }}
-                    style={{ width: '56px', padding: '5px', fontSize: '14px', fontWeight: 'bold', border: '1px solid #d1d5db', borderRadius: '8px', textAlign: 'center' }}
-                  />
+                    };
+                    return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <button type="button" onClick={() => update(Math.max(1, val - 1))}
+                        style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: val <= 1 ? '#e5e7eb' : '#6b7280', color: val <= 1 ? '#9ca3af' : 'white', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                      <span style={{ minWidth: '24px', textAlign: 'center', fontSize: '15px', fontWeight: 'bold' }}>{val}</span>
+                      <button type="button" onClick={() => update(val + 1)}
+                        style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: '#6b7280', color: 'white', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                    </div>
+                    );
+                  })()}
                   <span style={{ fontSize: '11px', color: '#9ca3af' }}>({tLabel(editingCustomInterest)} · {tLabel(window.BKK.selectedCity)} #{(interestCounters[editingCustomInterest.id] || 0) + 1})</span>
                 </div>
                 )}
@@ -9685,9 +9719,9 @@ const FouFouApp = () => {
                 <div className="flex gap-3 px-4 py-2 bg-gray-50 border-t border-gray-100">
                   <button type="button"
                     onClick={() => setNewInterest({...newInterest, locked: !newInterest.locked})}
-                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${newInterest.locked ? 'border-gray-600 bg-gray-600 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-gray-400'}`}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${newInterest.locked ? 'border-gray-600 bg-gray-600 text-white' : 'border-gray-300 bg-white text-gray-400'}`}
                   >
-                    {newInterest.locked ? '🔒' : '○'} {t("general.locked")}
+                    {newInterest.locked ? '🔒' : '🔓'}
                   </button>
                 </div>
                 )}
