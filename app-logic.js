@@ -1496,75 +1496,66 @@
           console.error('[REFRESH] Error loading interests:', e);
         }
         
-        // 4. Interest Config
+        // 4-7. All settings in single read
         try {
-          const configSnap = await database.ref('settings/interestConfig').once('value');
-          const configData = configSnap.val();
-          if (configData) {
-            setInterestConfig(prev => ({ ...prev, ...configData }));
-            console.log('[REFRESH] Loaded interest config');
+          const settingsSnap = await database.ref('settings').once('value');
+          const s = settingsSnap.val() || {};
+          
+          // Interest Config
+          if (s.interestConfig) {
+            setInterestConfig(prev => ({ ...prev, ...s.interestConfig }));
           }
-        } catch (e) {
-          console.error('[REFRESH] Error loading interest config:', e);
-        }
-        
-        // 5. Interest Status
-        try {
-          const statusSnap = await database.ref('settings/interestStatus').once('value');
-          const statusData = statusSnap.val();
-          if (statusData) {
+          
+          // Interest Status
+          if (s.interestStatus) {
             const builtInIds = interestOptions.map(i => i.id);
             const uncoveredIds = uncoveredInterests.map(i => i.id || i.name.replace(/\s+/g, '_').toLowerCase());
             const defaultStatus = {};
             builtInIds.forEach(id => { defaultStatus[id] = true; });
             uncoveredIds.forEach(id => { defaultStatus[id] = false; });
-            setInterestStatus({ ...defaultStatus, ...statusData });
-            console.log('[REFRESH] Loaded interest status');
+            setInterestStatus({ ...defaultStatus, ...s.interestStatus });
           }
-        } catch (e) {
-          console.error('[REFRESH] Error loading interest status:', e);
-        }
-        
-        // 6. Admin Settings
-        try {
-          const pwSnap = await database.ref('settings/adminPassword').once('value');
-          setAdminPassword(pwSnap.val() || '');
           
-          const usersSnap = await database.ref('settings/adminUsers').once('value');
-          const usersData = usersSnap.val() || {};
-          const usersList = Object.entries(usersData).map(([oderId, data]) => ({
-            oderId,
-            ...data
-          }));
+          // Admin
+          setAdminPassword(s.adminPassword || '');
+          const usersData = s.adminUsers || {};
+          const usersList = Object.entries(usersData).map(([oderId, data]) => ({ oderId, ...data }));
           setAdminUsers(usersList);
-          
           const userId = localStorage.getItem('bangkok_user_id');
           const isInAdminList = usersList.some(u => u.oderId === userId);
-          const passwordEmpty = !pwSnap.val();
+          const passwordEmpty = !s.adminPassword;
           const noAdminListExists = usersList.length === 0;
           const userIsAdmin = isInAdminList || (passwordEmpty && noAdminListExists);
           setIsUnlocked(userIsAdmin);
           setIsCurrentUserAdmin(userIsAdmin);
-          console.log('[REFRESH] Loaded admin settings');
-        } catch (e) {
-          console.error('[REFRESH] Error loading admin settings:', e);
-        }
-        
-        // 7. Google Max Waypoints setting + admin-controlled form settings
-        try {
-          const gmwSnap = await database.ref('settings/googleMaxWaypoints').once('value');
-          if (gmwSnap.val() !== null) setGoogleMaxWaypoints(gmwSnap.val());
-          const msSnap = await database.ref('settings/maxStops').once('value');
-          const fmSnap = await database.ref('settings/fetchMoreCount').once('value');
-          const drSnap = await database.ref('settings/defaultRadius').once('value');
+          
+          // App settings
+          if (s.googleMaxWaypoints != null) setGoogleMaxWaypoints(s.googleMaxWaypoints);
           const updates = {};
-          if (msSnap.val() !== null) updates.maxStops = msSnap.val();
-          if (fmSnap.val() !== null) updates.fetchMoreCount = fmSnap.val();
-          if (drSnap.val() !== null) window.BKK._defaultRadius = drSnap.val();
-          if (Object.keys(updates).length > 0) {
-            setFormData(prev => ({...prev, ...updates}));
+          if (s.maxStops != null) updates.maxStops = s.maxStops;
+          if (s.fetchMoreCount != null) updates.fetchMoreCount = s.fetchMoreCount;
+          if (s.defaultRadius != null) window.BKK._defaultRadius = s.defaultRadius;
+          if (Object.keys(updates).length > 0) setFormData(prev => ({...prev, ...updates}));
+          
+          // City overrides
+          if (s.cityOverrides) {
+            window.BKK._cityOverrides = s.cityOverrides;
+            const cityId = window.BKK.selectedCityId;
+            if (cityId && s.cityOverrides[cityId]) {
+              const co = s.cityOverrides[cityId];
+              if (co.dayStartHour != null) window.BKK.dayStartHour = co.dayStartHour;
+              if (co.nightStartHour != null) window.BKK.nightStartHour = co.nightStartHour;
+            }
           }
-          console.log('[REFRESH] Loaded settings:', { googleMaxWaypoints: gmwSnap.val() || 12, ...updates });
+          
+          // System params
+          if (s.systemParams) {
+            const merged = { ...window.BKK._defaultSystemParams, ...s.systemParams };
+            window.BKK.systemParams = merged;
+            setSystemParams(merged);
+          }
+          
+          console.log('[REFRESH] All settings loaded (single read)');
         } catch (e) {
           console.error('[REFRESH] Error loading settings:', e);
         }
@@ -1622,142 +1613,65 @@
     console.log('[ACCESS LOG] User ID:', userId);
     
     // Admin detection: Password-based system
-    const loadAdminSettings = async () => {
-      try {
-        // Load admin password
-        const pwSnapshot = await database.ref('settings/adminPassword').once('value');
-        const storedPassword = pwSnapshot.val() || '';
-        setAdminPassword(storedPassword);
-        
-        // Load admin users list
-        const usersSnapshot = await database.ref('settings/adminUsers').once('value');
-        const usersData = usersSnapshot.val() || {};
-        const usersList = Object.entries(usersData).map(([oderId, data]) => ({
-          oderId,
-          ...data
-        }));
-        setAdminUsers(usersList);
-        
-        // Check if user is admin: must be in admin list
-        // Only if NO admin list AND NO password (first-time setup), allow access
-        const isInAdminList = usersList.some(u => u.oderId === userId);
-        const passwordEmpty = !storedPassword || storedPassword === '';
-        const noAdminListExists = usersList.length === 0;
-        const userIsAdmin = isInAdminList || (passwordEmpty && noAdminListExists);
-        
-        setIsUnlocked(userIsAdmin);
-        setIsCurrentUserAdmin(userIsAdmin);
-        localStorage.setItem('bangkok_is_admin', userIsAdmin ? 'true' : 'false');
-        
-        console.log('[ADMIN] Password empty:', passwordEmpty, 'In list:', isInAdminList, 'Unlocked:', userIsAdmin);
-      } catch (err) {
-        console.error('[ADMIN] Error loading settings:', err);
-      }
-    };
-    
-    loadAdminSettings();
-    
-    // Listen to admin settings changes
-    database.ref('settings/adminPassword').on('value', (snap) => {
-      const pw = snap.val() || '';
+    // ── CONSOLIDATED settings listener (replaces 8 individual listeners + loadAdminControlledSettings) ──
+    const hasSavedPrefs = !!localStorage.getItem('bangkok_preferences');
+    database.ref('settings').on('value', (snap) => {
+      const s = snap.val() || {};
+      
+      // Admin auth
+      const pw = s.adminPassword || '';
       setAdminPassword(pw);
-      const cachedUserId = localStorage.getItem('bangkok_user_id');
-      database.ref('settings/adminUsers').once('value').then(usersSnap => {
-        const usersData = usersSnap.val() || {};
-        const isInList = Object.keys(usersData).includes(cachedUserId);
-        setIsUnlocked(isInList || !pw);
-      });
-    });
-    
-    database.ref('settings/adminUsers').on('value', (snap) => {
-      const usersData = snap.val() || {};
-      const usersList = Object.entries(usersData).map(([oderId, data]) => ({
-        oderId,
-        ...data
-      }));
+      const usersData = s.adminUsers || {};
+      const usersList = Object.entries(usersData).map(([oderId, data]) => ({ oderId, ...data }));
       setAdminUsers(usersList);
-    });
-    
-    // Listen for googleMaxWaypoints changes
-    database.ref('settings/googleMaxWaypoints').on('value', (snap) => {
-      if (snap.val() !== null) setGoogleMaxWaypoints(snap.val());
-    });
-    
-    // Listen for maxStops changes (admin setting)
-    database.ref('settings/maxStops').on('value', (snap) => {
-      if (snap.val() !== null) setFormData(prev => ({...prev, maxStops: snap.val()}));
-    });
-    
-    // Listen for fetchMoreCount changes (admin setting)
-    database.ref('settings/fetchMoreCount').on('value', (snap) => {
-      if (snap.val() !== null) setFormData(prev => ({...prev, fetchMoreCount: snap.val()}));
-    });
-    
-    // Listen for city day/night hour overrides
-    database.ref('settings/cityOverrides').on('value', (snap) => {
-      const data = snap.val();
-      if (data) {
-        window.BKK._cityOverrides = data;
-        // Apply to current city if matching
+      const cachedUserId = localStorage.getItem('bangkok_user_id');
+      const isInList = usersList.some(u => u.oderId === cachedUserId);
+      const passwordEmpty = !pw;
+      const noAdminListExists = usersList.length === 0;
+      const userIsAdmin = isInList || (passwordEmpty && noAdminListExists);
+      setIsUnlocked(userIsAdmin);
+      setIsCurrentUserAdmin(userIsAdmin);
+      localStorage.setItem('bangkok_is_admin', userIsAdmin ? 'true' : 'false');
+      
+      // App settings
+      if (s.googleMaxWaypoints != null) setGoogleMaxWaypoints(s.googleMaxWaypoints);
+      
+      const formUpdates = {};
+      if (s.maxStops != null) formUpdates.maxStops = s.maxStops;
+      if (s.fetchMoreCount != null) formUpdates.fetchMoreCount = s.fetchMoreCount;
+      if (s.defaultRadius != null) {
+        window.BKK._defaultRadius = s.defaultRadius;
+        if (!hasSavedPrefs) formUpdates.radiusMeters = s.defaultRadius;
+      }
+      if (Object.keys(formUpdates).length > 0) {
+        setFormData(prev => ({...prev, ...formUpdates}));
+      }
+      
+      // City day/night overrides
+      if (s.cityOverrides) {
+        window.BKK._cityOverrides = s.cityOverrides;
         const cityId = window.BKK.selectedCityId;
-        if (cityId && data[cityId]) {
-          if (data[cityId].dayStartHour != null) window.BKK.dayStartHour = data[cityId].dayStartHour;
-          if (data[cityId].nightStartHour != null) window.BKK.nightStartHour = data[cityId].nightStartHour;
-          // Also update city object
+        if (cityId && s.cityOverrides[cityId]) {
+          const co = s.cityOverrides[cityId];
+          if (co.dayStartHour != null) window.BKK.dayStartHour = co.dayStartHour;
+          if (co.nightStartHour != null) window.BKK.nightStartHour = co.nightStartHour;
           const city = window.BKK.selectedCity;
           if (city) {
-            if (data[cityId].dayStartHour != null) city.dayStartHour = data[cityId].dayStartHour;
-            if (data[cityId].nightStartHour != null) city.nightStartHour = data[cityId].nightStartHour;
+            if (co.dayStartHour != null) city.dayStartHour = co.dayStartHour;
+            if (co.nightStartHour != null) city.nightStartHour = co.nightStartHour;
           }
         }
       }
-    });
-    
-    // Listen for system parameters changes
-    database.ref('settings/systemParams').on('value', (snap) => {
-      const data = snap.val();
-      if (data) {
-        const merged = { ...window.BKK._defaultSystemParams, ...data };
+      
+      // System parameters (algorithm tuning)
+      if (s.systemParams) {
+        const merged = { ...window.BKK._defaultSystemParams, ...s.systemParams };
         window.BKK.systemParams = merged;
         setSystemParams(merged);
-        console.log('[FIREBASE] System params loaded:', Object.keys(data).length, 'overrides');
       }
+      
+      console.log('[FIREBASE] Settings loaded (single listener):', Object.keys(s).filter(k => s[k] != null).join(', '));
     });
-    
-    // Listen for defaultRadius changes (admin setting) - only apply if user hasn't customized
-    database.ref('settings/defaultRadius').on('value', (snap) => {
-      if (snap.val() !== null) {
-        // Store globally for first-time users
-        window.BKK._defaultRadius = snap.val();
-      }
-    });
-    
-    // Load admin-controlled settings and apply to formData
-    const loadAdminControlledSettings = async () => {
-      try {
-        const [msSnap, fmSnap, drSnap] = await Promise.all([
-          database.ref('settings/maxStops').once('value'),
-          database.ref('settings/fetchMoreCount').once('value'),
-          database.ref('settings/defaultRadius').once('value')
-        ]);
-        const updates = {};
-        if (msSnap.val() !== null) updates.maxStops = msSnap.val();
-        if (fmSnap.val() !== null) updates.fetchMoreCount = fmSnap.val();
-        // defaultRadius: only apply if user has no saved preferences (first time)
-        const hasSavedPrefs = !!localStorage.getItem('bangkok_preferences');
-        if (drSnap.val() !== null) {
-          window.BKK._defaultRadius = drSnap.val();
-          if (!hasSavedPrefs) updates.radiusMeters = drSnap.val();
-        }
-        if (Object.keys(updates).length > 0) {
-          setFormData(prev => ({...prev, ...updates}));
-        }
-        console.log('[SETTINGS] Loaded admin settings:', updates);
-      } catch (e) {
-        console.error('[SETTINGS] Error loading admin settings:', e);
-      }
-    };
-    loadAdminControlledSettings();
     
     // Log access stats (aggregated weekly counters by country)
     const isAdmin = localStorage.getItem('bangkok_is_admin') === 'true';
