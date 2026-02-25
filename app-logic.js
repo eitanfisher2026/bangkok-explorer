@@ -596,7 +596,7 @@
             markerRefs[nameKey] = { circle, label };
             
             const escapedName = (stop.name || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-            const googleUrl = 'https://www.google.com/maps/search/?api=1&query=' + stop.lat + ',' + stop.lng + (stop.place_id ? '&query_place_id=' + stop.place_id : '');
+            const googleUrl = window.BKK.getGoogleMapsUrl(stop) || ('https://www.google.com/maps/search/?api=1&query=' + stop.lat + ',' + stop.lng);
             
             // Dynamic popup - regenerates on open to reflect current disable state
             const makePopup = () => {
@@ -1192,6 +1192,55 @@
       // were incorrectly flagged as orphans and deleted.
     }
   }, []);
+
+  // One-time mapsUrl repair: fix missing/coords-only mapsUrl for saved favorites
+  const mapsUrlRepairDone = React.useRef(new Set());
+  useEffect(() => {
+    if (locationsLoading || !selectedCityId || mapsUrlRepairDone.current.has(selectedCityId)) return;
+    if (!customLocations || customLocations.length === 0) return;
+    mapsUrlRepairDone.current.add(selectedCityId);
+    
+    const coordsOnlyPattern = /\?q=\d+\.\d+,\d+\.\d+$|&query=\d+\.\d+,\d+\.\d+$/;
+    const updates = [];
+    
+    customLocations.forEach(loc => {
+      const currentUrl = loc.mapsUrl || '';
+      const needsFix = !currentUrl || 
+        currentUrl === '#' || 
+        coordsOnlyPattern.test(currentUrl) ||
+        (!currentUrl.includes('google.com/maps') && currentUrl.length > 0);
+      
+      if (!needsFix) return;
+      
+      const newUrl = window.BKK.getGoogleMapsUrl(loc);
+      if (newUrl && newUrl !== '#' && newUrl !== currentUrl) {
+        updates.push({ firebaseId: loc.firebaseId, name: loc.name, oldUrl: currentUrl, newUrl });
+      }
+    });
+    
+    if (updates.length === 0) return;
+    
+    console.log(`[REPAIR] Fixing mapsUrl for ${updates.length} locations in ${selectedCityId}`);
+    
+    if (isFirebaseAvailable && database) {
+      const batch = {};
+      updates.forEach(u => {
+        if (u.firebaseId) {
+          batch[`cities/${selectedCityId}/locations/${u.firebaseId}/mapsUrl`] = u.newUrl;
+        }
+      });
+      database.ref().update(batch)
+        .then(() => console.log(`[REPAIR] Updated ${updates.length} mapsUrl entries`))
+        .catch(e => console.error('[REPAIR] mapsUrl batch update failed:', e));
+    } else {
+      const updated = customLocations.map(loc => {
+        const fix = updates.find(u => u.name === loc.name);
+        return fix ? { ...loc, mapsUrl: fix.newUrl } : loc;
+      });
+      setCustomLocations(updated);
+      localStorage.setItem('bangkok_custom_locations', JSON.stringify(updated));
+    }
+  }, [customLocations, locationsLoading, selectedCityId]);
 
   // Load saved routes from Firebase - PER CITY
   useEffect(() => {

@@ -445,6 +445,11 @@ window.BKK.getGoogleMapsUrl = (place) => {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.address.trim())}`;
   }
   
+  // Custom place with name + coords: search by name near location
+  if (place.name?.trim() && hasCoords) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name.trim())}&center=${place.lat},${place.lng}&zoom=17`;
+  }
+  
   // Last resort: raw coordinates (pin on map)
   if (hasCoords) {
     return `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`;

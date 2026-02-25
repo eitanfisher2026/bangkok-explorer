@@ -315,7 +315,10 @@
                         onClick={() => {
                           if (isSkipped) return;
                           if (isFavorite) { handleEditLocation(isFavorite); }
-                          else if (stop.lat && stop.lng) { window.open(`https://www.google.com/maps/search/?api=1&query=${stop.lat},${stop.lng}`, '_blank'); }
+                          else if (stop.lat && stop.lng) {
+                            const url = window.BKK.getGoogleMapsUrl(stop);
+                            if (url && url !== '#') window.open(url, '_blank');
+                          }
                         }}
                         style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                           color: isSkipped ? '#9ca3af' : '#2563eb',
