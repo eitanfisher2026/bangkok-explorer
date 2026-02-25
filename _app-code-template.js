@@ -62,7 +62,7 @@ window.__firebaseReady.then(function(sdkLoaded) {
   window.BKK._historyDepth = 0;
   window.BKK.pushNavState = function(state) {
     var last = window.BKK._navHistory[window.BKK._navHistory.length - 1];
-    if (last && last.view === state.view && last.wizardStep === state.wizardStep && last.wizardMode === state.wizardMode) return;
+    if (last && last.view === state.view && last.wizardStep === state.wizardStep) return;
     window.BKK._navHistory.push(state);
     window.BKK._historyDepth++;
     window.history.pushState({ appNav: true, depth: window.BKK._historyDepth }, '', window.location.href);

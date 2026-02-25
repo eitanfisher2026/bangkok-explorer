@@ -343,12 +343,7 @@ nav: {
   myPlaces: 'מקומות',
   myInterests: 'תחומים',
   settings: 'הגדרות',
-  quickMode: 'מצב מהיר',
-  advancedMode: 'מצב מתקדם',
-  switchToQuick: 'עבור למצב מהיר',
   planTrip: 'תכנן את הטיול',
-  advancedMode: 'מצב מתקדם',
-  quickMode: 'מצב מהיר',
 },
 
 // --- Wizard / Quick Mode ---
@@ -1214,12 +1209,7 @@ nav: {
   favorites: 'Favorites',
   myInterests: 'Interests',
   settings: 'Settings',
-  quickMode: 'Quick mode',
-  advancedMode: 'Advanced mode',
-  switchToQuick: 'Switch to quick mode',
   planTrip: 'Plan your trip',
-  advancedMode: 'Advanced mode',
-  quickMode: 'Quick mode',
 },
 
 wizard: {

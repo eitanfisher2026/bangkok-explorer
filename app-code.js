@@ -83,9 +83,6 @@ const FouFouApp = () => {
   const [selectedCityId, setSelectedCityId] = useState(() => {
     try { return localStorage.getItem('city_explorer_city') || 'bangkok'; } catch(e) { return 'bangkok'; }
   });
-  const [wizardMode, setWizardMode] = useState(() => {
-    try { return localStorage.getItem('bangkok_wizard_mode') !== 'false'; } catch(e) { return true; }
-  });
   const [wizardStep, setWizardStep] = useState(1);
   const [formData, setFormData] = useState(loadPreferences());
   const [route, setRoute] = useState(null);
@@ -181,7 +178,7 @@ const FouFouApp = () => {
   const autoComputeRef = React.useRef(false);
   React.useEffect(() => {
     if (route && route.stops && route.stops.length >= 2 && !route.optimized && !autoComputeRef.current) {
-      if (wizardMode && routeChoiceMade === null) return;
+      if (routeChoiceMade === null) return;
       autoComputeRef.current = true;
       const timer = setTimeout(() => {
         recomputeForMap(null, undefined, true); // skipSmartSelect: respect user's manual disable choices
@@ -956,22 +953,20 @@ const FouFouApp = () => {
 
   useEffect(() => {
     if (window.BKK.pushNavState) {
-      window.BKK.pushNavState({ view: currentView, wizardStep, wizardMode });
+      window.BKK.pushNavState({ view: currentView, wizardStep });
     }
-  }, [currentView, wizardStep, wizardMode]);
+  }, [currentView, wizardStep]);
 
   useEffect(() => {
     const handler = (e) => {
       const prev = e.detail;
       if (!prev) return;
       
-      if (prev.wizardMode && wizardMode) {
-        if (prev.wizardStep < wizardStep) {
-          setWizardStep(prev.wizardStep);
-          if (prev.wizardStep < 3) { setRoute(null); setCurrentView('form'); }
-          window.scrollTo(0, 0);
-          return;
-        }
+      if (prev.wizardStep < wizardStep) {
+        setWizardStep(prev.wizardStep);
+        if (prev.wizardStep < 3) { setRoute(null); setCurrentView('form'); }
+        window.scrollTo(0, 0);
+        return;
       }
       
       if (prev.view !== currentView) {
@@ -979,17 +974,10 @@ const FouFouApp = () => {
         window.scrollTo(0, 0);
         return;
       }
-      
-      if (prev.wizardMode !== wizardMode) {
-        setWizardMode(prev.wizardMode);
-        if (prev.wizardMode) {
-          localStorage.setItem('bangkok_wizard_mode', 'true');
-        }
-      }
     };
     window.addEventListener('app-nav-back', handler);
     return () => window.removeEventListener('app-nav-back', handler);
-  }, [currentView, wizardStep, wizardMode]);
+  }, [currentView, wizardStep]);
 
   useEffect(() => {
     localStorage.setItem('pendingLocations', JSON.stringify(pendingLocations));
@@ -3391,11 +3379,7 @@ const FouFouApp = () => {
       }
       
       setTimeout(() => {
-        if (wizardMode) {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        } else {
-          document.getElementById('route-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }, 100);
       
     } catch (error) {
@@ -5746,7 +5730,7 @@ const FouFouApp = () => {
         )}
 
         {/* WIZARD MODE */}
-        {wizardMode && !activeTrail && currentView === 'form' && (
+        {!activeTrail && currentView === 'form' && (
           <div className={wizardStep < 3 ? "view-fade-in" : ""}>
             {/* Wizard Header — shown on all steps */}
             <div style={{ textAlign: 'center', marginBottom: '4px' }}>
@@ -6020,7 +6004,7 @@ const FouFouApp = () => {
           </div>
         )}
 
-        {/* Wizard Step 3 = results, or normal mode */}
+        {/* Wizard Step 3 = results */}
         
         {/* FAB: Quick Capture — draggable, available when no active trail */}
         {!activeTrail && !showQuickCapture && !showAddLocationDialog && !showEditLocationDialog && (() => {
@@ -6103,77 +6087,7 @@ const FouFouApp = () => {
           );
         })()}
 
-        {/* Navigation Tabs - hidden in wizard mode and active trail */}
-        {!wizardMode && !activeTrail && (
-        <div className="flex flex-wrap gap-1 mb-4 bg-white rounded-lg p-1.5 shadow">
-          <button
-            onClick={() => { setCurrentView('form'); window.scrollTo(0, 0); }}
-            className={`flex-1 min-w-0 py-1.5 px-1 rounded-lg font-medium transition text-[9px] sm:text-xs leading-tight ${
-              currentView === 'form' ? 'bg-rose-500 text-white' : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <div className="text-center">🗺️</div>
-            <div className="truncate text-center text-[8px]">{t("nav.route")}</div>
-          </button>
-          <button
-            onClick={() => { setCurrentView('saved'); window.scrollTo(0, 0); }}
-            className={`flex-1 min-w-0 py-1.5 px-1 rounded-lg font-medium transition text-[9px] sm:text-xs leading-tight ${
-              currentView === 'saved' ? 'bg-blue-500 text-white' : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <div className="text-center">💾</div>
-            <div className="truncate text-center text-[8px]">{t("nav.saved")} {citySavedRoutes.length > 0 ? `(${citySavedRoutes.length})` : ''}</div>
-          </button>
-          <button
-            onClick={() => { setCurrentView('myPlaces'); window.scrollTo(0, 0); }}
-            className={`flex-1 min-w-0 py-1.5 px-1 rounded-lg font-medium transition text-[9px] sm:text-xs leading-tight ${
-              currentView === 'myPlaces' || currentView === 'search' ? 'bg-teal-500 text-white' : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <div className="text-center">📍</div>
-            <div className="truncate text-center text-[8px]">{t("nav.myPlaces")} {locationsLoading ? '...' : cityCustomLocations.filter(l => l.status !== 'blacklist').length > 0 ? `(${cityCustomLocations.filter(l => l.status !== 'blacklist').length})` : ''}</div>
-          </button>
-          <button
-            onClick={() => { setCurrentView('myInterests'); window.scrollTo(0, 0); }}
-            className={`flex-1 min-w-0 py-1.5 px-1 rounded-lg font-medium transition text-[9px] sm:text-xs leading-tight ${
-              currentView === 'myInterests' ? 'bg-purple-500 text-white' : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <div className="text-center">🏷️</div>
-            <div className="truncate text-center text-[8px]">{t("nav.myInterests")} {(() => {
-              const builtIn = (window.BKK.interestOptions || []).filter(i => isInterestValid(i.id) && interestStatus[i.id] !== false);
-              const uncov = (window.BKK.uncoveredInterests || []).filter(i => isInterestValid(i.id) && interestStatus[i.id] === true);
-              const cust = (cityCustomInterests || []).filter(i => isInterestValid(i.id) && interestStatus[i.id] !== false);
-              const total = builtIn.length + uncov.length + cust.length;
-              return total > 0 ? `(${total})` : '';
-            })()}</div>
-          </button>
-          <button
-            onClick={() => {
-              if (isUnlocked || !adminPassword) {
-                setCurrentView('settings');
-              } else {
-                setShowPasswordDialog(true);
-              }
-              window.scrollTo(0, 0);
-            }}
-            className={`${isUnlocked ? 'flex' : 'hidden sm:flex'} flex-1 min-w-0 py-1.5 px-1 rounded-lg font-medium transition text-[9px] sm:text-xs leading-tight ${
-              currentView === 'settings' ? 'bg-slate-500 text-white' : 'text-gray-600 hover:bg-gray-100'
-            }`}
-            style={{ flexDirection: 'column', alignItems: 'center' }}
-          >
-            <div className="text-center relative inline-flex items-center justify-center w-full">
-              {(isUnlocked || !adminPassword) ? '🔓' : '🔒'}
-              {hasNewFeedback && isCurrentUserAdmin && (
-                <span className="absolute -top-1 left-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-white"></span>
-              )}
-            </div>
-            <div className="truncate text-center text-[8px]">{t("settings.title")}</div>
-          </button>
-        </div>
-        )}
-
-        {/* Quick mode switch — visible on non-form tabs in advanced mode */}
+        {/* Back to route — visible on non-form tabs */}
         {!activeTrail && currentView !== 'form' && (
           <div style={{ textAlign: 'center', marginTop: '-6px', marginBottom: '4px' }}>
             <button
@@ -6186,7 +6100,7 @@ const FouFouApp = () => {
         )}
 
         {/* Wizard Step 3: breadcrumb with back link */}
-        {wizardMode && wizardStep === 3 && !isGenerating && !activeTrail && currentView === 'form' && (
+        {wizardStep === 3 && !isGenerating && !activeTrail && currentView === 'form' && (
           <div style={{ 
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
             fontSize: '11px', color: '#9ca3af', marginBottom: '6px', flexWrap: 'wrap'
@@ -6217,7 +6131,7 @@ const FouFouApp = () => {
         )}
 
         {/* Wizard Step 3: Loading spinner while generating */}
-        {wizardMode && wizardStep === 3 && isGenerating && currentView === 'form' && (
+        {wizardStep === 3 && isGenerating && currentView === 'form' && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px' }}>
             <svg className="animate-spin" style={{ width: '40px', height: '40px', color: '#2563eb', marginBottom: '12px' }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -6229,7 +6143,7 @@ const FouFouApp = () => {
         )}
 
         {/* ROUTE CHOICE SCREEN — shown in wizard step 3 after route is loaded, before any action */}
-        {wizardMode && wizardStep === 3 && !isGenerating && route && route.stops?.length > 0 && !activeTrail && !route.optimized && routeChoiceMade === null && currentView === 'form' && (
+        {wizardStep === 3 && !isGenerating && route && route.stops?.length > 0 && !activeTrail && !route.optimized && routeChoiceMade === null && currentView === 'form' && (
           <div style={{ background: 'white', borderRadius: '16px', padding: '16px', marginBottom: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
             <div style={{ textAlign: 'center', marginBottom: '14px' }}>
               <span style={{ fontSize: '15px', fontWeight: 'bold' }}>{`🐾 ${route.stops.length} ${t('wizard.placesFound')}`}</span>
@@ -6284,448 +6198,11 @@ const FouFouApp = () => {
         {/* Form View */}
 
         {/* === VIEWS (from views.js) === */}
-        {currentView === 'form' && !activeTrail && (!wizardMode || (wizardStep === 3 && (routeChoiceMade === 'manual' || route?.optimized))) && (
+        {currentView === 'form' && !activeTrail && wizardStep === 3 && (routeChoiceMade === 'manual' || route?.optimized) && (
           <div className="view-fade-in bg-white rounded-xl shadow-lg p-3 space-y-3">
-            {/* Form inputs - advanced mode only */}
-            {!wizardMode && (<>
-            {/* City selector - only in advanced mode */}
-            {!wizardMode && Object.values(window.BKK.cities || {}).filter(c => c.active !== false).length > 1 && (
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2px' }}>
-                <select
-                  value={selectedCityId}
-                  onChange={(e) => switchCity(e.target.value)}
-                  style={{ padding: '3px 8px', borderRadius: '12px', border: '1.5px solid #e5e7eb', fontSize: '12px', fontWeight: 'bold', color: '#374151', background: 'white', cursor: 'pointer' }}
-                >
-                  {Object.values(window.BKK.cities || {}).filter(c => c.active !== false).map(city => (
-                    <option key={city.id} value={city.id}>{city.icon} {tLabel(city)}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            {/* Header - advanced mode */}
-            <div className="flex items-center justify-center gap-2">
-              <h2 className="text-base font-bold text-center">{t("wizard.step1Title")}</h2>
-              <button
-                onClick={() => showHelpFor('main')}
-                className="text-gray-400 hover:text-blue-500 text-sm"
-                title={t("general.help")}
-              >
-                {t("general.help")}
-              </button>
-              <button
-                onClick={() => { setWizardMode(true); setWizardStep(1); localStorage.setItem('bangkok_wizard_mode', 'true'); setRoute(null); setRouteChoiceMade(null); }}
-                style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '10px', cursor: 'pointer', textDecoration: 'underline' }}
-                title={t("nav.switchToQuick")}
-              >
-                {`🚀 ${t('nav.quickMode')}`}
-              </button>
-              <button onClick={() => switchLanguage(currentLang === 'he' ? 'en' : 'he')} style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '2px 8px', color: '#6b7280', fontSize: '10px', cursor: 'pointer' }}>
-                {currentLang === 'he' ? '🇬🇧 EN' : '🇮🇱 עב'}
-              </button>
-            </div>
-
-            {/* Split Layout: Mode selector + content (right) | Interests (left) */}
-            <div className="flex gap-0 items-start" style={{ paddingBottom: '60px' }}>
-              
-              {/* Right Column: Search Mode */}
-              <div className="flex-shrink-0 flex flex-col" style={{ width: rightColWidth + 'px' }}>
-                {/* Map button - prominent */}
-                <button
-                  onClick={() => { 
-                    setMapMode(formData.searchMode === 'radius' && formData.currentLat ? 'radius' : 'areas'); 
-                    setShowMapModal(true); 
-                  }}
-                  className="w-full mb-2 py-1.5 rounded-lg text-[10px] font-bold"
-                  style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', boxShadow: '0 2px 4px rgba(5,150,105,0.3)' }}
-                >{t("wizard.showMap")}</button>
-
-                {/* 3-way mode toggle: הכל / איזור / רדיוס */}
-                <div className="flex bg-gray-200 rounded-lg p-0.5 mb-2">
-                  <button
-                    onClick={() => setFormData({...formData, searchMode: 'all'})}
-                    className={`flex-1 py-1 rounded text-[9px] font-bold transition ${
-                      formData.searchMode === 'all' ? 'bg-white shadow text-purple-600' : 'text-gray-500'
-                    }`}
-                  >{`🌏 ${t("form.allMode")}`}</button>
-                  <button
-                    onClick={() => setFormData({...formData, searchMode: 'area'})}
-                    className={`flex-1 py-1 rounded text-[9px] font-bold transition ${
-                      formData.searchMode === 'area' ? 'bg-white shadow text-blue-600' : 'text-gray-500'
-                    }`}
-                  >{t("form.areaMode")}</button>
-                  <button
-                    onClick={() => {
-                      const source = formData.radiusSource || 'gps';
-                      setFormData(prev => ({...prev, searchMode: 'radius'}));
-                      if (source === 'gps' && !formData.currentLat) {
-                        window.BKK.getValidatedGps(
-                          (pos) => {
-                            setFormData(prev => ({...prev, currentLat: pos.coords.latitude, currentLng: pos.coords.longitude, gpsLat: pos.coords.latitude, gpsLng: pos.coords.longitude, radiusSource: 'gps'}));
-                          },
-                          (reason) => {
-                            setFormData(prev => ({...prev, searchMode: 'area'}));
-                            showToast(reason === 'outside_city' ? t('toast.outsideCity') : reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'warning', 'sticky');
-                          }
-                        );
-                      }
-                    }}
-                    className={`flex-1 py-1 rounded text-[9px] font-bold transition ${
-                      formData.searchMode === 'radius' ? 'bg-white shadow text-blue-600' : 'text-gray-500'
-                    }`}
-                  >{t("form.radiusMode")}</button>
-                </div>
-                
-                {formData.searchMode === 'all' ? (
-                  <div style={{ padding: '8px', textAlign: 'center', color: '#7c3aed', fontSize: '11px', fontWeight: 'bold' }}>
-                    {`🌏 ${t("general.all")} ${tLabel(window.BKK.selectedCity) || t('general.city')}`}
-                  </div>
-                ) : formData.searchMode === 'area' ? (
-                  /* Area Mode - GRID layout */
-                  <div>
-                    <button
-                      onClick={detectArea}
-                      disabled={isLocating}
-                      className={`w-full mb-1.5 py-1 rounded-lg text-[9px] font-bold border transition ${
-                        isLocating 
-                          ? 'bg-gray-100 text-gray-400 border-gray-200' 
-                          : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100'
-                      }`}
-                    >
-                      {isLocating ? t('form.locating') : t('form.locateMe')}
-                    </button>
-                    <div className="border border-gray-200 rounded-lg p-1">
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
-                        {areaOptions.map(area => (
-                          <button
-                            key={area.id}
-                            onClick={() => setFormData({...formData, area: area.id})}
-                            style={{
-                              border: formData.area === area.id ? '2px solid #3b82f6' : '1.5px solid #e5e7eb',
-                              backgroundColor: formData.area === area.id ? '#dbeafe' : '#ffffff',
-                              padding: '4px 2px',
-                              borderRadius: '6px',
-                              textAlign: 'center',
-                              lineHeight: '1.1'
-                            }}
-                          >
-                            <div style={{
-                              fontWeight: '700',
-                              fontSize: '10px',
-                              color: formData.area === area.id ? '#1e40af' : '#374151',
-                              wordBreak: 'break-word'
-                            }}>{tLabel(area)}</div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  /* Radius Mode */
-                  <div className="border border-blue-100 rounded-lg p-2 bg-blue-50/30 space-y-2">
-                    {/* Radius slider */}
-                    <div className="text-center">
-                      <label className="font-medium text-[10px] block text-center mb-0.5">{t("form.searchRadius")}</label>
-                      <div className="text-lg font-bold text-blue-600">{formData.radiusMeters}m</div>
-                      <input
-                        type="range"
-                        min="100"
-                        max="2000"
-                        step="100"
-                        value={formData.radiusMeters}
-                        onChange={(e) => setFormData({...formData, radiusMeters: parseInt(e.target.value)})}
-                        className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
-                        style={{ accentColor: '#ea580c' }}
-                      />
-                      <div className="flex justify-between text-[8px] text-gray-400 mt-0.5">
-                        <span>100m</span>
-                        <span>2km</span>
-                      </div>
-                    </div>
-
-                    {/* Source toggle: GPS vs My Place - NO coord clearing */}
-                    <div className="flex bg-white rounded p-0.5 border border-blue-200">
-                      <button
-                        onClick={() => {
-                          setFormData(prev => ({ 
-                            ...prev, 
-                            radiusSource: 'gps',
-                            currentLat: prev.gpsLat || prev.currentLat,
-                            currentLng: prev.gpsLng || prev.currentLng
-                          }));
-                        }}
-                        className={`flex-1 py-1 rounded text-[9px] font-bold transition ${
-                          formData.radiusSource === 'gps' ? 'bg-blue-500 text-white' : 'text-gray-500'
-                        }`}
-                      >📍 GPS</button>
-                      <button
-                        onClick={() => {
-                          const savedPlace = formData.radiusPlaceId 
-                            ? customLocations.find(l => l.id === formData.radiusPlaceId)
-                            : null;
-                          setFormData(prev => ({ 
-                            ...prev, 
-                            radiusSource: 'myplace',
-                            currentLat: savedPlace?.lat || prev.currentLat,
-                            currentLng: savedPlace?.lng || prev.currentLng
-                          }));
-                          if (formData.radiusPlaceName) {
-                            setPlaceSearchQuery(formData.radiusPlaceName);
-                          }
-                        }}
-                        className={`flex-1 py-1 rounded text-[9px] font-bold transition ${
-                          formData.radiusSource === 'myplace' ? 'bg-blue-500 text-white' : 'text-gray-500'
-                        }`}
-                      >{t("general.myPlace")}</button>
-                    </div>
-                    
-                    {formData.radiusSource === 'gps' ? (
-                      /* GPS Mode */
-                      <button
-                        onClick={() => {
-                          setIsLocating(true);
-                          window.BKK.getValidatedGps(
-                            (position) => {
-                              const { latitude, longitude } = position.coords;
-                              const lat = parseFloat(latitude.toFixed(6));
-                              const lng = parseFloat(longitude.toFixed(6));
-                              setFormData(prev => ({ 
-                                ...prev, 
-                                currentLat: lat, 
-                                currentLng: lng,
-                                gpsLat: lat,
-                                gpsLng: lng
-                              }));
-                              showToast(t('form.locationDetectedShort'), 'success');
-                              setIsLocating(false);
-                            },
-                            (reason) => {
-                              setIsLocating(false);
-                              setFormData(prev => ({...prev, searchMode: 'area'}));
-                              if (reason === 'outside_city') showToast(t('toast.outsideCity'), 'warning', 'sticky');
-                              else showToast(reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'error', 'sticky');
-                            }
-                          );
-                        }}
-                        disabled={isLocating}
-                        className={`w-full py-1.5 rounded-lg text-[10px] font-bold transition ${
-                          isLocating ? 'bg-gray-300 text-gray-500' 
-                          : formData.currentLat ? 'bg-green-500 text-white hover:bg-green-600' 
-                          : 'bg-blue-500 text-white hover:bg-blue-600'
-                        }`}
-                      >
-                        {isLocating ? t('form.locating') : formData.currentLat ? t('places.updateLocation') : t('places.findLocation')}
-                      </button>
-                    ) : (
-                      /* My Place Mode */
-                      <div className="space-y-1">
-                        <div style={{ position: 'relative' }}>
-                          <input
-                            type="text"
-                            value={placeSearchQuery}
-                            onChange={(e) => setPlaceSearchQuery(e.target.value)}
-                            placeholder={t("form.searchMyPlace")}
-                            className="w-full p-1.5 border border-blue-200 rounded-lg text-[10px] focus:border-blue-400 focus:outline-none"
-                            dir={window.BKK.i18n.isRTL() ? "rtl" : "ltr"}
-                            style={{ paddingLeft: '24px' }}
-                          />
-                          {(placeSearchQuery || formData.radiusPlaceId) && (
-                            <button
-                              onClick={() => {
-                                setPlaceSearchQuery('');
-                                setFormData(prev => ({ ...prev, radiusPlaceId: null, radiusPlaceName: '', currentLat: null, currentLng: null }));
-                              }}
-                              style={{ position: 'absolute', left: '4px', top: '50%', transform: 'translateY(-50%)', background: '#9ca3af', color: 'white', border: 'none', borderRadius: '50%', width: '16px', height: '16px', fontSize: '9px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                              title={t("general.clearSelection")}
-                            >✕</button>
-                          )}
-                        </div>
-                        <div className="max-h-48 overflow-y-auto bg-white rounded border border-gray-200">
-                          {cityCustomLocations
-                            .filter(loc => loc.lat && loc.lng && loc.status !== 'blacklist')
-                            .filter(loc => !placeSearchQuery || loc.name.toLowerCase().includes(placeSearchQuery.toLowerCase()))
-                            .slice(0, 30)
-                            .map(loc => (
-                              <button
-                                key={loc.id}
-                                onClick={() => {
-                                  setFormData(prev => ({
-                                    ...prev,
-                                    currentLat: loc.lat,
-                                    currentLng: loc.lng,
-                                    radiusPlaceId: loc.id,
-                                    radiusPlaceName: loc.name
-                                  }));
-                                  setPlaceSearchQuery(loc.name);
-                                }}
-                                className={`w-full text-right p-1.5 text-[10px] border-b border-gray-100 hover:bg-blue-50 transition ${
-                                  formData.radiusPlaceId === loc.id ? 'bg-blue-100 font-bold' : ''
-                                }`}
-                              >
-                                <div className="flex items-center gap-1">
-                                  <span className="truncate">{loc.name}</span>
-                                </div>
-                              </button>
-                            ))
-                          }
-                          {cityCustomLocations.filter(loc => loc.lat && loc.lng && loc.status !== 'blacklist').length === 0 && (
-                            <div className="p-2 text-center text-[10px] text-gray-400">{t("places.noPlacesWithCoords")}</div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Coordinates display - compact, no overflow */}
-                    {formData.currentLat && (
-                      <div className="bg-white rounded p-1 text-[8px] font-mono text-gray-500 text-center leading-relaxed" style={{ wordBreak: 'break-all' }}>
-                        {formData.currentLat}, {formData.currentLng}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Drag Handle */}
-              <div
-                className="flex-shrink-0 cursor-col-resize flex items-center justify-center hover:bg-gray-200 transition mx-1 rounded"
-                style={{ width: '10px', minHeight: '200px', touchAction: 'none' }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  const startX = e.clientX;
-                  const startWidth = rightColWidth;
-                  const isRtl = true;
-                  const onMove = (ev) => {
-                    const diff = isRtl ? (startX - ev.clientX) : (ev.clientX - startX);
-                    const newWidth = Math.min(250, Math.max(100, startWidth + diff));
-                    setRightColWidth(newWidth);
-                  };
-                  const onUp = () => {
-                    document.removeEventListener('mousemove', onMove);
-                    document.removeEventListener('mouseup', onUp);
-                  };
-                  document.addEventListener('mousemove', onMove);
-                  document.addEventListener('mouseup', onUp);
-                }}
-                onTouchStart={(e) => {
-                  const startX = e.touches[0].clientX;
-                  const startWidth = rightColWidth;
-                  const isRtl = true;
-                  const onMove = (ev) => {
-                    ev.preventDefault();
-                    const diff = isRtl ? (startX - ev.touches[0].clientX) : (ev.touches[0].clientX - startX);
-                    const newWidth = Math.min(250, Math.max(100, startWidth + diff));
-                    setRightColWidth(newWidth);
-                  };
-                  const onUp = () => {
-                    document.removeEventListener('touchmove', onMove);
-                    document.removeEventListener('touchend', onUp);
-                  };
-                  document.addEventListener('touchmove', onMove, { passive: false });
-                  document.addEventListener('touchend', onUp);
-                }}
-              >
-                <div className="w-1 h-8 bg-gray-300 rounded-full"></div>
-              </div>
-
-              {/* Left Column: Interests */}
-              <div className="flex-1 min-w-0 flex flex-col">
-                <label className="font-medium text-xs mb-1.5 block">{t("form.whatInterests")}</label>
-                <div className="grid grid-cols-3 gap-2 border border-gray-200 rounded-lg p-2">
-                {allInterestOptions.filter(option => {
-                  if (!option || !option.id) return false;
-                  const valid = isInterestValid(option.id);
-                  const scopeOk = !(option.scope === 'local' && option.cityId && option.cityId !== selectedCityId);
-                  const statusOk = interestStatus[option.id] !== false;
-                  const isCustom = option.id?.startsWith?.('custom_') || option.custom;
-                  if (debugMode) {
-                    if (!valid || !scopeOk || !statusOk) {
-                    }
-                  }
-                  if (!valid) return false;
-                  if (!scopeOk) return false;
-                  return statusOk;
-                }).map(option => {
-                  const tooltip = interestTooltips[option.id] || tLabel(option);
-                  const customInterest = cityCustomInterests.find(ci => ci.id === option.id);
-                  const isCustom = !!customInterest;
-                  
-                  return (
-                    <button
-                      key={option.id}
-                      onClick={() => toggleInterest(option.id)}
-                      title={tooltip}
-                      style={{
-                        border: formData.interests.includes(option.id) ? '2px solid #3b82f6' : '1.5px solid #e5e7eb',
-                        backgroundColor: formData.interests.includes(option.id) ? '#eff6ff' : '#ffffff',
-                        boxShadow: formData.interests.includes(option.id) ? '0 2px 4px rgba(59, 130, 246, 0.15)' : 'none',
-                        position: 'relative',
-                        overflow: 'hidden'
-                      }}
-                      className="p-1.5 rounded-lg text-xs"
-                    >
-                      <div className="text-lg mb-1">{option.icon?.startsWith?.('data:') ? <img src={option.icon} alt="" className="w-6 h-6 object-contain mx-auto" /> : option.icon}</div>
-                      <div style={{
-                        fontWeight: '600',
-                        fontSize: '10px',
-                        color: formData.interests.includes(option.id) ? '#1e40af' : '#374151',
-                        wordBreak: 'break-word',
-                        lineHeight: '1.2',
-                        maxHeight: '2.4em',
-                        overflow: 'hidden'
-                      }}>{tLabel(option)}</div>
-                    </button>
-                  );
-                })}
-              </div>
-              </div>
-              {/* End of Left Column */}
-              
-            </div>
-            {/* End of Split Layout */}
-
-            {/* Generate Button - sticky at bottom for mobile */}
-            <div style={{
-              position: 'sticky',
-              bottom: '20px',
-              zIndex: 20,
-              marginTop: '20px'
-            }}>
-              <button
-                onClick={generateRoute}
-                disabled={!isDataLoaded || formData.interests.length === 0 || (formData.searchMode === 'radius' && !formData.currentLat)}
-                style={{ width: '100%',
-                  backgroundColor: '#2563eb',
-                  color: 'white',
-                  padding: '10px',
-                  borderRadius: '12px',
-                  fontWeight: 'bold',
-                  fontSize: '14px',
-                  border: 'none',
-                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.2)',
-                  opacity: (!isDataLoaded || formData.interests.length === 0 || (formData.searchMode === 'radius' && !formData.currentLat)) ? 0.5 : 1
-                }}
-              >
-                {!isDataLoaded ? `⏳ ${t('general.loading')}...` : isGenerating ? t('general.searching') : `🔍 ${t('wizard.findPlaces')} (${formData.maxStops})`}
-              </button>
-              <button
-                onClick={() => showHelpFor('searchLogic')}
-                className="bg-white text-blue-600 hover:bg-blue-50 rounded-full w-7 h-7 flex items-center justify-center text-sm font-bold shadow border border-blue-200"
-                title={t("help.searchLogic.title")}
-              >
-                ?
-              </button>
-            </div>
-            
-            {formData.interests.length === 0 && (
-              <p className="text-center text-gray-500 text-xs">{t("form.selectAtLeastOneInterest")}</p>
-            )}
-            {formData.searchMode === 'radius' && !formData.currentLat && formData.interests.length > 0 && (
-              <p className="text-center text-blue-500 text-xs font-medium">{t("form.useGpsForRadius")}</p>
-            )}
-
-            </>)}
 
             {/* Manual mode header — shown in wizard manual mode */}
-            {wizardMode && routeChoiceMade === 'manual' && route && (
+            {routeChoiceMade === 'manual' && route && (
               <div className="text-center pb-2">
                 <h3 className="text-sm font-bold text-purple-700">🛠️ {t('wizard.manualMode')}</h3>
                 <p className="text-[10px] text-gray-500">{t('wizard.manualDesc')}</p>
@@ -6886,7 +6363,7 @@ const FouFouApp = () => {
                                           🔺
                                         </span>
                                       )}
-                                      {isAddedLater && (!wizardMode || routeChoiceMade === 'manual') && (
+                                      {isAddedLater && routeChoiceMade === 'manual' && (
                                         <span className="text-blue-500 font-bold" title={t("general.addedViaMore")} style={{ fontSize: '9px' }}>{`+${t('general.more')}`}</span>
                                       )}
                                       {/* Camera icon for custom locations with image */}
@@ -12134,7 +11611,7 @@ window.__firebaseReady.then(function(sdkLoaded) {
   window.BKK._historyDepth = 0;
   window.BKK.pushNavState = function(state) {
     var last = window.BKK._navHistory[window.BKK._navHistory.length - 1];
-    if (last && last.view === state.view && last.wizardStep === state.wizardStep && last.wizardMode === state.wizardMode) return;
+    if (last && last.view === state.view && last.wizardStep === state.wizardStep) return;
     window.BKK._navHistory.push(state);
     window.BKK._historyDepth++;
     window.history.pushState({ appNav: true, depth: window.BKK._historyDepth }, '', window.location.href);

@@ -45,9 +45,6 @@
   const [selectedCityId, setSelectedCityId] = useState(() => {
     try { return localStorage.getItem('city_explorer_city') || 'bangkok'; } catch(e) { return 'bangkok'; }
   });
-  const [wizardMode, setWizardMode] = useState(() => {
-    try { return localStorage.getItem('bangkok_wizard_mode') !== 'false'; } catch(e) { return true; }
-  });
   const [wizardStep, setWizardStep] = useState(1);
   const [formData, setFormData] = useState(loadPreferences());
   const [route, setRoute] = useState(null);
@@ -156,7 +153,7 @@
   React.useEffect(() => {
     if (route && route.stops && route.stops.length >= 2 && !route.optimized && !autoComputeRef.current) {
       // Don't auto-compute while wizard choice screen is showing
-      if (wizardMode && routeChoiceMade === null) return;
+      if (routeChoiceMade === null) return;
       autoComputeRef.current = true;
       const timer = setTimeout(() => {
         console.log('[AUTO-COMPUTE] Route not optimized, auto-computing...');
@@ -1002,9 +999,9 @@
   // Push navigation state when view or wizard step changes
   useEffect(() => {
     if (window.BKK.pushNavState) {
-      window.BKK.pushNavState({ view: currentView, wizardStep, wizardMode });
+      window.BKK.pushNavState({ view: currentView, wizardStep });
     }
-  }, [currentView, wizardStep, wizardMode]);
+  }, [currentView, wizardStep]);
 
   // Handle Android/iOS back button
   useEffect(() => {
@@ -1012,15 +1009,12 @@
       const prev = e.detail;
       if (!prev) return;
       
-      if (prev.wizardMode && wizardMode) {
-        // Within wizard: go to previous step
-        if (prev.wizardStep < wizardStep) {
-          setWizardStep(prev.wizardStep);
-          if (prev.wizardStep < 3) { setRoute(null); setCurrentView('form'); }
-          // Don't clear interests on back - user's selections should persist
-          window.scrollTo(0, 0);
-          return;
-        }
+      // Within wizard: go to previous step
+      if (prev.wizardStep < wizardStep) {
+        setWizardStep(prev.wizardStep);
+        if (prev.wizardStep < 3) { setRoute(null); setCurrentView('form'); }
+        window.scrollTo(0, 0);
+        return;
       }
       
       // Normal navigation between views
@@ -1029,18 +1023,10 @@
         window.scrollTo(0, 0);
         return;
       }
-      
-      // Wizard mode changed
-      if (prev.wizardMode !== wizardMode) {
-        setWizardMode(prev.wizardMode);
-        if (prev.wizardMode) {
-          localStorage.setItem('bangkok_wizard_mode', 'true');
-        }
-      }
     };
     window.addEventListener('app-nav-back', handler);
     return () => window.removeEventListener('app-nav-back', handler);
-  }, [currentView, wizardStep, wizardMode]);
+  }, [currentView, wizardStep]);
 
   // Save pending items to localStorage whenever they change
   useEffect(() => {
@@ -3859,13 +3845,9 @@
       console.log('[ROUTE] Route set, staying in form view');
       console.log('[ROUTE] Route object:', newRoute);
       
-      // Scroll to results (or top in wizard mode for Yalla button)
+      // Scroll to top for Yalla button
       setTimeout(() => {
-        if (wizardMode) {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        } else {
-          document.getElementById('route-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }, 100);
       
       // Stay in form view to show compact list
