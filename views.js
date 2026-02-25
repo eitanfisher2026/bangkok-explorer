@@ -1351,10 +1351,12 @@
                         id="open-google-maps-btn"
                         disabled={!route?.optimized}
                         style={{
-                          width: '100%', height: '42px', backgroundColor: route?.optimized ? '#2563eb' : '#d1d5db',
-                          color: route?.optimized ? 'white' : '#9ca3af', textAlign: 'center',
-                          borderRadius: '12px', fontWeight: 'bold', fontSize: '13px',
-                          border: 'none', boxShadow: route?.optimized ? '0 4px 6px -1px rgba(0, 0, 0, 0.3)' : 'none',
+                          width: '100%', height: '48px', 
+                          background: route?.optimized ? 'linear-gradient(135deg, #f0fdf4, #dcfce7)' : '#d1d5db',
+                          color: route?.optimized ? '#15803d' : '#9ca3af', textAlign: 'center',
+                          borderRadius: '14px', fontWeight: 'bold', fontSize: '15px',
+                          border: route?.optimized ? '2px solid #22c55e' : '2px solid #d1d5db',
+                          boxShadow: route?.optimized ? '0 4px 6px -1px rgba(34, 197, 94, 0.3)' : 'none',
                           cursor: route?.optimized ? 'pointer' : 'not-allowed'
                         }}
                         onClick={() => {
@@ -1368,7 +1370,7 @@
                           window.open(mapUrl, 'city_explorer_map');
                         }}
                       >
-                        {`📍 ${t('route.openRouteInGoogle')}`}
+                        {`🚀 ${t('route.openRouteInGoogle')}`}
                       </button>
                     ) : (
                       <div style={{ display: 'flex', gap: '4px' }}>
