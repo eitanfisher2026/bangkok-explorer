@@ -5479,12 +5479,18 @@ const FouFouApp = () => {
                       setCurrentView('settings');
                     } else {
                       const pw = prompt(t('settings.enterPassword'));
-                      if (pw && pw === adminPassword) {
-                        setIsUnlocked(true);
-                        localStorage.setItem('foufou_admin', 'true');
-                        setCurrentView('settings');
-                      } else if (pw !== null) {
-                        showToast(t('settings.wrongPassword'), 'warning');
+                      if (pw) {
+                        window.BKK.hashPassword(pw).then(hashed => {
+                          if (hashed === adminPassword || pw === adminPassword) {
+                            setIsUnlocked(true);
+                            localStorage.setItem('foufou_admin', 'true');
+                            setCurrentView('settings');
+                            setShowHeaderMenu(false);
+                            window.scrollTo(0, 0);
+                          } else {
+                            showToast(t('settings.wrongPassword'), 'warning');
+                          }
+                        });
                         return;
                       } else { return; }
                     }
@@ -5548,6 +5554,7 @@ const FouFouApp = () => {
               </button>
               <div style={{ textAlign: 'center' }}>
                 <span style={{ fontSize: '14px', fontWeight: 'bold' }}>🐾 {t('trail.activeTitle')}</span>
+                <button onClick={() => showHelpFor('activeTrail')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', marginInlineStart: '4px', textDecoration: 'underline' }}>{t('general.help')}</button>
               </div>
               <span style={{ fontSize: '10px', color: '#9ca3af' }}>
                 ⏱️ {(() => { const mins = Math.round((Date.now() - activeTrail.startedAt) / 60000); return mins < 60 ? `${mins} ${t('general.min')}` : `${Math.floor(mins/60)}h ${mins%60}m`; })()}
@@ -6296,7 +6303,7 @@ const FouFouApp = () => {
             {/* Manual mode header — shown in wizard manual mode */}
             {routeChoiceMade === 'manual' && route && (
               <div className="text-center pb-2">
-                <h3 className="text-sm font-bold text-purple-700">🛠️ {t('wizard.manualMode')}</h3>
+                <h3 className="text-sm font-bold text-purple-700">🛠️ {t('wizard.manualMode')}  <button onClick={() => showHelpFor('manualMode')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', textDecoration: 'underline' }}>{t('general.help')}</button></h3>
                 <p className="text-[10px] text-gray-500">{t('wizard.manualDesc')}</p>
               </div>
             )}
@@ -8564,6 +8571,7 @@ const FouFouApp = () => {
                 <h3 className="font-bold text-sm">
                   {mapMode === 'areas' ? t('wizard.allAreasMap') : mapMode === 'stops' ? `${t('route.showStopsOnMap')} (${mapStops.length})` : t('form.searchRadius')}
                 </h3>
+                {mapMode === 'stops' && (<button onClick={() => showHelpFor('mapPlanning')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', textDecoration: 'underline' }}>{t('general.help')}</button>)}
               </div>
               {mapMode !== 'stops' && (
               <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
