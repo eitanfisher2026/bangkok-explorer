@@ -5388,7 +5388,23 @@ const FouFouApp = () => {
               <button
                 key={item.view}
                 onClick={() => {
-                  setCurrentView(item.view);
+                  if (item.view === 'settings' && !isUnlocked) {
+                    if (!adminPassword) {
+                      setCurrentView('settings');
+                    } else {
+                      const pw = prompt(t('settings.enterPassword'));
+                      if (pw && pw === adminPassword) {
+                        setIsUnlocked(true);
+                        localStorage.setItem('foufou_admin', 'true');
+                        setCurrentView('settings');
+                      } else if (pw !== null) {
+                        showToast(t('settings.wrongPassword'), 'warning');
+                        return;
+                      } else { return; }
+                    }
+                  } else {
+                    setCurrentView(item.view);
+                  }
                   setShowHeaderMenu(false);
                   window.scrollTo(0, 0);
                 }}
@@ -5686,17 +5702,12 @@ const FouFouApp = () => {
           <div className={wizardStep < 3 ? "view-fade-in" : ""}>
             {/* Wizard Header — shown on all steps */}
             <div style={{ textAlign: 'center', marginBottom: '4px' }}>
-              {/* Top bar: advanced mode + language */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0px' }}>
-                <button onClick={() => { setWizardMode(false); setCurrentView('form'); localStorage.setItem('bangkok_wizard_mode', 'false'); }} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '10px', cursor: 'pointer', textDecoration: 'underline' }}>
-                  {`⚙️ ${t("nav.advancedMode")}`}
-                </button>
+              {/* Step indicators + language toggle */}
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
                 <button onClick={() => switchLanguage(currentLang === 'he' ? 'en' : 'he')} style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '2px 8px', color: '#6b7280', fontSize: '10px', cursor: 'pointer' }}>
                   {currentLang === 'he' ? '🇬🇧 EN' : '🇮🇱 עב'}
                 </button>
-              </div>
-              {/* Step indicators — clickable to go back */}
-              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
+                <div style={{ width: '8px' }} />
                 {[1, 2, 3].map((step, i) => (
                   <React.Fragment key={step}>
                     {i > 0 && <div style={{ width: '20px', height: '2px', background: wizardStep >= step ? '#22c55e' : '#e5e7eb', borderRadius: '1px' }} />}
@@ -7369,7 +7380,8 @@ const FouFouApp = () => {
             
             {/* Custom Locations Section - Tabbed */}
             <div className="mb-4">
-              <div className="flex justify-between items-center mb-2">
+              {/* Row 1: Group by + Search */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', gap: '6px', flexWrap: 'wrap' }}>
                 <div className="flex items-center gap-2">
                   {/* Group by toggle */}
                   <div className="flex bg-gray-200 rounded-lg p-0.5">
@@ -7387,15 +7399,15 @@ const FouFouApp = () => {
                     </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: '1', minWidth: '120px', maxWidth: '200px' }}>
                   <input
                     type="text"
                     placeholder={`🔍 ${t("places.searchByNameHint")}`}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     style={{
-                      padding: '4px 10px', fontSize: '12px', border: '1px solid #d1d5db',
-                      borderRadius: '8px', width: '140px',
+                      padding: '4px 10px', border: '1px solid #d1d5db',
+                      borderRadius: '8px', width: '100%', fontSize: '16px',
                       textAlign: window.BKK.i18n.isRTL() ? 'right' : 'left',
                       direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr'
                     }}
@@ -7403,49 +7415,52 @@ const FouFouApp = () => {
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery('')}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', color: '#9ca3af', padding: '0 2px' }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', color: '#9ca3af', padding: '0', flexShrink: 0 }}
                     >✕</button>
                   )}
-                  <button
-                    onClick={() => {
-                      const initLocation = {
-                        name: '', description: '', notes: '',
-                        area: formData.area,
-                        areas: formData.area ? [formData.area] : [],
-                        interests: [],
-                        lat: null, lng: null, mapsUrl: '', address: '',
-                        uploadedImage: null, imageUrls: [],
-                        nearestStop: null, gpsLoading: true
-                      };
-                      setNewLocation(initLocation);
-                      setShowQuickCapture(true);
-                      if (navigator.geolocation) {
-                        window.BKK.getValidatedGps(
-                          (pos) => {
-                            const lat = pos.coords.latitude;
-                            const lng = pos.coords.longitude;
-                            const detected = window.BKK.getAreasForCoordinates(lat, lng);
-                            const areaUpdates = detected.length > 0 ? { areas: detected, area: detected[0] } : {};
-                            setNewLocation(prev => ({...prev, lat, lng, gpsLoading: false, ...areaUpdates}));
-                          },
-                          (reason) => {
-                            setNewLocation(prev => ({...prev, gpsLoading: false, gpsBlocked: true}));
-                            showToast(reason === 'outside_city' ? t('toast.outsideCity') : reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'warning', 'sticky');
-                          }
-                        );
-                      }
-                    }}
-                    className="bg-green-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-green-600"
-                  >
-                    {`📸 ${t("places.addFromCamera")}`}
-                  </button>
-                  <button
-                    onClick={() => setShowAddLocationDialog(true)}
-                    className="bg-teal-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-teal-600"
-                  >
-                    {`✏️ ${t("places.addManually")}`}
-                  </button>
                 </div>
+              </div>
+              {/* Row 2: Action buttons */}
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+                <button
+                  onClick={() => {
+                    const initLocation = {
+                      name: '', description: '', notes: '',
+                      area: formData.area,
+                      areas: formData.area ? [formData.area] : [],
+                      interests: [],
+                      lat: null, lng: null, mapsUrl: '', address: '',
+                      uploadedImage: null, imageUrls: [],
+                      nearestStop: null, gpsLoading: true
+                    };
+                    setNewLocation(initLocation);
+                    setShowQuickCapture(true);
+                    if (navigator.geolocation) {
+                      window.BKK.getValidatedGps(
+                        (pos) => {
+                          const lat = pos.coords.latitude;
+                          const lng = pos.coords.longitude;
+                          const detected = window.BKK.getAreasForCoordinates(lat, lng);
+                          const areaUpdates = detected.length > 0 ? { areas: detected, area: detected[0] } : {};
+                          setNewLocation(prev => ({...prev, lat, lng, gpsLoading: false, ...areaUpdates}));
+                        },
+                        (reason) => {
+                          setNewLocation(prev => ({...prev, gpsLoading: false, gpsBlocked: true}));
+                          showToast(reason === 'outside_city' ? t('toast.outsideCity') : reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'warning', 'sticky');
+                        }
+                      );
+                    }
+                  }}
+                  className="bg-green-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-green-600"
+                >
+                  {`📸 ${t("places.addFromCamera")}`}
+                </button>
+                <button
+                  onClick={() => setShowAddLocationDialog(true)}
+                  className="bg-teal-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-teal-600"
+                >
+                  {`✏️ ${t("places.addManually")}`}
+                </button>
               </div>
 
               {/* 3 Tabs: Drafts / Ready / Skipped */}
