@@ -608,9 +608,14 @@ const FouFouApp = () => {
           });
           
           let routeLine = null;
+          let walkingRouteLine = null;
+          let routeInfoControl = null;
+          
           const redrawRouteLine = () => {
             if (routeLine) map.removeLayer(routeLine);
+            if (walkingRouteLine) map.removeLayer(walkingRouteLine);
             routeLine = null;
+            walkingRouteLine = null;
             const curDisabled = disabledStopsRef.current || [];
             const skippedNames = new Set();
             mapSkippedStops.forEach(idx => {
@@ -630,7 +635,46 @@ const FouFouApp = () => {
               if (routeTypeRef.current === 'circular' && sp?.lat) {
                 pts.push([sp.lat, sp.lng]);
               }
-              routeLine = L.polyline(pts, { color: '#6366f1', weight: 2.5, opacity: 0.6, dashArray: '6,8' }).addTo(map);
+              routeLine = L.polyline(pts, { color: '#6366f1', weight: 2.5, opacity: 0.4, dashArray: '6,8' }).addTo(map);
+              
+              const coords = pts.map(p => p[1] + ',' + p[0]).join(';');
+              fetch('https://router.project-osrm.org/route/v1/foot/' + coords + '?overview=full&geometries=geojson&steps=false')
+                .then(r => r.json())
+                .then(data => {
+                  if (data.code === 'Ok' && data.routes && data.routes[0]) {
+                    const route = data.routes[0];
+                    const geojsonCoords = route.geometry.coordinates.map(c => [c[1], c[0]]);
+                    if (walkingRouteLine) map.removeLayer(walkingRouteLine);
+                    walkingRouteLine = L.polyline(geojsonCoords, { 
+                      color: '#4f46e5', weight: 4, opacity: 0.75 
+                    }).addTo(map);
+                    if (routeLine) routeLine.setStyle({ opacity: 0.15 });
+                    
+                    const distKm = (route.distance / 1000).toFixed(1);
+                    const walkMin = Math.round(route.duration / 60);
+                    const walkHrs = Math.floor(walkMin / 60);
+                    const walkMins = walkMin % 60;
+                    const timeStr = walkHrs > 0 ? walkHrs + 'h ' + walkMins + 'm' : walkMin + 'm';
+                    
+                    if (routeInfoControl) map.removeControl(routeInfoControl);
+                    const InfoControl = L.Control.extend({
+                      options: { position: 'bottomleft' },
+                      onAdd: function() {
+                        const div = L.DomUtil.create('div', '');
+                        div.innerHTML = '<div style="background:white;border-radius:10px;padding:6px 12px;box-shadow:0 2px 8px rgba(0,0,0,0.2);font-size:12px;font-weight:bold;color:#4f46e5;display:flex;gap:8px;align-items:center;">' +
+                          '<span>🚶 ' + distKm + ' km</span>' +
+                          '<span style="color:#d1d5db;">|</span>' +
+                          '<span>⏱️ ' + timeStr + '</span>' +
+                          '</div>';
+                        L.DomEvent.disableClickPropagation(div);
+                        return div;
+                      }
+                    });
+                    routeInfoControl = new InfoControl();
+                    routeInfoControl.addTo(map);
+                  }
+                })
+                .catch(() => { /* Keep straight line as fallback */ });
             }
           };
           redrawRouteLine();
