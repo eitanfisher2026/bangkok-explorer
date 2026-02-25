@@ -297,6 +297,7 @@
                     return activeTrail.stops.slice(0, 12).map((stop, idx) => {
                     const isSkipped = skippedTrailStops.has(idx);
                     const letter = trailLetterMap[idx] || '';
+                    const isFavorite = customLocations.find(cl => cl.name === stop.name || (cl.lat && stop.lat && Math.abs(cl.lat - stop.lat) < 0.0001 && Math.abs(cl.lng - stop.lng) < 0.0001));
                     return (
                     <div key={idx} style={{
                       display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 8px',
@@ -311,9 +312,8 @@
                       <span
                         onClick={() => {
                           if (isSkipped) return;
-                          const fullLoc = customLocations.find(cl => cl.name === stop.name || (cl.lat && stop.lat && Math.abs(cl.lat - stop.lat) < 0.0001 && Math.abs(cl.lng - stop.lng) < 0.0001));
-                          if (fullLoc) { handleEditLocation(fullLoc); }
-                          else { openReviewDialog(stop); }
+                          if (isFavorite) { handleEditLocation(isFavorite); }
+                          else if (stop.lat && stop.lng) { window.open(`https://www.google.com/maps/search/?api=1&query=${stop.lat},${stop.lng}`, '_blank'); }
                         }}
                         style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                           color: isSkipped ? '#9ca3af' : '#2563eb',
@@ -325,10 +325,33 @@
                       </span>
                       {!isSkipped && (
                         <button
-                          onClick={() => openReviewDialog(stop)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', fontSize: '14px', flexShrink: 0 }}
-                          title={t('trail.ratePlace')}
-                        >⭐</button>
+                          onClick={() => {
+                            if (isFavorite) { openReviewDialog(isFavorite); }
+                            else {
+                              const googleRating = stop.description && stop.description.match(/⭐\s*([\d.]+)\s*\((\d+)/);
+                              const ratingText = googleRating ? `\n${t('trail.googleRating')}: ⭐ ${googleRating[1]} (${googleRating[2]} ${t('reviews.title')})` : '';
+                              if (confirm(t('trail.addGoogleToFavorites').replace('{name}', stop.name) + ratingText)) {
+                                addGooglePlaceToCustom(stop).then(result => {
+                                  if (result !== false) {
+                                    setTimeout(() => {
+                                      const added = customLocations.find(cl => cl.name.toLowerCase().trim() === stop.name.toLowerCase().trim()) ||
+                                        customLocations.find(cl => cl.lat && stop.lat && Math.abs(cl.lat - stop.lat) < 0.0001 && Math.abs(cl.lng - stop.lng) < 0.0001);
+                                      if (added) handleEditLocation(added);
+                                    }, 500);
+                                  }
+                                });
+                              }
+                            }
+                          }}
+                          style={{
+                            background: isFavorite ? 'none' : 'rgba(234,179,8,0.15)',
+                            border: isFavorite ? 'none' : '1px dashed #eab308',
+                            borderRadius: '4px', cursor: 'pointer', padding: '0 3px',
+                            fontSize: '14px', flexShrink: 0,
+                            transition: 'transform 0.2s'
+                          }}
+                          title={isFavorite ? t('trail.ratePlace') : t('trail.addToFavorites')}
+                        >{isFavorite ? '⭐' : '☆'}</button>
                       )}
                       <button
                         onClick={() => {
