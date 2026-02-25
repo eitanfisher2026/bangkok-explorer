@@ -4711,7 +4711,7 @@
     const locationToAdd = {
       id: Date.now(),
       name: place.name,
-      description: place.description || t('general.addedFromGoogle'),
+      description: (place.description && !place.description.startsWith('⭐')) ? place.description : '',
       notes: '',
       address: place.address || '',
       area: formData.area,

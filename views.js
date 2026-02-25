@@ -1524,39 +1524,6 @@
                                 }}>
                                   {/* Action buttons - positioned based on language direction */}
                                   <div style={{ position: 'absolute', top: '2px', display: 'flex', gap: '2px', ...(window.BKK.i18n.isRTL() ? { left: '2px' } : { right: '2px' }) }}>
-                                    {/* Set as start point */}
-                                    {hasValidCoords && !isDisabled && (
-                                      <button
-                                        onClick={() => {
-                                          const newStart = { lat: stop.lat, lng: stop.lng, address: stop.name };
-                                          setStartPointCoords(newStart);
-                                          startPointCoordsRef.current = newStart; // Update ref immediately
-                                          setFormData(prev => ({...prev, startPoint: stop.name || `${stop.lat.toFixed(5)}, ${stop.lng.toFixed(5)}`}));
-                                          if (route?.optimized) {
-                                            setRoute(prev => prev ? {...prev, optimized: false} : prev);
-                                          }
-                                          showToast(`📌 ${stop.name} — ${t("route.startPoint")}`, 'success');
-                                        }}
-                                        className={`text-[9px] px-1 py-0.5 rounded ${
-                                          startPointCoords?.lat === stop.lat && startPointCoords?.lng === stop.lng
-                                            ? 'bg-green-600 text-white ring-1 ring-green-400'
-                                            : 'bg-green-100 text-green-700 hover:bg-green-200'
-                                        }`}
-                                        title={t("form.setStartPoint")}
-                                      >
-                                        📌
-                                      </button>
-                                    )}
-                                    {/* Pause/Resume button */}
-                                    {!(hasValidCoords && startPointCoords?.lat === stop.lat && startPointCoords?.lng === stop.lng) && (
-                                    <button
-                                      onClick={() => toggleStopActive(stop.originalIndex)}
-                                      className={`text-[9px] px-1 py-0.5 rounded ${isDisabled ? 'bg-green-500 text-white' : 'bg-gray-400 text-white'}`}
-                                      title={isDisabled ? t('route.returnPlace') : t('route.skipPlace')}
-                                    >
-                                      {isDisabled ? '▶️' : '⏸️'}
-                                    </button>
-                                    )}
                                     {/* Remove button for manually added stops */}
                                     {stop.manuallyAdded && (
                                       <button
@@ -1652,13 +1619,12 @@
                                         🕐 {stop.openNow ? t('general.openStatus') : t('general.closedStatus')} · {stop.todayHours}
                                       </div>
                                     )}
-                                    {/* Rating row */}
-                                    {(stop.rating || (() => { const pk = (stop.name || '').replace(/[.#$/\\[\]]/g, '_'); return reviewAverages[pk]; })()) && (
-                                      <div style={{ fontSize: '10px', color: '#f59e0b', marginTop: '2px' }}>
-                                        {stop.rating && <span>⭐ {stop.rating}{stop.ratingCount ? ` (${stop.ratingCount})` : ''}</span>}
-                                        {(() => { const pk = (stop.name || '').replace(/[.#$/\\[\]]/g, '_'); const ra = reviewAverages[pk]; return ra ? <span style={{ marginRight: '4px', marginLeft: '4px' }}>{'| '}⭐ {ra.avg.toFixed(1)} {t('reviews.myReview')}</span> : null; })()}
-                                      </div>
-                                    )}
+                                    {/* FouFou rating — custom places only */}
+                                    {isCustom && (() => {
+                                      const pk = (stop.name || '').replace(/[.#$/\\[\]]/g, '_');
+                                      const ra = reviewAverages[pk];
+                                      return ra ? <div style={{ fontSize: '10px', color: '#f59e0b', marginTop: '2px' }}>⭐ {ra.avg.toFixed(1)} ({ra.count})</div> : null;
+                                    })()}
                                   </a>
                                   {/* Add to favorites row — Google places only */}
                                   {!isCustom && !isDisabled && (() => {
