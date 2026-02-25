@@ -1574,7 +1574,8 @@
                                         🗑️
                                       </button>
                                     )}
-                                    
+                                  </div>
+                                  
                                   <a
                                     href={window.BKK.getGoogleMapsUrl(stop)}
                                     target="city_explorer_map"
