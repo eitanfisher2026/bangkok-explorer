@@ -175,6 +175,7 @@ const FouFouApp = () => {
   const [showRoutePreview, setShowRoutePreview] = useState(false); // Route reorder dialog
   const reorderOriginalStopsRef = React.useRef(null); // Snapshot of stops before reorder
   const [showRouteMenu, setShowRouteMenu] = useState(false); // Hamburger menu in route results
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false); // Main hamburger menu in header
   const [routeChoiceMade, setRouteChoiceMade] = useState(null); // null | 'manual' — controls wizard step 3 split
   
   const autoComputeRef = React.useRef(false);
@@ -2442,12 +2443,19 @@ const FouFouApp = () => {
       
       const tabLocations = placesTab === 'drafts' ? draftsLocations : placesTab === 'ready' ? readyLocations : blacklistedLocations;
       
-      if (tabLocations.length === 0) return { groups: {}, ungrouped: [], sortedKeys: [], activeCount: draftsLocations.length + readyLocations.length, blacklistedLocations, draftsLocations, readyLocations, draftsCount: draftsLocations.length, readyCount: readyLocations.length, blacklistCount: blacklistedLocations.length };
+      const filteredTabLocations = searchQuery?.trim() 
+        ? tabLocations.filter(loc => {
+            const q = searchQuery.toLowerCase();
+            return loc.name?.toLowerCase().includes(q) || loc.description?.toLowerCase().includes(q) || loc.notes?.toLowerCase().includes(q);
+          })
+        : tabLocations;
+      
+      if (filteredTabLocations.length === 0) return { groups: {}, ungrouped: [], sortedKeys: [], activeCount: draftsLocations.length + readyLocations.length, blacklistedLocations, draftsLocations, readyLocations, draftsCount: draftsLocations.length, readyCount: readyLocations.length, blacklistCount: blacklistedLocations.length };
       
       const groups = {};
       const ungrouped = [];
       
-      tabLocations.forEach(loc => {
+      filteredTabLocations.forEach(loc => {
         if (placesGroupBy === 'interest') {
           const interests = (loc.interests || []).filter(i => i !== '_manual');
           if (interests.length === 0) {
@@ -2499,7 +2507,7 @@ const FouFouApp = () => {
       console.error('[MEMO] groupedPlaces error:', e);
       return { groups: {}, ungrouped: [], sortedKeys: [], activeCount: 0, blacklistedLocations: [], draftsLocations: [], readyLocations: [], draftsCount: 0, readyCount: 0, blacklistCount: 0 };
     }
-  }, [cityCustomLocations, placesGroupBy, placesTab, interestMap, areaMap]);
+  }, [cityCustomLocations, placesGroupBy, placesTab, interestMap, areaMap, searchQuery]);
 
   const uploadImage = window.BKK.uploadImage;
   
@@ -4175,6 +4183,7 @@ const FouFouApp = () => {
           showToast(`💾 "${place.name}" — ${t('toast.savedWillSync')}`, 'warning', 'sticky');
         }
         setAddingPlaceIds(prev => prev.filter(id => id !== placeId));
+        setTimeout(() => handleEditLocation(locationToAdd), 300);
         return true;
       } catch (error) {
         console.error('[FIREBASE] Error adding Google place, saving to pending:', error);
@@ -4188,6 +4197,7 @@ const FouFouApp = () => {
       localStorage.setItem('bangkok_custom_locations', JSON.stringify(updated));
       showToast(`"${place.name}" ${t("places.addedToYourList")}`, 'success');
       setAddingPlaceIds(prev => prev.filter(id => id !== placeId));
+      setTimeout(() => handleEditLocation(locationToAdd), 300);
       return true;
     }
   };
@@ -5308,6 +5318,21 @@ const FouFouApp = () => {
             }}
             title={t("settings.sendFeedback")}
           >💬</button>
+          {/* Hamburger menu button - right in RTL, left in LTR */}
+          <button
+            onClick={() => setShowHeaderMenu(prev => !prev)}
+            style={{
+              position: 'absolute',
+              [currentLang === 'he' ? 'right' : 'left']: '0',
+              background: showHeaderMenu ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.2)',
+              border: 'none', borderRadius: '50%',
+              width: '26px', height: '26px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', fontSize: '13px', color: 'white',
+              transition: 'background 0.2s'
+            }}
+            title={t("general.menu")}
+          >☰</button>
           <span style={{ fontSize: '14px' }}>{theme.iconLeft || window.BKK.selectedCity?.secondaryIcon || '🏙️'}</span>
           <h1 style={{ 
             fontSize: '16px', 
@@ -5344,6 +5369,40 @@ const FouFouApp = () => {
             }}>☁️{pendingLocations.length + pendingInterests.length}</span>
           )}
         </div>
+        {/* Header hamburger dropdown menu */}
+        {showHeaderMenu && (
+          <div style={{
+            background: 'rgba(0,0,0,0.15)', borderRadius: '10px',
+            marginTop: '6px', padding: '4px',
+            display: 'flex', flexWrap: 'wrap', gap: '4px', justifyContent: 'center'
+          }}>
+            {[
+              { icon: '💾', label: t('nav.saved'), view: 'saved', count: citySavedRoutes.length },
+              { icon: '⭐', label: t('nav.favorites'), view: 'myPlaces', count: cityCustomLocations.filter(l => l.status !== 'blacklist').length },
+              { icon: '🏷️', label: t('nav.myInterests'), view: 'myInterests' },
+              { icon: '⚙️', label: t('settings.title'), view: 'settings' },
+            ].map(item => (
+              <button
+                key={item.view}
+                onClick={() => {
+                  setCurrentView(item.view);
+                  setShowHeaderMenu(false);
+                  window.scrollTo(0, 0);
+                }}
+                style={{
+                  background: currentView === item.view ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.15)',
+                  border: 'none', borderRadius: '8px', padding: '5px 10px',
+                  color: 'white', fontSize: '11px', fontWeight: '600',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
+                  transition: 'background 0.2s'
+                }}
+              >
+                <span style={{ fontSize: '13px' }}>{item.icon}</span>
+                <span>{item.label}{item.count > 0 ? ` (${item.count})` : ''}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       );
       })()}
@@ -5374,7 +5433,7 @@ const FouFouApp = () => {
         </div>
       )}      <div className="max-w-4xl mx-auto p-2 sm:p-4 pb-32">
         {/* ACTIVE TRAIL MODE — shown when user opened Google Maps route */}
-        {activeTrail && (
+        {activeTrail && currentView === 'form' && (
           <div className="view-fade-in">
             {/* Compact header row */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
@@ -5619,7 +5678,7 @@ const FouFouApp = () => {
         )}
 
         {/* WIZARD MODE */}
-        {wizardMode && !activeTrail && (
+        {wizardMode && !activeTrail && currentView === 'form' && (
           <div className={wizardStep < 3 ? "view-fade-in" : ""}>
             {/* Wizard Header — shown on all steps */}
             <div style={{ textAlign: 'center', marginBottom: '4px' }}>
@@ -6052,19 +6111,19 @@ const FouFouApp = () => {
         )}
 
         {/* Quick mode switch — visible on non-form tabs in advanced mode */}
-        {!wizardMode && !activeTrail && currentView !== 'form' && (
+        {!activeTrail && currentView !== 'form' && (
           <div style={{ textAlign: 'center', marginTop: '-6px', marginBottom: '4px' }}>
             <button
-              onClick={() => { setWizardMode(true); setWizardStep(1); localStorage.setItem('bangkok_wizard_mode', 'true'); setRoute(null); setRouteChoiceMade(null); setCurrentView('form'); }}
-              style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: '9px', cursor: 'pointer', textDecoration: 'underline' }}
+              onClick={() => { setCurrentView('form'); window.scrollTo(0, 0); }}
+              style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '4px 14px', color: '#6b7280', fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}
             >
-              {`🚀 ${t('nav.quickMode')}`}
+              {`← ${t('general.backToRoute')}`}
             </button>
           </div>
         )}
 
         {/* Wizard Step 3: breadcrumb with back link */}
-        {wizardMode && wizardStep === 3 && !isGenerating && !activeTrail && (
+        {wizardMode && wizardStep === 3 && !isGenerating && !activeTrail && currentView === 'form' && (
           <div style={{ 
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
             fontSize: '11px', color: '#9ca3af', marginBottom: '6px', flexWrap: 'wrap'
@@ -6095,7 +6154,7 @@ const FouFouApp = () => {
         )}
 
         {/* Wizard Step 3: Loading spinner while generating */}
-        {wizardMode && wizardStep === 3 && isGenerating && (
+        {wizardMode && wizardStep === 3 && isGenerating && currentView === 'form' && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px' }}>
             <svg className="animate-spin" style={{ width: '40px', height: '40px', color: '#2563eb', marginBottom: '12px' }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -6107,7 +6166,7 @@ const FouFouApp = () => {
         )}
 
         {/* ROUTE CHOICE SCREEN — shown in wizard step 3 after route is loaded, before any action */}
-        {wizardMode && wizardStep === 3 && !isGenerating && route && route.stops?.length > 0 && !activeTrail && !route.optimized && routeChoiceMade === null && (
+        {wizardMode && wizardStep === 3 && !isGenerating && route && route.stops?.length > 0 && !activeTrail && !route.optimized && routeChoiceMade === null && currentView === 'form' && (
           <div style={{ background: 'white', borderRadius: '16px', padding: '16px', marginBottom: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
             <div style={{ textAlign: 'center', marginBottom: '14px' }}>
               <span style={{ fontSize: '15px', fontWeight: 'bold' }}>{`🐾 ${route.stops.length} ${t('wizard.placesFound')}`}</span>
@@ -6750,7 +6809,7 @@ const FouFouApp = () => {
                                       </button>
                                     )}
                                     
-                                    {!isCustom && !wizardMode && (
+                                    {!isCustom && (
                                       (() => {
                                         const placeId = stop.id || stop.name;
                                         const isAdding = addingPlaceIds.includes(placeId);
@@ -6811,7 +6870,7 @@ const FouFouApp = () => {
                                       );
                                     })()}
                                     {/* Edit button for custom places - admin or unlocked only */}
-                                    {isCustom && !wizardMode && (() => {
+                                    {isCustom && (() => {
                                       const cl = customLocations.find(loc => loc.name === stop.name);
                                       if (cl?.locked && !isUnlocked) return null; // locked, non-admin: no edit
                                       return (
@@ -7350,7 +7409,7 @@ const FouFouApp = () => {
         {currentView === 'myPlaces' && (
           <div className="view-fade-in bg-white rounded-xl shadow-lg p-3">
             <div className="flex items-center gap-2 mb-3">
-              <h2 className="text-lg font-bold">{`📍 ${t("nav.myPlaces")}`}</h2>
+              <h2 className="text-lg font-bold">{`⭐ ${t("nav.favorites")}`}</h2>
               <button
                 onClick={() => showHelpFor('myPlaces')}
                 className="text-gray-400 hover:text-blue-500 text-sm"
@@ -7395,13 +7454,24 @@ const FouFouApp = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setCurrentView('search')}
-                    className="text-blue-500 hover:text-blue-700 text-xl"
-                    title={t("places.searchResults")}
-                  >
-                    🔍
-                  </button>
+                  <input
+                    type="text"
+                    placeholder={`🔍 ${t("places.searchByNameHint")}`}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={{
+                      padding: '4px 10px', fontSize: '12px', border: '1px solid #d1d5db',
+                      borderRadius: '8px', width: '140px',
+                      textAlign: window.BKK.i18n.isRTL() ? 'right' : 'left',
+                      direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr'
+                    }}
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', color: '#9ca3af', padding: '0 2px' }}
+                    >✕</button>
+                  )}
                   <button
                     onClick={() => {
                       const initLocation = {

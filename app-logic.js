@@ -147,6 +147,7 @@
   const [showRoutePreview, setShowRoutePreview] = useState(false); // Route reorder dialog
   const reorderOriginalStopsRef = React.useRef(null); // Snapshot of stops before reorder
   const [showRouteMenu, setShowRouteMenu] = useState(false); // Hamburger menu in route results
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false); // Main hamburger menu in header
   const [routeChoiceMade, setRouteChoiceMade] = useState(null); // null | 'manual' — controls wizard step 3 split
   
   // Auto-compute route whenever route exists with stops but isn't optimized
@@ -2739,12 +2740,20 @@
       // Choose which locations to group based on placesTab
       const tabLocations = placesTab === 'drafts' ? draftsLocations : placesTab === 'ready' ? readyLocations : blacklistedLocations;
       
-      if (tabLocations.length === 0) return { groups: {}, ungrouped: [], sortedKeys: [], activeCount: draftsLocations.length + readyLocations.length, blacklistedLocations, draftsLocations, readyLocations, draftsCount: draftsLocations.length, readyCount: readyLocations.length, blacklistCount: blacklistedLocations.length };
+      // Apply search filter
+      const filteredTabLocations = searchQuery?.trim() 
+        ? tabLocations.filter(loc => {
+            const q = searchQuery.toLowerCase();
+            return loc.name?.toLowerCase().includes(q) || loc.description?.toLowerCase().includes(q) || loc.notes?.toLowerCase().includes(q);
+          })
+        : tabLocations;
+      
+      if (filteredTabLocations.length === 0) return { groups: {}, ungrouped: [], sortedKeys: [], activeCount: draftsLocations.length + readyLocations.length, blacklistedLocations, draftsLocations, readyLocations, draftsCount: draftsLocations.length, readyCount: readyLocations.length, blacklistCount: blacklistedLocations.length };
       
       const groups = {};
       const ungrouped = [];
       
-      tabLocations.forEach(loc => {
+      filteredTabLocations.forEach(loc => {
         if (placesGroupBy === 'interest') {
           const interests = (loc.interests || []).filter(i => i !== '_manual');
           if (interests.length === 0) {
@@ -2796,7 +2805,7 @@
       console.error('[MEMO] groupedPlaces error:', e);
       return { groups: {}, ungrouped: [], sortedKeys: [], activeCount: 0, blacklistedLocations: [], draftsLocations: [], readyLocations: [], draftsCount: 0, readyCount: 0, blacklistCount: 0 };
     }
-  }, [cityCustomLocations, placesGroupBy, placesTab, interestMap, areaMap]);
+  }, [cityCustomLocations, placesGroupBy, placesTab, interestMap, areaMap, searchQuery]);
 
   // Image handling - loaded from utils.js
   const uploadImage = window.BKK.uploadImage;
@@ -4739,6 +4748,8 @@
           showToast(`💾 "${place.name}" — ${t('toast.savedWillSync')}`, 'warning', 'sticky');
         }
         setAddingPlaceIds(prev => prev.filter(id => id !== placeId));
+        // Auto-open edit dialog for the newly added place
+        setTimeout(() => handleEditLocation(locationToAdd), 300);
         return true;
       } catch (error) {
         console.error('[FIREBASE] Error adding Google place, saving to pending:', error);
@@ -4753,6 +4764,7 @@
       localStorage.setItem('bangkok_custom_locations', JSON.stringify(updated));
       showToast(`"${place.name}" ${t("places.addedToYourList")}`, 'success');
       setAddingPlaceIds(prev => prev.filter(id => id !== placeId));
+      setTimeout(() => handleEditLocation(locationToAdd), 300);
       return true;
     }
   };
