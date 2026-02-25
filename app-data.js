@@ -865,6 +865,7 @@ help: {
   reviews: {
     title: 'ביקורות',
     myReview: 'הביקורת שלי',
+    notYetRated: 'עדיין לא דורג, מחכים לך במסלול!',
     writeReview: 'כתוב ביקורת...',
     rating: 'דירוג',
     saved: 'הביקורת נשמרה',
@@ -1735,6 +1736,7 @@ help: {
   reviews: {
     title: 'Reviews',
     myReview: 'My Review',
+    notYetRated: 'Not yet rated, waiting for you on the trail!',
     writeReview: 'Write a review...',
     rating: 'Rating',
     saved: 'Review saved',

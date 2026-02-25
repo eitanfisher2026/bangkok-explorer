@@ -1619,11 +1619,19 @@
                                         🕐 {stop.openNow ? t('general.openStatus') : t('general.closedStatus')} · {stop.todayHours}
                                       </div>
                                     )}
-                                    {/* FouFou rating — custom places only */}
+                                    {/* FouFou rating — custom places only, clickable if has reviews */}
                                     {isCustom && (() => {
                                       const pk = (stop.name || '').replace(/[.#$/\\[\]]/g, '_');
                                       const ra = reviewAverages[pk];
-                                      return ra ? <div style={{ fontSize: '10px', color: '#f59e0b', marginTop: '2px' }}>⭐ {ra.avg.toFixed(1)} ({ra.count})</div> : null;
+                                      const cl = customLocations.find(loc => loc.name === stop.name);
+                                      return (
+                                        <div
+                                          onClick={ra ? (e) => { e.preventDefault(); e.stopPropagation(); openReviewDialog(cl || stop); } : undefined}
+                                          style={{ fontSize: '10px', color: ra ? '#f59e0b' : '#9ca3af', marginTop: '2px', cursor: ra ? 'pointer' : 'default' }}
+                                        >
+                                          ⭐ {ra ? `${ra.avg.toFixed(1)} (${ra.count})` : t('reviews.notYetRated')}
+                                        </div>
+                                      );
                                     })()}
                                   </a>
                                   {/* Add to favorites row — Google places only */}
