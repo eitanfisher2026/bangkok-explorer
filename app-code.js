@@ -5300,7 +5300,8 @@ const FouFouApp = () => {
         backgroundSize: '200% 200%',
         animation: 'headerShimmer 6s ease infinite',
         padding: '6px 16px',
-        boxShadow: `0 2px 8px ${c}33`
+        boxShadow: `0 2px 8px ${c}33`,
+        position: 'relative'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
           {/* Feedback button - left in RTL, right in LTR */}
@@ -5370,13 +5371,15 @@ const FouFouApp = () => {
           )}
         </div>
         {/* Header hamburger dropdown menu */}
-        {showHeaderMenu && (
+        {showHeaderMenu && (<>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setShowHeaderMenu(false)} />
           <div style={{
-            background: 'rgba(0,0,0,0.15)', borderRadius: '10px',
-            marginTop: '6px', padding: '4px',
-            display: 'flex', flexWrap: 'wrap', gap: '4px', justifyContent: 'center'
+            position: 'absolute', top: '100%', [currentLang === 'he' ? 'right' : 'left']: '0',
+            background: 'white', borderRadius: '12px', marginTop: '4px', padding: '4px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.25)', zIndex: 50, minWidth: '150px'
           }}>
             {[
+              { icon: '🗺️', label: t('nav.route'), view: 'form' },
               { icon: '💾', label: t('nav.saved'), view: 'saved', count: citySavedRoutes.length },
               { icon: '⭐', label: t('nav.favorites'), view: 'myPlaces', count: cityCustomLocations.filter(l => l.status !== 'blacklist').length },
               { icon: '🏷️', label: t('nav.myInterests'), view: 'myInterests' },
@@ -5390,19 +5393,20 @@ const FouFouApp = () => {
                   window.scrollTo(0, 0);
                 }}
                 style={{
-                  background: currentView === item.view ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.15)',
-                  border: 'none', borderRadius: '8px', padding: '5px 10px',
-                  color: 'white', fontSize: '11px', fontWeight: '600',
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
-                  transition: 'background 0.2s'
+                  width: '100%', textAlign: currentLang === 'he' ? 'right' : 'left',
+                  background: currentView === item.view ? '#f3f4f6' : 'transparent',
+                  border: 'none', borderRadius: '8px', padding: '8px 12px',
+                  color: '#374151', fontSize: '13px', fontWeight: currentView === item.view ? '700' : '500',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
+                  transition: 'background 0.15s'
                 }}
               >
-                <span style={{ fontSize: '13px' }}>{item.icon}</span>
+                <span style={{ fontSize: '15px' }}>{item.icon}</span>
                 <span>{item.label}{item.count > 0 ? ` (${item.count})` : ''}</span>
               </button>
             ))}
           </div>
-        )}
+        </>)}
       </div>
       );
       })()}
@@ -6809,80 +6813,6 @@ const FouFouApp = () => {
                                       </button>
                                     )}
                                     
-                                    {!isCustom && (
-                                      (() => {
-                                        const placeId = stop.id || stop.name;
-                                        const isAdding = addingPlaceIds.includes(placeId);
-                                        const existingLoc = customLocations.find(loc => 
-                                          loc.name.toLowerCase().trim() === stop.name.toLowerCase().trim()
-                                        );
-                                        
-                                        if (existingLoc) {
-                                          return (
-                                            <button
-                                              onClick={() => existingLoc.locked && !isUnlocked ? openReviewDialog(existingLoc) : handleEditLocation(existingLoc)}
-                                              className="text-[9px] px-1 py-0.5 rounded bg-blue-500 text-white hover:bg-blue-600"
-                                              title={existingLoc.locked && !isUnlocked ? t("general.viewOnly") : t("places.editAddedToList")}
-                                            >
-                                              {existingLoc.locked && !isUnlocked ? '👁️' : '✏️'}
-                                            </button>
-                                          );
-                                        }
-                                        
-                                        return (
-                                          <button
-                                            onClick={() => addGooglePlaceToCustom(stop)}
-                                            disabled={isAdding}
-                                            className={`text-[9px] px-1 py-0.5 rounded ${
-                                              isAdding 
-                                                ? 'bg-gray-300 text-gray-500 cursor-wait' 
-                                                : 'bg-purple-500 text-white hover:bg-purple-600'
-                                            }`}
-                                            title={t("route.addToMyList")}
-                                          >
-                                            {isAdding ? '...' : '+'}
-                                          </button>
-                                        );
-                                      })()
-                                    )}
-                                    
-                                    {/* Review button for locked custom places - visible to all */}
-                                    {isCustom && (() => {
-                                      const cl = customLocations.find(loc => loc.name === stop.name);
-                                      if (!cl?.locked) {
-                                        const interests = stop.interests || [];
-                                        const interestLocked = interests.some(iId => {
-                                          const iObj = allInterestOptions.find(o => o.id === iId);
-                                          return iObj?.locked;
-                                        });
-                                        if (!interestLocked) return null;
-                                      }
-                                      return (
-                                        <button
-                                          onClick={() => openReviewDialog(cl || stop)}
-                                          className="text-[9px] px-1 py-0.5 rounded bg-amber-500 text-white hover:bg-amber-600"
-                                          title={t("reviews.title")}
-                                        >{(() => {
-                                          const pk = ((cl || stop).name || '').replace(/[.#$/\\[\]]/g, '_');
-                                          const ra = reviewAverages[pk];
-                                          return ra ? `⭐${ra.avg.toFixed(1)}` : '⭐';
-                                        })()}</button>
-                                      );
-                                    })()}
-                                    {/* Edit button for custom places - admin or unlocked only */}
-                                    {isCustom && (() => {
-                                      const cl = customLocations.find(loc => loc.name === stop.name);
-                                      if (cl?.locked && !isUnlocked) return null; // locked, non-admin: no edit
-                                      return (
-                                        <button
-                                          onClick={() => { if (cl) handleEditLocation(cl); }}
-                                          className="text-[9px] px-1 py-0.5 rounded bg-blue-500 text-white hover:bg-blue-600"
-                                          title={t("general.edit")}
-                                        >✏️</button>
-                                      );
-                                    })()}
-                                  </div>
-                                  
                                   <a
                                     href={window.BKK.getGoogleMapsUrl(stop)}
                                     target="city_explorer_map"
@@ -6959,7 +6889,36 @@ const FouFouApp = () => {
                                         🕐 {stop.openNow ? t('general.openStatus') : t('general.closedStatus')} · {stop.todayHours}
                                       </div>
                                     )}
+                                    {/* Rating row */}
+                                    {(stop.rating || (() => { const pk = (stop.name || '').replace(/[.#$/\\[\]]/g, '_'); return reviewAverages[pk]; })()) && (
+                                      <div style={{ fontSize: '10px', color: '#f59e0b', marginTop: '2px' }}>
+                                        {stop.rating && <span>⭐ {stop.rating}{stop.ratingCount ? ` (${stop.ratingCount})` : ''}</span>}
+                                        {(() => { const pk = (stop.name || '').replace(/[.#$/\\[\]]/g, '_'); const ra = reviewAverages[pk]; return ra ? <span style={{ marginRight: '4px', marginLeft: '4px' }}>{'| '}⭐ {ra.avg.toFixed(1)} {t('reviews.myReview')}</span> : null; })()}
+                                      </div>
+                                    )}
                                   </a>
+                                  {/* Add to favorites row — Google places only */}
+                                  {!isCustom && !isDisabled && (() => {
+                                    const existingLoc = customLocations.find(loc => loc.name.toLowerCase().trim() === stop.name.toLowerCase().trim());
+                                    if (existingLoc) return <div style={{ fontSize: '9px', color: '#22c55e', padding: '2px 8px' }}>✅ {t('nav.favorites')}</div>;
+                                    const placeId = stop.id || stop.name;
+                                    const isAdding = addingPlaceIds.includes(placeId);
+                                    return (
+                                      <button
+                                        onClick={(e) => { e.preventDefault(); addGooglePlaceToCustom(stop); }}
+                                        disabled={isAdding}
+                                        style={{
+                                          width: '100%', padding: '3px 8px', marginTop: '2px',
+                                          background: isAdding ? '#e5e7eb' : '#f3e8ff', border: '1px dashed #a855f7',
+                                          borderRadius: '6px', fontSize: '10px', fontWeight: '600',
+                                          color: isAdding ? '#9ca3af' : '#7c3aed', cursor: isAdding ? 'wait' : 'pointer',
+                                          textAlign: 'center'
+                                        }}
+                                      >
+                                        {isAdding ? '...' : `⭐ ${t('route.addToMyList')}`}
+                                      </button>
+                                    );
+                                  })()}
                                 </div>
                               );
                             })}
