@@ -4702,6 +4702,20 @@
       return false;
     }
     
+    // Check for nearby duplicates by coordinates
+    if (place.lat && place.lng) {
+      const nearbyDup = customLocations.find(loc => {
+        if (!loc.lat || !loc.lng) return false;
+        const dlat = (loc.lat - place.lat) * 111320;
+        const dlng = (loc.lng - place.lng) * 111320 * Math.cos(place.lat * Math.PI / 180);
+        return Math.sqrt(dlat * dlat + dlng * dlng) < 50; // within 50m
+      });
+      if (nearbyDup) {
+        showToast(`"${place.name}" ${t("places.alreadyInMyList")} (${nearbyDup.name})`, 'warning');
+        return false;
+      }
+    }
+    
     // Set adding state for dimmed button
     const placeId = place.id || place.name;
     setAddingPlaceIds(prev => [...prev, placeId]);

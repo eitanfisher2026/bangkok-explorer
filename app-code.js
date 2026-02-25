@@ -4142,6 +4142,19 @@ const FouFouApp = () => {
       return false;
     }
     
+    if (place.lat && place.lng) {
+      const nearbyDup = customLocations.find(loc => {
+        if (!loc.lat || !loc.lng) return false;
+        const dlat = (loc.lat - place.lat) * 111320;
+        const dlng = (loc.lng - place.lng) * 111320 * Math.cos(place.lat * Math.PI / 180);
+        return Math.sqrt(dlat * dlat + dlng * dlng) < 50; // within 50m
+      });
+      if (nearbyDup) {
+        showToast(`"${place.name}" ${t("places.alreadyInMyList")} (${nearbyDup.name})`, 'warning');
+        return false;
+      }
+    }
+    
     const placeId = place.id || place.name;
     setAddingPlaceIds(prev => [...prev, placeId]);
     
@@ -5546,6 +5559,8 @@ const FouFouApp = () => {
                     const isSkipped = skippedTrailStops.has(idx);
                     const letter = trailLetterMap[idx] || '';
                     const isFavorite = customLocations.find(cl => cl.name === stop.name || (cl.lat && stop.lat && Math.abs(cl.lat - stop.lat) < 0.0001 && Math.abs(cl.lng - stop.lng) < 0.0001));
+                    const pk = (stop.name || '').replace(/[.#$/\\[\]]/g, '_');
+                    const ra = isFavorite ? reviewAverages[pk] : null;
                     return (
                     <div key={idx} style={{
                       display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 8px',
@@ -5571,14 +5586,23 @@ const FouFouApp = () => {
                         }}>
                         {stop.name}
                       </span>
+                      {/* Photo icon for favorites with image */}
+                      {!isSkipped && isFavorite && isFavorite.uploadedImage && (
+                        <button
+                          onClick={() => { setModalImage(isFavorite.uploadedImage); setShowImageModal(true); }}
+                          style={{ background: '#eff6ff', border: 'none', borderRadius: '4px', cursor: 'pointer', padding: '0 2px', fontSize: '12px', flexShrink: 0 }}
+                          title={t('general.clickForImage')}
+                        >🖼️</button>
+                      )}
+                      {/* Star + rating */}
                       {!isSkipped && (
                         <button
                           onClick={() => {
                             if (isFavorite) { openReviewDialog(isFavorite); }
                             else {
                               const googleRating = stop.description && stop.description.match(/⭐\s*([\d.]+)\s*\((\d+)/);
-                              const ratingText = googleRating ? `\n${t('trail.googleRating')}: ⭐ ${googleRating[1]} (${googleRating[2]} ${t('reviews.title')})` : '';
-                              if (confirm(t('trail.addGoogleToFavorites').replace('{name}', stop.name) + ratingText)) {
+                              const ratingInfo = googleRating ? `\n${t('trail.googleRating')}: ⭐ ${googleRating[1]} (${googleRating[2]} ${t('reviews.title')})` : '';
+                              showConfirm(t('trail.addGoogleToFavorites').replace('{name}', stop.name) + ratingInfo, () => {
                                 addGooglePlaceToCustom(stop).then(result => {
                                   if (result !== false) {
                                     setTimeout(() => {
@@ -5588,18 +5612,19 @@ const FouFouApp = () => {
                                     }, 500);
                                   }
                                 });
-                              }
+                              });
                             }
                           }}
                           style={{
                             background: isFavorite ? 'none' : 'rgba(234,179,8,0.15)',
                             border: isFavorite ? 'none' : '1px dashed #eab308',
                             borderRadius: '4px', cursor: 'pointer', padding: '0 3px',
-                            fontSize: '14px', flexShrink: 0,
-                            transition: 'transform 0.2s'
+                            fontSize: isFavorite ? '11px' : '14px', flexShrink: 0,
+                            color: isFavorite ? (ra ? '#f59e0b' : '#9ca3af') : '#eab308',
+                            whiteSpace: 'nowrap'
                           }}
                           title={isFavorite ? t('trail.ratePlace') : t('trail.addToFavorites')}
-                        >{isFavorite ? '⭐' : '☆'}</button>
+                        >{isFavorite ? (ra ? `⭐ ${ra.avg.toFixed(1)} (${ra.count})` : '⭐') : '☆'}</button>
                       )}
                       <button
                         onClick={() => {
@@ -7921,7 +7946,7 @@ const FouFouApp = () => {
                                 const hashedInput = await window.BKK.hashPassword(pw);
                                 if (hashedInput !== adminPassword && pw !== adminPassword) { showToast(t('settings.wrongPassword'), 'error'); return; }
                               }
-                              if (!confirm(`⚠️ ${t('general.remove')} ${tLabel(city)}?`)) return;
+                              showConfirm(`⚠️ ${t('general.remove')} ${tLabel(city)}?`, () => {
                               const otherCity = Object.keys(window.BKK.cities || {}).find(id => id !== city.id);
                               if (otherCity) switchCity(otherCity, true);
                               window.BKK.unloadCity(city.id);
@@ -7929,6 +7954,7 @@ const FouFouApp = () => {
                               showToast(`${tLabel(city)} ${t('general.removed')}`, 'info');
                               setCityModified(false);
                               setFormData(prev => ({...prev}));
+                              });
                             }} style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '6px', border: '1px solid #fecaca', cursor: 'pointer', background: '#fef2f2', color: '#ef4444' }}
                             >🗑️ {t('general.remove')}</button>
                           )}
@@ -8220,7 +8246,7 @@ const FouFouApp = () => {
                             )}
                             {!area.isWholeCity && !isEditing && (
                               <button onClick={() => {
-                                if (!confirm(`${t('general.remove')} ${tLabel(area)}?`)) return;
+                                showConfirm(`${t('general.remove')} ${tLabel(area)}?`, () => {
                                 const city = window.BKK.selectedCity;
                                 if (!city) return;
                                 city.areas = city.areas.filter(a => a.id !== area.id);
@@ -8229,6 +8255,7 @@ const FouFouApp = () => {
                                 setCityModified(true); setCityEditCounter(c => c + 1);
                                 showToast(`🗑️ ${tLabel(area)}`, 'info');
                                 setFormData(prev => ({...prev}));
+                                });
                               }} style={{ fontSize: '8px', color: '#d1d5db', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px' }}
                               title={t('general.remove')}>🗑️</button>
                             )}
@@ -8943,7 +8970,7 @@ const FouFouApp = () => {
             <span style={{ color: '#d1d5db', fontSize: '9px' }}>·</span>
             <span style={{ fontSize: '9px', color: '#9ca3af' }}>© Eitan Fisher</span>
             <span style={{ color: '#d1d5db', fontSize: '9px' }}>·</span>
-            <button onClick={() => { if (window.confirm(t('general.confirmRefresh'))) applyUpdate(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: '#9ca3af' }}>{`🔄 ${t("general.refresh")}`}</button>
+            <button onClick={() => { showConfirm(t('general.confirmRefresh'), () => applyUpdate()); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: '#9ca3af' }}>{`🔄 ${t("general.refresh")}`}</button>
           </div>
         </div>
         )}
@@ -10834,7 +10861,7 @@ const FouFouApp = () => {
       {showConfirmDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
           <div className="bg-white rounded-xl p-4 max-w-sm w-full shadow-2xl">
-            <p className="text-sm text-gray-800 mb-4 text-center font-medium">{confirmConfig.message}</p>
+            <p className="text-sm text-gray-800 mb-4 text-center font-medium" style={{ whiteSpace: 'pre-line' }}>{confirmConfig.message}</p>
             <div className="flex gap-2">
               <button
                 onClick={() => {
@@ -12073,9 +12100,9 @@ const FouFouApp = () => {
                         )}
                         <button
                           onClick={() => {
-                            if (window.confirm(`${t('dedup.confirmDelete')}\n\n${loc.name}`)) {
+                            showConfirm(`${t('dedup.confirmDelete')}\n\n${loc.name}`, () => {
                               mergeDedupLocations(allPlaces.find(p => p.id !== loc.id)?.id || cluster.loc.id, loc.id);
-                            }
+                            });
                           }}
                           style={{ marginLeft: 'auto', padding: '5px 12px', fontSize: '11px', fontWeight: 'bold', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                           🗑️ {t('dedup.remove')}

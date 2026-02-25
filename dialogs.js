@@ -1801,7 +1801,7 @@
       {showConfirmDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
           <div className="bg-white rounded-xl p-4 max-w-sm w-full shadow-2xl">
-            <p className="text-sm text-gray-800 mb-4 text-center font-medium">{confirmConfig.message}</p>
+            <p className="text-sm text-gray-800 mb-4 text-center font-medium" style={{ whiteSpace: 'pre-line' }}>{confirmConfig.message}</p>
             <div className="flex gap-2">
               <button
                 onClick={() => {
@@ -3051,9 +3051,9 @@
                         )}
                         <button
                           onClick={() => {
-                            if (window.confirm(`${t('dedup.confirmDelete')}\n\n${loc.name}`)) {
+                            showConfirm(`${t('dedup.confirmDelete')}\n\n${loc.name}`, () => {
                               mergeDedupLocations(allPlaces.find(p => p.id !== loc.id)?.id || cluster.loc.id, loc.id);
-                            }
+                            });
                           }}
                           style={{ marginLeft: 'auto', padding: '5px 12px', fontSize: '11px', fontWeight: 'bold', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                           🗑️ {t('dedup.remove')}
