@@ -889,6 +889,12 @@
   const searchDebugLogRef = useRef([]);
   const [searchDebugLog, setSearchDebugLog] = useState([]);
   const [showSearchDebugPanel, setShowSearchDebugPanel] = useState(false);
+  
+  // Debug sessions — accumulated across searches, persisted to localStorage
+  const [debugSessions, setDebugSessions] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('foufou_debug_sessions') || '[]'); } catch { return []; }
+  });
+  const [stopDebugPopup, setStopDebugPopup] = useState(null); // { stop, x, y } for popup
   const debugModeRef = useRef(debugMode);
   const debugCategoriesRef = useRef(debugCategories);
   useEffect(() => { debugModeRef.current = debugMode; }, [debugMode]);
@@ -913,6 +919,83 @@
   useEffect(() => {
     localStorage.setItem('bangkok_debug_categories', JSON.stringify(debugCategories));
   }, [debugCategories]);
+  
+  // Persist debug sessions (keep last 20 sessions)
+  useEffect(() => {
+    try { localStorage.setItem('foufou_debug_sessions', JSON.stringify(debugSessions.slice(-20))); } catch(e) {}
+  }, [debugSessions]);
+  
+  // Save a debug session after route generation
+  const saveDebugSession = (routeObj) => {
+    if (!debugModeRef.current) return;
+    const session = {
+      id: Date.now(),
+      time: new Date().toLocaleString('he-IL'),
+      city: selectedCityId,
+      area: formData.area,
+      areaName: routeObj.areaName,
+      searchMode: formData.searchMode,
+      radiusMeters: formData.searchMode === 'radius' ? formData.radiusMeters : null,
+      interests: formData.interests.map(id => {
+        const opt = allInterestOptions.find(o => o.id === id);
+        return { id, label: tLabel(opt) || id };
+      }),
+      stops: (routeObj.stops || []).map(s => ({
+        name: s.name,
+        rating: s.rating,
+        ratingCount: s.ratingCount,
+        address: s.address,
+        custom: !!s.custom,
+        _debug: s._debug || null
+      }))
+    };
+    setDebugSessions(prev => [...prev, session]);
+  };
+  
+  // Export all debug sessions as text
+  const exportDebugSessions = () => {
+    if (debugSessions.length === 0) return;
+    const lines = [];
+    debugSessions.forEach((s, si) => {
+      lines.push(`\n${'='.repeat(60)}`);
+      lines.push(`SESSION ${si + 1} — ${s.time} — ${s.city} / ${s.areaName || s.area} (${s.searchMode}${s.radiusMeters ? ' ' + s.radiusMeters + 'm' : ''})`);
+      lines.push(`Interests: ${s.interests.map(i => i.label).join(', ')}`);
+      lines.push(`${'='.repeat(60)}`);
+      (s.stops || []).forEach((st, i) => {
+        const d = st._debug;
+        lines.push(`  ${i+1}. ${st.name} ${st.custom ? '📌' : '🌐'} ⭐${st.rating || '?'} (${st.ratingCount || '?'})`);
+        if (d) {
+          lines.push(`     Interest: ${d.interestLabel} | Source: ${d.source} | Search: ${d.searchType || '-'}`);
+          if (d.query) lines.push(`     Query: "${d.query}"`);
+          if (d.placeTypes) lines.push(`     Types: ${d.placeTypes.join(', ')}`);
+          if (d.blacklist && d.blacklist.length) lines.push(`     Blacklist: ${d.blacklist.join(', ')}`);
+          if (d.googleTypes) lines.push(`     Google types: ${d.googleTypes.join(', ')}`);
+          if (d.primaryType) lines.push(`     Primary: ${d.primaryType}`);
+          if (d.rank) lines.push(`     Rank: ${d.rank}/${d.totalFromGoogle}`);
+          lines.push(`     Area: ${d.area} | Center: ${d.center || '-'} | Radius: ${d.radius || '-'}m`);
+        }
+        if (st.address) lines.push(`     Address: ${st.address}`);
+      });
+    });
+    const text = lines.join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('📋 Debug sessions copied to clipboard!', 'success');
+    }).catch(() => {
+      // Fallback: download as file
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `foufou-debug-${Date.now()}.txt`;
+      a.click(); URL.revokeObjectURL(url);
+      showToast('📥 Debug file downloaded', 'success');
+    });
+  };
+  
+  // Clear debug sessions
+  const clearDebugSessions = () => {
+    setDebugSessions([]);
+    showToast('🗑️ Debug sessions cleared', 'info');
+  };
   
   // Help content - loaded from config.js
   const helpContent = window.BKK.helpContent;
@@ -1503,48 +1586,65 @@
 
   // Load interest active/inactive status (per-user with admin defaults)
   useEffect(() => {
-    // Default status: built-in = active, uncovered = inactive
+    // Hard-coded defaults: built-in = active, uncovered = inactive
     const builtInIds = interestOptions.map(i => i.id);
     const uncoveredIds = uncoveredInterests.map(i => i.id || i.name.replace(/\s+/g, '_').toLowerCase());
     
-    const defaultStatus = {};
-    builtInIds.forEach(id => { defaultStatus[id] = true; });
-    uncoveredIds.forEach(id => { defaultStatus[id] = false; });
+    const hardDefaults = {};
+    builtInIds.forEach(id => { hardDefaults[id] = true; });
+    uncoveredIds.forEach(id => { hardDefaults[id] = false; });
+    
+    // Helper: compute defaults from interestConfig defaultEnabled flags
+    const computeDefaults = (icfg, legacyStatus) => {
+      const defaults = { ...hardDefaults };
+      // If interestConfig has any defaultEnabled flags, use them
+      const hasDefaultFlags = Object.values(icfg || {}).some(c => c?.defaultEnabled !== undefined);
+      if (hasDefaultFlags) {
+        Object.entries(icfg).forEach(([id, cfg]) => {
+          if (cfg?.defaultEnabled !== undefined) defaults[id] = cfg.defaultEnabled;
+        });
+      } else if (legacyStatus) {
+        // Legacy fallback: use settings/interestStatus
+        Object.assign(defaults, legacyStatus);
+      }
+      return defaults;
+    };
     
     if (isFirebaseAvailable && database) {
       const userId = localStorage.getItem('bangkok_user_id') || 'unknown';
-      const adminStatusRef = database.ref('settings/interestStatus');
+      const configRef = database.ref('settings/interestConfig');
+      const legacyStatusRef = database.ref('settings/interestStatus');
       const userStatusRef = database.ref(`users/${userId}/interestStatus`);
       
-      // Load admin defaults first, then user overrides
-      adminStatusRef.once('value').then((adminSnap) => {
-        const adminData = adminSnap.val() || defaultStatus;
-        // Save admin defaults if not present
-        if (!adminSnap.val()) {
-          adminStatusRef.set(defaultStatus);
-        }
+      // Load config + legacy status + user overrides
+      Promise.all([
+        configRef.once('value'),
+        legacyStatusRef.once('value'),
+        userStatusRef.once('value')
+      ]).then(([configSnap, legacySnap, userSnap]) => {
+        const icfg = configSnap.val() || {};
+        const legacyStatus = legacySnap.val();
+        const userData = userSnap.val();
         
-        return userStatusRef.once('value').then((userSnap) => {
-          const userData = userSnap.val();
-          if (userData) {
-            // User has their own preferences
-            setInterestStatus({ ...defaultStatus, ...adminData, ...userData });
-            console.log('[FIREBASE] Loaded user interest status');
-          } else {
-            // New user - use admin defaults
-            setInterestStatus({ ...defaultStatus, ...adminData });
-            console.log('[FIREBASE] Using admin defaults for new user');
-          }
-          markLoaded('status');
-        });
+        const defaults = computeDefaults(icfg, legacyStatus);
+        
+        if (userData) {
+          setInterestStatus({ ...defaults, ...userData });
+          console.log('[FIREBASE] Loaded user interest status with defaultEnabled flags');
+        } else {
+          setInterestStatus(defaults);
+          console.log('[FIREBASE] Using defaultEnabled defaults for new user');
+        }
+        markLoaded('status');
       }).catch(err => {
         console.error('[FIREBASE] Error loading interest status:', err);
-        setInterestStatus(defaultStatus);
+        setInterestStatus(hardDefaults);
         markLoaded('status');
       });
       
       // Listen for user's own changes
-      userStatusRef.on('value', (snapshot) => {
+      const userStatusRef2 = database.ref(`users/${localStorage.getItem('bangkok_user_id') || 'unknown'}/interestStatus`);
+      userStatusRef2.on('value', (snapshot) => {
         const data = snapshot.val();
         if (data) {
           setInterestStatus(prev => ({ ...prev, ...data }));
@@ -1554,12 +1654,12 @@
       try {
         const saved = localStorage.getItem('bangkok_interest_status');
         if (saved) {
-          setInterestStatus({ ...defaultStatus, ...JSON.parse(saved) });
+          setInterestStatus({ ...hardDefaults, ...JSON.parse(saved) });
         } else {
-          setInterestStatus(defaultStatus);
+          setInterestStatus(hardDefaults);
         }
       } catch (e) {
-        setInterestStatus(defaultStatus);
+        setInterestStatus(hardDefaults);
       }
       markLoaded('status');
     }
@@ -1659,14 +1759,23 @@
             setInterestConfig(prev => ({ ...prev, ...s.interestConfig }));
           }
           
-          // Interest Status
-          if (s.interestStatus) {
+          // Interest Status — compute defaults from interestConfig.defaultEnabled flags
+          {
             const builtInIds = interestOptions.map(i => i.id);
             const uncoveredIds = uncoveredInterests.map(i => i.id || i.name.replace(/\s+/g, '_').toLowerCase());
+            const icfg = s.interestConfig || {};
             const defaultStatus = {};
-            builtInIds.forEach(id => { defaultStatus[id] = true; });
-            uncoveredIds.forEach(id => { defaultStatus[id] = false; });
-            setInterestStatus({ ...defaultStatus, ...s.interestStatus });
+            builtInIds.forEach(id => { 
+              defaultStatus[id] = icfg[id]?.defaultEnabled !== undefined ? icfg[id].defaultEnabled : true; 
+            });
+            uncoveredIds.forEach(id => { 
+              defaultStatus[id] = icfg[id]?.defaultEnabled !== undefined ? icfg[id].defaultEnabled : false; 
+            });
+            // Legacy fallback: if settings/interestStatus exists and no defaultEnabled flags, use it
+            if (s.interestStatus && !Object.values(icfg).some(c => c?.defaultEnabled !== undefined)) {
+              Object.assign(defaultStatus, s.interestStatus);
+            }
+            setInterestStatus(defaultStatus);
           }
           
           // Admin
@@ -2530,7 +2639,24 @@
             address: place.formattedAddress || '',
             openNow: openingHours?.openNow ?? null,
             todayHours: hoursOnly || '',
-            interests: interests
+            interests: interests,
+            _debug: {
+              source: 'google',
+              interestId: validInterests[0],
+              interestLabel: tLabel(allInterestOptions.find(o => o.id === validInterests[0])) || validInterests[0],
+              searchType: isTextSearch ? 'text' : 'category',
+              query: isTextSearch ? textSearchQuery : null,
+              placeTypes: isTextSearch ? null : placeTypes,
+              blacklist: blacklistWords,
+              area: area || 'radius',
+              center: `${center.lat.toFixed(4)},${center.lng.toFixed(4)}`,
+              radius: searchRadius,
+              googleTypes: (place.types || []).slice(0, 8),
+              primaryType: place.primaryType || '',
+              rank: index + 1,
+              totalFromGoogle: data.places.length,
+              timestamp: Date.now()
+            }
           };
         });
       
@@ -2551,6 +2677,11 @@
         typeFiltered: typeFilteredCount,
         relevanceFiltered: relevanceFilteredCount,
         places: debugPlaceResults
+      });
+      // Readable console log of all places with status
+      console.log(`[API] 📊 ${tLabel(interestLabel) || validInterests[0]} — ${data.places.length} from Google, ${transformed.length} kept:`);
+      debugPlaceResults.forEach((p, i) => {
+        console.log(`  ${i+1}. ${p.status} ${p.name} — ⭐${p.rating} (${p.reviews}) [${p.primaryType}]${p.reason ? ' | ' + p.reason : ''}`);
       });
       
       // Filter 4: Distance check - remove places too far from search center
@@ -2577,6 +2708,11 @@
         afterDistance: distanceFiltered.length,
         removed: { blacklist: blacklistFilteredCount, type: typeFilteredCount, relevance: relevanceFilteredCount, distance: transformed.length - distanceFiltered.length },
         finalPlaces: distanceFiltered.map(p => `${p.name} ⭐${p.rating} (${p.ratingCount})`)
+      });
+      // Readable console log of final places
+      console.log(`[API] ✅ FINAL ${distanceFiltered.length} places for ${tLabel(allInterestOptions.find(o => o.id === validInterests[0])) || validInterests[0]}:`);
+      distanceFiltered.forEach((p, i) => {
+        console.log(`  ${i+1}. ${p.name} — ⭐${p.rating} (${p.ratingCount}) ${p.address || ''}`);
       });
       
       return distanceFiltered;
@@ -2725,7 +2861,8 @@
         category: config.category || opt.category || 'attraction',
         weight: config.weight || opt.weight || sp.defaultInterestWeight,
         minStops: config.minStops != null ? config.minStops : (opt.minStops != null ? opt.minStops : 1),
-        maxStops: config.maxStops || opt.maxStops || 10
+        maxStops: config.maxStops || opt.maxStops || 10,
+        adminStatus: config.adminStatus || 'active' // 'active' | 'draft' | 'hidden'
       };
     });
   }, [interestOptions, uncoveredInterests, cityCustomInterests, interestConfig]);
@@ -2970,17 +3107,29 @@
   useEffect(() => {
     if (!isDataLoaded) return;
     if (formData.interests.length === 0) return;
+    // Build set of interests that are both valid AND enabled (visible to user)
     const visibleIds = allInterestOptions
-      .filter(opt => opt && opt.id && isInterestValid(opt.id))
+      .filter(opt => {
+        if (!opt || !opt.id || !isInterestValid(opt.id)) return false;
+        // Admin status: hidden=never, draft=admin only
+        const aStatus = opt.adminStatus || 'active';
+        if (aStatus === 'hidden') return false;
+        if (aStatus === 'draft' && !isUnlocked) return false;
+        // Check interestStatus — same logic as wizard step 2 display
+        const status = interestStatus[opt.id];
+        if (opt.uncovered) return status === true;
+        if (opt.scope === 'local' && opt.cityId && opt.cityId !== selectedCityId) return false;
+        return status !== false;
+      })
       .map(opt => opt.id);
     const cleaned = formData.interests.filter(id => visibleIds.includes(id));
     if (cleaned.length !== formData.interests.length) {
       const removed = formData.interests.filter(id => !visibleIds.includes(id));
       const removedNames = removed.map(id => allInterestOptions.find(o => o.id === id)).filter(Boolean).map(o => tLabel(o) || o?.id || id).join(', ');
-      console.log('[CLEANUP] Removed invalid interests from selection:', removedNames);
+      console.log('[CLEANUP] Removed invalid/disabled interests from selection:', removedNames);
       setFormData(prev => ({ ...prev, interests: cleaned }));
     }
-  }, [interestConfig, cityCustomInterests, isDataLoaded]);
+  }, [interestConfig, cityCustomInterests, isDataLoaded, interestStatus, selectedCityId, isUnlocked]);
 
   // Button styles - loaded from utils.js
 
@@ -3549,15 +3698,42 @@
     setIsGenerating(true);
     
     try {
+      // SAFETY: Filter out disabled interests that may be stale in formData
+      const activeInterests = formData.interests.filter(id => {
+        const opt = allInterestOptions.find(o => o.id === id);
+        if (!opt) return false;
+        // Admin status: hidden=never searchable, draft=admin only
+        const aStatus = opt.adminStatus || 'active';
+        if (aStatus === 'hidden') return false;
+        if (aStatus === 'draft' && !isUnlocked) return false;
+        // Check city scope
+        if (opt.scope === 'local' && opt.cityId && opt.cityId !== selectedCityId) return false;
+        const status = interestStatus[id];
+        if (opt.uncovered) return status === true;
+        return status !== false;
+      });
+      if (activeInterests.length !== formData.interests.length) {
+        const removed = formData.interests.filter(id => !activeInterests.includes(id));
+        console.warn('[ROUTE] ⚠️ Removed disabled interests from search:', removed);
+        setFormData(prev => ({ ...prev, interests: activeInterests }));
+        if (activeInterests.length === 0) {
+          showToast(t('form.selectAtLeastOneInterest'), 'warning');
+          setIsGenerating(false);
+          return;
+        }
+      }
+      // Use activeInterests for the rest of this generation
+      const searchInterests = activeInterests;
+      
       addDebugLog('ROUTE', 'Starting route generation', { 
         mode: formData.searchMode, 
         area: formData.area, 
         radius: isRadiusMode ? formData.radiusMeters : null,
-        interests: formData.interests, 
+        interests: searchInterests, 
         maxStops: formData.maxStops 
       });
       console.log('[ROUTE] Starting route generation', isRadiusMode ? 'RADIUS mode' : 'AREA mode');
-      console.log('[ROUTE] Selected interests:', JSON.stringify(formData.interests));
+      console.log('[ROUTE] Selected interests:', JSON.stringify(searchInterests));
       console.log('[ROUTE] Area:', formData.area, '| SearchMode:', formData.searchMode);
       
       // Get custom locations (always included)
@@ -3572,7 +3748,7 @@
       const interestLimits = {};
       let totalWeight = 0;
       const interestCfg = {};
-      for (const interest of formData.interests) {
+      for (const interest of searchInterests) {
         const interestObj = allInterestOptions.find(o => o.id === interest);
         interestCfg[interest] = {
           weight: interestObj?.weight || sp.defaultInterestWeight,
@@ -3584,7 +3760,7 @@
       
       // Step 1: Guarantee minimums
       let allocated = 0;
-      for (const interest of formData.interests) {
+      for (const interest of searchInterests) {
         const min = Math.min(interestCfg[interest].minStops, interestCfg[interest].maxStops, maxStops - allocated);
         interestLimits[interest] = min;
         allocated += min;
@@ -3595,12 +3771,12 @@
       if (remaining > 0 && totalWeight > 0) {
         for (let pass = 0; pass < 3 && remaining > 0; pass++) {
           let activeWeight = 0;
-          for (const interest of formData.interests) {
+          for (const interest of searchInterests) {
             if (interestLimits[interest] < interestCfg[interest].maxStops) activeWeight += interestCfg[interest].weight;
           }
           if (activeWeight <= 0) break;
           
-          for (const interest of formData.interests) {
+          for (const interest of searchInterests) {
             if (remaining <= 0) break;
             if (interestLimits[interest] >= interestCfg[interest].maxStops) continue;
             const share = Math.floor((interestCfg[interest].weight / activeWeight) * remaining);
@@ -3612,7 +3788,7 @@
         }
         
         remaining = maxStops - allocated;
-        const sorted = [...formData.interests].sort((a, b) => interestCfg[b].weight - interestCfg[a].weight);
+        const sorted = [...searchInterests].sort((a, b) => interestCfg[b].weight - interestCfg[a].weight);
         for (const interest of sorted) {
           if (remaining <= 0) break;
           if (interestLimits[interest] >= interestCfg[interest].maxStops) continue;
@@ -3632,7 +3808,7 @@
       googleCacheRef.current = {};
       
       // ROUND 1: Fill from custom locations first (up to limit), then API for gaps
-      for (const interest of formData.interests) {
+      for (const interest of searchInterests) {
         const stopsForThisInterest = interestLimits[interest] || 2;
         
         // Get custom stops for this interest, sorted by rating
@@ -3645,7 +3821,14 @@
         // Add custom stops that aren't already in allStops
         for (const cs of customToUse) {
           if (!allStops.some(s => s.name.toLowerCase().trim() === cs.name.toLowerCase().trim())) {
-            allStops.push(cs);
+            allStops.push({ ...cs, _debug: {
+              source: 'custom',
+              interestId: interest,
+              interestLabel: tLabel(allInterestOptions.find(o => o.id === interest)) || interest,
+              area: formData.area || 'radius',
+              searchMode: formData.searchMode,
+              timestamp: Date.now()
+            }});
           }
         }
         
@@ -3718,7 +3901,11 @@
           
           // Store unused places in cache for "find more"
           googleCacheRef.current[interest] = cachedPlaces;
-          console.log(`[CACHE] Stored ${cachedPlaces.length} unused places for ${interest}`);
+          console.log(`[ROUTE] 📋 ${interest}: picked ${sortedPlaces.length}/${sortedAll.length}, cached ${cachedPlaces.length}`);
+          sortedPlaces.forEach((p, i) => console.log(`  ✅ ${i+1}. ${p.name} — ⭐${p.rating} (${p.ratingCount})`));
+          if (cachedPlaces.length > 0) {
+            console.log(`  [cached: ${cachedPlaces.slice(0, 5).map(p => p.name).join(', ')}${cachedPlaces.length > 5 ? '...' : ''}]`);
+          }
           
           // Track results
           interestResults[interest] = {
@@ -3770,9 +3957,9 @@
       if (missing > 0) {
         // Count how many stops we already have per interest
         const currentCountPerInterest = {};
-        for (const interest of formData.interests) currentCountPerInterest[interest] = 0;
+        for (const interest of searchInterests) currentCountPerInterest[interest] = 0;
         for (const stop of uniqueStops) {
-          for (const interest of formData.interests) {
+          for (const interest of searchInterests) {
             if (stop.interests?.includes(interest)) {
               currentCountPerInterest[interest] = (currentCountPerInterest[interest] || 0) + 1;
             }
@@ -3781,7 +3968,7 @@
         
         const additionalPlaces = [];
         
-        for (const interest of formData.interests) {
+        for (const interest of searchInterests) {
           const result = interestResults[interest];
           const alreadyUsed = result.fetched;
           const available = result.allPlaces.length;
@@ -3836,7 +4023,7 @@
         
         // Update Google cache: remove places that Round 2 used
         const usedInRound2 = new Set(sorted.map(s => s.name.toLowerCase().trim()));
-        for (const interest of formData.interests) {
+        for (const interest of searchInterests) {
           if (googleCacheRef.current[interest]?.length > 0) {
             googleCacheRef.current[interest] = googleCacheRef.current[interest]
               .filter(p => !usedInRound2.has(p.name.toLowerCase().trim()));
@@ -3897,7 +4084,7 @@
         const selectedArea = areaOptions.find(a => a.id === formData.area);
         areaName = tLabel(selectedArea) || t('general.allCity');
       }
-      interestsText = formData.interests
+      interestsText = searchInterests
         .map(id => allInterestOptions.filter(o => o && o.id).find(o => o.id === id)).map(o => o ? tLabel(o) : null)
         .filter(Boolean)
         .join(', ');
@@ -3927,7 +4114,7 @@
         startPoint: (startPointCoords?.address) || formData.startPoint || t('form.startPointFirst'),
         startPointCoords: startPointCoords || null,
         stops: uniqueStops,
-        preferences: { ...formData },
+        preferences: { ...formData, interests: searchInterests },
         stats: {
           custom: customStops.length,
           fetched: uniqueStops.length - customStops.length,
@@ -3963,6 +4150,9 @@
       });
 
       setRoute(newRoute);
+      
+      // Save debug session for field debugging
+      saveDebugSession(newRoute);
       
       // Load review averages for locked custom places
       const lockedNames = newRoute.stops
@@ -4501,6 +4691,12 @@
     const updatedStatus = { ...interestStatus, [interestId]: newStatus };
     setInterestStatus(updatedStatus);
     
+    // When disabling: immediately remove from selected interests to prevent stale selections
+    if (!newStatus && formData.interests.includes(interestId)) {
+      console.log('[INTEREST] Removing disabled interest from selection:', interestId);
+      setFormData(prev => ({ ...prev, interests: prev.interests.filter(id => id !== interestId) }));
+    }
+    
     if (isFirebaseAvailable && database) {
       const userId = localStorage.getItem('bangkok_user_id') || 'unknown';
       database.ref(`users/${userId}/interestStatus/${interestId}`).set(newStatus)
@@ -4516,21 +4712,37 @@
   };
 
   // Reset user interest preferences to admin defaults
+  // Compute default interest status from interestConfig flags
+  const computeDefaultInterestStatus = () => {
+    const defaults = {};
+    // Built-in interests: default=true unless interestConfig says otherwise
+    for (const i of interestOptions) {
+      const cfg = interestConfig[i.id];
+      defaults[i.id] = cfg?.defaultEnabled !== undefined ? cfg.defaultEnabled : true;
+    }
+    // Uncovered interests: default=false unless interestConfig says otherwise
+    for (const i of uncoveredInterests) {
+      const id = i.id || i.name.replace(/\s+/g, '_').toLowerCase();
+      const cfg = interestConfig[id];
+      defaults[id] = cfg?.defaultEnabled !== undefined ? cfg.defaultEnabled : false;
+    }
+    // Custom interests: default=true unless interestConfig says otherwise
+    for (const i of (cityCustomInterests || [])) {
+      const cfg = interestConfig[i.id];
+      defaults[i.id] = cfg?.defaultEnabled !== undefined ? cfg.defaultEnabled : true;
+    }
+    return defaults;
+  };
+
   const resetInterestStatusToDefault = async () => {
+    const defaults = computeDefaultInterestStatus();
+    
     if (isFirebaseAvailable && database) {
       const userId = localStorage.getItem('bangkok_user_id') || 'unknown';
       try {
-        // Remove user overrides
+        // Remove user overrides — reset to interestConfig defaults
         await database.ref(`users/${userId}/interestStatus`).remove();
-        // Reload admin defaults
-        const adminSnap = await database.ref('settings/interestStatus').once('value');
-        const adminData = adminSnap.val() || {};
-        const builtInIds = interestOptions.map(i => i.id);
-        const uncoveredIds = uncoveredInterests.map(i => i.id || i.name.replace(/\s+/g, '_').toLowerCase());
-        const defaultStatus = {};
-        builtInIds.forEach(id => { defaultStatus[id] = true; });
-        uncoveredIds.forEach(id => { defaultStatus[id] = false; });
-        setInterestStatus({ ...defaultStatus, ...adminData });
+        setInterestStatus(defaults);
         showToast(t('interests.interestsReset'), 'success');
       } catch (err) {
         console.error('Error resetting interest status:', err);
@@ -4538,14 +4750,55 @@
       }
     } else {
       localStorage.removeItem('bangkok_interest_status');
-      const builtInIds = interestOptions.map(i => i.id);
-      const uncoveredIds = uncoveredInterests.map(i => i.id || i.name.replace(/\s+/g, '_').toLowerCase());
-      const defaultStatus = {};
-      builtInIds.forEach(id => { defaultStatus[id] = true; });
-      uncoveredIds.forEach(id => { defaultStatus[id] = false; });
-      setInterestStatus(defaultStatus);
+      setInterestStatus(defaults);
       showToast(t('interests.interestsReset'), 'success');
     }
+  };
+
+  // Admin: toggle the defaultEnabled flag for an interest
+  const toggleDefaultEnabled = async (interestId) => {
+    if (!isUnlocked) return;
+    const currentConfig = interestConfig[interestId] || {};
+    // Determine current effective default
+    const builtInIds = interestOptions.map(i => i.id);
+    const hardDefault = builtInIds.includes(interestId) ? true : false;
+    const currentDefault = currentConfig.defaultEnabled !== undefined ? currentConfig.defaultEnabled : hardDefault;
+    const newDefault = !currentDefault;
+    
+    const updatedConfig = { ...interestConfig, [interestId]: { ...currentConfig, defaultEnabled: newDefault } };
+    setInterestConfig(updatedConfig);
+    
+    if (isFirebaseAvailable && database) {
+      try {
+        await database.ref(`settings/interestConfig/${interestId}/defaultEnabled`).set(newDefault);
+        console.log(`[ADMIN] Set defaultEnabled=${newDefault} for ${interestId}`);
+      } catch (err) {
+        console.error('Error saving defaultEnabled:', err);
+      }
+    }
+  };
+
+  // Admin: cycle adminStatus for an interest (active → draft → hidden → active)
+  const cycleAdminStatus = async (interestId) => {
+    if (!isUnlocked) return;
+    const currentConfig = interestConfig[interestId] || {};
+    const current = currentConfig.adminStatus || 'active';
+    const next = current === 'active' ? 'draft' : current === 'draft' ? 'hidden' : 'active';
+    
+    const updatedConfig = { ...interestConfig, [interestId]: { ...currentConfig, adminStatus: next } };
+    setInterestConfig(updatedConfig);
+    
+    if (isFirebaseAvailable && database) {
+      try {
+        await database.ref(`settings/interestConfig/${interestId}/adminStatus`).set(next);
+        console.log(`[ADMIN] Set adminStatus=${next} for ${interestId}`);
+      } catch (err) {
+        console.error('Error saving adminStatus:', err);
+      }
+    }
+    
+    const labels = { active: '🟢', draft: '🟡', hidden: '🔴' };
+    showToast(`${labels[next]} ${interestId} → ${next}`, 'info');
   };
 
   // Check if interest has valid search config

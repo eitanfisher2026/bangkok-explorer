@@ -713,12 +713,17 @@
                 {/* Interest Grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '12px' }}>
                   {allInterestOptions.filter(option => {
+                    // Admin status: hidden=never in wizard, draft=admin only
+                    const aStatus = option.adminStatus || 'active';
+                    if (aStatus === 'hidden') return false;
+                    if (aStatus === 'draft' && !isUnlocked) return false;
                     const status = interestStatus[option.id];
                     if (option.uncovered) return status === true;
                     if (option.scope === 'local' && option.cityId && option.cityId !== selectedCityId) return false;
                     return status !== false;
                   }).filter(option => isInterestValid(option.id)).map(option => {
                     const isSelected = formData.interests.includes(option.id);
+                    const isDraft = (option.adminStatus || 'active') === 'draft';
                     return (
                       <button
                         key={option.id}
@@ -730,10 +735,12 @@
                         }}
                         style={{
                           padding: '8px 4px', borderRadius: '10px', cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s',
-                          border: isSelected ? '2px solid #2563eb' : '2px solid #e5e7eb',
-                          background: isSelected ? '#eff6ff' : 'white'
+                          border: isSelected ? '2px solid #2563eb' : isDraft ? '2px dashed #f59e0b' : '2px solid #e5e7eb',
+                          background: isSelected ? '#eff6ff' : isDraft ? '#fffbeb' : 'white',
+                          position: 'relative'
                         }}
                       >
+                        {isDraft && <span style={{ position: 'absolute', top: '2px', right: '4px', fontSize: '8px' }}>🟡</span>}
                         <div style={{ fontSize: '22px', marginBottom: '2px' }}>{option.icon?.startsWith?.('data:') ? <img src={option.icon} alt="" style={{ width: '24px', height: '24px', objectFit: 'contain', display: 'inline' }} /> : option.icon}</div>
                         <div style={{ fontWeight: '700', fontSize: '11px', color: isSelected ? '#1e40af' : '#374151', wordBreak: 'break-word' }}>{tLabel(option)}</div>
                       </button>
@@ -1006,7 +1013,20 @@
                     });
                     
                     return Object.entries(groupedStops)
-                      .filter(([interest]) => interest === '_manual' || formData.interests.includes(interest))
+                      .filter(([interest]) => {
+                        if (interest === '_manual') return true;
+                        if (!formData.interests.includes(interest)) return false;
+                        // Safety: don't show groups for hidden/draft/disabled/wrong-city interests
+                        const opt = allInterestOptions.find(o => o.id === interest);
+                        if (!opt) return false;
+                        const aStatus = opt.adminStatus || 'active';
+                        if (aStatus === 'hidden') return false;
+                        if (aStatus === 'draft' && !isUnlocked) return false;
+                        if (opt.scope === 'local' && opt.cityId && opt.cityId !== selectedCityId) return false;
+                        const status = interestStatus[interest];
+                        if (opt.uncovered) return status === true;
+                        return status !== false;
+                      })
                       .map(([interest, stops]) => {
                       const isManualGroup = interest === '_manual';
                       const interestObj = isManualGroup ? { id: '_manual', label: t('general.addedManually'), icon: '📍' } : interestMap[interest];
@@ -1107,6 +1127,24 @@
                                         </span>
                                       )}
                                       <span>{stop.name}</span>
+                                      {/* Debug info button — admin + debug mode only */}
+                                      {isUnlocked && debugMode && stop._debug && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setStopDebugPopup(stopDebugPopup?.name === stop.name ? null : stop);
+                                          }}
+                                          style={{
+                                            fontSize: '9px', padding: '0 3px', borderRadius: '4px',
+                                            background: stopDebugPopup?.name === stop.name ? '#f59e0b' : '#e5e7eb',
+                                            color: stopDebugPopup?.name === stop.name ? 'white' : '#6b7280',
+                                            border: 'none', cursor: 'pointer', lineHeight: '14px',
+                                            fontWeight: 'bold', flexShrink: 0
+                                          }}
+                                          title="Debug info"
+                                        >i</button>
+                                      )}
                                       {isStartPoint && (
                                         <span className="text-[8px] bg-green-600 text-white px-1 py-0.5 rounded font-bold">{t("general.start")}</span>
                                       )}
@@ -1170,6 +1208,28 @@
                                       );
                                     })()}
                                   </a>
+                                  {/* Debug info popup — admin + debug mode only */}
+                                  {isUnlocked && debugMode && stopDebugPopup?.name === stop.name && stop._debug && (() => {
+                                    const d = stop._debug;
+                                    return (
+                                      <div style={{
+                                        fontSize: '10px', padding: '6px 8px', margin: '4px 0',
+                                        background: '#fffbeb', border: '1px solid #f59e0b', borderRadius: '6px',
+                                        direction: 'ltr', textAlign: 'left', lineHeight: '1.5'
+                                      }}>
+                                        <div style={{ fontWeight: 'bold', color: '#92400e', marginBottom: '2px' }}>
+                                          {d.source === 'custom' ? '📌 Custom' : '🌐 Google'} — {d.interestLabel}
+                                        </div>
+                                        {d.searchType && <div><b>Search:</b> {d.searchType}{d.query ? ` → "${d.query}"` : ''}</div>}
+                                        {d.placeTypes && <div><b>Types:</b> {d.placeTypes.join(', ')}</div>}
+                                        {d.blacklist && d.blacklist.length > 0 && <div><b>Blacklist:</b> {d.blacklist.join(', ')}</div>}
+                                        {d.googleTypes && <div><b>Google types:</b> {d.googleTypes.join(', ')}</div>}
+                                        {d.primaryType && <div><b>Primary:</b> {d.primaryType}</div>}
+                                        {d.rank && <div><b>Rank:</b> {d.rank}/{d.totalFromGoogle}</div>}
+                                        <div><b>Area:</b> {d.area} | <b>Center:</b> {d.center || '-'} | <b>R:</b> {d.radius || '-'}m</div>
+                                      </div>
+                                    );
+                                  })()}
                                   {/* Add to favorites row — Google places only */}
                                   {!isCustom && !isDisabled && (() => {
                                     const existingLoc = customLocations.find(loc => loc.name.toLowerCase().trim() === stop.name.toLowerCase().trim());
@@ -1994,7 +2054,12 @@
               const renderInterestRow = (interest, isCustom = false, isActive = true) => {
                 const isValid = isInterestValid(interest.id);
                 const effectiveActive = isValid ? isActive : false; // Invalid always inactive
-                const borderClass = !effectiveActive ? 'border border-gray-300 bg-gray-50 opacity-60'
+                const aStatus = interest.adminStatus || (interestConfig[interest.id]?.adminStatus) || 'active';
+                const isDraft = aStatus === 'draft';
+                const isHidden = aStatus === 'hidden';
+                const borderClass = isHidden ? 'border-2 border-red-300 bg-red-50 opacity-50'
+                  : isDraft ? 'border-2 border-amber-300 bg-amber-50'
+                  : !effectiveActive ? 'border border-gray-300 bg-gray-50 opacity-60'
                   : isCustom ? (isValid ? 'border border-gray-200 bg-white' : 'border-2 border-red-400 bg-red-50')
                   : (isValid ? 'border border-gray-200 bg-white' : 'border-2 border-red-400 bg-red-50');
                 
@@ -2002,12 +2067,44 @@
                   <div key={interest.id} className={`flex items-center justify-between gap-2 rounded-lg p-2 ${borderClass}`}>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <span className="text-lg flex-shrink-0">{interest.icon?.startsWith?.('data:') ? <img src={interest.icon} alt="" className="w-5 h-5 object-contain" /> : interest.icon}</span>
-                      <span className={`font-medium text-sm truncate ${!effectiveActive ? 'text-gray-500' : ''}`}>{tLabel(interest)}</span>
+                      <span className={`font-medium text-sm truncate ${isHidden ? 'text-red-400 line-through' : isDraft ? 'text-amber-700' : !effectiveActive ? 'text-gray-500' : ''}`}>{tLabel(interest)}</span>
                       {isCustom && <span className="text-[10px] bg-purple-200 text-purple-800 px-1 py-0.5 rounded flex-shrink-0">{t("general.custom")}</span>}
                       {!isValid && <span className="text-red-500 text-xs flex-shrink-0" title={t("interests.missingSearchConfig")}>⚠️</span>}
                       {interest.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '11px' }} className="flex-shrink-0">🔒</span>}
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
+                      {/* Admin status cycle — admin only */}
+                      {isUnlocked && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); cycleAdminStatus(interest.id); }}
+                          style={{
+                            fontSize: '9px', padding: '1px 4px', borderRadius: '4px',
+                            background: isHidden ? '#fee2e2' : isDraft ? '#fef3c7' : '#dcfce7',
+                            border: `1px solid ${isHidden ? '#fca5a5' : isDraft ? '#fcd34d' : '#86efac'}`,
+                            cursor: 'pointer', lineHeight: '14px'
+                          }}
+                          title={`Status: ${aStatus} (click to cycle)`}
+                        >{isHidden ? '🔴' : isDraft ? '🟡' : '🟢'}</button>
+                      )}
+                      {/* Default flag toggle — admin only */}
+                      {isUnlocked && (() => {
+                        const cfg = interestConfig[interest.id] || {};
+                        const builtInDefault = interestOptions.some(i => i.id === interest.id);
+                        const isDefault = cfg.defaultEnabled !== undefined ? cfg.defaultEnabled : builtInDefault;
+                        return (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleDefaultEnabled(interest.id); }}
+                            style={{
+                              fontSize: '9px', padding: '1px 4px', borderRadius: '4px',
+                              background: isDefault ? '#dbeafe' : '#f3f4f6',
+                              color: isDefault ? '#1d4ed8' : '#9ca3af',
+                              border: `1px solid ${isDefault ? '#93c5fd' : '#d1d5db'}`,
+                              cursor: 'pointer', lineHeight: '14px'
+                            }}
+                            title={isDefault ? 'Default: ON (click to change)' : 'Default: OFF (click to change)'}
+                          >{isDefault ? '🔵' : '⚪'}</button>
+                        );
+                      })()}
                       {/* Toggle button */}
                       <button
                         onClick={() => toggleInterestStatus(interest.id)}
@@ -2042,12 +2139,34 @@
                 if (!cfg) return i;
                 return { ...i, label: cfg.labelOverride || i.label, icon: cfg.iconOverride || i.icon, locked: cfg.locked !== undefined ? cfg.locked : i.locked };
               });
-              const activeBuiltIn = overriddenBuiltIn.filter(i => isInterestValid(i.id) && interestStatus[i.id] !== false);
-              const activeUncovered = overriddenUncovered.filter(i => isInterestValid(i.id) && interestStatus[i.id] === true);
-              const activeCustom = cityCustomInterests.filter(i => isInterestValid(i.id) && interestStatus[i.id] !== false);
-              const inactiveBuiltIn = overriddenBuiltIn.filter(i => !isInterestValid(i.id) || interestStatus[i.id] === false);
-              const inactiveUncovered = overriddenUncovered.filter(i => !isInterestValid(i.id) || interestStatus[i.id] !== true);
-              const inactiveCustom = cityCustomInterests.filter(i => !isInterestValid(i.id) || interestStatus[i.id] === false);
+              const activeBuiltIn = overriddenBuiltIn.filter(i => {
+                const as = (interestConfig[i.id]?.adminStatus) || 'active';
+                return as === 'active' && isInterestValid(i.id) && interestStatus[i.id] !== false;
+              });
+              const activeUncovered = overriddenUncovered.filter(i => {
+                const as = (interestConfig[i.id]?.adminStatus) || 'active';
+                return as === 'active' && isInterestValid(i.id) && interestStatus[i.id] === true;
+              });
+              const activeCustom = cityCustomInterests.filter(i => {
+                const as = (interestConfig[i.id]?.adminStatus) || 'active';
+                return as === 'active' && isInterestValid(i.id) && interestStatus[i.id] !== false;
+              });
+              const inactiveBuiltIn = overriddenBuiltIn.filter(i => {
+                const as = (interestConfig[i.id]?.adminStatus) || 'active';
+                return as === 'active' && (!isInterestValid(i.id) || interestStatus[i.id] === false);
+              });
+              const inactiveUncovered = overriddenUncovered.filter(i => {
+                const as = (interestConfig[i.id]?.adminStatus) || 'active';
+                return as === 'active' && (!isInterestValid(i.id) || interestStatus[i.id] !== true);
+              });
+              const inactiveCustom = cityCustomInterests.filter(i => {
+                const as = (interestConfig[i.id]?.adminStatus) || 'active';
+                return as === 'active' && (!isInterestValid(i.id) || interestStatus[i.id] === false);
+              });
+              // Admin-only: draft and hidden interests
+              const allForAdmin = [...overriddenBuiltIn, ...overriddenUncovered, ...cityCustomInterests];
+              const draftInterests = allForAdmin.filter(i => (interestConfig[i.id]?.adminStatus) === 'draft');
+              const hiddenInterests = allForAdmin.filter(i => (interestConfig[i.id]?.adminStatus) === 'hidden');
               
               return (
                 <>
@@ -2065,7 +2184,7 @@
                   
                   {/* Inactive Interests */}
                   {(inactiveBuiltIn.length + inactiveUncovered.length + inactiveCustom.length) > 0 && (
-                    <div className="mb-2">
+                    <div className="mb-4">
                       <h3 className="text-sm font-bold text-gray-500 mb-2">
                         ⏸️ Disabled interests ({inactiveBuiltIn.length + inactiveUncovered.length + inactiveCustom.length})
                       </h3>
@@ -2073,6 +2192,30 @@
                         {inactiveBuiltIn.map(i => renderInterestRow(i, false, false))}
                         {inactiveUncovered.map(i => renderInterestRow(i, false, false))}
                         {inactiveCustom.map(i => renderInterestRow(i, true, false))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Draft Interests — admin only */}
+                  {isUnlocked && draftInterests.length > 0 && (
+                    <div className="mb-4">
+                      <h3 className="text-sm font-bold text-amber-600 mb-2">
+                        🟡 Draft ({draftInterests.length})
+                      </h3>
+                      <div className="space-y-1">
+                        {draftInterests.map(i => renderInterestRow(i, !!i.custom, !!interestStatus[i.id]))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Hidden Interests — admin only */}
+                  {isUnlocked && hiddenInterests.length > 0 && (
+                    <div className="mb-2">
+                      <h3 className="text-sm font-bold text-red-500 mb-2">
+                        🔴 Hidden ({hiddenInterests.length})
+                      </h3>
+                      <div className="space-y-1">
+                        {hiddenInterests.map(i => renderInterestRow(i, !!i.custom, false))}
                       </div>
                     </div>
                   )}
@@ -3403,7 +3546,7 @@
       )}
 
         {/* Debug Search Log - Floating Badge */}
-        {debugMode && searchDebugLog.length > 0 && currentView === 'form' && !showSearchDebugPanel && (
+        {debugMode && (searchDebugLog.length > 0 || debugSessions.length > 0) && currentView === 'form' && !showSearchDebugPanel && (
           <button
             onClick={() => setShowSearchDebugPanel(true)}
             style={{
@@ -3413,7 +3556,7 @@
               boxShadow: '0 2px 8px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '4px'
             }}
           >
-            🔍 {searchDebugLog.filter(e => e.message.includes('📊')).length}
+            🔍 {searchDebugLog.filter(e => e.message.includes('📊')).length}{debugSessions.length > 0 ? ` 📁${debugSessions.length}` : ''}
           </button>
         )}
 
@@ -3423,6 +3566,7 @@
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: '#f59e0b', color: 'white' }}>
               <h3 style={{ fontWeight: 'bold', fontSize: '14px' }}>🔍 Search Debug Log ({searchDebugLog.length})</h3>
               <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={exportDebugSessions} style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', background: '#2563eb', border: 'none', color: 'white', cursor: 'pointer' }} title="Export all sessions">📋 {debugSessions.length}</button>
                 <button onClick={() => { searchDebugLogRef.current = []; setSearchDebugLog([]); }} style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', background: '#dc2626', border: 'none', color: 'white', cursor: 'pointer' }}>Clear</button>
                 <button onClick={() => setShowSearchDebugPanel(false)} style={{ fontSize: '16px', background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
               </div>
@@ -3485,3 +3629,24 @@
         )}
 
         {/* === DIALOGS (from dialogs.js) === */}
+
+        {/* Debug Sessions Section - inside debug panel area */}
+        {showSearchDebugPanel && debugSessions.length > 0 && (
+          <div className="fixed bottom-0 left-0 right-0 z-50" style={{ maxHeight: '40vh', overflowY: 'auto', background: '#eff6ff', borderTop: '2px solid #93c5fd', padding: '8px 12px', direction: 'ltr', textAlign: 'left' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <b style={{ color: '#1e40af', fontSize: '12px' }}>📁 Saved Sessions ({debugSessions.length})</b>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <button onClick={exportDebugSessions} style={{ fontSize: '10px', padding: '3px 10px', borderRadius: '6px', background: '#2563eb', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>📋 Copy All</button>
+                <button onClick={clearDebugSessions} style={{ fontSize: '10px', padding: '3px 10px', borderRadius: '6px', background: '#dc2626', color: 'white', border: 'none', cursor: 'pointer' }}>🗑️ Clear</button>
+              </div>
+            </div>
+            {debugSessions.slice(-5).reverse().map((sess) => (
+              <div key={sess.id} style={{ marginBottom: '6px', padding: '4px 6px', background: 'white', borderRadius: '6px', fontSize: '10px', border: '1px solid #dbeafe' }}>
+                <div style={{ fontWeight: 'bold' }}>{sess.time} — {sess.areaName || sess.area} ({sess.searchMode})</div>
+                <div style={{ color: '#4b5563' }}>Interests: {sess.interests.map(i => i.label).join(', ')}</div>
+                <div style={{ color: '#374151' }}>{sess.stops.length} stops: {sess.stops.map(s => `${s.custom ? '📌' : '🌐'}${s.name}`).join(', ')}</div>
+              </div>
+            ))}
+            {debugSessions.length > 5 && <div style={{ fontSize: '9px', color: '#6b7280', textAlign: 'center' }}>+ {debugSessions.length - 5} older sessions (use Export to see all)</div>}
+          </div>
+        )}

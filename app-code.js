@@ -852,6 +852,11 @@ const FouFouApp = () => {
   const searchDebugLogRef = useRef([]);
   const [searchDebugLog, setSearchDebugLog] = useState([]);
   const [showSearchDebugPanel, setShowSearchDebugPanel] = useState(false);
+  
+  const [debugSessions, setDebugSessions] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('foufou_debug_sessions') || '[]'); } catch { return []; }
+  });
+  const [stopDebugPopup, setStopDebugPopup] = useState(null); // { stop, x, y } for popup
   const debugModeRef = useRef(debugMode);
   const debugCategoriesRef = useRef(debugCategories);
   useEffect(() => { debugModeRef.current = debugMode; }, [debugMode]);
@@ -875,6 +880,78 @@ const FouFouApp = () => {
   useEffect(() => {
     localStorage.setItem('bangkok_debug_categories', JSON.stringify(debugCategories));
   }, [debugCategories]);
+  
+  useEffect(() => {
+    try { localStorage.setItem('foufou_debug_sessions', JSON.stringify(debugSessions.slice(-20))); } catch(e) {}
+  }, [debugSessions]);
+  
+  const saveDebugSession = (routeObj) => {
+    if (!debugModeRef.current) return;
+    const session = {
+      id: Date.now(),
+      time: new Date().toLocaleString('he-IL'),
+      city: selectedCityId,
+      area: formData.area,
+      areaName: routeObj.areaName,
+      searchMode: formData.searchMode,
+      radiusMeters: formData.searchMode === 'radius' ? formData.radiusMeters : null,
+      interests: formData.interests.map(id => {
+        const opt = allInterestOptions.find(o => o.id === id);
+        return { id, label: tLabel(opt) || id };
+      }),
+      stops: (routeObj.stops || []).map(s => ({
+        name: s.name,
+        rating: s.rating,
+        ratingCount: s.ratingCount,
+        address: s.address,
+        custom: !!s.custom,
+        _debug: s._debug || null
+      }))
+    };
+    setDebugSessions(prev => [...prev, session]);
+  };
+  
+  const exportDebugSessions = () => {
+    if (debugSessions.length === 0) return;
+    const lines = [];
+    debugSessions.forEach((s, si) => {
+      lines.push(`\n${'='.repeat(60)}`);
+      lines.push(`SESSION ${si + 1} — ${s.time} — ${s.city} / ${s.areaName || s.area} (${s.searchMode}${s.radiusMeters ? ' ' + s.radiusMeters + 'm' : ''})`);
+      lines.push(`Interests: ${s.interests.map(i => i.label).join(', ')}`);
+      lines.push(`${'='.repeat(60)}`);
+      (s.stops || []).forEach((st, i) => {
+        const d = st._debug;
+        lines.push(`  ${i+1}. ${st.name} ${st.custom ? '📌' : '🌐'} ⭐${st.rating || '?'} (${st.ratingCount || '?'})`);
+        if (d) {
+          lines.push(`     Interest: ${d.interestLabel} | Source: ${d.source} | Search: ${d.searchType || '-'}`);
+          if (d.query) lines.push(`     Query: "${d.query}"`);
+          if (d.placeTypes) lines.push(`     Types: ${d.placeTypes.join(', ')}`);
+          if (d.blacklist && d.blacklist.length) lines.push(`     Blacklist: ${d.blacklist.join(', ')}`);
+          if (d.googleTypes) lines.push(`     Google types: ${d.googleTypes.join(', ')}`);
+          if (d.primaryType) lines.push(`     Primary: ${d.primaryType}`);
+          if (d.rank) lines.push(`     Rank: ${d.rank}/${d.totalFromGoogle}`);
+          lines.push(`     Area: ${d.area} | Center: ${d.center || '-'} | Radius: ${d.radius || '-'}m`);
+        }
+        if (st.address) lines.push(`     Address: ${st.address}`);
+      });
+    });
+    const text = lines.join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('📋 Debug sessions copied to clipboard!', 'success');
+    }).catch(() => {
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `foufou-debug-${Date.now()}.txt`;
+      a.click(); URL.revokeObjectURL(url);
+      showToast('📥 Debug file downloaded', 'success');
+    });
+  };
+  
+  const clearDebugSessions = () => {
+    setDebugSessions([]);
+    showToast('🗑️ Debug sessions cleared', 'info');
+  };
   
   const helpContent = window.BKK.helpContent;
 
@@ -1399,37 +1476,54 @@ const FouFouApp = () => {
     const builtInIds = interestOptions.map(i => i.id);
     const uncoveredIds = uncoveredInterests.map(i => i.id || i.name.replace(/\s+/g, '_').toLowerCase());
     
-    const defaultStatus = {};
-    builtInIds.forEach(id => { defaultStatus[id] = true; });
-    uncoveredIds.forEach(id => { defaultStatus[id] = false; });
+    const hardDefaults = {};
+    builtInIds.forEach(id => { hardDefaults[id] = true; });
+    uncoveredIds.forEach(id => { hardDefaults[id] = false; });
+    
+    const computeDefaults = (icfg, legacyStatus) => {
+      const defaults = { ...hardDefaults };
+      const hasDefaultFlags = Object.values(icfg || {}).some(c => c?.defaultEnabled !== undefined);
+      if (hasDefaultFlags) {
+        Object.entries(icfg).forEach(([id, cfg]) => {
+          if (cfg?.defaultEnabled !== undefined) defaults[id] = cfg.defaultEnabled;
+        });
+      } else if (legacyStatus) {
+        Object.assign(defaults, legacyStatus);
+      }
+      return defaults;
+    };
     
     if (isFirebaseAvailable && database) {
       const userId = localStorage.getItem('bangkok_user_id') || 'unknown';
-      const adminStatusRef = database.ref('settings/interestStatus');
+      const configRef = database.ref('settings/interestConfig');
+      const legacyStatusRef = database.ref('settings/interestStatus');
       const userStatusRef = database.ref(`users/${userId}/interestStatus`);
       
-      adminStatusRef.once('value').then((adminSnap) => {
-        const adminData = adminSnap.val() || defaultStatus;
-        if (!adminSnap.val()) {
-          adminStatusRef.set(defaultStatus);
-        }
+      Promise.all([
+        configRef.once('value'),
+        legacyStatusRef.once('value'),
+        userStatusRef.once('value')
+      ]).then(([configSnap, legacySnap, userSnap]) => {
+        const icfg = configSnap.val() || {};
+        const legacyStatus = legacySnap.val();
+        const userData = userSnap.val();
         
-        return userStatusRef.once('value').then((userSnap) => {
-          const userData = userSnap.val();
-          if (userData) {
-            setInterestStatus({ ...defaultStatus, ...adminData, ...userData });
-          } else {
-            setInterestStatus({ ...defaultStatus, ...adminData });
-          }
-          markLoaded('status');
-        });
+        const defaults = computeDefaults(icfg, legacyStatus);
+        
+        if (userData) {
+          setInterestStatus({ ...defaults, ...userData });
+        } else {
+          setInterestStatus(defaults);
+        }
+        markLoaded('status');
       }).catch(err => {
         console.error('[FIREBASE] Error loading interest status:', err);
-        setInterestStatus(defaultStatus);
+        setInterestStatus(hardDefaults);
         markLoaded('status');
       });
       
-      userStatusRef.on('value', (snapshot) => {
+      const userStatusRef2 = database.ref(`users/${localStorage.getItem('bangkok_user_id') || 'unknown'}/interestStatus`);
+      userStatusRef2.on('value', (snapshot) => {
         const data = snapshot.val();
         if (data) {
           setInterestStatus(prev => ({ ...prev, ...data }));
@@ -1439,12 +1533,12 @@ const FouFouApp = () => {
       try {
         const saved = localStorage.getItem('bangkok_interest_status');
         if (saved) {
-          setInterestStatus({ ...defaultStatus, ...JSON.parse(saved) });
+          setInterestStatus({ ...hardDefaults, ...JSON.parse(saved) });
         } else {
-          setInterestStatus(defaultStatus);
+          setInterestStatus(hardDefaults);
         }
       } catch (e) {
-        setInterestStatus(defaultStatus);
+        setInterestStatus(hardDefaults);
       }
       markLoaded('status');
     }
@@ -1531,13 +1625,21 @@ const FouFouApp = () => {
             setInterestConfig(prev => ({ ...prev, ...s.interestConfig }));
           }
           
-          if (s.interestStatus) {
+          {
             const builtInIds = interestOptions.map(i => i.id);
             const uncoveredIds = uncoveredInterests.map(i => i.id || i.name.replace(/\s+/g, '_').toLowerCase());
+            const icfg = s.interestConfig || {};
             const defaultStatus = {};
-            builtInIds.forEach(id => { defaultStatus[id] = true; });
-            uncoveredIds.forEach(id => { defaultStatus[id] = false; });
-            setInterestStatus({ ...defaultStatus, ...s.interestStatus });
+            builtInIds.forEach(id => { 
+              defaultStatus[id] = icfg[id]?.defaultEnabled !== undefined ? icfg[id].defaultEnabled : true; 
+            });
+            uncoveredIds.forEach(id => { 
+              defaultStatus[id] = icfg[id]?.defaultEnabled !== undefined ? icfg[id].defaultEnabled : false; 
+            });
+            if (s.interestStatus && !Object.values(icfg).some(c => c?.defaultEnabled !== undefined)) {
+              Object.assign(defaultStatus, s.interestStatus);
+            }
+            setInterestStatus(defaultStatus);
           }
           
           setAdminPassword(s.adminPassword || '');
@@ -2309,7 +2411,24 @@ const FouFouApp = () => {
             address: place.formattedAddress || '',
             openNow: openingHours?.openNow ?? null,
             todayHours: hoursOnly || '',
-            interests: interests
+            interests: interests,
+            _debug: {
+              source: 'google',
+              interestId: validInterests[0],
+              interestLabel: tLabel(allInterestOptions.find(o => o.id === validInterests[0])) || validInterests[0],
+              searchType: isTextSearch ? 'text' : 'category',
+              query: isTextSearch ? textSearchQuery : null,
+              placeTypes: isTextSearch ? null : placeTypes,
+              blacklist: blacklistWords,
+              area: area || 'radius',
+              center: `${center.lat.toFixed(4)},${center.lng.toFixed(4)}`,
+              radius: searchRadius,
+              googleTypes: (place.types || []).slice(0, 8),
+              primaryType: place.primaryType || '',
+              rank: index + 1,
+              totalFromGoogle: data.places.length,
+              timestamp: Date.now()
+            }
           };
         });
       
@@ -2321,6 +2440,8 @@ const FouFouApp = () => {
         typeFiltered: typeFilteredCount,
         relevanceFiltered: relevanceFilteredCount,
         places: debugPlaceResults
+      });
+      debugPlaceResults.forEach((p, i) => {
       });
       
       const areaConfig = areaCoordinates[area] || {};
@@ -2344,6 +2465,8 @@ const FouFouApp = () => {
         afterDistance: distanceFiltered.length,
         removed: { blacklist: blacklistFilteredCount, type: typeFilteredCount, relevance: relevanceFilteredCount, distance: transformed.length - distanceFiltered.length },
         finalPlaces: distanceFiltered.map(p => `${p.name} ⭐${p.rating} (${p.ratingCount})`)
+      });
+      distanceFiltered.forEach((p, i) => {
       });
       
       return distanceFiltered;
@@ -2484,7 +2607,8 @@ const FouFouApp = () => {
         category: config.category || opt.category || 'attraction',
         weight: config.weight || opt.weight || sp.defaultInterestWeight,
         minStops: config.minStops != null ? config.minStops : (opt.minStops != null ? opt.minStops : 1),
-        maxStops: config.maxStops || opt.maxStops || 10
+        maxStops: config.maxStops || opt.maxStops || 10,
+        adminStatus: config.adminStatus || 'active' // 'active' | 'draft' | 'hidden'
       };
     });
   }, [interestOptions, uncoveredInterests, cityCustomInterests, interestConfig]);
@@ -2709,7 +2833,16 @@ const FouFouApp = () => {
     if (!isDataLoaded) return;
     if (formData.interests.length === 0) return;
     const visibleIds = allInterestOptions
-      .filter(opt => opt && opt.id && isInterestValid(opt.id))
+      .filter(opt => {
+        if (!opt || !opt.id || !isInterestValid(opt.id)) return false;
+        const aStatus = opt.adminStatus || 'active';
+        if (aStatus === 'hidden') return false;
+        if (aStatus === 'draft' && !isUnlocked) return false;
+        const status = interestStatus[opt.id];
+        if (opt.uncovered) return status === true;
+        if (opt.scope === 'local' && opt.cityId && opt.cityId !== selectedCityId) return false;
+        return status !== false;
+      })
       .map(opt => opt.id);
     const cleaned = formData.interests.filter(id => visibleIds.includes(id));
     if (cleaned.length !== formData.interests.length) {
@@ -2717,7 +2850,7 @@ const FouFouApp = () => {
       const removedNames = removed.map(id => allInterestOptions.find(o => o.id === id)).filter(Boolean).map(o => tLabel(o) || o?.id || id).join(', ');
       setFormData(prev => ({ ...prev, interests: cleaned }));
     }
-  }, [interestConfig, cityCustomInterests, isDataLoaded]);
+  }, [interestConfig, cityCustomInterests, isDataLoaded, interestStatus, selectedCityId, isUnlocked]);
 
   const getStopsForInterests = () => {
     const isRadiusMode = formData.searchMode === 'radius' || formData.searchMode === 'all';
@@ -3202,11 +3335,33 @@ const FouFouApp = () => {
     setIsGenerating(true);
     
     try {
+      const activeInterests = formData.interests.filter(id => {
+        const opt = allInterestOptions.find(o => o.id === id);
+        if (!opt) return false;
+        const aStatus = opt.adminStatus || 'active';
+        if (aStatus === 'hidden') return false;
+        if (aStatus === 'draft' && !isUnlocked) return false;
+        if (opt.scope === 'local' && opt.cityId && opt.cityId !== selectedCityId) return false;
+        const status = interestStatus[id];
+        if (opt.uncovered) return status === true;
+        return status !== false;
+      });
+      if (activeInterests.length !== formData.interests.length) {
+        const removed = formData.interests.filter(id => !activeInterests.includes(id));
+        setFormData(prev => ({ ...prev, interests: activeInterests }));
+        if (activeInterests.length === 0) {
+          showToast(t('form.selectAtLeastOneInterest'), 'warning');
+          setIsGenerating(false);
+          return;
+        }
+      }
+      const searchInterests = activeInterests;
+      
       addDebugLog('ROUTE', 'Starting route generation', { 
         mode: formData.searchMode, 
         area: formData.area, 
         radius: isRadiusMode ? formData.radiusMeters : null,
-        interests: formData.interests, 
+        interests: searchInterests, 
         maxStops: formData.maxStops 
       });
       
@@ -3218,7 +3373,7 @@ const FouFouApp = () => {
       const interestLimits = {};
       let totalWeight = 0;
       const interestCfg = {};
-      for (const interest of formData.interests) {
+      for (const interest of searchInterests) {
         const interestObj = allInterestOptions.find(o => o.id === interest);
         interestCfg[interest] = {
           weight: interestObj?.weight || sp.defaultInterestWeight,
@@ -3229,7 +3384,7 @@ const FouFouApp = () => {
       }
       
       let allocated = 0;
-      for (const interest of formData.interests) {
+      for (const interest of searchInterests) {
         const min = Math.min(interestCfg[interest].minStops, interestCfg[interest].maxStops, maxStops - allocated);
         interestLimits[interest] = min;
         allocated += min;
@@ -3239,12 +3394,12 @@ const FouFouApp = () => {
       if (remaining > 0 && totalWeight > 0) {
         for (let pass = 0; pass < 3 && remaining > 0; pass++) {
           let activeWeight = 0;
-          for (const interest of formData.interests) {
+          for (const interest of searchInterests) {
             if (interestLimits[interest] < interestCfg[interest].maxStops) activeWeight += interestCfg[interest].weight;
           }
           if (activeWeight <= 0) break;
           
-          for (const interest of formData.interests) {
+          for (const interest of searchInterests) {
             if (remaining <= 0) break;
             if (interestLimits[interest] >= interestCfg[interest].maxStops) continue;
             const share = Math.floor((interestCfg[interest].weight / activeWeight) * remaining);
@@ -3256,7 +3411,7 @@ const FouFouApp = () => {
         }
         
         remaining = maxStops - allocated;
-        const sorted = [...formData.interests].sort((a, b) => interestCfg[b].weight - interestCfg[a].weight);
+        const sorted = [...searchInterests].sort((a, b) => interestCfg[b].weight - interestCfg[a].weight);
         for (const interest of sorted) {
           if (remaining <= 0) break;
           if (interestLimits[interest] >= interestCfg[interest].maxStops) continue;
@@ -3271,7 +3426,7 @@ const FouFouApp = () => {
       
       googleCacheRef.current = {};
       
-      for (const interest of formData.interests) {
+      for (const interest of searchInterests) {
         const stopsForThisInterest = interestLimits[interest] || 2;
         
         const customStopsForInterest = customStops.filter(stop => 
@@ -3281,7 +3436,14 @@ const FouFouApp = () => {
         const customToUse = customStopsForInterest.slice(0, stopsForThisInterest);
         for (const cs of customToUse) {
           if (!allStops.some(s => s.name.toLowerCase().trim() === cs.name.toLowerCase().trim())) {
-            allStops.push(cs);
+            allStops.push({ ...cs, _debug: {
+              source: 'custom',
+              interestId: interest,
+              interestLabel: tLabel(allInterestOptions.find(o => o.id === interest)) || interest,
+              area: formData.area || 'radius',
+              searchMode: formData.searchMode,
+              timestamp: Date.now()
+            }});
           }
         }
         
@@ -3343,6 +3505,9 @@ const FouFouApp = () => {
           const cachedPlaces = sortedAll.slice(neededFromApi);
           
           googleCacheRef.current[interest] = cachedPlaces;
+          sortedPlaces.forEach((p, i) => console.log(`  ✅ ${i+1}. ${p.name} — ⭐${p.rating} (${p.ratingCount})`));
+          if (cachedPlaces.length > 0) {
+          }
           
           interestResults[interest] = {
             requested: stopsForThisInterest,
@@ -3382,9 +3547,9 @@ const FouFouApp = () => {
       
       if (missing > 0) {
         const currentCountPerInterest = {};
-        for (const interest of formData.interests) currentCountPerInterest[interest] = 0;
+        for (const interest of searchInterests) currentCountPerInterest[interest] = 0;
         for (const stop of uniqueStops) {
-          for (const interest of formData.interests) {
+          for (const interest of searchInterests) {
             if (stop.interests?.includes(interest)) {
               currentCountPerInterest[interest] = (currentCountPerInterest[interest] || 0) + 1;
             }
@@ -3393,7 +3558,7 @@ const FouFouApp = () => {
         
         const additionalPlaces = [];
         
-        for (const interest of formData.interests) {
+        for (const interest of searchInterests) {
           const result = interestResults[interest];
           const alreadyUsed = result.fetched;
           const available = result.allPlaces.length;
@@ -3439,7 +3604,7 @@ const FouFouApp = () => {
         uniqueStops = finalStops;
         
         const usedInRound2 = new Set(sorted.map(s => s.name.toLowerCase().trim()));
-        for (const interest of formData.interests) {
+        for (const interest of searchInterests) {
           if (googleCacheRef.current[interest]?.length > 0) {
             googleCacheRef.current[interest] = googleCacheRef.current[interest]
               .filter(p => !usedInRound2.has(p.name.toLowerCase().trim()));
@@ -3495,7 +3660,7 @@ const FouFouApp = () => {
         const selectedArea = areaOptions.find(a => a.id === formData.area);
         areaName = tLabel(selectedArea) || t('general.allCity');
       }
-      interestsText = formData.interests
+      interestsText = searchInterests
         .map(id => allInterestOptions.filter(o => o && o.id).find(o => o.id === id)).map(o => o ? tLabel(o) : null)
         .filter(Boolean)
         .join(', ');
@@ -3524,7 +3689,7 @@ const FouFouApp = () => {
         startPoint: (startPointCoords?.address) || formData.startPoint || t('form.startPointFirst'),
         startPointCoords: startPointCoords || null,
         stops: uniqueStops,
-        preferences: { ...formData },
+        preferences: { ...formData, interests: searchInterests },
         stats: {
           custom: customStops.length,
           fetched: uniqueStops.length - customStops.length,
@@ -3550,6 +3715,8 @@ const FouFouApp = () => {
       }
 
       setRoute(newRoute);
+      
+      saveDebugSession(newRoute);
       
       const lockedNames = newRoute.stops
         .filter(s => s.custom && (s.locked || customLocations.find(cl => cl.name === s.name)?.locked))
@@ -4024,6 +4191,10 @@ const FouFouApp = () => {
     const updatedStatus = { ...interestStatus, [interestId]: newStatus };
     setInterestStatus(updatedStatus);
     
+    if (!newStatus && formData.interests.includes(interestId)) {
+      setFormData(prev => ({ ...prev, interests: prev.interests.filter(id => id !== interestId) }));
+    }
+    
     if (isFirebaseAvailable && database) {
       const userId = localStorage.getItem('bangkok_user_id') || 'unknown';
       database.ref(`users/${userId}/interestStatus/${interestId}`).set(newStatus)
@@ -4037,19 +4208,32 @@ const FouFouApp = () => {
     }
   };
 
+  const computeDefaultInterestStatus = () => {
+    const defaults = {};
+    for (const i of interestOptions) {
+      const cfg = interestConfig[i.id];
+      defaults[i.id] = cfg?.defaultEnabled !== undefined ? cfg.defaultEnabled : true;
+    }
+    for (const i of uncoveredInterests) {
+      const id = i.id || i.name.replace(/\s+/g, '_').toLowerCase();
+      const cfg = interestConfig[id];
+      defaults[id] = cfg?.defaultEnabled !== undefined ? cfg.defaultEnabled : false;
+    }
+    for (const i of (cityCustomInterests || [])) {
+      const cfg = interestConfig[i.id];
+      defaults[i.id] = cfg?.defaultEnabled !== undefined ? cfg.defaultEnabled : true;
+    }
+    return defaults;
+  };
+
   const resetInterestStatusToDefault = async () => {
+    const defaults = computeDefaultInterestStatus();
+    
     if (isFirebaseAvailable && database) {
       const userId = localStorage.getItem('bangkok_user_id') || 'unknown';
       try {
         await database.ref(`users/${userId}/interestStatus`).remove();
-        const adminSnap = await database.ref('settings/interestStatus').once('value');
-        const adminData = adminSnap.val() || {};
-        const builtInIds = interestOptions.map(i => i.id);
-        const uncoveredIds = uncoveredInterests.map(i => i.id || i.name.replace(/\s+/g, '_').toLowerCase());
-        const defaultStatus = {};
-        builtInIds.forEach(id => { defaultStatus[id] = true; });
-        uncoveredIds.forEach(id => { defaultStatus[id] = false; });
-        setInterestStatus({ ...defaultStatus, ...adminData });
+        setInterestStatus(defaults);
         showToast(t('interests.interestsReset'), 'success');
       } catch (err) {
         console.error('Error resetting interest status:', err);
@@ -4057,14 +4241,50 @@ const FouFouApp = () => {
       }
     } else {
       localStorage.removeItem('bangkok_interest_status');
-      const builtInIds = interestOptions.map(i => i.id);
-      const uncoveredIds = uncoveredInterests.map(i => i.id || i.name.replace(/\s+/g, '_').toLowerCase());
-      const defaultStatus = {};
-      builtInIds.forEach(id => { defaultStatus[id] = true; });
-      uncoveredIds.forEach(id => { defaultStatus[id] = false; });
-      setInterestStatus(defaultStatus);
+      setInterestStatus(defaults);
       showToast(t('interests.interestsReset'), 'success');
     }
+  };
+
+  const toggleDefaultEnabled = async (interestId) => {
+    if (!isUnlocked) return;
+    const currentConfig = interestConfig[interestId] || {};
+    const builtInIds = interestOptions.map(i => i.id);
+    const hardDefault = builtInIds.includes(interestId) ? true : false;
+    const currentDefault = currentConfig.defaultEnabled !== undefined ? currentConfig.defaultEnabled : hardDefault;
+    const newDefault = !currentDefault;
+    
+    const updatedConfig = { ...interestConfig, [interestId]: { ...currentConfig, defaultEnabled: newDefault } };
+    setInterestConfig(updatedConfig);
+    
+    if (isFirebaseAvailable && database) {
+      try {
+        await database.ref(`settings/interestConfig/${interestId}/defaultEnabled`).set(newDefault);
+      } catch (err) {
+        console.error('Error saving defaultEnabled:', err);
+      }
+    }
+  };
+
+  const cycleAdminStatus = async (interestId) => {
+    if (!isUnlocked) return;
+    const currentConfig = interestConfig[interestId] || {};
+    const current = currentConfig.adminStatus || 'active';
+    const next = current === 'active' ? 'draft' : current === 'draft' ? 'hidden' : 'active';
+    
+    const updatedConfig = { ...interestConfig, [interestId]: { ...currentConfig, adminStatus: next } };
+    setInterestConfig(updatedConfig);
+    
+    if (isFirebaseAvailable && database) {
+      try {
+        await database.ref(`settings/interestConfig/${interestId}/adminStatus`).set(next);
+      } catch (err) {
+        console.error('Error saving adminStatus:', err);
+      }
+    }
+    
+    const labels = { active: '🟢', draft: '🟡', hidden: '🔴' };
+    showToast(`${labels[next]} ${interestId} → ${next}`, 'info');
   };
 
   const isInterestValid = (interestId) => {
@@ -6143,12 +6363,16 @@ const FouFouApp = () => {
                 {/* Interest Grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '12px' }}>
                   {allInterestOptions.filter(option => {
+                    const aStatus = option.adminStatus || 'active';
+                    if (aStatus === 'hidden') return false;
+                    if (aStatus === 'draft' && !isUnlocked) return false;
                     const status = interestStatus[option.id];
                     if (option.uncovered) return status === true;
                     if (option.scope === 'local' && option.cityId && option.cityId !== selectedCityId) return false;
                     return status !== false;
                   }).filter(option => isInterestValid(option.id)).map(option => {
                     const isSelected = formData.interests.includes(option.id);
+                    const isDraft = (option.adminStatus || 'active') === 'draft';
                     return (
                       <button
                         key={option.id}
@@ -6160,10 +6384,12 @@ const FouFouApp = () => {
                         }}
                         style={{
                           padding: '8px 4px', borderRadius: '10px', cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s',
-                          border: isSelected ? '2px solid #2563eb' : '2px solid #e5e7eb',
-                          background: isSelected ? '#eff6ff' : 'white'
+                          border: isSelected ? '2px solid #2563eb' : isDraft ? '2px dashed #f59e0b' : '2px solid #e5e7eb',
+                          background: isSelected ? '#eff6ff' : isDraft ? '#fffbeb' : 'white',
+                          position: 'relative'
                         }}
                       >
+                        {isDraft && <span style={{ position: 'absolute', top: '2px', right: '4px', fontSize: '8px' }}>🟡</span>}
                         <div style={{ fontSize: '22px', marginBottom: '2px' }}>{option.icon?.startsWith?.('data:') ? <img src={option.icon} alt="" style={{ width: '24px', height: '24px', objectFit: 'contain', display: 'inline' }} /> : option.icon}</div>
                         <div style={{ fontWeight: '700', fontSize: '11px', color: isSelected ? '#1e40af' : '#374151', wordBreak: 'break-word' }}>{tLabel(option)}</div>
                       </button>
@@ -6432,7 +6658,19 @@ const FouFouApp = () => {
                     });
                     
                     return Object.entries(groupedStops)
-                      .filter(([interest]) => interest === '_manual' || formData.interests.includes(interest))
+                      .filter(([interest]) => {
+                        if (interest === '_manual') return true;
+                        if (!formData.interests.includes(interest)) return false;
+                        const opt = allInterestOptions.find(o => o.id === interest);
+                        if (!opt) return false;
+                        const aStatus = opt.adminStatus || 'active';
+                        if (aStatus === 'hidden') return false;
+                        if (aStatus === 'draft' && !isUnlocked) return false;
+                        if (opt.scope === 'local' && opt.cityId && opt.cityId !== selectedCityId) return false;
+                        const status = interestStatus[interest];
+                        if (opt.uncovered) return status === true;
+                        return status !== false;
+                      })
                       .map(([interest, stops]) => {
                       const isManualGroup = interest === '_manual';
                       const interestObj = isManualGroup ? { id: '_manual', label: t('general.addedManually'), icon: '📍' } : interestMap[interest];
@@ -6531,6 +6769,24 @@ const FouFouApp = () => {
                                         </span>
                                       )}
                                       <span>{stop.name}</span>
+                                      {/* Debug info button — admin + debug mode only */}
+                                      {isUnlocked && debugMode && stop._debug && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setStopDebugPopup(stopDebugPopup?.name === stop.name ? null : stop);
+                                          }}
+                                          style={{
+                                            fontSize: '9px', padding: '0 3px', borderRadius: '4px',
+                                            background: stopDebugPopup?.name === stop.name ? '#f59e0b' : '#e5e7eb',
+                                            color: stopDebugPopup?.name === stop.name ? 'white' : '#6b7280',
+                                            border: 'none', cursor: 'pointer', lineHeight: '14px',
+                                            fontWeight: 'bold', flexShrink: 0
+                                          }}
+                                          title="Debug info"
+                                        >i</button>
+                                      )}
                                       {isStartPoint && (
                                         <span className="text-[8px] bg-green-600 text-white px-1 py-0.5 rounded font-bold">{t("general.start")}</span>
                                       )}
@@ -6594,6 +6850,28 @@ const FouFouApp = () => {
                                       );
                                     })()}
                                   </a>
+                                  {/* Debug info popup — admin + debug mode only */}
+                                  {isUnlocked && debugMode && stopDebugPopup?.name === stop.name && stop._debug && (() => {
+                                    const d = stop._debug;
+                                    return (
+                                      <div style={{
+                                        fontSize: '10px', padding: '6px 8px', margin: '4px 0',
+                                        background: '#fffbeb', border: '1px solid #f59e0b', borderRadius: '6px',
+                                        direction: 'ltr', textAlign: 'left', lineHeight: '1.5'
+                                      }}>
+                                        <div style={{ fontWeight: 'bold', color: '#92400e', marginBottom: '2px' }}>
+                                          {d.source === 'custom' ? '📌 Custom' : '🌐 Google'} — {d.interestLabel}
+                                        </div>
+                                        {d.searchType && <div><b>Search:</b> {d.searchType}{d.query ? ` → "${d.query}"` : ''}</div>}
+                                        {d.placeTypes && <div><b>Types:</b> {d.placeTypes.join(', ')}</div>}
+                                        {d.blacklist && d.blacklist.length > 0 && <div><b>Blacklist:</b> {d.blacklist.join(', ')}</div>}
+                                        {d.googleTypes && <div><b>Google types:</b> {d.googleTypes.join(', ')}</div>}
+                                        {d.primaryType && <div><b>Primary:</b> {d.primaryType}</div>}
+                                        {d.rank && <div><b>Rank:</b> {d.rank}/{d.totalFromGoogle}</div>}
+                                        <div><b>Area:</b> {d.area} | <b>Center:</b> {d.center || '-'} | <b>R:</b> {d.radius || '-'}m</div>
+                                      </div>
+                                    );
+                                  })()}
                                   {/* Add to favorites row — Google places only */}
                                   {!isCustom && !isDisabled && (() => {
                                     const existingLoc = customLocations.find(loc => loc.name.toLowerCase().trim() === stop.name.toLowerCase().trim());
@@ -7413,7 +7691,12 @@ const FouFouApp = () => {
               const renderInterestRow = (interest, isCustom = false, isActive = true) => {
                 const isValid = isInterestValid(interest.id);
                 const effectiveActive = isValid ? isActive : false; // Invalid always inactive
-                const borderClass = !effectiveActive ? 'border border-gray-300 bg-gray-50 opacity-60'
+                const aStatus = interest.adminStatus || (interestConfig[interest.id]?.adminStatus) || 'active';
+                const isDraft = aStatus === 'draft';
+                const isHidden = aStatus === 'hidden';
+                const borderClass = isHidden ? 'border-2 border-red-300 bg-red-50 opacity-50'
+                  : isDraft ? 'border-2 border-amber-300 bg-amber-50'
+                  : !effectiveActive ? 'border border-gray-300 bg-gray-50 opacity-60'
                   : isCustom ? (isValid ? 'border border-gray-200 bg-white' : 'border-2 border-red-400 bg-red-50')
                   : (isValid ? 'border border-gray-200 bg-white' : 'border-2 border-red-400 bg-red-50');
                 
@@ -7421,12 +7704,44 @@ const FouFouApp = () => {
                   <div key={interest.id} className={`flex items-center justify-between gap-2 rounded-lg p-2 ${borderClass}`}>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <span className="text-lg flex-shrink-0">{interest.icon?.startsWith?.('data:') ? <img src={interest.icon} alt="" className="w-5 h-5 object-contain" /> : interest.icon}</span>
-                      <span className={`font-medium text-sm truncate ${!effectiveActive ? 'text-gray-500' : ''}`}>{tLabel(interest)}</span>
+                      <span className={`font-medium text-sm truncate ${isHidden ? 'text-red-400 line-through' : isDraft ? 'text-amber-700' : !effectiveActive ? 'text-gray-500' : ''}`}>{tLabel(interest)}</span>
                       {isCustom && <span className="text-[10px] bg-purple-200 text-purple-800 px-1 py-0.5 rounded flex-shrink-0">{t("general.custom")}</span>}
                       {!isValid && <span className="text-red-500 text-xs flex-shrink-0" title={t("interests.missingSearchConfig")}>⚠️</span>}
                       {interest.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '11px' }} className="flex-shrink-0">🔒</span>}
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
+                      {/* Admin status cycle — admin only */}
+                      {isUnlocked && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); cycleAdminStatus(interest.id); }}
+                          style={{
+                            fontSize: '9px', padding: '1px 4px', borderRadius: '4px',
+                            background: isHidden ? '#fee2e2' : isDraft ? '#fef3c7' : '#dcfce7',
+                            border: `1px solid ${isHidden ? '#fca5a5' : isDraft ? '#fcd34d' : '#86efac'}`,
+                            cursor: 'pointer', lineHeight: '14px'
+                          }}
+                          title={`Status: ${aStatus} (click to cycle)`}
+                        >{isHidden ? '🔴' : isDraft ? '🟡' : '🟢'}</button>
+                      )}
+                      {/* Default flag toggle — admin only */}
+                      {isUnlocked && (() => {
+                        const cfg = interestConfig[interest.id] || {};
+                        const builtInDefault = interestOptions.some(i => i.id === interest.id);
+                        const isDefault = cfg.defaultEnabled !== undefined ? cfg.defaultEnabled : builtInDefault;
+                        return (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleDefaultEnabled(interest.id); }}
+                            style={{
+                              fontSize: '9px', padding: '1px 4px', borderRadius: '4px',
+                              background: isDefault ? '#dbeafe' : '#f3f4f6',
+                              color: isDefault ? '#1d4ed8' : '#9ca3af',
+                              border: `1px solid ${isDefault ? '#93c5fd' : '#d1d5db'}`,
+                              cursor: 'pointer', lineHeight: '14px'
+                            }}
+                            title={isDefault ? 'Default: ON (click to change)' : 'Default: OFF (click to change)'}
+                          >{isDefault ? '🔵' : '⚪'}</button>
+                        );
+                      })()}
                       {/* Toggle button */}
                       <button
                         onClick={() => toggleInterestStatus(interest.id)}
@@ -7460,12 +7775,33 @@ const FouFouApp = () => {
                 if (!cfg) return i;
                 return { ...i, label: cfg.labelOverride || i.label, icon: cfg.iconOverride || i.icon, locked: cfg.locked !== undefined ? cfg.locked : i.locked };
               });
-              const activeBuiltIn = overriddenBuiltIn.filter(i => isInterestValid(i.id) && interestStatus[i.id] !== false);
-              const activeUncovered = overriddenUncovered.filter(i => isInterestValid(i.id) && interestStatus[i.id] === true);
-              const activeCustom = cityCustomInterests.filter(i => isInterestValid(i.id) && interestStatus[i.id] !== false);
-              const inactiveBuiltIn = overriddenBuiltIn.filter(i => !isInterestValid(i.id) || interestStatus[i.id] === false);
-              const inactiveUncovered = overriddenUncovered.filter(i => !isInterestValid(i.id) || interestStatus[i.id] !== true);
-              const inactiveCustom = cityCustomInterests.filter(i => !isInterestValid(i.id) || interestStatus[i.id] === false);
+              const activeBuiltIn = overriddenBuiltIn.filter(i => {
+                const as = (interestConfig[i.id]?.adminStatus) || 'active';
+                return as === 'active' && isInterestValid(i.id) && interestStatus[i.id] !== false;
+              });
+              const activeUncovered = overriddenUncovered.filter(i => {
+                const as = (interestConfig[i.id]?.adminStatus) || 'active';
+                return as === 'active' && isInterestValid(i.id) && interestStatus[i.id] === true;
+              });
+              const activeCustom = cityCustomInterests.filter(i => {
+                const as = (interestConfig[i.id]?.adminStatus) || 'active';
+                return as === 'active' && isInterestValid(i.id) && interestStatus[i.id] !== false;
+              });
+              const inactiveBuiltIn = overriddenBuiltIn.filter(i => {
+                const as = (interestConfig[i.id]?.adminStatus) || 'active';
+                return as === 'active' && (!isInterestValid(i.id) || interestStatus[i.id] === false);
+              });
+              const inactiveUncovered = overriddenUncovered.filter(i => {
+                const as = (interestConfig[i.id]?.adminStatus) || 'active';
+                return as === 'active' && (!isInterestValid(i.id) || interestStatus[i.id] !== true);
+              });
+              const inactiveCustom = cityCustomInterests.filter(i => {
+                const as = (interestConfig[i.id]?.adminStatus) || 'active';
+                return as === 'active' && (!isInterestValid(i.id) || interestStatus[i.id] === false);
+              });
+              const allForAdmin = [...overriddenBuiltIn, ...overriddenUncovered, ...cityCustomInterests];
+              const draftInterests = allForAdmin.filter(i => (interestConfig[i.id]?.adminStatus) === 'draft');
+              const hiddenInterests = allForAdmin.filter(i => (interestConfig[i.id]?.adminStatus) === 'hidden');
               
               return (
                 <>
@@ -7483,7 +7819,7 @@ const FouFouApp = () => {
                   
                   {/* Inactive Interests */}
                   {(inactiveBuiltIn.length + inactiveUncovered.length + inactiveCustom.length) > 0 && (
-                    <div className="mb-2">
+                    <div className="mb-4">
                       <h3 className="text-sm font-bold text-gray-500 mb-2">
                         ⏸️ Disabled interests ({inactiveBuiltIn.length + inactiveUncovered.length + inactiveCustom.length})
                       </h3>
@@ -7491,6 +7827,30 @@ const FouFouApp = () => {
                         {inactiveBuiltIn.map(i => renderInterestRow(i, false, false))}
                         {inactiveUncovered.map(i => renderInterestRow(i, false, false))}
                         {inactiveCustom.map(i => renderInterestRow(i, true, false))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Draft Interests — admin only */}
+                  {isUnlocked && draftInterests.length > 0 && (
+                    <div className="mb-4">
+                      <h3 className="text-sm font-bold text-amber-600 mb-2">
+                        🟡 Draft ({draftInterests.length})
+                      </h3>
+                      <div className="space-y-1">
+                        {draftInterests.map(i => renderInterestRow(i, !!i.custom, !!interestStatus[i.id]))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Hidden Interests — admin only */}
+                  {isUnlocked && hiddenInterests.length > 0 && (
+                    <div className="mb-2">
+                      <h3 className="text-sm font-bold text-red-500 mb-2">
+                        🔴 Hidden ({hiddenInterests.length})
+                      </h3>
+                      <div className="space-y-1">
+                        {hiddenInterests.map(i => renderInterestRow(i, !!i.custom, false))}
                       </div>
                     </div>
                   )}
@@ -8806,7 +9166,7 @@ const FouFouApp = () => {
       )}
 
         {/* Debug Search Log - Floating Badge */}
-        {debugMode && searchDebugLog.length > 0 && currentView === 'form' && !showSearchDebugPanel && (
+        {debugMode && (searchDebugLog.length > 0 || debugSessions.length > 0) && currentView === 'form' && !showSearchDebugPanel && (
           <button
             onClick={() => setShowSearchDebugPanel(true)}
             style={{
@@ -8816,7 +9176,7 @@ const FouFouApp = () => {
               boxShadow: '0 2px 8px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '4px'
             }}
           >
-            🔍 {searchDebugLog.filter(e => e.message.includes('📊')).length}
+            🔍 {searchDebugLog.filter(e => e.message.includes('📊')).length}{debugSessions.length > 0 ? ` 📁${debugSessions.length}` : ''}
           </button>
         )}
 
@@ -8826,6 +9186,7 @@ const FouFouApp = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: '#f59e0b', color: 'white' }}>
               <h3 style={{ fontWeight: 'bold', fontSize: '14px' }}>🔍 Search Debug Log ({searchDebugLog.length})</h3>
               <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={exportDebugSessions} style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', background: '#2563eb', border: 'none', color: 'white', cursor: 'pointer' }} title="Export all sessions">📋 {debugSessions.length}</button>
                 <button onClick={() => { searchDebugLogRef.current = []; setSearchDebugLog([]); }} style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', background: '#dc2626', border: 'none', color: 'white', cursor: 'pointer' }}>Clear</button>
                 <button onClick={() => setShowSearchDebugPanel(false)} style={{ fontSize: '16px', background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
               </div>
@@ -8888,6 +9249,27 @@ const FouFouApp = () => {
         )}
 
         {/* === DIALOGS (from dialogs.js) === */}
+
+        {/* Debug Sessions Section - inside debug panel area */}
+        {showSearchDebugPanel && debugSessions.length > 0 && (
+          <div className="fixed bottom-0 left-0 right-0 z-50" style={{ maxHeight: '40vh', overflowY: 'auto', background: '#eff6ff', borderTop: '2px solid #93c5fd', padding: '8px 12px', direction: 'ltr', textAlign: 'left' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <b style={{ color: '#1e40af', fontSize: '12px' }}>📁 Saved Sessions ({debugSessions.length})</b>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <button onClick={exportDebugSessions} style={{ fontSize: '10px', padding: '3px 10px', borderRadius: '6px', background: '#2563eb', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>📋 Copy All</button>
+                <button onClick={clearDebugSessions} style={{ fontSize: '10px', padding: '3px 10px', borderRadius: '6px', background: '#dc2626', color: 'white', border: 'none', cursor: 'pointer' }}>🗑️ Clear</button>
+              </div>
+            </div>
+            {debugSessions.slice(-5).reverse().map((sess) => (
+              <div key={sess.id} style={{ marginBottom: '6px', padding: '4px 6px', background: 'white', borderRadius: '6px', fontSize: '10px', border: '1px solid #dbeafe' }}>
+                <div style={{ fontWeight: 'bold' }}>{sess.time} — {sess.areaName || sess.area} ({sess.searchMode})</div>
+                <div style={{ color: '#4b5563' }}>Interests: {sess.interests.map(i => i.label).join(', ')}</div>
+                <div style={{ color: '#374151' }}>{sess.stops.length} stops: {sess.stops.map(s => `${s.custom ? '📌' : '🌐'}${s.name}`).join(', ')}</div>
+              </div>
+            ))}
+            {debugSessions.length > 5 && <div style={{ fontSize: '9px', color: '#6b7280', textAlign: 'center' }}>+ {debugSessions.length - 5} older sessions (use Export to see all)</div>}
+          </div>
+        )}
 
 
         {/* Dedup Confirmation Dialog */}
@@ -9132,7 +9514,11 @@ const FouFouApp = () => {
                 <div>
                   <label className="block text-xs font-bold mb-1">{t("general.interestsHeader")}</label>
                   <div className="grid grid-cols-6 gap-1.5 p-2 bg-gray-50 rounded-lg max-h-32 overflow-y-auto">
-                    {allInterestOptions.filter(option => interestStatus[option.id] !== false || (newLocation.interests || []).includes(option.id)).map(option => (
+                    {allInterestOptions.filter(option => {
+                      if ((newLocation.interests || []).includes(option.id)) return true;
+                      if (option.scope === 'local' && option.cityId && option.cityId !== selectedCityId) return false;
+                      return true;
+                    }).map(option => (
                       <button
                         key={option.id}
                         onClick={() => {
@@ -11671,7 +12057,13 @@ const FouFouApp = () => {
                 <div style={{ marginBottom: '10px' }}>
                   <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', color: '#374151' }}>{t('trail.whatDidYouSee')}</div>
                   <div className="grid grid-cols-6 gap-1.5">
-                    {allInterestOptions.filter(option => interestStatus[option.id] !== false).map(option => (
+                    {allInterestOptions.filter(option => {
+                      if (option.scope === 'local' && option.cityId && option.cityId !== selectedCityId) return false;
+                      const aStatus = option.adminStatus || (interestConfig[option.id]?.adminStatus) || 'active';
+                      if (aStatus === 'hidden') return false;
+                      if (aStatus === 'draft' && !isUnlocked) return false;
+                      return interestStatus[option.id] !== false;
+                    }).map(option => (
                       <button
                         key={option.id}
                         onClick={() => {

@@ -241,7 +241,13 @@
                 <div>
                   <label className="block text-xs font-bold mb-1">{t("general.interestsHeader")}</label>
                   <div className="grid grid-cols-6 gap-1.5 p-2 bg-gray-50 rounded-lg max-h-32 overflow-y-auto">
-                    {allInterestOptions.filter(option => interestStatus[option.id] !== false || (newLocation.interests || []).includes(option.id)).map(option => (
+                    {allInterestOptions.filter(option => {
+                      // Already tagged — always show
+                      if ((newLocation.interests || []).includes(option.id)) return true;
+                      // Filter by city scope only (location tagging shouldn't depend on enabled/adminStatus)
+                      if (option.scope === 'local' && option.cityId && option.cityId !== selectedCityId) return false;
+                      return true;
+                    }).map(option => (
                       <button
                         key={option.id}
                         onClick={() => {
@@ -2812,7 +2818,13 @@
                 <div style={{ marginBottom: '10px' }}>
                   <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', color: '#374151' }}>{t('trail.whatDidYouSee')}</div>
                   <div className="grid grid-cols-6 gap-1.5">
-                    {allInterestOptions.filter(option => interestStatus[option.id] !== false).map(option => (
+                    {allInterestOptions.filter(option => {
+                      if (option.scope === 'local' && option.cityId && option.cityId !== selectedCityId) return false;
+                      const aStatus = option.adminStatus || (interestConfig[option.id]?.adminStatus) || 'active';
+                      if (aStatus === 'hidden') return false;
+                      if (aStatus === 'draft' && !isUnlocked) return false;
+                      return interestStatus[option.id] !== false;
+                    }).map(option => (
                       <button
                         key={option.id}
                         onClick={() => {
