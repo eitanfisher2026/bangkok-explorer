@@ -207,7 +207,25 @@
                   
                   {/* Areas - full width multi-select */}
                   <div>
-                    <label className="block text-xs font-bold mb-1">{t("general.areas")}</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold">{t("general.areas")}</label>
+                      {newLocation.lat && newLocation.lng && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const detected = window.BKK.getAreasForCoordinates(newLocation.lat, newLocation.lng);
+                            if (detected.length > 0) {
+                              setNewLocation({...newLocation, areas: detected, area: detected[0], outsideArea: false});
+                              showToast(`📍 ${detected.length} areas detected`, 'success');
+                            } else {
+                              showToast('⚠️ No area found for coordinates', 'warning');
+                              setNewLocation({...newLocation, outsideArea: true});
+                            }
+                          }}
+                          style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '4px', background: '#dbeafe', border: '1px solid #93c5fd', color: '#1e40af', cursor: 'pointer', fontWeight: 'bold' }}
+                        >📍 {t("general.detectArea") || 'זהה'}</button>
+                      )}
+                    </div>
                     <div className="grid grid-cols-6 gap-1 p-1.5 bg-gray-50 rounded-lg overflow-y-auto border-2 border-gray-300" style={{ maxHeight: '120px' }}>
                       {areaOptions.map(area => {
                         const isSelected = (newLocation.areas || [newLocation.area]).includes(area.id);

@@ -1383,7 +1383,54 @@
     }
   }, [customLocations, locationsLoading, selectedCityId]);
 
-  // Load saved routes from Firebase - PER CITY
+  // One-time migration: fix stale outsideArea flags and wrong default areas
+  const areaRepairDone = React.useRef(new Set());
+  useEffect(() => {
+    if (locationsLoading || !selectedCityId || areaRepairDone.current.has(selectedCityId)) return;
+    if (!customLocations.length) return;
+    areaRepairDone.current.add(selectedCityId);
+    
+    const updates = [];
+    for (const loc of customLocations) {
+      if (!loc.lat || !loc.lng) continue;
+      const detected = window.BKK.getAreasForCoordinates(loc.lat, loc.lng);
+      if (detected.length === 0) continue; // Can't detect — skip
+      
+      const currentAreas = loc.areas || (loc.area ? [loc.area] : []);
+      const areasMatch = detected.length === currentAreas.length && detected.every(a => currentAreas.includes(a));
+      const outsideWrong = loc.outsideArea === true; // Has coords in a valid area but flagged outside
+      
+      if (!areasMatch || outsideWrong) {
+        updates.push({ id: loc.id, firebaseId: loc.firebaseId, areas: detected, area: detected[0], outsideArea: false });
+      }
+    }
+    
+    if (updates.length > 0) {
+      console.log(`[AREA-REPAIR] Fixing areas for ${updates.length} locations in ${selectedCityId}`);
+      if (isFirebaseAvailable && database) {
+        const batch = {};
+        updates.forEach(u => {
+          if (u.firebaseId) {
+            batch[`cities/${selectedCityId}/locations/${u.firebaseId}/areas`] = u.areas;
+            batch[`cities/${selectedCityId}/locations/${u.firebaseId}/area`] = u.area;
+            batch[`cities/${selectedCityId}/locations/${u.firebaseId}/outsideArea`] = false;
+          }
+        });
+        if (Object.keys(batch).length > 0) {
+          database.ref().update(batch).then(() => {
+            console.log(`[AREA-REPAIR] Fixed ${updates.length} locations in Firebase`);
+          }).catch(e => console.error('[AREA-REPAIR] Firebase error:', e));
+        }
+      } else {
+        const updated = customLocations.map(loc => {
+          const fix = updates.find(u => u.id === loc.id);
+          return fix ? { ...loc, areas: fix.areas, area: fix.area, outsideArea: false } : loc;
+        });
+        setCustomLocations(updated);
+        localStorage.setItem('bangkok_custom_locations', JSON.stringify(updated));
+      }
+    }
+  }, [customLocations, locationsLoading, selectedCityId]);
   useEffect(() => {
     if (!selectedCityId) return;
     
