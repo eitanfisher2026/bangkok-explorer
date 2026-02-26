@@ -1,4 +1,4 @@
-const { useState, useEffect, useMemo, useCallback } = React;
+const { useState, useEffect, useMemo, useCallback, useRef } = React;
 
 const firebaseConfig = window.BKK.firebaseConfig;
 
@@ -9646,22 +9646,8 @@ const FouFouApp = () => {
                 </div>
                 </div>{/* close inner wrapper */}
 
-                {/* Manual toggle (custom only) + Scope (all interests) */}
-                <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-3 space-y-2">
-                  {/* Manual toggle - only for custom interests */}
-                  {!newInterest.builtIn && (
-                  <div className="flex items-center gap-2">
-                    <button type="button"
-                      onClick={() => setNewInterest({...newInterest, privateOnly: !newInterest.privateOnly})}
-                      className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${newInterest.privateOnly ? 'border-purple-500 bg-purple-500 text-white shadow-md' : 'border-gray-300 bg-white text-gray-500 hover:border-purple-300'}`}
-                    >
-                      {newInterest.privateOnly ? '✏️' : '○'} {t("interests.privateInterest")}
-                    </button>
-                    <span className="text-[9px] text-gray-500">{newInterest.privateOnly ? t("interests.myPlacesOnly") : t("interests.searchesGoogle")}</span>
-                  </div>
-                  )}
-                  
-                  {/* Scope: global / local */}
+                {/* Scope (all interests) */}
+                <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-2">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-purple-800">🌍</span>
                     <select
@@ -9684,7 +9670,87 @@ const FouFouApp = () => {
                       </select>
                     )}
                   </div>
+                </div>
 
+                {/* Search Configuration — with manual toggle at top */}
+                <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
+                  <label className="block text-xs font-bold mb-2 text-blue-800">{`🔍 ${t("general.searchSettings")}`}</label>
+                  
+                  {/* Manual toggle - only for custom interests */}
+                  {!newInterest.builtIn && (
+                  <div className="flex items-center gap-2 mb-3 pb-2" style={{ borderBottom: '1px solid #bfdbfe' }}>
+                    <button type="button"
+                      onClick={() => setNewInterest({...newInterest, privateOnly: !newInterest.privateOnly})}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all cursor-pointer ${newInterest.privateOnly ? 'border-purple-500 bg-purple-500 text-white shadow-md' : 'border-green-500 bg-green-500 text-white shadow-md'}`}
+                    >
+                      {newInterest.privateOnly ? '✏️' : '🌐'} {newInterest.privateOnly ? t("interests.privateInterest") : t("interests.searchesGoogle")}
+                    </button>
+                    <span className="text-[9px] text-gray-500">{newInterest.privateOnly ? t("interests.myPlacesOnly") : t("interests.searchesGoogle")}</span>
+                  </div>
+                  )}
+                  
+                  <div style={{ opacity: (!newInterest.builtIn && newInterest.privateOnly) ? 0.3 : 1, pointerEvents: (!newInterest.builtIn && newInterest.privateOnly) ? 'none' : 'auto' }}>
+                  
+                  <div className="mb-2">
+                    <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t("general.searchMode")}:`}</label>
+                    <select
+                      value={newInterest.searchMode || 'types'}
+                      onChange={(e) => setNewInterest({...newInterest, searchMode: e.target.value})}
+                      className="w-full p-1.5 text-sm border rounded"
+                      style={{ direction: 'ltr' }}
+                    >
+                      <option value="types">{t('interests.categorySearch')}</option>
+                      <option value="text">{t('interests.textSearch')}</option>
+                    </select>
+                  </div>
+                  
+                  {newInterest.searchMode === 'text' ? (
+                    <div className="mb-3">
+                      <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t('interests.textQuery')}:`}</label>
+                      <textarea
+                        value={newInterest.textSearch || ''}
+                        onChange={(e) => setNewInterest({...newInterest, textSearch: e.target.value})}
+                        placeholder="e.g., street art, wine bar"
+                        className="w-full p-2 text-sm border rounded"
+                        style={{ direction: 'ltr', minHeight: '50px', fontSize: '14px', resize: 'vertical' }}
+                        rows={2}
+                      />
+                      <p className="text-[9px] text-gray-500 mt-0.5" style={{ direction: 'ltr' }}>
+                        Searches: "[query] [area] {window.BKK.cityNameForSearch || 'City'}"
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mb-3">
+                      <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t('interests.placeTypes')}:`}</label>
+                      <textarea
+                        value={newInterest.types || ''}
+                        onChange={(e) => setNewInterest({...newInterest, types: e.target.value})}
+                        placeholder="e.g., movie_theater, museum, art_gallery"
+                        className="w-full p-2 text-sm border rounded"
+                        style={{ direction: 'ltr', minHeight: '50px', fontSize: '14px', resize: 'vertical' }}
+                        rows={2}
+                      />
+                      <p className="text-[9px] text-gray-500 mt-0.5" style={{ direction: 'ltr' }}>
+                        <a href="https://developers.google.com/maps/documentation/places/web-service/place-types" target="_blank" className="text-blue-500 underline">{t('interests.seeTypesList')}</a>
+                      </p>
+                    </div>
+                  )}
+                  
+                  <div>
+                    <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t('interests.blacklistWords')}:`}</label>
+                    <textarea
+                      value={newInterest.blacklist || ''}
+                      onChange={(e) => setNewInterest({...newInterest, blacklist: e.target.value})}
+                      placeholder="e.g., cannabis, massage, tattoo, hostel"
+                      className="w-full p-2 text-sm border rounded"
+                      style={{ direction: 'ltr', minHeight: '40px', fontSize: '14px', resize: 'vertical' }}
+                      rows={2}
+                    />
+                    <p className="text-[9px] text-gray-500 mt-0.5" style={{ direction: 'ltr' }}>
+                      Places with these words in name will be filtered out
+                    </p>
+                  </div>
+                  </div>
                 </div>
 
                 {/* Route planning config — spacious layout */}
@@ -9841,70 +9907,6 @@ const FouFouApp = () => {
                   <span style={{ fontSize: '11px', color: '#9ca3af' }}>({tLabel(editingCustomInterest)} · {tLabel(window.BKK.selectedCity)} #{(interestCounters[editingCustomInterest.id] || 0) + 1})</span>
                 </div>
                 )}
-
-                {/* Search Configuration */}
-                <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3" style={{ opacity: (!newInterest.builtIn && newInterest.privateOnly) ? 0.4 : 1, pointerEvents: (!newInterest.builtIn && newInterest.privateOnly) ? 'none' : 'auto' }}>
-                  <label className="block text-xs font-bold mb-2 text-blue-800">{`🔍 ${t("general.searchSettings")}`}
-                    {(!newInterest.builtIn && newInterest.privateOnly) && <span className="text-[9px] text-gray-500 font-normal ml-2">({t("interests.myPlacesOnly")})</span>}
-                  </label>
-                  
-                  <div className="mb-2">
-                    <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t("general.searchMode")}:`}</label>
-                    <select
-                      value={newInterest.searchMode || 'types'}
-                      onChange={(e) => setNewInterest({...newInterest, searchMode: e.target.value})}
-                      className="w-full p-1.5 text-sm border rounded"
-                      style={{ direction: 'ltr' }}
-                    >
-                      <option value="types">{t('interests.categorySearch')}</option>
-                      <option value="text">{t('interests.textSearch')}</option>
-                    </select>
-                  </div>
-                  
-                  {newInterest.searchMode === 'text' ? (
-                    <div className="mb-2">
-                      <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t('interests.textQuery')}:`}</label>
-                      <input
-                        type="text"
-                        value={newInterest.textSearch || ''}
-                        onChange={(e) => setNewInterest({...newInterest, textSearch: e.target.value})}
-                        placeholder="e.g., street art"
-                        className="w-full p-1.5 text-sm border rounded"
-                        style={{ direction: 'ltr' }}
-                      />
-                      <p className="text-[9px] text-gray-500 mt-0.5" style={{ direction: 'ltr' }}>
-                        Searches: "[query] [area] {window.BKK.cityNameForSearch || 'City'}"
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="mb-2">
-                      <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t('interests.placeTypes')}:`}</label>
-                      <input
-                        type="text"
-                        value={newInterest.types || ''}
-                        onChange={(e) => setNewInterest({...newInterest, types: e.target.value})}
-                        placeholder="e.g., movie_theater, museum"
-                        className="w-full p-1.5 text-sm border rounded"
-                        style={{ direction: 'ltr' }}
-                      />
-                      <p className="text-[9px] text-gray-500 mt-0.5" style={{ direction: 'ltr' }}>
-                        <a href="https://developers.google.com/maps/documentation/places/web-service/place-types" target="_blank" className="text-blue-500 underline">{t('interests.seeTypesList')}</a>
-                      </p>
-                    </div>
-                  )}
-                  
-                  <div>
-                    <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t('interests.blacklistWords')}:`}</label>
-                    <input
-                      type="text"
-                      value={newInterest.blacklist || ''}
-                      onChange={(e) => setNewInterest({...newInterest, blacklist: e.target.value})}
-                      placeholder="e.g., cannabis, massage"
-                      className="w-full p-1.5 text-sm border rounded"
-                      style={{ direction: 'ltr' }}
-                    />
-                  </div>
-                </div>
 
                 {/* Status toggle - locked (admin only) */}
                 {isUnlocked && (
