@@ -240,7 +240,7 @@
                 {/* Interests - Compact Grid */}
                 <div>
                   <label className="block text-xs font-bold mb-1">{t("general.interestsHeader")}</label>
-                  <div className="grid grid-cols-6 gap-1.5 p-2 bg-gray-50 rounded-lg max-h-32 overflow-y-auto">
+                  <div className="grid grid-cols-6 gap-1.5 p-2 bg-gray-50 rounded-lg max-h-36 overflow-y-auto">
                     {allInterestOptions.filter(option => {
                       // Already tagged — always show
                       if ((newLocation.interests || []).includes(option.id)) return true;
@@ -283,14 +283,14 @@
                           
                           setNewLocation(updates);
                         }}
-                        className={`p-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                        className={`p-1 rounded-lg text-[10px] font-bold transition-all ${
                           (newLocation.interests || []).includes(option.id)
                             ? 'bg-purple-500 text-white shadow-md'
                             : 'bg-white border border-gray-300 hover:border-purple-300'
                         }`}
                         title={tLabel(option)}
                       >
-                        <span className="text-lg block">{option.icon?.startsWith?.('data:') ? <img src={option.icon} alt="" className="w-5 h-5 object-contain mx-auto" /> : option.icon}</span>
+                        <span className="text-xl block" style={{ lineHeight: 1.2 }}>{option.icon?.startsWith?.('data:') ? <img src={option.icon} alt="" className="w-6 h-6 object-contain mx-auto" /> : option.icon}</span>
                         <span className="text-[7px] block truncate leading-tight mt-0.5">{tLabel(option)}</span>
                       </button>
                     ))}
@@ -765,20 +765,20 @@
                       disabled={newInterest.builtIn && !isUnlocked}
                       autoFocus={!newInterest.builtIn}
                     />
-                    <div className="flex items-center gap-1 mt-1">
-                      <span className="text-[10px] text-gray-400 whitespace-nowrap">🇬🇧</span>
+                    <div className="flex items-center gap-1 mt-1" style={{ minWidth: 0 }}>
+                      <span className="text-[10px] text-gray-400 flex-shrink-0">🇬🇧</span>
                       <input
                         type="text"
                         value={newInterest.labelEn || ''}
                         onChange={(e) => setNewInterest({...newInterest, labelEn: e.target.value})}
                         placeholder={t("interests.englishName")}
                         className="flex-1 p-1.5 border border-gray-300 rounded-lg focus:border-purple-500"
-                        style={{ direction: 'ltr', fontSize: '16px' }}
+                        style={{ direction: 'ltr', fontSize: '14px', minWidth: 0 }}
                         disabled={newInterest.builtIn && !isUnlocked}
                       />
                     </div>
                   </div>
-                  <div>
+                  <div style={{ overflow: 'hidden' }}>
                     <label className="block text-xs font-bold mb-1">{t("general.icon")}</label>
                     {newInterest.icon && newInterest.icon.startsWith('data:') ? (
                       <div className="relative">

@@ -1342,11 +1342,14 @@ const FouFouApp = () => {
       const onValue = locationsRef.on('value', (snapshot) => {
         const data = snapshot.val();
         if (data) {
-          const locationsArray = Object.keys(data).map(key => ({
-            ...data[key],
-            firebaseId: key,
-            cityId: selectedCityId
-          }));
+          const locationsArray = Object.keys(data).map(key => {
+            const loc = { ...data[key], firebaseId: key, cityId: selectedCityId };
+            if (loc.lat && loc.lng && window.BKK.getAreasForCoordinates) {
+              const detected = window.BKK.getAreasForCoordinates(loc.lat, loc.lng);
+              loc.outsideArea = detected.length === 0 && (loc.areas || []).length > 0;
+            }
+            return loc;
+          });
           setCustomLocations(locationsArray);
         } else {
           setCustomLocations([]);
@@ -1359,7 +1362,13 @@ const FouFouApp = () => {
     } else {
       try {
         const allLocs = JSON.parse(localStorage.getItem('bangkok_custom_locations') || '[]');
-        const cityLocs = allLocs.filter(l => (l.cityId || 'bangkok') === selectedCityId);
+        const cityLocs = allLocs.filter(l => (l.cityId || 'bangkok') === selectedCityId).map(loc => {
+          if (loc.lat && loc.lng && window.BKK.getAreasForCoordinates) {
+            const detected = window.BKK.getAreasForCoordinates(loc.lat, loc.lng);
+            loc.outsideArea = detected.length === 0 && (loc.areas || []).length > 0;
+          }
+          return loc;
+        });
         setCustomLocations(cityLocs);
       } catch (e) {
         console.error('[LOCALSTORAGE] Error loading locations:', e);
@@ -2993,6 +3002,30 @@ const FouFouApp = () => {
         if (limits[id].max >= cfg[id].maxStops) continue;
         limits[id].max += 1;
         remaining -= 1;
+      }
+      
+      remaining = maxTotal - Object.values(limits).reduce((s, l) => s + l.max, 0);
+      if (remaining > 0) {
+        const bfWeight = selectedInterests.reduce((s, id) => s + cfg[id].weight, 0);
+        if (bfWeight > 0) {
+          const bfSorted = [...selectedInterests].sort((a, b) => cfg[b].weight - cfg[a].weight);
+          const bfShare = {};
+          let bfAllocated = 0;
+          for (const id of bfSorted) {
+            const share = Math.floor((cfg[id].weight / bfWeight) * remaining);
+            bfShare[id] = share;
+            bfAllocated += share;
+          }
+          let bfLeftover = remaining - bfAllocated;
+          for (const id of bfSorted) {
+            if (bfLeftover <= 0) break;
+            bfShare[id] += 1;
+            bfLeftover -= 1;
+          }
+          for (const id of selectedInterests) {
+            limits[id].max += (bfShare[id] || 0);
+          }
+        }
       }
     }
     
@@ -9227,7 +9260,7 @@ const FouFouApp = () => {
               boxShadow: '0 2px 8px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '4px'
             }}
           >
-            🔍 {searchDebugLog.filter(e => e.message.includes('📊')).length}{debugSessions.length > 0 ? ` 📁${debugSessions.length}` : ''}
+            🔍 {searchDebugLog.filter(e => e.message.includes('📊')).length + debugSessions.length}
           </button>
         )}
 
@@ -9586,7 +9619,7 @@ const FouFouApp = () => {
                 {/* Interests - Compact Grid */}
                 <div>
                   <label className="block text-xs font-bold mb-1">{t("general.interestsHeader")}</label>
-                  <div className="grid grid-cols-6 gap-1.5 p-2 bg-gray-50 rounded-lg max-h-32 overflow-y-auto">
+                  <div className="grid grid-cols-6 gap-1.5 p-2 bg-gray-50 rounded-lg max-h-36 overflow-y-auto">
                     {allInterestOptions.filter(option => {
                       if ((newLocation.interests || []).includes(option.id)) return true;
                       if (option.scope === 'local' && option.cityId && option.cityId !== selectedCityId) return false;
@@ -9624,14 +9657,14 @@ const FouFouApp = () => {
                           
                           setNewLocation(updates);
                         }}
-                        className={`p-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                        className={`p-1 rounded-lg text-[10px] font-bold transition-all ${
                           (newLocation.interests || []).includes(option.id)
                             ? 'bg-purple-500 text-white shadow-md'
                             : 'bg-white border border-gray-300 hover:border-purple-300'
                         }`}
                         title={tLabel(option)}
                       >
-                        <span className="text-lg block">{option.icon?.startsWith?.('data:') ? <img src={option.icon} alt="" className="w-5 h-5 object-contain mx-auto" /> : option.icon}</span>
+                        <span className="text-xl block" style={{ lineHeight: 1.2 }}>{option.icon?.startsWith?.('data:') ? <img src={option.icon} alt="" className="w-6 h-6 object-contain mx-auto" /> : option.icon}</span>
                         <span className="text-[7px] block truncate leading-tight mt-0.5">{tLabel(option)}</span>
                       </button>
                     ))}
@@ -10106,20 +10139,20 @@ const FouFouApp = () => {
                       disabled={newInterest.builtIn && !isUnlocked}
                       autoFocus={!newInterest.builtIn}
                     />
-                    <div className="flex items-center gap-1 mt-1">
-                      <span className="text-[10px] text-gray-400 whitespace-nowrap">🇬🇧</span>
+                    <div className="flex items-center gap-1 mt-1" style={{ minWidth: 0 }}>
+                      <span className="text-[10px] text-gray-400 flex-shrink-0">🇬🇧</span>
                       <input
                         type="text"
                         value={newInterest.labelEn || ''}
                         onChange={(e) => setNewInterest({...newInterest, labelEn: e.target.value})}
                         placeholder={t("interests.englishName")}
                         className="flex-1 p-1.5 border border-gray-300 rounded-lg focus:border-purple-500"
-                        style={{ direction: 'ltr', fontSize: '16px' }}
+                        style={{ direction: 'ltr', fontSize: '14px', minWidth: 0 }}
                         disabled={newInterest.builtIn && !isUnlocked}
                       />
                     </div>
                   </div>
-                  <div>
+                  <div style={{ overflow: 'hidden' }}>
                     <label className="block text-xs font-bold mb-1">{t("general.icon")}</label>
                     {newInterest.icon && newInterest.icon.startsWith('data:') ? (
                       <div className="relative">

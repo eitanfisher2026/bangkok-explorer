@@ -1429,11 +1429,15 @@
       const onValue = locationsRef.on('value', (snapshot) => {
         const data = snapshot.val();
         if (data) {
-          const locationsArray = Object.keys(data).map(key => ({
-            ...data[key],
-            firebaseId: key,
-            cityId: selectedCityId
-          }));
+          const locationsArray = Object.keys(data).map(key => {
+            const loc = { ...data[key], firebaseId: key, cityId: selectedCityId };
+            // Recompute outsideArea flag (may be stale from older saves)
+            if (loc.lat && loc.lng && window.BKK.getAreasForCoordinates) {
+              const detected = window.BKK.getAreasForCoordinates(loc.lat, loc.lng);
+              loc.outsideArea = detected.length === 0 && (loc.areas || []).length > 0;
+            }
+            return loc;
+          });
           setCustomLocations(locationsArray);
           console.log('[FIREBASE] Loaded', locationsArray.length, 'locations for', selectedCityId);
         } else {
@@ -1448,7 +1452,13 @@
       console.log('[DATA] Firebase not available - using localStorage fallback');
       try {
         const allLocs = JSON.parse(localStorage.getItem('bangkok_custom_locations') || '[]');
-        const cityLocs = allLocs.filter(l => (l.cityId || 'bangkok') === selectedCityId);
+        const cityLocs = allLocs.filter(l => (l.cityId || 'bangkok') === selectedCityId).map(loc => {
+          if (loc.lat && loc.lng && window.BKK.getAreasForCoordinates) {
+            const detected = window.BKK.getAreasForCoordinates(loc.lat, loc.lng);
+            loc.outsideArea = detected.length === 0 && (loc.areas || []).length > 0;
+          }
+          return loc;
+        });
         setCustomLocations(cityLocs);
       } catch (e) {
         console.error('[LOCALSTORAGE] Error loading locations:', e);
@@ -3293,6 +3303,35 @@
         if (limits[id].max >= cfg[id].maxStops) continue;
         limits[id].max += 1;
         remaining -= 1;
+      }
+      
+      // Backfill: if all interests hit their maxStops caps but total isn't filled,
+      // overflow beyond caps by weight. maxStops is a fair-share cap, not an absolute
+      // limit when there's room to fill. Distribute proportionally by weight.
+      remaining = maxTotal - Object.values(limits).reduce((s, l) => s + l.max, 0);
+      if (remaining > 0) {
+        const bfWeight = selectedInterests.reduce((s, id) => s + cfg[id].weight, 0);
+        if (bfWeight > 0) {
+          // Proportional allocation by weight
+          const bfSorted = [...selectedInterests].sort((a, b) => cfg[b].weight - cfg[a].weight);
+          const bfShare = {};
+          let bfAllocated = 0;
+          for (const id of bfSorted) {
+            const share = Math.floor((cfg[id].weight / bfWeight) * remaining);
+            bfShare[id] = share;
+            bfAllocated += share;
+          }
+          // Distribute remainder 1-by-1 to highest weight
+          let bfLeftover = remaining - bfAllocated;
+          for (const id of bfSorted) {
+            if (bfLeftover <= 0) break;
+            bfShare[id] += 1;
+            bfLeftover -= 1;
+          }
+          for (const id of selectedInterests) {
+            limits[id].max += (bfShare[id] || 0);
+          }
+        }
       }
     }
     

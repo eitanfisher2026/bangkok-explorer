@@ -3565,7 +3565,7 @@
               boxShadow: '0 2px 8px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '4px'
             }}
           >
-            🔍 {searchDebugLog.filter(e => e.message.includes('📊')).length}{debugSessions.length > 0 ? ` 📁${debugSessions.length}` : ''}
+            🔍 {searchDebugLog.filter(e => e.message.includes('📊')).length + debugSessions.length}
           </button>
         )}
 
