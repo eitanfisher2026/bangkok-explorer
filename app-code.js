@@ -1311,14 +1311,15 @@ const FouFouApp = () => {
     for (const loc of customLocations) {
       if (!loc.lat || !loc.lng) continue;
       const detected = window.BKK.getAreasForCoordinates(loc.lat, loc.lng);
-      if (detected.length === 0) continue; // Can't detect — skip
-      
       const currentAreas = loc.areas || (loc.area ? [loc.area] : []);
-      const areasMatch = detected.length === currentAreas.length && detected.every(a => currentAreas.includes(a));
-      const outsideWrong = loc.outsideArea === true; // Has coords in a valid area but flagged outside
       
-      if (!areasMatch || outsideWrong) {
-        updates.push({ id: loc.id, firebaseId: loc.firebaseId, areas: detected, area: detected[0], outsideArea: false });
+      if (detected.length > 0) {
+        const areasMatch = detected.length === currentAreas.length && detected.every(a => currentAreas.includes(a));
+        if (!areasMatch || loc.outsideArea) {
+          updates.push({ id: loc.id, firebaseId: loc.firebaseId, areas: detected, area: detected[0], outsideArea: false });
+        }
+      } else if (loc.outsideArea && currentAreas.length > 0) {
+        updates.push({ id: loc.id, firebaseId: loc.firebaseId, areas: currentAreas, area: currentAreas[0], outsideArea: false });
       }
     }
     
@@ -1391,9 +1392,9 @@ const FouFouApp = () => {
         if (data) {
           const locationsArray = Object.keys(data).map(key => {
             const loc = { ...data[key], firebaseId: key, cityId: selectedCityId };
-            if (loc.lat && loc.lng && window.BKK.getAreasForCoordinates) {
+            if (loc.outsideArea && loc.lat && loc.lng && window.BKK.getAreasForCoordinates) {
               const detected = window.BKK.getAreasForCoordinates(loc.lat, loc.lng);
-              loc.outsideArea = detected.length === 0 && (loc.areas || []).length > 0;
+              if (detected.length > 0) loc.outsideArea = false;
             }
             return loc;
           });
@@ -1410,9 +1411,9 @@ const FouFouApp = () => {
       try {
         const allLocs = JSON.parse(localStorage.getItem('bangkok_custom_locations') || '[]');
         const cityLocs = allLocs.filter(l => (l.cityId || 'bangkok') === selectedCityId).map(loc => {
-          if (loc.lat && loc.lng && window.BKK.getAreasForCoordinates) {
+          if (loc.outsideArea && loc.lat && loc.lng && window.BKK.getAreasForCoordinates) {
             const detected = window.BKK.getAreasForCoordinates(loc.lat, loc.lng);
-            loc.outsideArea = detected.length === 0 && (loc.areas || []).length > 0;
+            if (detected.length > 0) loc.outsideArea = false;
           }
           return loc;
         });
@@ -5334,8 +5335,7 @@ const FouFouApp = () => {
         finalAreas = detected;
       } else if (finalAreas.length > 0) {
         const inAnyArea = finalAreas.some(aId => checkLocationInArea(lat, lng, aId).valid);
-        outsideArea = !inAnyArea;
-        if (outsideArea) {
+        if (!inAnyArea) {
           const areaNames = finalAreas.map(aId => areaOptions.find(a => a.id === aId)).filter(Boolean).map(a => tLabel(a)).join(', ');
           showToast(
             `⚠️ ${locData.name.trim()} — ${t("toast.outsideAreaWarning")} (${areaNames})`,
@@ -5506,8 +5506,7 @@ const FouFouApp = () => {
         finalAreas = detected;
       } else if (finalAreas.length > 0) {
         const inAnyArea = finalAreas.some(aId => checkLocationInArea(newLocation.lat, newLocation.lng, aId).valid);
-        outsideArea = !inAnyArea;
-        if (outsideArea) {
+        if (!inAnyArea) {
           const areaNames = finalAreas.map(aId => areaOptions.find(a => a.id === aId)).filter(Boolean).map(a => tLabel(a)).join(', ');
           showToast(
             `⚠️ ${newLocation.name || editingLocation.name} — ${t("toast.outsideAreaWarning")} (${areaNames})`,
@@ -9669,21 +9668,20 @@ const FouFouApp = () => {
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="block text-xs font-bold">{t("general.areas")}</label>
-                      {newLocation.lat && newLocation.lng && (
+                      {isUnlocked && newLocation.lat && newLocation.lng && (
                         <button
                           type="button"
                           onClick={() => {
                             const detected = window.BKK.getAreasForCoordinates(newLocation.lat, newLocation.lng);
                             if (detected.length > 0) {
                               setNewLocation({...newLocation, areas: detected, area: detected[0], outsideArea: false});
-                              showToast(`📍 ${detected.length} areas detected`, 'success');
+                              showToast(`📍 ${detected.length} אזורים זוהו`, 'success');
                             } else {
-                              showToast('⚠️ No area found for coordinates', 'warning');
-                              setNewLocation({...newLocation, outsideArea: true});
+                              showToast('⚠️ לא נמצא אזור לקואורדינטות', 'warning');
                             }
                           }}
                           style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '4px', background: '#dbeafe', border: '1px solid #93c5fd', color: '#1e40af', cursor: 'pointer', fontWeight: 'bold' }}
-                        >📍 {t("general.detectArea") || 'זהה'}</button>
+                        >📍 זהה אזור</button>
                       )}
                     </div>
                     <div className="grid grid-cols-6 gap-1 p-1.5 bg-gray-50 rounded-lg overflow-y-auto border-2 border-gray-300" style={{ maxHeight: '120px' }}>

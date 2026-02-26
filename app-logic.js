@@ -1394,14 +1394,17 @@
     for (const loc of customLocations) {
       if (!loc.lat || !loc.lng) continue;
       const detected = window.BKK.getAreasForCoordinates(loc.lat, loc.lng);
-      if (detected.length === 0) continue; // Can't detect — skip
-      
       const currentAreas = loc.areas || (loc.area ? [loc.area] : []);
-      const areasMatch = detected.length === currentAreas.length && detected.every(a => currentAreas.includes(a));
-      const outsideWrong = loc.outsideArea === true; // Has coords in a valid area but flagged outside
       
-      if (!areasMatch || outsideWrong) {
-        updates.push({ id: loc.id, firebaseId: loc.firebaseId, areas: detected, area: detected[0], outsideArea: false });
+      if (detected.length > 0) {
+        // Auto-detect found areas — update if different
+        const areasMatch = detected.length === currentAreas.length && detected.every(a => currentAreas.includes(a));
+        if (!areasMatch || loc.outsideArea) {
+          updates.push({ id: loc.id, firebaseId: loc.firebaseId, areas: detected, area: detected[0], outsideArea: false });
+        }
+      } else if (loc.outsideArea && currentAreas.length > 0) {
+        // Can't auto-detect but has manually set areas — just clear the false flag
+        updates.push({ id: loc.id, firebaseId: loc.firebaseId, areas: currentAreas, area: currentAreas[0], outsideArea: false });
       }
     }
     
@@ -1480,10 +1483,10 @@
         if (data) {
           const locationsArray = Object.keys(data).map(key => {
             const loc = { ...data[key], firebaseId: key, cityId: selectedCityId };
-            // Recompute outsideArea flag (may be stale from older saves)
-            if (loc.lat && loc.lng && window.BKK.getAreasForCoordinates) {
+            // Only clear stale outsideArea if coords now match an area. Never set it here.
+            if (loc.outsideArea && loc.lat && loc.lng && window.BKK.getAreasForCoordinates) {
               const detected = window.BKK.getAreasForCoordinates(loc.lat, loc.lng);
-              loc.outsideArea = detected.length === 0 && (loc.areas || []).length > 0;
+              if (detected.length > 0) loc.outsideArea = false;
             }
             return loc;
           });
@@ -1502,9 +1505,9 @@
       try {
         const allLocs = JSON.parse(localStorage.getItem('bangkok_custom_locations') || '[]');
         const cityLocs = allLocs.filter(l => (l.cityId || 'bangkok') === selectedCityId).map(loc => {
-          if (loc.lat && loc.lng && window.BKK.getAreasForCoordinates) {
+          if (loc.outsideArea && loc.lat && loc.lng && window.BKK.getAreasForCoordinates) {
             const detected = window.BKK.getAreasForCoordinates(loc.lat, loc.lng);
-            loc.outsideArea = detected.length === 0 && (loc.areas || []).length > 0;
+            if (detected.length > 0) loc.outsideArea = false;
           }
           return loc;
         });
@@ -5940,8 +5943,7 @@
       } else if (finalAreas.length > 0) {
         // No area detected - check if manually selected areas match
         const inAnyArea = finalAreas.some(aId => checkLocationInArea(lat, lng, aId).valid);
-        outsideArea = !inAnyArea;
-        if (outsideArea) {
+        if (!inAnyArea) {
           const areaNames = finalAreas.map(aId => areaOptions.find(a => a.id === aId)).filter(Boolean).map(a => tLabel(a)).join(', ');
           showToast(
             `⚠️ ${locData.name.trim()} — ${t("toast.outsideAreaWarning")} (${areaNames})`,
@@ -6129,8 +6131,7 @@
         finalAreas = detected;
       } else if (finalAreas.length > 0) {
         const inAnyArea = finalAreas.some(aId => checkLocationInArea(newLocation.lat, newLocation.lng, aId).valid);
-        outsideArea = !inAnyArea;
-        if (outsideArea) {
+        if (!inAnyArea) {
           const areaNames = finalAreas.map(aId => areaOptions.find(a => a.id === aId)).filter(Boolean).map(a => tLabel(a)).join(', ');
           showToast(
             `⚠️ ${newLocation.name || editingLocation.name} — ${t("toast.outsideAreaWarning")} (${areaNames})`,
