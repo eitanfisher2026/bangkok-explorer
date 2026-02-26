@@ -886,11 +886,19 @@
   const [newAdminPassword, setNewAdminPassword] = useState(''); // For setting new password in admin panel
   
   // Add debug log entry (console only, filtered by category)
+  const searchDebugLogRef = useRef([]);
+  const [searchDebugLog, setSearchDebugLog] = useState([]);
+  const [showSearchDebugPanel, setShowSearchDebugPanel] = useState(false);
   const addDebugLog = (category, message, data = null) => {
     if (!debugMode) return;
     const cat = category.toLowerCase();
     if (!debugCategories.includes('all') && !debugCategories.includes(cat)) return;
+    const entry = { ts: Date.now(), category, message, data };
     console.log(`[${category}] ${message}`, data || '');
+    if (cat === 'api' || cat === 'search') {
+      searchDebugLogRef.current = [...searchDebugLogRef.current.slice(-100), entry];
+      setSearchDebugLog(searchDebugLogRef.current);
+    }
   };
   
   // Save debug preferences
@@ -2226,8 +2234,17 @@
         const cityName = window.BKK.cityNameForSearch || 'Bangkok';
         const searchQuery = `${textSearchQuery} ${areaName} ${cityName}`.trim();
         
-        addDebugLog('API', `Text Search`, { query: searchQuery, area });
-        console.log('[DYNAMIC] Using Text Search:', searchQuery);
+        const interestLabel = allInterestOptions.find(o => o.id === validInterests[0]);
+        addDebugLog('API', `🔍 TEXT SEARCH`, { 
+          interest: tLabel(interestLabel) || validInterests[0],
+          interestId: validInterests[0],
+          query: searchQuery,
+          textSearch: textSearchQuery,
+          blacklist: blacklistWords,
+          area: area || 'GPS',
+          center: `${center.lat.toFixed(4)},${center.lng.toFixed(4)}`,
+          radius: searchRadius + 'm'
+        });
         
         response = await fetch(GOOGLE_PLACES_TEXT_SEARCH_URL, {
           method: 'POST',
@@ -2268,8 +2285,16 @@
           })
         )];
 
-        addDebugLog('API', `Fetching Google Places`, { area, validInterests, placeTypes: placeTypes.slice(0, 10), center });
-        console.log('[DYNAMIC] Fetching from Google Places API:', { area, validInterests });
+        const interestLabel = allInterestOptions.find(o => o.id === validInterests[0]);
+        addDebugLog('API', `🔍 CATEGORY SEARCH`, { 
+          interest: tLabel(interestLabel) || validInterests[0],
+          interestId: validInterests[0],
+          placeTypes: placeTypes,
+          blacklist: blacklistWords,
+          area: area || 'GPS',
+          center: `${center.lat.toFixed(4)},${center.lng.toFixed(4)}`,
+          radius: searchRadius + 'm'
+        });
 
         response = await fetch(GOOGLE_PLACES_API_URL, {
           method: 'POST',
@@ -2419,21 +2444,28 @@
       let typeFilteredCount = 0;
       let blacklistFilteredCount = 0;
       let relevanceFilteredCount = 0;
+      const debugPlaceResults = [];
       
       const transformed = data.places
         .filter(place => {
           const placeName = (place.displayName?.text || '').toLowerCase();
           const placeTypesFromGoogle = place.types || [];
+          const debugEntry = { 
+            name: place.displayName?.text, 
+            rating: place.rating?.toFixed(1) || 'N/A', 
+            reviews: place.userRatingCount || 0,
+            types: placeTypesFromGoogle.slice(0, 5).join(', '),
+            primaryType: place.primaryType || '-'
+          };
           
           // Filter 1: Blacklist check - filter out places with blacklisted words in name
           if (blacklistWords.length > 0) {
-            const isBlacklisted = blacklistWords.some(word => placeName.includes(word));
-            if (isBlacklisted) {
+            const matchedWord = blacklistWords.find(word => placeName.includes(word));
+            if (matchedWord) {
               blacklistFilteredCount++;
-              console.log('[DYNAMIC] ❌ Filtered out (blacklist):', {
-                name: place.displayName?.text,
-                matchedWord: blacklistWords.find(word => placeName.includes(word))
-              });
+              debugEntry.status = '❌ BLACKLIST';
+              debugEntry.reason = `name contains "${matchedWord}"`;
+              debugPlaceResults.push(debugEntry);
               return false;
             }
           }
@@ -2445,10 +2477,9 @@
             
             if (!nameHasPhrase) {
               relevanceFilteredCount++;
-              console.log('[DYNAMIC] ❌ Filtered out (text search irrelevant):', {
-                name: place.displayName?.text,
-                searchPhrase: textSearchPhrase
-              });
+              debugEntry.status = '❌ NO MATCH';
+              debugEntry.reason = `name doesn't contain "${textSearchPhrase}"`;
+              debugPlaceResults.push(debugEntry);
               return false;
             }
           }
@@ -2460,20 +2491,15 @@
             
             if (!hasValidType) {
               typeFilteredCount++;
-              console.log('[DYNAMIC] ❌ Filtered out (invalid type):', {
-                name: place.displayName?.text,
-                googleTypes: placeTypesFromGoogle,
-                expectedTypes: placeTypes
-              });
+              debugEntry.status = '❌ TYPE MISMATCH';
+              debugEntry.reason = `google types [${placeTypesFromGoogle.slice(0,5).join(',')}] don't match [${placeTypes.join(',')}]`;
+              debugPlaceResults.push(debugEntry);
               return false;
             }
           }
           
-          console.log('[DYNAMIC] ✅ Kept:', {
-            name: place.displayName?.text,
-            isTextSearch
-          });
-          
+          debugEntry.status = '✅ KEPT';
+          debugPlaceResults.push(debugEntry);
           return true;
         })
         .map((place, index) => {
@@ -2511,6 +2537,17 @@
         beforeDistFilter: transformed.length
       });
       
+      // Log detailed debug results for in-app viewer
+      const interestLabel = allInterestOptions.find(o => o.id === validInterests[0]);
+      addDebugLog('API', `📊 RESULTS: ${tLabel(interestLabel) || validInterests[0]}`, {
+        total: data.places.length,
+        kept: transformed.length,
+        blacklistFiltered: blacklistFilteredCount,
+        typeFiltered: typeFilteredCount,
+        relevanceFiltered: relevanceFilteredCount,
+        places: debugPlaceResults
+      });
+      
       // Filter 4: Distance check - remove places too far from search center
       // Use per-area distanceMultiplier, fallback to city default, fallback to 1.2
       const areaConfig = areaCoordinates[area] || {};
@@ -2519,11 +2556,7 @@
       const distanceFiltered = transformed.filter(place => {
         const dist = calcDistance(center.lat, center.lng, place.lat, place.lng);
         if (dist > maxDistance) {
-          console.log('[DYNAMIC] ❌ Filtered out (too far):', {
-            name: place.name,
-            distance: Math.round(dist) + 'm',
-            maxAllowed: Math.round(maxDistance) + 'm'
-          });
+          addDebugLog('API', `❌ TOO FAR: ${place.name} (${Math.round(dist)}m > ${Math.round(maxDistance)}m)`);
           return false;
         }
         return true;
@@ -2533,8 +2566,12 @@
         console.log(`[DYNAMIC] Distance filter removed ${transformed.length - distanceFiltered.length} far places`);
       }
       
-      addDebugLog('API', `Got ${distanceFiltered.length} results (filtered ${blacklistFilteredCount} blacklist, ${typeFilteredCount} type, ${relevanceFilteredCount} irrelevant, ${transformed.length - distanceFiltered.length} too far)`, {
-        names: distanceFiltered.slice(0, 5).map(p => p.name)
+      addDebugLog('API', `✅ FINAL: ${tLabel(allInterestOptions.find(o => o.id === validInterests[0])) || validInterests[0]} → ${distanceFiltered.length} places`, {
+        fromGoogle: data.places.length,
+        afterFilters: transformed.length,
+        afterDistance: distanceFiltered.length,
+        removed: { blacklist: blacklistFilteredCount, type: typeFilteredCount, relevance: relevanceFilteredCount, distance: transformed.length - distanceFiltered.length },
+        finalPlaces: distanceFiltered.map(p => `${p.name} ⭐${p.rating} (${p.ratingCount})`)
       });
       
       return distanceFiltered;

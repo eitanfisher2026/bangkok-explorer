@@ -142,21 +142,9 @@
                     if (!adminPassword) {
                       setCurrentView('settings');
                     } else {
-                      const pw = prompt(t('settings.enterPassword'));
-                      if (pw) {
-                        window.BKK.hashPassword(pw).then(hashed => {
-                          if (hashed === adminPassword || pw === adminPassword) {
-                            setIsUnlocked(true);
-                            localStorage.setItem('foufou_admin', 'true');
-                            setCurrentView('settings');
-                            setShowHeaderMenu(false);
-                            window.scrollTo(0, 0);
-                          } else {
-                            showToast(t('settings.wrongPassword'), 'warning');
-                          }
-                        });
-                        return;
-                      } else { return; }
+                      setShowVersionPasswordDialog(true);
+                      setShowHeaderMenu(false);
+                      return;
                     }
                   } else {
                     setCurrentView(item.view);
@@ -2744,8 +2732,66 @@
               </div>
             </div>
             
-
-            {/* Import/Export Section */}
+            {/* Search Debug Log Panel */}
+            {debugMode && searchDebugLog.length > 0 && (
+              <div className="mb-4">
+                <div className="bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-amber-400 rounded-xl p-3">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <h3 className="text-base font-bold text-amber-800">🔍 Search Debug Log ({searchDebugLog.length})</h3>
+                    <button onClick={() => { searchDebugLogRef.current = []; setSearchDebugLog([]); }} style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '6px', background: '#fecaca', border: 'none', color: '#991b1b', cursor: 'pointer' }}>Clear</button>
+                  </div>
+                  <div style={{ maxHeight: '400px', overflowY: 'auto', fontSize: '11px', direction: 'ltr', textAlign: 'left' }}>
+                    {[...searchDebugLog].reverse().map((entry, idx) => (
+                      <div key={idx} style={{ 
+                        marginBottom: '8px', padding: '8px', borderRadius: '8px',
+                        background: entry.message.includes('🔍') ? '#eff6ff' : entry.message.includes('📊') ? '#f0fdf4' : entry.message.includes('✅ FINAL') ? '#fefce8' : entry.message.includes('❌') ? '#fef2f2' : 'white',
+                        border: '1px solid #e5e7eb'
+                      }}>
+                        <div style={{ fontWeight: 'bold', color: '#1e3a5f', marginBottom: '4px' }}>
+                          {entry.message}
+                        </div>
+                        {entry.data && typeof entry.data === 'object' && (
+                          <div style={{ fontSize: '10px', color: '#4b5563' }}>
+                            {/* Search params */}
+                            {entry.data.interest && (<div><b>Interest:</b> {entry.data.interest} ({entry.data.interestId})</div>)}
+                            {entry.data.query && (<div><b>Query:</b> {entry.data.query}</div>)}
+                            {entry.data.placeTypes && (<div><b>Types:</b> {Array.isArray(entry.data.placeTypes) ? entry.data.placeTypes.join(', ') : entry.data.placeTypes}</div>)}
+                            {entry.data.blacklist && entry.data.blacklist.length > 0 && (<div><b>Blacklist:</b> {entry.data.blacklist.join(', ')}</div>)}
+                            {entry.data.radius && (<div><b>Center:</b> {entry.data.center} | <b>Radius:</b> {entry.data.radius}</div>)}
+                            
+                            {/* Results summary */}
+                            {entry.data.total !== undefined && (<div style={{ marginTop: '4px' }}><b>Google returned:</b> {entry.data.total} | <b>Kept:</b> {entry.data.kept} | <b>Blacklist:</b> -{entry.data.blacklistFiltered} | <b>Type:</b> -{entry.data.typeFiltered} | <b>Relevance:</b> -{entry.data.relevanceFiltered}</div>)}
+                            
+                            {/* Per-place details */}
+                            {entry.data.places && (
+                              <div style={{ marginTop: '4px' }}>
+                                {entry.data.places.map((p, pi) => (
+                                  <div key={pi} style={{ 
+                                    padding: '2px 4px', marginTop: '2px', borderRadius: '4px', fontSize: '10px',
+                                    background: p.status?.includes('✅') ? '#dcfce7' : '#fee2e2'
+                                  }}>
+                                    <span style={{ fontWeight: 'bold' }}>{p.status}</span> {p.name} — ⭐{p.rating} ({p.reviews}) — {p.primaryType}
+                                    {p.reason && (<span style={{ color: '#991b1b' }}> | {p.reason}</span>)}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            
+                            {/* Final places list */}
+                            {entry.data.finalPlaces && (
+                              <div style={{ marginTop: '4px' }}>
+                                <b>Final:</b> {entry.data.finalPlaces.join(' | ')}
+                              </div>
+                            )}
+                            {entry.data.removed && (<div><b>Removed:</b> blacklist:{entry.data.removed.blacklist} type:{entry.data.removed.type} relevance:{entry.data.removed.relevance} distance:{entry.data.removed.distance}</div>)}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
             
             {/* Admin Management - Password Based (Admin Only) */}
             {isCurrentUserAdmin && (
@@ -3355,5 +3401,87 @@
           </div>
         </div>
       )}
+
+        {/* Debug Search Log - Floating Badge */}
+        {debugMode && searchDebugLog.length > 0 && currentView === 'form' && !showSearchDebugPanel && (
+          <button
+            onClick={() => setShowSearchDebugPanel(true)}
+            style={{
+              position: 'fixed', bottom: '140px', left: '12px', zIndex: 40,
+              background: '#f59e0b', color: 'white', border: 'none', borderRadius: '20px',
+              padding: '4px 10px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '4px'
+            }}
+          >
+            🔍 {searchDebugLog.filter(e => e.message.includes('📊')).length}
+          </button>
+        )}
+
+        {/* Debug Search Log - Full Screen Modal */}
+        {showSearchDebugPanel && (
+          <div className="fixed inset-0 z-50 flex flex-col" style={{ background: '#fefce8' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: '#f59e0b', color: 'white' }}>
+              <h3 style={{ fontWeight: 'bold', fontSize: '14px' }}>🔍 Search Debug Log ({searchDebugLog.length})</h3>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={() => { searchDebugLogRef.current = []; setSearchDebugLog([]); }} style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', background: '#dc2626', border: 'none', color: 'white', cursor: 'pointer' }}>Clear</button>
+                <button onClick={() => setShowSearchDebugPanel(false)} style={{ fontSize: '16px', background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
+              </div>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '8px', direction: 'ltr', textAlign: 'left', fontSize: '11px' }}>
+              {[...searchDebugLog].reverse().map((entry, idx) => (
+                <div key={idx} style={{ 
+                  marginBottom: '8px', padding: '8px', borderRadius: '8px',
+                  background: entry.message.includes('🔍') ? '#dbeafe' : entry.message.includes('📊') ? '#dcfce7' : entry.message.includes('✅ FINAL') ? '#fef9c3' : entry.message.includes('❌') ? '#fee2e2' : 'white',
+                  border: '1px solid #d1d5db'
+                }}>
+                  <div style={{ fontWeight: 'bold', color: '#1e3a5f', marginBottom: '4px', fontSize: '12px' }}>
+                    {new Date(entry.ts).toLocaleTimeString()} — {entry.message}
+                  </div>
+                  {entry.data && typeof entry.data === 'object' && (
+                    <div style={{ fontSize: '10px', color: '#374151', lineHeight: '1.5' }}>
+                      {entry.data.interest && (<div><b>Interest:</b> {entry.data.interest} <span style={{color:'#6b7280'}}>({entry.data.interestId})</span></div>)}
+                      {entry.data.query && (<div><b>Query:</b> <code style={{background:'#e5e7eb',padding:'1px 4px',borderRadius:'3px'}}>{entry.data.query}</code></div>)}
+                      {entry.data.placeTypes && (<div><b>Types:</b> <code style={{background:'#e5e7eb',padding:'1px 4px',borderRadius:'3px'}}>{Array.isArray(entry.data.placeTypes) ? entry.data.placeTypes.join(', ') : entry.data.placeTypes}</code></div>)}
+                      {entry.data.textSearch && (<div><b>Text Search:</b> <code style={{background:'#e5e7eb',padding:'1px 4px',borderRadius:'3px'}}>{entry.data.textSearch}</code></div>)}
+                      {entry.data.blacklist && entry.data.blacklist.length > 0 && (<div><b>Blacklist:</b> <span style={{color:'#dc2626'}}>{entry.data.blacklist.join(', ')}</span></div>)}
+                      {entry.data.radius && (<div><b>Center:</b> {entry.data.center} | <b>Radius:</b> {entry.data.radius} | <b>Area:</b> {entry.data.area}</div>)}
+                      
+                      {entry.data.total !== undefined && (
+                        <div style={{ marginTop: '4px', padding: '4px 8px', background: '#f3f4f6', borderRadius: '6px' }}>
+                          <b>Google:</b> {entry.data.total} → <b>Kept:</b> <span style={{color:'#16a34a',fontWeight:'bold'}}>{entry.data.kept}</span> | 
+                          <span style={{color:'#dc2626'}}> Blacklist:-{entry.data.blacklistFiltered}</span> | 
+                          <span style={{color:'#ea580c'}}> Type:-{entry.data.typeFiltered}</span> | 
+                          <span style={{color:'#9333ea'}}> Relevance:-{entry.data.relevanceFiltered}</span>
+                        </div>
+                      )}
+                      
+                      {entry.data.places && (
+                        <div style={{ marginTop: '4px' }}>
+                          {entry.data.places.map((p, pi) => (
+                            <div key={pi} style={{ 
+                              padding: '3px 6px', marginTop: '2px', borderRadius: '4px', fontSize: '10px',
+                              background: p.status?.includes('✅') ? '#dcfce7' : '#fee2e2',
+                              borderLeft: `3px solid ${p.status?.includes('✅') ? '#22c55e' : '#ef4444'}`
+                            }}>
+                              <b>{p.status}</b> {p.name} — ⭐{p.rating} ({p.reviews}) — <span style={{color:'#6b7280'}}>{p.primaryType} | {p.types}</span>
+                              {p.reason && (<div style={{ color: '#991b1b', fontSize: '9px', marginTop: '1px' }}>→ {p.reason}</div>)}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {entry.data.finalPlaces && (
+                        <div style={{ marginTop: '4px', fontSize: '10px' }}>
+                          <b>Final ({entry.data.afterDistance}):</b> {entry.data.finalPlaces.map((p, i) => <span key={i} style={{display:'inline-block',background:'#dcfce7',padding:'1px 4px',borderRadius:'3px',margin:'1px'}}>{p}</span>)}
+                        </div>
+                      )}
+                      {entry.data.removed && (<div style={{marginTop:'2px'}}><b>Removed:</b> blacklist:{entry.data.removed.blacklist} type:{entry.data.removed.type} relevance:{entry.data.removed.relevance} distance:{entry.data.removed.distance}</div>)}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* === DIALOGS (from dialogs.js) === */}
