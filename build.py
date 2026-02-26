@@ -35,12 +35,8 @@ def strip_for_production(code):
                 skip_depth = opens - closes
             continue
 
-        if re.match(r'\s*addDebugLog\s*\(', stripped):
-            opens = stripped.count('(') + stripped.count('{') + stripped.count('[')
-            closes = stripped.count(')') + stripped.count('}') + stripped.count(']')
-            if opens > closes:
-                skip_depth = opens - closes
-            continue
+        # Keep addDebugLog - it has internal debugMode check
+        # if re.match(r'\s*addDebugLog\s*\(', stripped): [REMOVED - kept for runtime debug]
 
         if re.match(r'\s*\.then\(\s*\(\)\s*=>\s*console\.(log|warn)\(', stripped):
             continue

@@ -899,7 +899,7 @@
     const cats = debugCategoriesRef.current;
     if (!cats.includes('all') && !cats.includes(cat)) return;
     const entry = { ts: Date.now(), category, message, data };
-    console.log(`[${category}] ${message}`, data || '');
+    window.console.log(`[${category}] ${message}`, data || '');
     if (cat === 'api' || cat === 'search') {
       searchDebugLogRef.current = [...searchDebugLogRef.current.slice(-100), entry];
       setSearchDebugLog([...searchDebugLogRef.current]);

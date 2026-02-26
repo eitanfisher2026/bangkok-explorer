@@ -862,6 +862,7 @@ const FouFouApp = () => {
     const cats = debugCategoriesRef.current;
     if (!cats.includes('all') && !cats.includes(cat)) return;
     const entry = { ts: Date.now(), category, message, data };
+    window.console.log(`[${category}] ${message}`, data || '');
     if (cat === 'api' || cat === 'search') {
       searchDebugLogRef.current = [...searchDebugLogRef.current.slice(-100), entry];
       setSearchDebugLog([...searchDebugLogRef.current]);
@@ -1997,6 +1998,7 @@ const FouFouApp = () => {
     } else {
       const areaCenter = areaCoordinates[area];
       if (!areaCenter) {
+        addDebugLog('API', `No coordinates for area: ${area}`);
         console.error('[DYNAMIC] No coordinates for area:', area);
         return [];
       }
@@ -2007,12 +2009,14 @@ const FouFouApp = () => {
     const validInterests = interests.filter(id => isInterestValid(id));
     if (validInterests.length === 0) {
       const names = interests.map(id => allInterestOptions.find(o => o.id === id)).filter(Boolean).map(o => tLabel(o) || o?.id || id).join(', ');
+      addDebugLog('API', `No valid config for: ${names}`);
       return [];
     }
     
     if (validInterests.length < interests.length) {
       const skipped = interests.filter(id => !isInterestValid(id));
       const skippedNames = skipped.map(id => allInterestOptions.find(o => o.id === id)).filter(Boolean).map(o => tLabel(o) || o?.id || id).join(', ');
+      addDebugLog('API', `Skipped interests without config: ${skippedNames}`);
     }
 
     try {
@@ -2049,6 +2053,16 @@ const FouFouApp = () => {
         const searchQuery = `${textSearchQuery} ${areaName} ${cityName}`.trim();
         
         const interestLabel = allInterestOptions.find(o => o.id === validInterests[0]);
+        addDebugLog('API', `🔍 TEXT SEARCH`, { 
+          interest: tLabel(interestLabel) || validInterests[0],
+          interestId: validInterests[0],
+          query: searchQuery,
+          textSearch: textSearchQuery,
+          blacklist: blacklistWords,
+          area: area || 'GPS',
+          center: `${center.lat.toFixed(4)},${center.lng.toFixed(4)}`,
+          radius: searchRadius + 'm'
+        });
         
         response = await fetch(GOOGLE_PLACES_TEXT_SEARCH_URL, {
           method: 'POST',
@@ -2086,6 +2100,15 @@ const FouFouApp = () => {
         )];
 
         const interestLabel = allInterestOptions.find(o => o.id === validInterests[0]);
+        addDebugLog('API', `🔍 CATEGORY SEARCH`, { 
+          interest: tLabel(interestLabel) || validInterests[0],
+          interestId: validInterests[0],
+          placeTypes: placeTypes,
+          blacklist: blacklistWords,
+          area: area || 'GPS',
+          center: `${center.lat.toFixed(4)},${center.lng.toFixed(4)}`,
+          radius: searchRadius + 'm'
+        });
 
         response = await fetch(GOOGLE_PLACES_API_URL, {
           method: 'POST',
@@ -2149,6 +2172,7 @@ const FouFouApp = () => {
                 }
               } else {
                 const interestNames = validInterests.map(id => allInterestOptions.find(o => o.id === id)).filter(Boolean).map(o => tLabel(o) || o?.id || id).join(', ');
+                addDebugLog('API', `Type "${singleType}" not supported by Google (${interestNames})`);
               }
             } catch (retryErr) {
             }
@@ -2188,6 +2212,7 @@ const FouFouApp = () => {
               };
             }).filter(place => place.lat !== 0 && place.lng !== 0);
             
+            addDebugLog('API', `Got ${places.length} results from retry`, { names: places.slice(0, 5).map(p => p.name) });
             return places;
           }
           return []; // No results from any type
@@ -2289,6 +2314,14 @@ const FouFouApp = () => {
         });
       
       const interestLabel = allInterestOptions.find(o => o.id === validInterests[0]);
+      addDebugLog('API', `📊 RESULTS: ${tLabel(interestLabel) || validInterests[0]}`, {
+        total: data.places.length,
+        kept: transformed.length,
+        blacklistFiltered: blacklistFilteredCount,
+        typeFiltered: typeFilteredCount,
+        relevanceFiltered: relevanceFilteredCount,
+        places: debugPlaceResults
+      });
       
       const areaConfig = areaCoordinates[area] || {};
       const distMultiplier = areaConfig.distanceMultiplier || window.BKK.selectedCity?.distanceMultiplier || 1.2;
@@ -2296,6 +2329,7 @@ const FouFouApp = () => {
       const distanceFiltered = transformed.filter(place => {
         const dist = calcDistance(center.lat, center.lng, place.lat, place.lng);
         if (dist > maxDistance) {
+          addDebugLog('API', `❌ TOO FAR: ${place.name} (${Math.round(dist)}m > ${Math.round(maxDistance)}m)`);
           return false;
         }
         return true;
@@ -2303,6 +2337,14 @@ const FouFouApp = () => {
       
       if (distanceFiltered.length < transformed.length) {
       }
+      
+      addDebugLog('API', `✅ FINAL: ${tLabel(allInterestOptions.find(o => o.id === validInterests[0])) || validInterests[0]} → ${distanceFiltered.length} places`, {
+        fromGoogle: data.places.length,
+        afterFilters: transformed.length,
+        afterDistance: distanceFiltered.length,
+        removed: { blacklist: blacklistFilteredCount, type: typeFilteredCount, relevance: relevanceFilteredCount, distance: transformed.length - distanceFiltered.length },
+        finalPlaces: distanceFiltered.map(p => `${p.name} ⭐${p.rating} (${p.ratingCount})`)
+      });
       
       return distanceFiltered;
     } catch (error) {
@@ -2409,6 +2451,8 @@ const FouFouApp = () => {
         });
       }
       
+      addDebugLog('API', 'Fetched Google Place Info', { name: placeInfo.name, types: placeInfo.types });
+      
       return placeInfo;
     } catch (error) {
       console.error('Error fetching Google place info:', error);
@@ -2447,10 +2491,15 @@ const FouFouApp = () => {
 
   useEffect(() => {
     if (!debugMode) return;
+    addDebugLog('INTEREST', `allInterestOptions.length=${allInterestOptions.length} cityCustomInterests.length=${(cityCustomInterests||[]).length} customInterests.length=${(customInterests||[]).length}`);
+    addDebugLog('INTEREST', `allInterestOptions IDs: ${allInterestOptions.map(o=>o.id).join(', ')}`);
     const customs = allInterestOptions.filter(o => o.id?.startsWith?.('custom_') || o.custom);
     if (customs.length > 0) {
+      addDebugLog('INTEREST', `${customs.length} custom found in allInterestOptions:`);
       customs.forEach(c => addDebugLog('INTEREST', `  - ${c.id}: "${c.label}" scope=${c.scope||'?'} privateOnly=${c.privateOnly} valid=${isInterestValid?.(c.id)}`));
     } else if ((customInterests||[]).length > 0) {
+      addDebugLog('INTEREST', 'BUG: customInterests exist but NOT in allInterestOptions!');
+      addDebugLog('INTEREST', 'cityCustomInterests: ' + JSON.stringify((cityCustomInterests||[]).map(c=>({id:c.id,label:c.label}))));
     }
   }, [customInterests, cityCustomInterests, allInterestOptions, debugMode]);
   useEffect(() => {
@@ -3153,8 +3202,16 @@ const FouFouApp = () => {
     setIsGenerating(true);
     
     try {
+      addDebugLog('ROUTE', 'Starting route generation', { 
+        mode: formData.searchMode, 
+        area: formData.area, 
+        radius: isRadiusMode ? formData.radiusMeters : null,
+        interests: formData.interests, 
+        maxStops: formData.maxStops 
+      });
       
       const customStops = getStopsForInterests();
+      addDebugLog('ROUTE', `Found ${customStops.length} custom stops`);
       
       const maxStops = formData.maxStops || 10;
       
@@ -3268,6 +3325,7 @@ const FouFouApp = () => {
             });
             const removed = beforeFilter - fetchedPlaces.length;
             if (removed > 0) {
+              addDebugLog('RADIUS', `Filtered ${removed} places beyond ${formData.radiusMeters}m radius`);
             }
           }
           
@@ -3408,6 +3466,7 @@ const FouFouApp = () => {
         });
         const filtered = beforeCount - uniqueStops.length;
         if (filtered > 0) {
+          addDebugLog('ROUTE', `Radius: filtered ${filtered} places outside known areas`);
         }
       } else {
         uniqueStops = uniqueStops.map(stop => ({ ...stop, detectedArea: formData.area }));
@@ -4302,6 +4361,7 @@ const FouFouApp = () => {
             ref.once('value'),
             new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
           ]);
+          addDebugLog('ADD', `Added "${place.name}" to Firebase (server verified)`);
           showToast(`✅ "${place.name}" ${t("places.addedToYourList")}`, 'success');
         } catch (e) {
           showToast(`💾 "${place.name}" — ${t('toast.savedWillSync')}`, 'warning', 'sticky');
@@ -4311,6 +4371,7 @@ const FouFouApp = () => {
         return true;
       } catch (error) {
         console.error('[FIREBASE] Error adding Google place, saving to pending:', error);
+        addDebugLog('ERROR', `Failed to add "${place.name}", saved to pending`, error);
         saveToPending(locationToAdd);
         setAddingPlaceIds(prev => prev.filter(id => id !== placeId));
         return false;
