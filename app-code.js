@@ -10385,9 +10385,6 @@ const FouFouApp = () => {
                   const tagged = cityLocs.filter(l => (l.interests || []).includes(interestId));
                   const locked = tagged.filter(l => l.locked);
                   const withCoords = tagged.filter(l => l.lat && l.lng);
-                  const statusLabels = { active: '🟢 Active', draft: '🟡 Draft', hidden: '🔴 Hidden' };
-                  const statusColors = { active: '#dcfce7', draft: '#fef3c7', hidden: '#fee2e2' };
-                  const statusBorders = { active: '#86efac', draft: '#fcd34d', hidden: '#fca5a5' };
                   return (
                     <div style={{ display: 'flex', gap: '8px', padding: '8px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
                       <div style={{ flex: 1 }}>
