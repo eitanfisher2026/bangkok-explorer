@@ -3570,119 +3570,114 @@
         )}
 
         {/* Debug Search Log - Full Screen Modal */}
-        {showSearchDebugPanel && (
-          <div className="fixed inset-0 z-50 flex flex-col" style={{ background: '#fefce8' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: '#f59e0b', color: 'white' }}>
-              <h3 style={{ fontWeight: 'bold', fontSize: '14px' }}>🔍 Search Debug Log ({searchDebugLog.length})</h3>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <button onClick={exportDebugSessions} style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', background: '#2563eb', border: 'none', color: 'white', cursor: 'pointer' }} title="Export all sessions">📋 {debugSessions.length}</button>
-                <button onClick={() => setShowSearchDebugPanel(false)} style={{ fontSize: '20px', background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontWeight: 'bold', padding: '0 4px' }}>✕</button>
+        {showSearchDebugPanel && (() => {
+          return (
+          <div className="fixed inset-0 z-50 flex flex-col" style={{ background: '#f8fafc' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: '#1e40af', color: 'white', flexShrink: 0 }}>
+              <h3 style={{ fontWeight: 'bold', fontSize: '14px' }}>🔍 Debug ({debugSessions.length} sessions{debugFlagged.size > 0 ? ` · ${debugFlagged.size}🚩` : ''})</h3>
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                {debugFlagged.size > 0 && <button onClick={exportFlaggedStops} style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', background: '#f59e0b', border: 'none', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>🚩 Copy {debugFlagged.size}</button>}
+                <button onClick={exportDebugSessions} style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', background: '#2563eb', border: 'none', color: 'white', cursor: 'pointer' }}>📋 All</button>
+                <button onClick={clearDebugSessions} style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', background: '#dc2626', border: 'none', color: 'white', cursor: 'pointer' }}>🗑️</button>
+                <button onClick={() => setShowSearchDebugPanel(false)} style={{ fontSize: '22px', background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontWeight: 'bold', padding: '0 8px' }}>✕</button>
               </div>
             </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '8px', direction: 'ltr', textAlign: 'left', fontSize: '11px' }}>
-              {[...searchDebugLog].reverse().map((entry, idx) => (
-                <div key={idx} style={{ 
-                  marginBottom: '8px', padding: '8px', borderRadius: '8px',
-                  background: entry.message.includes('🔍') ? '#dbeafe' : entry.message.includes('📊') ? '#dcfce7' : entry.message.includes('✅ FINAL') ? '#fef9c3' : entry.message.includes('❌') ? '#fee2e2' : 'white',
-                  border: '1px solid #d1d5db'
-                }}>
-                  <div style={{ fontWeight: 'bold', color: '#1e3a5f', marginBottom: '4px', fontSize: '12px' }}>
-                    {new Date(entry.ts).toLocaleTimeString()} — {entry.message}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '8px', direction: 'ltr', textAlign: 'left' }}>
+              {debugSessions.length > 0 ? debugSessions.slice(-10).reverse().map((sess) => (
+                <div key={sess.id} style={{ marginBottom: '12px', background: 'white', borderRadius: '10px', border: '1px solid #bfdbfe', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                  <div style={{ padding: '8px 12px', background: '#dbeafe', fontSize: '12px', fontWeight: 'bold', color: '#1e3a5f' }}>
+                    {sess.time} — {sess.areaName || sess.area} ({sess.searchMode}{sess.radiusMeters ? ` ${sess.radiusMeters}m` : ''}) — {sess.interests.map(i => i.label).join(', ')} — {sess.stops.length} stops
                   </div>
-                  {entry.data && typeof entry.data === 'object' && (
-                    <div style={{ fontSize: '10px', color: '#374151', lineHeight: '1.5' }}>
-                      {entry.data.interest && (<div><b>Interest:</b> {entry.data.interest} <span style={{color:'#6b7280'}}>({entry.data.interestId})</span></div>)}
-                      {entry.data.query && (<div><b>Query:</b> <code style={{background:'#e5e7eb',padding:'1px 4px',borderRadius:'3px'}}>{entry.data.query}</code></div>)}
-                      {entry.data.placeTypes && (<div><b>Types:</b> <code style={{background:'#e5e7eb',padding:'1px 4px',borderRadius:'3px'}}>{Array.isArray(entry.data.placeTypes) ? entry.data.placeTypes.join(', ') : entry.data.placeTypes}</code></div>)}
-                      {entry.data.textSearch && (<div><b>Text Search:</b> <code style={{background:'#e5e7eb',padding:'1px 4px',borderRadius:'3px'}}>{entry.data.textSearch}</code></div>)}
-                      {entry.data.blacklist && entry.data.blacklist.length > 0 && (<div><b>Blacklist:</b> <span style={{color:'#dc2626'}}>{entry.data.blacklist.join(', ')}</span></div>)}
-                      {entry.data.radius && (<div><b>Center:</b> {entry.data.center} | <b>Radius:</b> {entry.data.radius} | <b>Area:</b> {entry.data.area}</div>)}
-                      
-                      {entry.data.total !== undefined && (
-                        <div style={{ marginTop: '4px', padding: '4px 8px', background: '#f3f4f6', borderRadius: '6px' }}>
-                          <b>Google:</b> {entry.data.total} → <b>Kept:</b> <span style={{color:'#16a34a',fontWeight:'bold'}}>{entry.data.kept}</span> | 
-                          <span style={{color:'#dc2626'}}> Blacklist:-{entry.data.blacklistFiltered}</span> | 
-                          <span style={{color:'#ea580c'}}> Type:-{entry.data.typeFiltered}</span> | 
-                          <span style={{color:'#9333ea'}}> Relevance:-{entry.data.relevanceFiltered}</span>
-                        </div>
-                      )}
-                      
-                      {entry.data.places && (
-                        <div style={{ marginTop: '4px' }}>
-                          {entry.data.places.map((p, pi) => (
-                            <div key={pi} style={{ 
-                              padding: '3px 6px', marginTop: '2px', borderRadius: '4px', fontSize: '10px',
-                              background: p.status?.includes('✅') ? '#dcfce7' : '#fee2e2',
-                              borderLeft: `3px solid ${p.status?.includes('✅') ? '#22c55e' : '#ef4444'}`
-                            }}>
-                              <b>{p.status}</b> {p.name} — ⭐{p.rating} ({p.reviews}) — <span style={{color:'#6b7280'}}>{p.primaryType} | {p.types}</span>
-                              {p.reason && (<div style={{ color: '#991b1b', fontSize: '9px', marginTop: '1px' }}>→ {p.reason}</div>)}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      
-                      {entry.data.finalPlaces && (
-                        <div style={{ marginTop: '4px', fontSize: '10px' }}>
-                          <b>Final ({entry.data.afterDistance}):</b> {entry.data.finalPlaces.map((p, i) => <span key={i} style={{display:'inline-block',background:'#dcfce7',padding:'1px 4px',borderRadius:'3px',margin:'1px'}}>{p}</span>)}
-                        </div>
-                      )}
-                      {entry.data.removed && (<div style={{marginTop:'2px'}}><b>Removed:</b> blacklist:{entry.data.removed.blacklist} type:{entry.data.removed.type} relevance:{entry.data.removed.relevance} distance:{entry.data.removed.distance}</div>)}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* === DIALOGS (from dialogs.js) === */}
-
-        {/* Debug Sessions Section - inside debug panel area */}
-        {showSearchDebugPanel && debugSessions.length > 0 && (
-          <div className="fixed bottom-0 left-0 right-0 z-50" style={{ maxHeight: '50vh', overflowY: 'auto', background: '#eff6ff', borderTop: '3px solid #2563eb', padding: '8px 12px', direction: 'ltr', textAlign: 'left' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <b style={{ color: '#1e40af', fontSize: '13px' }}>📁 Selected Stops ({debugSessions.length} sessions)</b>
-              <div style={{ display: 'flex', gap: '4px' }}>
-                <button onClick={exportDebugSessions} style={{ fontSize: '10px', padding: '3px 10px', borderRadius: '6px', background: '#2563eb', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>📋 Copy All</button>
-                <button onClick={() => { searchDebugLogRef.current = []; setSearchDebugLog([]); }} style={{ fontSize: '10px', padding: '3px 10px', borderRadius: '6px', background: '#6b7280', color: 'white', border: 'none', cursor: 'pointer' }}>🧹 Log</button>
-                <button onClick={clearDebugSessions} style={{ fontSize: '10px', padding: '3px 10px', borderRadius: '6px', background: '#dc2626', color: 'white', border: 'none', cursor: 'pointer' }}>🗑️</button>
-              </div>
-            </div>
-            {debugSessions.slice(-5).reverse().map((sess) => (
-              <div key={sess.id} style={{ marginBottom: '10px', background: 'white', borderRadius: '8px', border: '1px solid #bfdbfe', overflow: 'hidden' }}>
-                <div style={{ padding: '6px 10px', background: '#dbeafe', fontSize: '11px', fontWeight: 'bold', color: '#1e3a5f' }}>
-                  {sess.time} — {sess.areaName || sess.area} ({sess.searchMode}{sess.radiusMeters ? ` ${sess.radiusMeters}m` : ''}) — {sess.interests.map(i => i.label).join(', ')}
-                </div>
-                {(sess.stops || []).map((st, i) => {
-                  const d = st._debug;
-                  return (
-                    <div key={i} style={{ padding: '6px 10px', borderTop: '1px solid #e5e7eb', fontSize: '11px', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                      <div style={{ fontWeight: 'bold', color: '#6b7280', minWidth: '16px' }}>{i + 1}.</div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>
-                          {st.custom ? '📌' : '🌐'} {st.name}
-                          <span style={{ fontWeight: 'normal', color: '#6b7280' }}> — ⭐{st.rating || '?'} ({st.ratingCount || '?'})</span>
+                  {(sess.stops || []).map((st, i) => {
+                    const d = st._debug;
+                    const searchTypes = d?.placeTypes || [];
+                    const googleTypes = d?.googleTypes || [];
+                    const matchedTypes = googleTypes.filter(t => searchTypes.includes(t));
+                    const unmatchedGoogle = googleTypes.filter(t => !searchTypes.includes(t));
+                    const flagKey = `${sess.id}:${i}`;
+                    const isFlagged = debugFlagged.has(flagKey);
+                    return (
+                      <div key={i} style={{ padding: '8px 12px', borderTop: '1px solid #e5e7eb', fontSize: '11px', background: isFlagged ? '#fef3c7' : 'transparent', borderLeft: isFlagged ? '4px solid #f59e0b' : '4px solid transparent' }}>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'baseline', marginBottom: '4px' }}>
+                          <button onClick={() => toggleDebugFlag(flagKey)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', fontSize: '14px', lineHeight: 1, opacity: isFlagged ? 1 : 0.3 }} title={isFlagged ? 'Unflag' : 'Flag for investigation'}>🚩</button>
+                          <span style={{ fontWeight: 'bold', color: '#6b7280', minWidth: '14px' }}>{i + 1}.</span>
+                          <span style={{ fontSize: '13px', fontWeight: 'bold' }}>{st.custom ? '📌' : '🌐'} {st.name}</span>
+                          <span style={{ color: '#6b7280' }}>⭐{st.rating || '?'} ({st.ratingCount || '?'})</span>
+                          {d?.rank && <span style={{ color: '#9ca3af', fontSize: '10px' }}>#{d.rank}/{d.totalFromGoogle}</span>}
                         </div>
                         {d && (
-                          <div style={{ fontSize: '10px', color: '#4b5563', lineHeight: '1.6' }}>
-                            <span style={{ background: '#dbeafe', padding: '1px 5px', borderRadius: '3px', fontWeight: 'bold' }}>{d.interestLabel}</span>
-                            {' '}
-                            <span style={{ background: '#f3f4f6', padding: '1px 5px', borderRadius: '3px' }}>
-                              {d.searchType === 'text' ? `🔤 "${d.query}"` : `📂 ${(d.placeTypes || []).join(', ')}`}
-                            </span>
-                            {d.rank && <span style={{ color: '#9ca3af' }}> #{d.rank}/{d.totalFromGoogle}</span>}
-                            {d.primaryType && <span style={{ color: '#9ca3af' }}> · {d.primaryType}</span>}
-                            {d.blacklist && d.blacklist.length > 0 && <span style={{ color: '#dc2626' }}> · BL: {d.blacklist.join(', ')}</span>}
+                          <div style={{ fontSize: '10px', lineHeight: '1.8', paddingLeft: '24px' }}>
+                            <div>
+                              <span style={{ background: '#dbeafe', padding: '1px 6px', borderRadius: '3px', fontWeight: 'bold', color: '#1e40af' }}>{d.interestLabel}</span>
+                              {d.searchType === 'text' && <span style={{ marginLeft: '4px', background: '#f3e8ff', padding: '1px 6px', borderRadius: '3px', color: '#7c3aed' }}>🔤 "{d.query}"</span>}
+                              {d.primaryType && <span style={{ marginLeft: '4px', color: '#6b7280' }}>primary: <b>{d.primaryType}</b></span>}
+                            </div>
+                            {d.searchType === 'category' && searchTypes.length > 0 && (
+                              <div style={{ marginTop: '3px' }}>
+                                <span style={{ color: '#6b7280', fontWeight: 'bold' }}>Search: </span>
+                                {searchTypes.map((t, ti) => (
+                                  <span key={ti} style={{ display: 'inline-block', margin: '1px 2px', padding: '0 4px', borderRadius: '3px', fontSize: '9px', background: matchedTypes.includes(t) ? '#dcfce7' : '#f3f4f6', color: matchedTypes.includes(t) ? '#166534' : '#9ca3af', fontWeight: matchedTypes.includes(t) ? 'bold' : 'normal', border: `1px solid ${matchedTypes.includes(t) ? '#86efac' : '#e5e7eb'}` }}>{matchedTypes.includes(t) ? '✓ ' : ''}{t}</span>
+                                ))}
+                              </div>
+                            )}
+                            {googleTypes.length > 0 && (
+                              <div style={{ marginTop: '2px' }}>
+                                <span style={{ color: '#6b7280', fontWeight: 'bold' }}>Google: </span>
+                                {matchedTypes.map((t, ti) => (
+                                  <span key={'m'+ti} style={{ display: 'inline-block', margin: '1px 2px', padding: '0 4px', borderRadius: '3px', fontSize: '9px', background: '#dcfce7', color: '#166534', fontWeight: 'bold', border: '1px solid #86efac' }}>✓ {t}</span>
+                                ))}
+                                {unmatchedGoogle.map((t, ti) => (
+                                  <span key={'u'+ti} style={{ display: 'inline-block', margin: '1px 2px', padding: '0 4px', borderRadius: '3px', fontSize: '9px', background: '#f3f4f6', color: '#9ca3af', border: '1px solid #e5e7eb' }}>{t}</span>
+                                ))}
+                              </div>
+                            )}
+                            {d.blacklist && d.blacklist.length > 0 && (
+                              <div style={{ marginTop: '2px' }}>
+                                <span style={{ color: '#dc2626', fontWeight: 'bold' }}>Blacklist: </span>
+                                <span style={{ color: '#dc2626' }}>{d.blacklist.join(', ')}</span>
+                              </div>
+                            )}
                           </div>
                         )}
-                        {st.address && <div style={{ fontSize: '9px', color: '#9ca3af', marginTop: '1px' }}>{st.address}</div>}
+                        {st.address && <div style={{ fontSize: '9px', color: '#9ca3af', paddingLeft: '24px', marginTop: '2px' }}>{st.address}</div>}
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-            {debugSessions.length > 5 && <div style={{ fontSize: '9px', color: '#6b7280', textAlign: 'center' }}>+ {debugSessions.length - 5} older sessions (use Export to see all)</div>}
+                    );
+                  })}
+                </div>
+              )) : (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af', fontSize: '14px' }}>No sessions yet — generate a route with debug mode on</div>
+              )}
+              {searchDebugLog.length > 0 && (
+                <details style={{ marginTop: '8px' }}>
+                  <summary style={{ cursor: 'pointer', padding: '8px 12px', background: '#fef9c3', borderRadius: '8px', fontWeight: 'bold', fontSize: '12px', color: '#92400e', border: '1px solid #fcd34d' }}>
+                    📊 API Log — {searchDebugLog.length} entries
+                  </summary>
+                  <div style={{ padding: '8px', fontSize: '10px', marginTop: '4px' }}>
+                    {[...searchDebugLog].reverse().map((entry, idx) => (
+                      <div key={idx} style={{ marginBottom: '6px', padding: '6px', borderRadius: '6px', background: entry.message.includes('🔍') ? '#dbeafe' : entry.message.includes('📊') ? '#dcfce7' : entry.message.includes('✅') ? '#fef9c3' : entry.message.includes('❌') ? '#fee2e2' : 'white', border: '1px solid #d1d5db' }}>
+                        <div style={{ fontWeight: 'bold', color: '#1e3a5f', marginBottom: '2px', fontSize: '11px' }}>{new Date(entry.ts).toLocaleTimeString()} — {entry.message}</div>
+                        {entry.data && typeof entry.data === 'object' && (
+                          <div style={{ color: '#374151', lineHeight: '1.4' }}>
+                            {entry.data.interest && (<div><b>Interest:</b> {entry.data.interest}</div>)}
+                            {entry.data.placeTypes && (<div><b>Types:</b> {Array.isArray(entry.data.placeTypes) ? entry.data.placeTypes.join(', ') : entry.data.placeTypes}</div>)}
+                            {entry.data.blacklist && entry.data.blacklist.length > 0 && (<div style={{color:'#dc2626'}}><b>Blacklist:</b> {entry.data.blacklist.join(', ')}</div>)}
+                            {entry.data.total !== undefined && (<div><b>Google:</b> {entry.data.total} → <b>Kept:</b> {entry.data.kept} | BL:-{entry.data.blacklistFiltered} Type:-{entry.data.typeFiltered} Rel:-{entry.data.relevanceFiltered}</div>)}
+                            {entry.data.places && entry.data.places.map((p, pi) => (
+                              <div key={pi} style={{ padding: '2px 4px', marginTop: '1px', borderRadius: '3px', background: p.status?.includes('✅') ? '#dcfce7' : '#fee2e2', borderLeft: `2px solid ${p.status?.includes('✅') ? '#22c55e' : '#ef4444'}` }}>
+                                <b>{p.status}</b> {p.name} — ⭐{p.rating} ({p.reviews}) — {p.primaryType}{p.reason ? ` | ${p.reason}` : ''}
+                              </div>
+                            ))}
+                            {entry.data.finalPlaces && (<div style={{marginTop:'2px'}}><b>Final:</b> {entry.data.finalPlaces.join(' | ')}</div>)}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </div>
           </div>
-        )}
+          );
+        })()}
+
+        {/* === DIALOGS (from dialogs.js) === */}

@@ -994,7 +994,50 @@
   // Clear debug sessions
   const clearDebugSessions = () => {
     setDebugSessions([]);
-    showToast('🗑️ Debug sessions cleared', 'info');
+    searchDebugLogRef.current = [];
+    setSearchDebugLog([]);
+    setDebugFlagged(new Set());
+    showToast('🗑️ Debug cleared', 'info');
+  };
+  
+  // Flagged stops for investigation
+  const [debugFlagged, setDebugFlagged] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('foufou_debug_flagged') || '[]')); } catch(e) { return new Set(); }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('foufou_debug_flagged', JSON.stringify([...debugFlagged])); } catch(e) {}
+  }, [debugFlagged]);
+  const toggleDebugFlag = (key) => {
+    setDebugFlagged(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+  const exportFlaggedStops = () => {
+    const lines = ['=== 🚩 FLAGGED STOPS ===', ''];
+    debugSessions.forEach((sess) => {
+      const flaggedInSess = (sess.stops || []).map((st, i) => ({ st, i, key: `${sess.id}:${i}` })).filter(x => debugFlagged.has(x.key));
+      if (flaggedInSess.length === 0) return;
+      lines.push(`--- ${sess.time} | ${sess.areaName || sess.area} (${sess.searchMode}) | ${sess.interests.map(i => i.label).join(', ')} ---`);
+      flaggedInSess.forEach(({ st, i }) => {
+        const d = st._debug;
+        lines.push(`  🚩 ${i + 1}. ${st.name} — ⭐${st.rating || '?'} (${st.ratingCount || '?'})`);
+        if (d) {
+          lines.push(`     Interest: ${d.interestLabel} | Search: ${d.searchType}${d.query ? ` "${d.query}"` : ''}`);
+          if (d.placeTypes) lines.push(`     Search types: ${d.placeTypes.join(', ')}`);
+          lines.push(`     Google types: ${(d.googleTypes || []).join(', ')}`);
+          lines.push(`     Primary: ${d.primaryType || '-'} | Rank: #${d.rank}/${d.totalFromGoogle}`);
+          if (d.blacklist?.length) lines.push(`     Blacklist: ${d.blacklist.join(', ')}`);
+        }
+        if (st.address) lines.push(`     Address: ${st.address}`);
+        lines.push('');
+      });
+    });
+    if (lines.length <= 2) { showToast('No flagged stops', 'info'); return; }
+    const text = lines.join('\n');
+    try { navigator.clipboard.writeText(text); showToast(`📋 ${lines.filter(l => l.includes('🚩')).length} flagged stops copied`, 'success'); }
+    catch(e) { const blob = new Blob([text], {type:'text/plain'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'flagged-stops.txt'; a.click(); }
   };
   
   // Help content - loaded from config.js
