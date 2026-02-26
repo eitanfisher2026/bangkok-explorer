@@ -132,7 +132,16 @@
               { icon: '🗺️', label: t('nav.route'), view: 'form' },
               { icon: '💾', label: t('nav.saved'), view: 'saved', count: citySavedRoutes.length },
               { icon: '⭐', label: t('nav.favorites'), view: 'myPlaces', count: cityCustomLocations.filter(l => l.status !== 'blacklist').length },
-              { icon: '🏷️', label: t('nav.myInterests'), view: 'myInterests' },
+              { icon: '🏷️', label: t('nav.myInterests'), view: 'myInterests', count: allInterestOptions.filter(o => {
+                const aStatus = o.adminStatus || 'active';
+                if (aStatus === 'hidden') return false;
+                if (aStatus === 'draft' && !isUnlocked) return false;
+                if (o.scope === 'local' && o.cityId && o.cityId !== selectedCityId) return false;
+                if (!isInterestValid(o.id)) return false;
+                const status = interestStatus[o.id];
+                if (o.uncovered) return status === true;
+                return status !== false;
+              }).length },
               { icon: '⚙️', label: t('settings.title'), view: 'settings' },
             ].map(item => (
               <button
@@ -3565,10 +3574,9 @@
           <div className="fixed inset-0 z-50 flex flex-col" style={{ background: '#fefce8' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: '#f59e0b', color: 'white' }}>
               <h3 style={{ fontWeight: 'bold', fontSize: '14px' }}>🔍 Search Debug Log ({searchDebugLog.length})</h3>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <button onClick={exportDebugSessions} style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', background: '#2563eb', border: 'none', color: 'white', cursor: 'pointer' }} title="Export all sessions">📋 {debugSessions.length}</button>
-                <button onClick={() => { searchDebugLogRef.current = []; setSearchDebugLog([]); }} style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', background: '#dc2626', border: 'none', color: 'white', cursor: 'pointer' }}>Clear</button>
-                <button onClick={() => setShowSearchDebugPanel(false)} style={{ fontSize: '16px', background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
+                <button onClick={() => setShowSearchDebugPanel(false)} style={{ fontSize: '20px', background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontWeight: 'bold', padding: '0 4px' }}>✕</button>
               </div>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '8px', direction: 'ltr', textAlign: 'left', fontSize: '11px' }}>
@@ -3632,19 +3640,47 @@
 
         {/* Debug Sessions Section - inside debug panel area */}
         {showSearchDebugPanel && debugSessions.length > 0 && (
-          <div className="fixed bottom-0 left-0 right-0 z-50" style={{ maxHeight: '40vh', overflowY: 'auto', background: '#eff6ff', borderTop: '2px solid #93c5fd', padding: '8px 12px', direction: 'ltr', textAlign: 'left' }}>
+          <div className="fixed bottom-0 left-0 right-0 z-50" style={{ maxHeight: '50vh', overflowY: 'auto', background: '#eff6ff', borderTop: '3px solid #2563eb', padding: '8px 12px', direction: 'ltr', textAlign: 'left' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <b style={{ color: '#1e40af', fontSize: '12px' }}>📁 Saved Sessions ({debugSessions.length})</b>
+              <b style={{ color: '#1e40af', fontSize: '13px' }}>📁 Selected Stops ({debugSessions.length} sessions)</b>
               <div style={{ display: 'flex', gap: '4px' }}>
                 <button onClick={exportDebugSessions} style={{ fontSize: '10px', padding: '3px 10px', borderRadius: '6px', background: '#2563eb', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>📋 Copy All</button>
-                <button onClick={clearDebugSessions} style={{ fontSize: '10px', padding: '3px 10px', borderRadius: '6px', background: '#dc2626', color: 'white', border: 'none', cursor: 'pointer' }}>🗑️ Clear</button>
+                <button onClick={() => { searchDebugLogRef.current = []; setSearchDebugLog([]); }} style={{ fontSize: '10px', padding: '3px 10px', borderRadius: '6px', background: '#6b7280', color: 'white', border: 'none', cursor: 'pointer' }}>🧹 Log</button>
+                <button onClick={clearDebugSessions} style={{ fontSize: '10px', padding: '3px 10px', borderRadius: '6px', background: '#dc2626', color: 'white', border: 'none', cursor: 'pointer' }}>🗑️</button>
               </div>
             </div>
             {debugSessions.slice(-5).reverse().map((sess) => (
-              <div key={sess.id} style={{ marginBottom: '6px', padding: '4px 6px', background: 'white', borderRadius: '6px', fontSize: '10px', border: '1px solid #dbeafe' }}>
-                <div style={{ fontWeight: 'bold' }}>{sess.time} — {sess.areaName || sess.area} ({sess.searchMode})</div>
-                <div style={{ color: '#4b5563' }}>Interests: {sess.interests.map(i => i.label).join(', ')}</div>
-                <div style={{ color: '#374151' }}>{sess.stops.length} stops: {sess.stops.map(s => `${s.custom ? '📌' : '🌐'}${s.name}`).join(', ')}</div>
+              <div key={sess.id} style={{ marginBottom: '10px', background: 'white', borderRadius: '8px', border: '1px solid #bfdbfe', overflow: 'hidden' }}>
+                <div style={{ padding: '6px 10px', background: '#dbeafe', fontSize: '11px', fontWeight: 'bold', color: '#1e3a5f' }}>
+                  {sess.time} — {sess.areaName || sess.area} ({sess.searchMode}{sess.radiusMeters ? ` ${sess.radiusMeters}m` : ''}) — {sess.interests.map(i => i.label).join(', ')}
+                </div>
+                {(sess.stops || []).map((st, i) => {
+                  const d = st._debug;
+                  return (
+                    <div key={i} style={{ padding: '6px 10px', borderTop: '1px solid #e5e7eb', fontSize: '11px', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                      <div style={{ fontWeight: 'bold', color: '#6b7280', minWidth: '16px' }}>{i + 1}.</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>
+                          {st.custom ? '📌' : '🌐'} {st.name}
+                          <span style={{ fontWeight: 'normal', color: '#6b7280' }}> — ⭐{st.rating || '?'} ({st.ratingCount || '?'})</span>
+                        </div>
+                        {d && (
+                          <div style={{ fontSize: '10px', color: '#4b5563', lineHeight: '1.6' }}>
+                            <span style={{ background: '#dbeafe', padding: '1px 5px', borderRadius: '3px', fontWeight: 'bold' }}>{d.interestLabel}</span>
+                            {' '}
+                            <span style={{ background: '#f3f4f6', padding: '1px 5px', borderRadius: '3px' }}>
+                              {d.searchType === 'text' ? `🔤 "${d.query}"` : `📂 ${(d.placeTypes || []).join(', ')}`}
+                            </span>
+                            {d.rank && <span style={{ color: '#9ca3af' }}> #{d.rank}/{d.totalFromGoogle}</span>}
+                            {d.primaryType && <span style={{ color: '#9ca3af' }}> · {d.primaryType}</span>}
+                            {d.blacklist && d.blacklist.length > 0 && <span style={{ color: '#dc2626' }}> · BL: {d.blacklist.join(', ')}</span>}
+                          </div>
+                        )}
+                        {st.address && <div style={{ fontSize: '9px', color: '#9ca3af', marginTop: '1px' }}>{st.address}</div>}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             ))}
             {debugSessions.length > 5 && <div style={{ fontSize: '9px', color: '#6b7280', textAlign: 'center' }}>+ {debugSessions.length - 5} older sessions (use Export to see all)</div>}

@@ -1068,6 +1068,74 @@
                 )}
 
                 {/* Counter for auto-naming — only in edit mode + admin */}
+                {/* Admin: Status + Default + Place count */}
+                {editingCustomInterest && isUnlocked && (() => {
+                  const interestId = editingCustomInterest.id;
+                  const cfg = interestConfig[interestId] || {};
+                  const aStatus = cfg.adminStatus || 'active';
+                  const builtInDefault = interestOptions.some(i => i.id === interestId);
+                  const isDefault = cfg.defaultEnabled !== undefined ? cfg.defaultEnabled : builtInDefault;
+                  const statusLabels = { active: '🟢 Active', draft: '🟡 Draft', hidden: '🔴 Hidden' };
+                  const statusColors = { active: '#dcfce7', draft: '#fef3c7', hidden: '#fee2e2' };
+                  const statusBorders = { active: '#86efac', draft: '#fcd34d', hidden: '#fca5a5' };
+                  // Count places tagged with this interest
+                  const cityLocs = (customLocations || []).filter(l => (l.cityId || 'bangkok') === selectedCityId && l.status !== 'blacklist');
+                  const tagged = cityLocs.filter(l => (l.interests || []).includes(interestId));
+                  const locked = tagged.filter(l => l.locked);
+                  const withCoords = tagged.filter(l => l.lat && l.lng);
+                  const statusLabels = { active: '🟢 Active', draft: '🟡 Draft', hidden: '🔴 Hidden' };
+                  const statusColors = { active: '#dcfce7', draft: '#fef3c7', hidden: '#fee2e2' };
+                  const statusBorders = { active: '#86efac', draft: '#fcd34d', hidden: '#fca5a5' };
+                  return (
+                    <div style={{ display: 'flex', gap: '8px', padding: '8px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', marginBottom: '4px' }}>Status</div>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          {['active', 'draft', 'hidden'].map(s => (
+                            <button key={s} type="button"
+                              onClick={async () => {
+                                if (aStatus === s) return;
+                                const updCfg = { ...interestConfig, [interestId]: { ...cfg, adminStatus: s } };
+                                setInterestConfig(updCfg);
+                                if (isFirebaseAvailable && database) {
+                                  try { await database.ref(`settings/interestConfig/${interestId}/adminStatus`).set(s); } catch(e) {}
+                                }
+                                const labels = { active: '🟢', draft: '🟡', hidden: '🔴' };
+                                showToast(`${labels[s]} ${tLabel(editingCustomInterest) || interestId} → ${s}`, 'info');
+                              }}
+                              style={{
+                                fontSize: '10px', padding: '3px 8px', borderRadius: '6px', cursor: 'pointer',
+                                background: aStatus === s ? statusColors[s] : '#f1f5f9',
+                                border: `1px solid ${aStatus === s ? statusBorders[s] : '#e2e8f0'}`,
+                                fontWeight: aStatus === s ? 'bold' : 'normal',
+                                opacity: aStatus === s ? 1 : 0.5
+                              }}
+                            >{statusLabels[s]}</button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', marginBottom: '4px' }}>Default</div>
+                        <button type="button"
+                          onClick={() => toggleDefaultEnabled(interestId)}
+                          style={{
+                            fontSize: '11px', padding: '3px 10px', borderRadius: '6px', cursor: 'pointer',
+                            background: isDefault ? '#dbeafe' : '#f1f5f9',
+                            border: `1px solid ${isDefault ? '#93c5fd' : '#e2e8f0'}`,
+                            fontWeight: 'bold', color: isDefault ? '#1d4ed8' : '#94a3b8'
+                          }}
+                        >{isDefault ? '🔵 ON' : '⚪ OFF'}</button>
+                      </div>
+                      <div style={{ borderRight: '1px solid #e2e8f0', paddingRight: '8px' }}>
+                        <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', marginBottom: '4px' }}>⭐ Places</div>
+                        <div style={{ fontSize: '11px', fontWeight: 'bold', color: tagged.length > 0 ? '#059669' : '#94a3b8' }}>
+                          {tagged.length}{locked.length > 0 ? ` (${locked.length}🔒)` : ''}{tagged.length > 0 && withCoords.length < tagged.length ? ` · ${tagged.length - withCoords.length}❗` : ''}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {editingCustomInterest && isUnlocked && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '10px', direction: 'rtl' }}>
                   <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#6b7280' }}>{t('interests.nextNumber')}:</span>
