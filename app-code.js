@@ -861,12 +861,13 @@ const FouFouApp = () => {
   const debugCategoriesRef = useRef(debugCategories);
   useEffect(() => { debugModeRef.current = debugMode; }, [debugMode]);
   useEffect(() => { debugCategoriesRef.current = debugCategories; }, [debugCategories]);
+  const searchRunIdRef = React.useRef(null);
   const addDebugLog = (category, message, data = null) => {
     if (!debugModeRef.current) return;
     const cat = category.toLowerCase();
     const cats = debugCategoriesRef.current;
     if (!cats.includes('all') && !cats.includes(cat)) return;
-    const entry = { ts: Date.now(), category, message, data };
+    const entry = { ts: Date.now(), category, message, data, runId: searchRunIdRef.current };
     window.console.log(`[${category}] ${message}`, data || '');
     if (cat === 'api' || cat === 'search') {
       searchDebugLogRef.current = [...searchDebugLogRef.current.slice(-100), entry];
@@ -889,6 +890,7 @@ const FouFouApp = () => {
     if (!debugModeRef.current) return;
     const session = {
       id: Date.now(),
+      runId: searchRunIdRef.current,
       time: new Date().toLocaleString('he-IL'),
       city: selectedCityId,
       area: formData.area,
@@ -3372,6 +3374,7 @@ const FouFouApp = () => {
   };
 
   const generateRoute = async () => {
+    searchRunIdRef.current = Date.now().toString();
     const isRadiusMode = formData.searchMode === 'radius' || formData.searchMode === 'all';
     
     setStartPointCoords(null);
@@ -4873,7 +4876,7 @@ const FouFouApp = () => {
             name: loc.name.trim(),
             description: loc.description || loc.notes || '',
             notes: loc.notes || '',
-            area: loc.area || (loc.areas ? loc.areas[0] : 'sukhumvit'),
+            area: loc.area || (loc.areas ? loc.areas[0] : (formData.area || areaOptions[0]?.id || 'center')),
             areas: window.BKK.normalizeLocationAreas(loc),
             interests: Array.isArray(loc.interests) ? loc.interests : [],
             lat: loc.lat || null,
@@ -5000,7 +5003,7 @@ const FouFouApp = () => {
           name: loc.name.trim(),
           description: loc.description || loc.notes || '',
           notes: loc.notes || '',
-          area: loc.area || (loc.areas ? loc.areas[0] : 'sukhumvit'),
+          area: loc.area || (loc.areas ? loc.areas[0] : (formData.area || areaOptions[0]?.id || 'center')),
           areas: window.BKK.normalizeLocationAreas(loc),
           interests: Array.isArray(loc.interests) ? loc.interests : [],
           lat: loc.lat || null,
@@ -5296,7 +5299,7 @@ const FouFouApp = () => {
         }
       }
     }
-    if (finalAreas.length === 0) finalAreas = ['sukhumvit'];
+    if (finalAreas.length === 0) finalAreas = [formData.area || areaOptions[0]?.id || 'center'];
     
     const newId = Date.now();
     const locationToAdd = {
@@ -5468,7 +5471,7 @@ const FouFouApp = () => {
         }
       }
     }
-    if (finalAreas.length === 0) finalAreas = editingLocation.areas || ['sukhumvit'];
+    if (finalAreas.length === 0) finalAreas = editingLocation.areas || [formData.area || areaOptions[0]?.id || 'center'];
     
     const updatedLocation = { 
       ...editingLocation, // Keep existing fields like status
@@ -9278,7 +9281,9 @@ const FouFouApp = () => {
               </div>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '8px', direction: 'ltr', textAlign: 'left' }}>
-              {debugSessions.length > 0 ? debugSessions.slice(-10).reverse().map((sess) => (
+              {debugSessions.length > 0 ? debugSessions.slice(-10).reverse().map((sess) => {
+                const sessLogs = searchDebugLog.filter(e => e.runId && e.runId === sess.runId);
+                return (
                 <div key={sess.id} style={{ marginBottom: '12px', background: 'white', borderRadius: '10px', border: '1px solid #bfdbfe', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                   <div style={{ padding: '8px 12px', background: '#dbeafe', fontSize: '12px', fontWeight: 'bold', color: '#1e3a5f' }}>
                     {sess.time} — {sess.areaName || sess.area} ({sess.searchMode}{sess.radiusMeters ? ` ${sess.radiusMeters}m` : ''}) — {sess.interests.map(i => i.label).join(', ')} — {sess.stops.length} stops
@@ -9338,38 +9343,69 @@ const FouFouApp = () => {
                       </div>
                     );
                   })}
+                  {sessLogs.length > 0 && (
+                    <details style={{ borderTop: '2px solid #fcd34d' }}>
+                      <summary style={{ cursor: 'pointer', padding: '6px 12px', background: '#fef9c3', fontSize: '11px', fontWeight: 'bold', color: '#92400e' }}>
+                        📊 API Log ({sessLogs.length})
+                      </summary>
+                      <div style={{ padding: '6px', fontSize: '10px', background: '#fffbeb' }}>
+                        {sessLogs.map((entry, idx) => (
+                          <div key={idx} style={{ marginBottom: '4px', padding: '4px 6px', borderRadius: '4px', background: entry.message.includes('🔍') ? '#dbeafe' : entry.message.includes('📊') ? '#dcfce7' : entry.message.includes('✅') ? '#fef9c3' : entry.message.includes('❌') ? '#fee2e2' : 'white', border: '1px solid #e5e7eb' }}>
+                            <div style={{ fontWeight: 'bold', color: '#1e3a5f', fontSize: '10px' }}>{entry.message}</div>
+                            {entry.data && typeof entry.data === 'object' && (
+                              <div style={{ color: '#374151', lineHeight: '1.3', marginTop: '2px' }}>
+                                {entry.data.interest && (<div><b>Interest:</b> {entry.data.interest}</div>)}
+                                {entry.data.placeTypes && (<div><b>Types:</b> {Array.isArray(entry.data.placeTypes) ? entry.data.placeTypes.join(', ') : entry.data.placeTypes}</div>)}
+                                {entry.data.blacklist && entry.data.blacklist.length > 0 && (<div style={{color:'#dc2626'}}><b>BL:</b> {entry.data.blacklist.join(', ')}</div>)}
+                                {entry.data.total !== undefined && (<div><b>Google:</b> {entry.data.total} → Kept:{entry.data.kept} BL:-{entry.data.blacklistFiltered} Type:-{entry.data.typeFiltered} Rel:-{entry.data.relevanceFiltered}</div>)}
+                                {entry.data.places && entry.data.places.map((p, pi) => (
+                                  <div key={pi} style={{ padding: '1px 4px', marginTop: '1px', borderRadius: '3px', background: p.status?.includes('✅') ? '#dcfce7' : '#fee2e2', borderLeft: `2px solid ${p.status?.includes('✅') ? '#22c55e' : '#ef4444'}`, fontSize: '9px' }}>
+                                    {p.status} {p.name} — ⭐{p.rating} ({p.reviews}) — {p.primaryType}{p.reason ? ` | ${p.reason}` : ''}
+                                  </div>
+                                ))}
+                                {entry.data.finalPlaces && (<div><b>Final:</b> {entry.data.finalPlaces.join(' | ')}</div>)}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
                 </div>
-              )) : (
+                );
+              }) : (
                 <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af', fontSize: '14px' }}>No sessions yet — generate a route with debug mode on</div>
               )}
-              {searchDebugLog.length > 0 && (
-                <details style={{ marginTop: '8px' }}>
-                  <summary style={{ cursor: 'pointer', padding: '8px 12px', background: '#fef9c3', borderRadius: '8px', fontWeight: 'bold', fontSize: '12px', color: '#92400e', border: '1px solid #fcd34d' }}>
-                    📊 API Log — {searchDebugLog.length} entries
-                  </summary>
-                  <div style={{ padding: '8px', fontSize: '10px', marginTop: '4px' }}>
-                    {[...searchDebugLog].reverse().map((entry, idx) => (
-                      <div key={idx} style={{ marginBottom: '6px', padding: '6px', borderRadius: '6px', background: entry.message.includes('🔍') ? '#dbeafe' : entry.message.includes('📊') ? '#dcfce7' : entry.message.includes('✅') ? '#fef9c3' : entry.message.includes('❌') ? '#fee2e2' : 'white', border: '1px solid #d1d5db' }}>
-                        <div style={{ fontWeight: 'bold', color: '#1e3a5f', marginBottom: '2px', fontSize: '11px' }}>{new Date(entry.ts).toLocaleTimeString()} — {entry.message}</div>
-                        {entry.data && typeof entry.data === 'object' && (
-                          <div style={{ color: '#374151', lineHeight: '1.4' }}>
-                            {entry.data.interest && (<div><b>Interest:</b> {entry.data.interest}</div>)}
-                            {entry.data.placeTypes && (<div><b>Types:</b> {Array.isArray(entry.data.placeTypes) ? entry.data.placeTypes.join(', ') : entry.data.placeTypes}</div>)}
-                            {entry.data.blacklist && entry.data.blacklist.length > 0 && (<div style={{color:'#dc2626'}}><b>Blacklist:</b> {entry.data.blacklist.join(', ')}</div>)}
-                            {entry.data.total !== undefined && (<div><b>Google:</b> {entry.data.total} → <b>Kept:</b> {entry.data.kept} | BL:-{entry.data.blacklistFiltered} Type:-{entry.data.typeFiltered} Rel:-{entry.data.relevanceFiltered}</div>)}
-                            {entry.data.places && entry.data.places.map((p, pi) => (
-                              <div key={pi} style={{ padding: '2px 4px', marginTop: '1px', borderRadius: '3px', background: p.status?.includes('✅') ? '#dcfce7' : '#fee2e2', borderLeft: `2px solid ${p.status?.includes('✅') ? '#22c55e' : '#ef4444'}` }}>
-                                <b>{p.status}</b> {p.name} — ⭐{p.rating} ({p.reviews}) — {p.primaryType}{p.reason ? ` | ${p.reason}` : ''}
-                              </div>
-                            ))}
-                            {entry.data.finalPlaces && (<div style={{marginTop:'2px'}}><b>Final:</b> {entry.data.finalPlaces.join(' | ')}</div>)}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </details>
-              )}
+              {(() => {
+                const sessionRunIds = new Set(debugSessions.map(s => s.runId).filter(Boolean));
+                const orphanLogs = searchDebugLog.filter(e => !e.runId || !sessionRunIds.has(e.runId));
+                if (orphanLogs.length === 0) return null;
+                return (
+                  <details style={{ marginTop: '8px' }}>
+                    <summary style={{ cursor: 'pointer', padding: '8px 12px', background: '#f3f4f6', borderRadius: '8px', fontWeight: 'bold', fontSize: '12px', color: '#6b7280', border: '1px solid #d1d5db' }}>
+                      📊 Other API Logs ({orphanLogs.length})
+                    </summary>
+                    <div style={{ padding: '8px', fontSize: '10px', marginTop: '4px' }}>
+                      {[...orphanLogs].reverse().map((entry, idx) => (
+                        <div key={idx} style={{ marginBottom: '4px', padding: '4px 6px', borderRadius: '4px', background: entry.message.includes('🔍') ? '#dbeafe' : entry.message.includes('📊') ? '#dcfce7' : 'white', border: '1px solid #e5e7eb' }}>
+                          <div style={{ fontWeight: 'bold', color: '#1e3a5f', fontSize: '10px' }}>{new Date(entry.ts).toLocaleTimeString()} — {entry.message}</div>
+                          {entry.data && typeof entry.data === 'object' && (
+                            <div style={{ color: '#374151', lineHeight: '1.3' }}>
+                              {entry.data.interest && (<div><b>Interest:</b> {entry.data.interest}</div>)}
+                              {entry.data.total !== undefined && (<div><b>Google:</b> {entry.data.total} → Kept:{entry.data.kept}</div>)}
+                              {entry.data.places && entry.data.places.map((p, pi) => (
+                                <div key={pi} style={{ padding: '1px 4px', borderRadius: '3px', background: p.status?.includes('✅') ? '#dcfce7' : '#fee2e2', borderLeft: `2px solid ${p.status?.includes('✅') ? '#22c55e' : '#ef4444'}`, fontSize: '9px' }}>
+                                  {p.status} {p.name} — ⭐{p.rating} — {p.primaryType}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                );
+              })()}
             </div>
           </div>
           );

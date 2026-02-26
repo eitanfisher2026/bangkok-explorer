@@ -3365,7 +3365,7 @@ window.BKK.normalizeLocationAreas = (loc) => {
   if (loc.area && typeof loc.area === 'string') {
     return [loc.area];
   }
-  return ['sukhumvit'];
+  return [window.BKK.areaOptions?.[0]?.id || 'center'];
 };
 
 /**

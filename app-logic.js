@@ -899,12 +899,13 @@
   const debugCategoriesRef = useRef(debugCategories);
   useEffect(() => { debugModeRef.current = debugMode; }, [debugMode]);
   useEffect(() => { debugCategoriesRef.current = debugCategories; }, [debugCategories]);
+  const searchRunIdRef = React.useRef(null);
   const addDebugLog = (category, message, data = null) => {
     if (!debugModeRef.current) return;
     const cat = category.toLowerCase();
     const cats = debugCategoriesRef.current;
     if (!cats.includes('all') && !cats.includes(cat)) return;
-    const entry = { ts: Date.now(), category, message, data };
+    const entry = { ts: Date.now(), category, message, data, runId: searchRunIdRef.current };
     window.console.log(`[${category}] ${message}`, data || '');
     if (cat === 'api' || cat === 'search') {
       searchDebugLogRef.current = [...searchDebugLogRef.current.slice(-100), entry];
@@ -930,6 +931,7 @@
     if (!debugModeRef.current) return;
     const session = {
       id: Date.now(),
+      runId: searchRunIdRef.current,
       time: new Date().toLocaleString('he-IL'),
       city: selectedCityId,
       area: formData.area,
@@ -3740,6 +3742,7 @@
   };
 
   const generateRoute = async () => {
+    searchRunIdRef.current = Date.now().toString();
     const isRadiusMode = formData.searchMode === 'radius' || formData.searchMode === 'all';
     
     // Clear old start point to avoid stale data
@@ -5448,7 +5451,7 @@
             name: loc.name.trim(),
             description: loc.description || loc.notes || '',
             notes: loc.notes || '',
-            area: loc.area || (loc.areas ? loc.areas[0] : 'sukhumvit'),
+            area: loc.area || (loc.areas ? loc.areas[0] : (formData.area || areaOptions[0]?.id || 'center')),
             areas: window.BKK.normalizeLocationAreas(loc),
             interests: Array.isArray(loc.interests) ? loc.interests : [],
             lat: loc.lat || null,
@@ -5583,7 +5586,7 @@
           name: loc.name.trim(),
           description: loc.description || loc.notes || '',
           notes: loc.notes || '',
-          area: loc.area || (loc.areas ? loc.areas[0] : 'sukhumvit'),
+          area: loc.area || (loc.areas ? loc.areas[0] : (formData.area || areaOptions[0]?.id || 'center')),
           areas: window.BKK.normalizeLocationAreas(loc),
           interests: Array.isArray(loc.interests) ? loc.interests : [],
           lat: loc.lat || null,
@@ -5900,7 +5903,7 @@
         }
       }
     }
-    if (finalAreas.length === 0) finalAreas = ['sukhumvit'];
+    if (finalAreas.length === 0) finalAreas = [formData.area || areaOptions[0]?.id || 'center'];
     
     const newId = Date.now();
     const locationToAdd = {
@@ -6089,7 +6092,7 @@
         }
       }
     }
-    if (finalAreas.length === 0) finalAreas = editingLocation.areas || ['sukhumvit'];
+    if (finalAreas.length === 0) finalAreas = editingLocation.areas || [formData.area || areaOptions[0]?.id || 'center'];
     
     const updatedLocation = { 
       ...editingLocation, // Keep existing fields like status
