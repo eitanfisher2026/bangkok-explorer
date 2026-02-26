@@ -889,15 +889,20 @@
   const searchDebugLogRef = useRef([]);
   const [searchDebugLog, setSearchDebugLog] = useState([]);
   const [showSearchDebugPanel, setShowSearchDebugPanel] = useState(false);
+  const debugModeRef = useRef(debugMode);
+  const debugCategoriesRef = useRef(debugCategories);
+  useEffect(() => { debugModeRef.current = debugMode; }, [debugMode]);
+  useEffect(() => { debugCategoriesRef.current = debugCategories; }, [debugCategories]);
   const addDebugLog = (category, message, data = null) => {
-    if (!debugMode) return;
+    if (!debugModeRef.current) return;
     const cat = category.toLowerCase();
-    if (!debugCategories.includes('all') && !debugCategories.includes(cat)) return;
+    const cats = debugCategoriesRef.current;
+    if (!cats.includes('all') && !cats.includes(cat)) return;
     const entry = { ts: Date.now(), category, message, data };
     console.log(`[${category}] ${message}`, data || '');
     if (cat === 'api' || cat === 'search') {
       searchDebugLogRef.current = [...searchDebugLogRef.current.slice(-100), entry];
-      setSearchDebugLog(searchDebugLogRef.current);
+      setSearchDebugLog([...searchDebugLogRef.current]);
     }
   };
   
