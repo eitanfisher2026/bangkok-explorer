@@ -598,23 +598,6 @@
                         {newLocation.locked ? '🔒' : '🔓'}
                       </button>
                     )}
-                    {newLocation.lat && newLocation.lng && (
-                      <button type="button"
-                        onClick={() => {
-                          const locAreas = newLocation.areas || (newLocation.area ? [newLocation.area] : []);
-                          setMapReturnPlace(editingLocation || null);
-                          setShowEditLocationDialog(false);
-                          setMapMode('favorites');
-                          setMapFavRadius(null);
-                          setMapFavArea(locAreas[0] || null);
-                          setMapFocusPlace({ id: editingLocation?.id, lat: newLocation.lat, lng: newLocation.lng, name: newLocation.name });
-                          setMapFavFilter(new Set());
-                          setMapBottomSheet(null);
-                          setShowMapModal(true);
-                        }}
-                        className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-purple-300 bg-purple-50 text-purple-600 cursor-pointer hover:bg-purple-100"
-                      >📍</button>
-                    )}
                   </div>
                   {googlePlaceInfo && !googlePlaceInfo.notFound && (
                     <div className="text-xs space-y-1 bg-white rounded p-2 border border-indigo-200" style={{ direction: 'ltr' }}>
@@ -649,19 +632,16 @@
                     </div>
                   )}
 
-                  {/* Metadata row — addedBy + addedAt (editor/admin only) */}
-                  {isUnlocked && showEditLocationDialog && editingLocation && (editingLocation.addedBy || editingLocation.addedAt) && (
+                  {/* Metadata row — addedBy + addedAt (visible to all users) */}
+                  {showEditLocationDialog && editingLocation && (editingLocation.addedBy || editingLocation.addedAt) && (
                     <div style={{ fontSize: '10px', color: '#9ca3af', padding: '4px 0', borderTop: '1px solid #e5e7eb', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      {editingLocation.addedBy && (() => {
-                        const addedUser = allUsers.find(u => u.uid === editingLocation.addedBy);
-                        return <span>👤 {addedUser ? (addedUser.name || addedUser.email || editingLocation.addedBy.slice(0,8)) : editingLocation.addedBy.slice(0,8)}</span>;
-                      })()}
+                      {editingLocation.addedBy && <span>👤 {userNamesMap[editingLocation.addedBy] || editingLocation.addedBy.slice(0,8)}</span>}
                       {editingLocation.addedAt && <span>📅 {new Date(editingLocation.addedAt).toLocaleDateString()}</span>}
                       {editingLocation.fromGoogle && <span>🔍 Google</span>}
                     </div>
                   )}
 
-                  {/* Row 2: Skip + Delete (edit mode only) */}
+                  {/* Row 2: Skip + Delete (edit mode only) — compact inline */}
                   {showEditLocationDialog && editingLocation && !(editingLocation.locked && !isUnlocked) && (
                     <div className="flex gap-1.5 pt-1 border-t border-gray-200">
                       {editingLocation.status === 'blacklist' ? (
@@ -671,7 +651,7 @@
                             setShowEditLocationDialog(false);
                             setEditingLocation(null);
                           }}
-                          className="flex-1 py-1.5 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-600"
+                          style={{ flex: 1, padding: '5px 8px', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', border: '1px solid #86efac', background: '#f0fdf4', color: '#166534' }}
                         >
                           ✅ {t("general.restoreActive")}
                         </button>
@@ -682,12 +662,11 @@
                             setShowEditLocationDialog(false);
                             setEditingLocation(null);
                           }}
-                          className="flex-1 py-1.5 bg-blue-500 text-white rounded-lg text-xs font-bold hover:bg-blue-600"
+                          style={{ flex: 1, padding: '5px 8px', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', border: '1px solid #93c5fd', background: '#eff6ff', color: '#1e40af' }}
                         >
                           🚫 {t('route.skipPermanently')}
                         </button>
                       )}
-                      {/* Delete — only creator (if unlocked), editor (if unlocked), or admin */}
                       {(isAdmin || (isEditor && !editingLocation.locked) || (editingLocation.addedBy && editingLocation.addedBy === authUser?.uid && !editingLocation.locked)) && (
                       <button
                         onClick={() => {
@@ -697,7 +676,7 @@
                             setEditingLocation(null);
                           });
                         }}
-                        className="flex-1 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700"
+                        style={{ flex: 1, padding: '5px 8px', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626' }}
                       >
                         🗑️ {t("general.deletePlace")}
                       </button>

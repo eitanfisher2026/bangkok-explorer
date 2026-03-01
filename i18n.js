@@ -937,6 +937,7 @@ help: {
     deleteReview: 'מחק ביקורת',
     unsavedChanges: 'יש שינויים שלא נשמרו. לשמור?',
     allReviews: 'כל הביקורות',
+    rate: 'דרג',
   },
   sysParams: {
     tabTitle: 'פרמטרים',
@@ -1868,6 +1869,7 @@ help: {
     deleteReview: 'Delete review',
     unsavedChanges: 'You have unsaved changes. Save?',
     allReviews: 'All Reviews',
+    rate: 'Rate',
   },
   sysParams: {
     tabTitle: 'Parameters',

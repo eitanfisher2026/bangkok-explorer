@@ -1959,6 +1959,14 @@
                                     ))}
                                   </div>
                                 </div>
+                                {(() => { const pk = (loc.name || '').replace(/[.#$/\\[\]]/g, '_'); const ra = reviewAverages[pk]; return (
+                                  <button onClick={() => openReviewDialog(loc)}
+                                    style={{ fontSize: '10px', padding: '0 3px', borderRadius: '4px', cursor: 'pointer', flexShrink: 0, fontWeight: 'bold',
+                                      ...(ra ? { color: '#f59e0b', background: '#fffbeb', border: '1px solid #fde68a' } : { color: '#d1d5db', background: 'none', border: '1px solid #e5e7eb' })
+                                    }}
+                                    title={ra ? `⭐ ${ra.avg.toFixed(1)} (${ra.count})` : (t('reviews.rate') || 'דרג')}
+                                  >{ra ? `⭐${ra.avg.toFixed(1)}` : '☆'}</button>
+                                ); })()}
                                 {(loc.uploadedImage || (loc.imageUrls && loc.imageUrls.length > 0)) && (
                                   <button onClick={() => { setModalImage(loc.uploadedImage || loc.imageUrls[0]); setShowImageModal(true); }}
                                     style={{ fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', flexShrink: 0, opacity: 0.6 }}
@@ -2001,6 +2009,14 @@
                                   {!isLocationValid(loc) && <span className="text-red-500 text-[9px]" title={t("places.missingDetails")}>❌</span>}
                                 </div>
                               </div>
+                              {(() => { const pk = (loc.name || '').replace(/[.#$/\\[\]]/g, '_'); const ra = reviewAverages[pk]; return (
+                                <button onClick={() => openReviewDialog(loc)}
+                                  style={{ fontSize: '10px', padding: '0 3px', borderRadius: '4px', cursor: 'pointer', flexShrink: 0, fontWeight: 'bold',
+                                    ...(ra ? { color: '#f59e0b', background: '#fffbeb', border: '1px solid #fde68a' } : { color: '#d1d5db', background: 'none', border: '1px solid #e5e7eb' })
+                                  }}
+                                  title={ra ? `⭐ ${ra.avg.toFixed(1)} (${ra.count})` : (t('reviews.rate') || 'דרג')}
+                                >{ra ? `⭐${ra.avg.toFixed(1)}` : '☆'}</button>
+                              ); })()}
                               {(loc.uploadedImage || (loc.imageUrls && loc.imageUrls.length > 0)) && (
                                 <button onClick={() => { setModalImage(loc.uploadedImage || loc.imageUrls[0]); setShowImageModal(true); }}
                                   style={{ fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', flexShrink: 0, opacity: 0.6 }}
@@ -3719,29 +3735,49 @@
                 }).join(', ');
                 const hasImg = loc.uploadedImage || (loc.imageUrls && loc.imageUrls.length > 0);
                 const imgSrc = loc.uploadedImage || (loc.imageUrls ? loc.imageUrls[0] : null);
+                const pk = (loc.name || '').replace(/[.#$/\\[\]]/g, '_');
+                const ra = reviewAverages[pk];
+                const addedByName = loc.addedBy ? (userNamesMap[loc.addedBy] || '') : '';
                 return (
-                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 1000, background: 'white', borderTop: '2px solid #e5e7eb', borderRadius: '12px 12px 0 0', boxShadow: '0 -4px 20px rgba(0,0,0,0.15)', padding: '10px 14px', direction: 'rtl' }}
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 1000, background: 'white', borderTop: '3px solid #3b82f6', borderRadius: '16px 16px 0 0', boxShadow: '0 -4px 24px rgba(0,0,0,0.18)', padding: '14px 16px 12px', direction: 'rtl', maxHeight: '45%', overflowY: 'auto' }}
                     onClick={e => e.stopPropagation()}>
-                    <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                    {/* Close handle */}
+                    <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: '#d1d5db', margin: '0 auto 10px' }}></div>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
                       {hasImg && (
                         <img src={imgSrc} alt=""
                           onClick={() => { setModalImage(imgSrc); setShowImageModal(true); }}
-                          style={{ width: '56px', height: '56px', borderRadius: '8px', objectFit: 'cover', cursor: 'pointer', flexShrink: 0, border: '1px solid #e5e7eb' }} />
+                          style={{ width: '64px', height: '64px', borderRadius: '10px', objectFit: 'cover', cursor: 'pointer', flexShrink: 0, border: '2px solid #e5e7eb' }} />
                       )}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '2px' }}>{loc.name}</div>
-                        <div style={{ fontSize: '11px', color: '#6b7280' }}>📍 {areaLabels}</div>
-                        {intLabels && <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '1px' }}>{intLabels}</div>}
-                        {loc.locked && <span style={{ fontSize: '9px', background: '#dcfce7', color: '#166534', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>✅ {t('places.ready') || 'מוכן'}</span>}
+                        <div style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '3px' }}>{loc.name}</div>
+                        <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>📍 {areaLabels}</div>
+                        {intLabels && <div style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '2px' }}>{intLabels}</div>}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          {loc.locked && <span style={{ fontSize: '9px', background: '#dcfce7', color: '#166534', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>✅ {t('places.ready') || 'מוכן'}</span>}
+                          {addedByName && <span style={{ fontSize: '9px', color: '#9ca3af' }}>👤 {addedByName}</span>}
+                          {ra && (
+                            <button onClick={() => openReviewDialog(loc)}
+                              style={{ fontSize: '10px', color: '#f59e0b', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', padding: '0 4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                              ⭐ {ra.avg.toFixed(1)} ({ra.count})
+                            </button>
+                          )}
+                          {!ra && (
+                            <button onClick={() => openReviewDialog(loc)}
+                              style={{ fontSize: '9px', color: '#9ca3af', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '4px', padding: '0 4px', cursor: 'pointer' }}>
+                              ⭐ {t('reviews.rate') || 'דרג'}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                       <button onClick={() => { const u = window.BKK.getGoogleMapsUrl(loc); if (u && u !== '#') window.open(u, '_blank'); }}
-                        style={{ flex: 1, padding: '7px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#f9fafb', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>🗺️ {t('route.navigate') || 'נווט'}</button>
+                        style={{ flex: 1, padding: '9px', borderRadius: '10px', border: '1px solid #d1d5db', background: '#f9fafb', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}>🗺️ {t('route.navigate') || 'נווט'}</button>
                       <button onClick={() => { setMapReturnPlace(null); setShowMapModal(false); setMapBottomSheet(null); handleEditLocation(loc); }}
-                        style={{ flex: 1, padding: '7px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#f9fafb', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>✏️ {t('places.detailsEdit') || 'ערוך'}</button>
+                        style={{ flex: 1, padding: '9px', borderRadius: '10px', border: '1px solid #d1d5db', background: '#f9fafb', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}>✏️ {t('places.detailsEdit') || 'ערוך'}</button>
                       <button onClick={() => setMapBottomSheet(null)}
-                        style={{ padding: '7px 12px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#f3f4f6', fontSize: '12px', cursor: 'pointer', color: '#6b7280' }}>✕</button>
+                        style={{ padding: '9px 14px', borderRadius: '10px', border: '1px solid #d1d5db', background: '#f3f4f6', fontSize: '13px', cursor: 'pointer', color: '#6b7280' }}>✕</button>
                     </div>
                   </div>
                 );

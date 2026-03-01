@@ -532,6 +532,8 @@
       slotEndPenaltyMultiplier: 4,
       gapPenaltyMultiplier: 2,
       showDraftsOnMap: true,
+      // FouFou rating boost (multiplier for user ratings in bucket sort)
+      foufouRatingBoost: 2,
     };
     window.BKK.systemParams = { ...window.BKK._defaultSystemParams };
   }
@@ -549,6 +551,7 @@
   const [editingLocation, setEditingLocation] = useState(null);
   const [reviewDialog, setReviewDialog] = useState(null); // { place, reviews: [], myRating, myText }
   const [reviewAverages, setReviewAverages] = useState({}); // { placeKey: { avg: 4.2, count: 3 } }
+  const [userNamesMap, setUserNamesMap] = useState({}); // { uid: displayName }
   const [showImageModal, setShowImageModal] = useState(false);
   const [showAddressDialog, setShowAddressDialog] = useState(false);
   const [showMapModal, setShowMapModal] = useState(false);
@@ -1615,6 +1618,21 @@
       // were incorrectly flagged as orphans and deleted.
     }
   }, []);
+
+  // Load user display names for addedBy resolution
+  useEffect(() => {
+    if (!isFirebaseAvailable || !database) return;
+    database.ref('users').once('value').then(snap => {
+      const data = snap.val();
+      if (data) {
+        const map = {};
+        for (const [uid, profile] of Object.entries(data)) {
+          map[uid] = profile.name || profile.email?.split('@')[0] || uid.slice(0, 8);
+        }
+        setUserNamesMap(map);
+      }
+    }).catch(() => {});
+  }, [isFirebaseAvailable, database]);
 
   // One-time mapsUrl repair: fix missing/coords-only mapsUrl for saved favorites
   const mapsUrlRepairDone = React.useRef(new Set());
@@ -3706,7 +3724,19 @@
       return bt === timeMode ? sp.timeScoreMatch : sp.timeScoreConflict;
     };
     
-    const stopScore = (s) => (s.rating || 0) * Math.log10((s.ratingCount || 0) + 1);
+    const stopScore = (s) => {
+      const googleScore = (s.rating || 0) * Math.log10((s.ratingCount || 0) + 1);
+      // Boost favorites with FouFou user ratings
+      if (s.source === 'custom' || s.custom) {
+        const pk = (s.name || '').replace(/[.#$/\\[\]]/g, '_');
+        const ra = reviewAverages[pk];
+        if (ra && ra.count > 0) {
+          // FouFou rating (1-5) * weight factor — high-rated favorites get priority
+          return googleScore + ra.avg * sp.foufouRatingBoost;
+        }
+      }
+      return googleScore;
+    };
     for (const id of selectedInterests) {
       buckets[id].sort((a, b) => {
         // Custom (user-added) locations get priority
