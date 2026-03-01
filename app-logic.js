@@ -112,6 +112,10 @@
           setUserProfile(profile);
           setUserRole(profile.role || 0);
           localStorage.setItem('bangkok_is_admin', (profile.role || 0) >= 2 ? 'true' : 'false');
+          // Run one-time migrations for admin
+          if ((profile.role || 0) >= 2) {
+            migrateAddedBy(user.uid);
+          }
         } catch (err) {
           console.error('[AUTH] Error loading profile:', err);
           setUserRole(0);
@@ -225,6 +229,41 @@
       setAllUsers(list);
     } catch (err) {
       console.error('[AUTH] Load users error:', err);
+    }
+  };
+
+  // ═══════════════════════════════════════════════════════════════
+  // MIGRATION: Stamp addedBy on existing locations (one-time)
+  // ═══════════════════════════════════════════════════════════════
+  const migrateAddedBy = async (adminUid) => {
+    if (!isFirebaseAvailable || !database || !adminUid) return;
+    const migKey = 'foufou_migration_addedBy_done';
+    if (localStorage.getItem(migKey)) return; // already done
+    try {
+      const cityIds = Object.keys(window.BKK.cities || {});
+      let total = 0;
+      for (const cityId of cityIds) {
+        const snap = await database.ref(`cities/${cityId}/locations`).once('value');
+        const locs = snap.val();
+        if (!locs) continue;
+        const updates = {};
+        Object.entries(locs).forEach(([key, loc]) => {
+          if (!loc.addedBy) {
+            updates[`${key}/addedBy`] = adminUid;
+            total++;
+          }
+        });
+        if (Object.keys(updates).length > 0) {
+          await database.ref(`cities/${cityId}/locations`).update(updates);
+        }
+      }
+      localStorage.setItem(migKey, new Date().toISOString());
+      if (total > 0) {
+        console.log(`[MIGRATION] Stamped addedBy on ${total} locations`);
+        addDebugLog('MIGRATION', `addedBy stamped on ${total} locations`);
+      }
+    } catch (err) {
+      console.error('[MIGRATION] addedBy failed:', err);
     }
   };
 
@@ -513,7 +552,7 @@
   const [showImageModal, setShowImageModal] = useState(false);
   const [showAddressDialog, setShowAddressDialog] = useState(false);
   const [showMapModal, setShowMapModal] = useState(false);
-  const [settingsTab, setSettingsTab] = useState('cities'); // 'cities' or 'general'
+  const [settingsTab, setSettingsTab] = useState('general'); // 'general', 'cities', or 'sysparams'
   const [editingParamKey, setEditingParamKey] = useState(null); // key of param being edited inline
   const [editingParamVal, setEditingParamVal] = useState('');
   const [editingArea, setEditingArea] = useState(null); // area being edited on map

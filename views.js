@@ -2259,17 +2259,17 @@
             {/* Settings Sub-Tabs */}
             <div className="flex gap-2 mb-3">
               <button
-                onClick={() => setSettingsTab('cities')}
-                className={`flex-1 py-2 rounded-lg font-bold text-sm transition ${
-                  settingsTab === 'cities' ? 'bg-rose-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >{`🌍 ${t('settings.citiesAndAreas')}`}</button>
-              <button
                 onClick={() => setSettingsTab('general')}
                 className={`flex-1 py-2 rounded-lg font-bold text-sm transition ${
                   settingsTab === 'general' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >{`⚙️ ${t('settings.generalSettings')}`}</button>
+              <button
+                onClick={() => setSettingsTab('cities')}
+                className={`flex-1 py-2 rounded-lg font-bold text-sm transition ${
+                  settingsTab === 'cities' ? 'bg-rose-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >{`🌍 ${t('settings.citiesAndAreas')}`}</button>
               {isAdmin && (
               <button
                 onClick={() => setSettingsTab('sysparams')}
@@ -2347,12 +2347,6 @@
                           >📥 {t('settings.exportCity')}</button>
                           {Object.keys(window.BKK.cities || {}).length > 1 && (
                             <button onClick={async () => {
-                              const pw = prompt(t('settings.enterPasswordToRemove'));
-                              if (pw === null) return;
-                              if (adminPassword) {
-                                const hashedInput = await window.BKK.hashPassword(pw);
-                                if (hashedInput !== adminPassword && pw !== adminPassword) { showToast(t('settings.wrongPassword'), 'error'); return; }
-                              }
                               showConfirm(`⚠️ ${t('general.remove')} ${tLabel(city)}?`, () => {
                               const otherCity = Object.keys(window.BKK.cities || {}).find(id => id !== city.id);
                               if (otherCity) switchCity(otherCity, true);
@@ -2967,82 +2961,6 @@
                   <span className="text-green-600 font-bold"> 🔓 {t("general.open")}</span>
                 </div>
                 
-                {/* Password Section - Secure */}
-                <div className="mb-3">
-                  <label className="text-xs font-bold text-gray-700 block mb-1">🔑 {adminPassword ? t('settings.changePassword') : t('settings.setNewPassword')}</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="password"
-                      value={newAdminPassword}
-                      onChange={(e) => setNewAdminPassword(e.target.value)}
-                      placeholder={adminPassword ? t('settings.newPasswordPlaceholder') : t('settings.setPassword')}
-                      className="flex-1 p-2 border rounded text-sm"
-                    />
-                    <button
-                      onClick={async () => {
-                        if (isFirebaseAvailable && database) {
-                          try {
-                            if (newAdminPassword.trim()) {
-                              const hashed = await window.BKK.hashPassword(newAdminPassword.trim());
-                              await database.ref('settings/adminPassword').set(hashed);
-                              setAdminPassword(hashed);
-                              showToast(t('toast.passwordSaved'), 'success');
-                            } else {
-                              await database.ref('settings/adminPassword').set('');
-                              setAdminPassword('');
-                              showToast(t('toast.passwordRemoved'), 'warning');
-                            }
-                            setNewAdminPassword('');
-                          } catch (err) {
-                            showToast(t('toast.saveError'), 'error');
-                          }
-                        }
-                      }}
-                      className="px-3 py-2 bg-green-500 text-white rounded text-sm font-bold"
-                    >
-                      {t("general.save")}
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-gray-500 mt-1">
-                    {adminPassword ? t('settings.systemProtected') : t('settings.noPassword')}
-                  </p>
-                </div>
-                
-                {/* Admin Users List */}
-                <div className="mb-3">
-                  <label className="text-xs font-bold text-gray-700 block mb-1">{t("general.adminUsers")} ({adminUsers.length}):</label>
-                  <div className="bg-white border rounded-lg max-h-32 overflow-y-auto">
-                    {adminUsers.length === 0 ? (
-                      <div className="p-2 text-xs text-gray-500 text-center">{t("general.noRegisteredUsers")}</div>
-                    ) : (
-                      adminUsers.map((user, idx) => (
-                        <div key={user.userId} className="flex justify-between items-center p-2 border-b last:border-b-0 text-xs">
-                          <div>
-                            <span className="font-mono">{user.oderId?.slice(-12) || 'Unknown'}</span>
-                            {user.oderId === localStorage.getItem('bangkok_user_id') && (
-                              <span className="text-green-600 mr-1">({t("general.you")})</span>
-                            )}
-                            <br />
-                            <span className="text-gray-500">{user.addedAt ? new Date(user.addedAt).toLocaleDateString('he-IL') : ''}</span>
-                          </div>
-                          <button
-                            onClick={() => {
-                              if (isFirebaseAvailable && database) {
-                                database.ref(`settings/adminUsers/${user.oderId}`).remove()
-                                  .then(() => showToast(t('toast.userRemoved'), 'success'))
-                                  .catch(() => showToast(t('general.error'), 'error'));
-                              }
-                            }}
-                            className="px-2 py-1 bg-red-500 text-white rounded text-[10px]"
-                          >
-                            {t("general.remove")}
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-                
                 {/* Access Stats Button */}
                 <button
                   onClick={async () => {
@@ -3441,9 +3359,9 @@
             <span style={{ color: '#d1d5db', fontSize: '9px' }}>·</span>
             <span 
               style={{ fontSize: '9px', color: '#9ca3af', cursor: 'default', userSelect: 'none' }}
-              onTouchStart={(e) => { e.currentTarget._lp = setTimeout(() => { if (isAdmin) { setCurrentView('settings'); } else { setShowLoginDialog(true); } }, 2000); }}
-              onTouchEnd={(e) => { clearTimeout(e.currentTarget._lp); }}
-              onMouseDown={(e) => { e.currentTarget._lp = setTimeout(() => { if (isAdmin) { setCurrentView('settings'); } else { setShowLoginDialog(true); } }, 2000); }}
+              onTouchStart={(e) => {}}
+              onTouchEnd={(e) => {}}
+              onMouseDown={(e) => {}}
               onMouseUp={(e) => { clearTimeout(e.currentTarget._lp); }}
               onMouseLeave={(e) => { clearTimeout(e.currentTarget._lp); }}
             >v{window.BKK.VERSION}</span>

@@ -135,6 +135,9 @@ const FouFouApp = () => {
           setUserProfile(profile);
           setUserRole(profile.role || 0);
           localStorage.setItem('bangkok_is_admin', (profile.role || 0) >= 2 ? 'true' : 'false');
+          if ((profile.role || 0) >= 2) {
+            migrateAddedBy(user.uid);
+          }
         } catch (err) {
           console.error('[AUTH] Error loading profile:', err);
           setUserRole(0);
@@ -244,6 +247,37 @@ const FouFouApp = () => {
       setAllUsers(list);
     } catch (err) {
       console.error('[AUTH] Load users error:', err);
+    }
+  };
+
+  const migrateAddedBy = async (adminUid) => {
+    if (!isFirebaseAvailable || !database || !adminUid) return;
+    const migKey = 'foufou_migration_addedBy_done';
+    if (localStorage.getItem(migKey)) return; // already done
+    try {
+      const cityIds = Object.keys(window.BKK.cities || {});
+      let total = 0;
+      for (const cityId of cityIds) {
+        const snap = await database.ref(`cities/${cityId}/locations`).once('value');
+        const locs = snap.val();
+        if (!locs) continue;
+        const updates = {};
+        Object.entries(locs).forEach(([key, loc]) => {
+          if (!loc.addedBy) {
+            updates[`${key}/addedBy`] = adminUid;
+            total++;
+          }
+        });
+        if (Object.keys(updates).length > 0) {
+          await database.ref(`cities/${cityId}/locations`).update(updates);
+        }
+      }
+      localStorage.setItem(migKey, new Date().toISOString());
+      if (total > 0) {
+        addDebugLog('MIGRATION', `addedBy stamped on ${total} locations`);
+      }
+    } catch (err) {
+      console.error('[MIGRATION] addedBy failed:', err);
     }
   };
 
@@ -503,7 +537,7 @@ const FouFouApp = () => {
   const [showImageModal, setShowImageModal] = useState(false);
   const [showAddressDialog, setShowAddressDialog] = useState(false);
   const [showMapModal, setShowMapModal] = useState(false);
-  const [settingsTab, setSettingsTab] = useState('cities'); // 'cities' or 'general'
+  const [settingsTab, setSettingsTab] = useState('general'); // 'general', 'cities', or 'sysparams'
   const [editingParamKey, setEditingParamKey] = useState(null); // key of param being edited inline
   const [editingParamVal, setEditingParamVal] = useState('');
   const [editingArea, setEditingArea] = useState(null); // area being edited on map
@@ -8081,17 +8115,17 @@ const FouFouApp = () => {
             {/* Settings Sub-Tabs */}
             <div className="flex gap-2 mb-3">
               <button
-                onClick={() => setSettingsTab('cities')}
-                className={`flex-1 py-2 rounded-lg font-bold text-sm transition ${
-                  settingsTab === 'cities' ? 'bg-rose-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >{`🌍 ${t('settings.citiesAndAreas')}`}</button>
-              <button
                 onClick={() => setSettingsTab('general')}
                 className={`flex-1 py-2 rounded-lg font-bold text-sm transition ${
                   settingsTab === 'general' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >{`⚙️ ${t('settings.generalSettings')}`}</button>
+              <button
+                onClick={() => setSettingsTab('cities')}
+                className={`flex-1 py-2 rounded-lg font-bold text-sm transition ${
+                  settingsTab === 'cities' ? 'bg-rose-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >{`🌍 ${t('settings.citiesAndAreas')}`}</button>
               {isAdmin && (
               <button
                 onClick={() => setSettingsTab('sysparams')}
@@ -8169,12 +8203,6 @@ const FouFouApp = () => {
                           >📥 {t('settings.exportCity')}</button>
                           {Object.keys(window.BKK.cities || {}).length > 1 && (
                             <button onClick={async () => {
-                              const pw = prompt(t('settings.enterPasswordToRemove'));
-                              if (pw === null) return;
-                              if (adminPassword) {
-                                const hashedInput = await window.BKK.hashPassword(pw);
-                                if (hashedInput !== adminPassword && pw !== adminPassword) { showToast(t('settings.wrongPassword'), 'error'); return; }
-                              }
                               showConfirm(`⚠️ ${t('general.remove')} ${tLabel(city)}?`, () => {
                               const otherCity = Object.keys(window.BKK.cities || {}).find(id => id !== city.id);
                               if (otherCity) switchCity(otherCity, true);
@@ -8785,82 +8813,6 @@ const FouFouApp = () => {
                   <span className="text-green-600 font-bold"> 🔓 {t("general.open")}</span>
                 </div>
                 
-                {/* Password Section - Secure */}
-                <div className="mb-3">
-                  <label className="text-xs font-bold text-gray-700 block mb-1">🔑 {adminPassword ? t('settings.changePassword') : t('settings.setNewPassword')}</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="password"
-                      value={newAdminPassword}
-                      onChange={(e) => setNewAdminPassword(e.target.value)}
-                      placeholder={adminPassword ? t('settings.newPasswordPlaceholder') : t('settings.setPassword')}
-                      className="flex-1 p-2 border rounded text-sm"
-                    />
-                    <button
-                      onClick={async () => {
-                        if (isFirebaseAvailable && database) {
-                          try {
-                            if (newAdminPassword.trim()) {
-                              const hashed = await window.BKK.hashPassword(newAdminPassword.trim());
-                              await database.ref('settings/adminPassword').set(hashed);
-                              setAdminPassword(hashed);
-                              showToast(t('toast.passwordSaved'), 'success');
-                            } else {
-                              await database.ref('settings/adminPassword').set('');
-                              setAdminPassword('');
-                              showToast(t('toast.passwordRemoved'), 'warning');
-                            }
-                            setNewAdminPassword('');
-                          } catch (err) {
-                            showToast(t('toast.saveError'), 'error');
-                          }
-                        }
-                      }}
-                      className="px-3 py-2 bg-green-500 text-white rounded text-sm font-bold"
-                    >
-                      {t("general.save")}
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-gray-500 mt-1">
-                    {adminPassword ? t('settings.systemProtected') : t('settings.noPassword')}
-                  </p>
-                </div>
-                
-                {/* Admin Users List */}
-                <div className="mb-3">
-                  <label className="text-xs font-bold text-gray-700 block mb-1">{t("general.adminUsers")} ({adminUsers.length}):</label>
-                  <div className="bg-white border rounded-lg max-h-32 overflow-y-auto">
-                    {adminUsers.length === 0 ? (
-                      <div className="p-2 text-xs text-gray-500 text-center">{t("general.noRegisteredUsers")}</div>
-                    ) : (
-                      adminUsers.map((user, idx) => (
-                        <div key={user.userId} className="flex justify-between items-center p-2 border-b last:border-b-0 text-xs">
-                          <div>
-                            <span className="font-mono">{user.oderId?.slice(-12) || 'Unknown'}</span>
-                            {user.oderId === localStorage.getItem('bangkok_user_id') && (
-                              <span className="text-green-600 mr-1">({t("general.you")})</span>
-                            )}
-                            <br />
-                            <span className="text-gray-500">{user.addedAt ? new Date(user.addedAt).toLocaleDateString('he-IL') : ''}</span>
-                          </div>
-                          <button
-                            onClick={() => {
-                              if (isFirebaseAvailable && database) {
-                                database.ref(`settings/adminUsers/${user.oderId}`).remove()
-                                  .then(() => showToast(t('toast.userRemoved'), 'success'))
-                                  .catch(() => showToast(t('general.error'), 'error'));
-                              }
-                            }}
-                            className="px-2 py-1 bg-red-500 text-white rounded text-[10px]"
-                          >
-                            {t("general.remove")}
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-                
                 {/* Access Stats Button */}
                 <button
                   onClick={async () => {
@@ -9249,9 +9201,9 @@ const FouFouApp = () => {
             <span style={{ color: '#d1d5db', fontSize: '9px' }}>·</span>
             <span 
               style={{ fontSize: '9px', color: '#9ca3af', cursor: 'default', userSelect: 'none' }}
-              onTouchStart={(e) => { e.currentTarget._lp = setTimeout(() => { if (isAdmin) { setCurrentView('settings'); } else { setShowLoginDialog(true); } }, 2000); }}
-              onTouchEnd={(e) => { clearTimeout(e.currentTarget._lp); }}
-              onMouseDown={(e) => { e.currentTarget._lp = setTimeout(() => { if (isAdmin) { setCurrentView('settings'); } else { setShowLoginDialog(true); } }, 2000); }}
+              onTouchStart={(e) => {}}
+              onTouchEnd={(e) => {}}
+              onMouseDown={(e) => {}}
               onMouseUp={(e) => { clearTimeout(e.currentTarget._lp); }}
               onMouseLeave={(e) => { clearTimeout(e.currentTarget._lp); }}
             >v{window.BKK.VERSION}</span>
@@ -12186,189 +12138,6 @@ const FouFouApp = () => {
                       </div>
                     )}
                   </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Version Long-Press Password Dialog (does NOT add to admin list) */}
-      {showVersionPasswordDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-sm shadow-2xl">
-            <div className="bg-gradient-to-r from-gray-700 to-gray-800 text-white p-3 rounded-t-xl">
-              <h3 className="text-base font-bold">{`🔒 ${t("settings.lockedSettings")}`}</h3>
-            </div>
-            <div className="p-4 space-y-4">
-              <p className="text-sm text-gray-600 text-center">{t("settings.enterPassword")}</p>
-              <input
-                type="password"
-                value={passwordInput}
-                onChange={(e) => setPasswordInput(e.target.value)}
-                placeholder={t("settings.password")}
-                className="w-full p-3 border rounded-lg text-center text-lg"
-                autoFocus
-                onKeyDown={async (e) => {
-                  if (e.key === 'Enter') {
-                    const hashedInput = await window.BKK.hashPassword(passwordInput);
-                    if (hashedInput === adminPassword || passwordInput === adminPassword) {
-                      const userId = localStorage.getItem('bangkok_user_id');
-                      const userName = localStorage.getItem('bangkok_user_name') || 'Unknown';
-                      if (isFirebaseAvailable && database && userId) {
-                        if (passwordInput === adminPassword && hashedInput !== adminPassword) {
-                          database.ref('settings/adminPassword').set(hashedInput);
-                          setAdminPassword(hashedInput);
-                        }
-                        database.ref(`settings/adminUsers/${userId}`).set({
-                          addedAt: new Date().toISOString(),
-                          name: userName
-                        });
-                      }
-                      setIsUnlocked(true);
-                      setIsCurrentUserAdmin(true);
-                      localStorage.setItem('bangkok_is_admin', 'true');
-                      setShowVersionPasswordDialog(false);
-                      setPasswordInput('');
-                      setCurrentView('settings');
-                      showToast('🔓', 'success');
-                    } else {
-                      showToast(t('settings.wrongPassword'), 'error');
-                      setPasswordInput('');
-                    }
-                  }
-                }}
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={async () => {
-                    const hashedInput = await window.BKK.hashPassword(passwordInput);
-                    if (hashedInput === adminPassword || passwordInput === adminPassword) {
-                      const userId = localStorage.getItem('bangkok_user_id');
-                      const userName = localStorage.getItem('bangkok_user_name') || 'Unknown';
-                      if (isFirebaseAvailable && database && userId) {
-                        if (passwordInput === adminPassword && hashedInput !== adminPassword) {
-                          database.ref('settings/adminPassword').set(hashedInput);
-                          setAdminPassword(hashedInput);
-                        }
-                        database.ref(`settings/adminUsers/${userId}`).set({
-                          addedAt: new Date().toISOString(),
-                          name: userName
-                        });
-                      }
-                      setIsUnlocked(true);
-                      setIsCurrentUserAdmin(true);
-                      localStorage.setItem('bangkok_is_admin', 'true');
-                      setShowVersionPasswordDialog(false);
-                      setPasswordInput('');
-                      setCurrentView('settings');
-                      showToast('🔓', 'success');
-                    } else {
-                      showToast(t('settings.wrongPassword'), 'error');
-                      setPasswordInput('');
-                    }
-                  }}
-                  className="flex-1 py-2.5 rounded-lg font-bold text-sm bg-blue-500 text-white hover:bg-blue-600"
-                >{t("general.ok")}</button>
-                <button
-                  onClick={() => { setShowVersionPasswordDialog(false); setPasswordInput(''); }}
-                  className="flex-1 py-2.5 rounded-lg font-bold text-sm bg-gray-200 text-gray-700 hover:bg-gray-300"
-                >{t("general.cancel")}</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Password Dialog */}
-      {showPasswordDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-sm shadow-2xl">
-            <div className="bg-gradient-to-r from-gray-700 to-gray-800 text-white p-3 rounded-t-xl">
-              <h3 className="text-base font-bold">{`🔒 ${t("settings.lockedSettings")}`}</h3>
-            </div>
-            <div className="p-4 space-y-4">
-              <p className="text-sm text-gray-600 text-center">{t("settings.enterPassword")}</p>
-              <input
-                type="password"
-                value={passwordInput}
-                onChange={(e) => setPasswordInput(e.target.value)}
-                placeholder={t("settings.password")}
-                className="w-full p-3 border rounded-lg text-center text-lg"
-                autoFocus
-                onKeyDown={async (e) => {
-                  if (e.key === 'Enter') {
-                    const hashedInput = await window.BKK.hashPassword(passwordInput);
-                    if (hashedInput === adminPassword || passwordInput === adminPassword) {
-                      const userId = localStorage.getItem('bangkok_user_id');
-                      const userName = localStorage.getItem('bangkok_user_name') || 'Unknown';
-                      if (isFirebaseAvailable && database) {
-                        if (passwordInput === adminPassword && hashedInput !== adminPassword) {
-                          database.ref('settings/adminPassword').set(hashedInput);
-                          setAdminPassword(hashedInput);
-                        }
-                        database.ref(`settings/adminUsers/${userId}`).set({
-                          addedAt: new Date().toISOString(),
-                          name: userName
-                        }).then(() => {
-                          setIsUnlocked(true);
-                          setIsCurrentUserAdmin(true);
-                          localStorage.setItem('bangkok_is_admin', 'true');
-                          setShowPasswordDialog(false);
-                          setPasswordInput('');
-                          setCurrentView('settings');
-                          showToast(t('route.openedSuccess'), 'success');
-                        });
-                      }
-                    } else {
-                      showToast(t('settings.wrongPassword'), 'error');
-                      setPasswordInput('');
-                    }
-                  }
-                }}
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={async () => {
-                    const hashedInput = await window.BKK.hashPassword(passwordInput);
-                    if (hashedInput === adminPassword || passwordInput === adminPassword) {
-                      const userId = localStorage.getItem('bangkok_user_id');
-                      const userName = localStorage.getItem('bangkok_user_name') || 'Unknown';
-                      if (isFirebaseAvailable && database) {
-                        if (passwordInput === adminPassword && hashedInput !== adminPassword) {
-                          database.ref('settings/adminPassword').set(hashedInput);
-                          setAdminPassword(hashedInput);
-                        }
-                        database.ref(`settings/adminUsers/${userId}`).set({
-                          addedAt: new Date().toISOString(),
-                          name: userName
-                        }).then(() => {
-                          setIsUnlocked(true);
-                          setIsCurrentUserAdmin(true);
-                          localStorage.setItem('bangkok_is_admin', 'true');
-                          setShowPasswordDialog(false);
-                          setPasswordInput('');
-                          setCurrentView('settings');
-                          showToast(t('route.openedSuccess'), 'success');
-                        });
-                      }
-                    } else {
-                      showToast(t('settings.wrongPassword'), 'error');
-                      setPasswordInput('');
-                    }
-                  }}
-                  className="flex-1 py-2 bg-green-500 text-white rounded-lg font-medium"
-                >
-                  OK
-                </button>
-                <button
-                  onClick={() => {
-                    setShowPasswordDialog(false);
-                    setPasswordInput('');
-                  }}
-                  className="flex-1 py-2 bg-gray-300 text-gray-700 rounded-lg font-medium"
-                >
-                  Cancel
-                </button>
-              </div>
             </div>
           </div>
         </div>
