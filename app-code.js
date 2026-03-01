@@ -549,6 +549,7 @@ const FouFouApp = () => {
   const [mapFavArea, setMapFavArea] = useState(null); // area to focus on (null=all)
   const [mapFocusPlace, setMapFocusPlace] = useState(null); // place to highlight
   const [mapBottomSheet, setMapBottomSheet] = useState(null); // { name, loc } for bottom sheet
+  const [mapReturnPlace, setMapReturnPlace] = useState(null); // place to reopen dialog for after map close
   const [showFavMapFilter, setShowFavMapFilter] = useState(false); // filter dialog open
   const [startPointCoords, setStartPointCoords] = useState(null); // { lat, lng, address }
   const leafletMapRef = React.useRef(null);
@@ -9228,7 +9229,11 @@ const FouFouApp = () => {
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b">
               <button
-                onClick={() => { setShowMapModal(false); setMapUserLocation(null); setMapSkippedStops(new Set()); setMapBottomSheet(null); setShowFavMapFilter(false); setMapFavFilter(new Set()); setMapFavArea(null); setMapFocusPlace(null); }}
+                onClick={() => {
+                  const returnPlace = mapReturnPlace;
+                  setShowMapModal(false); setMapUserLocation(null); setMapSkippedStops(new Set()); setMapBottomSheet(null); setShowFavMapFilter(false); setMapFavFilter(new Set()); setMapFavArea(null); setMapFocusPlace(null); setMapReturnPlace(null);
+                  if (returnPlace) { setTimeout(() => handleEditLocation(returnPlace), 100); }
+                }}
                 className="text-gray-400 hover:text-gray-600 text-lg font-bold"
               >✕</button>
               <div className="flex items-center gap-2">
@@ -9236,6 +9241,7 @@ const FouFouApp = () => {
                   {mapMode === 'areas' ? t('wizard.allAreasMap') : mapMode === 'stops' ? `${t('route.showStopsOnMap')} (${mapStops.length})` : mapMode === 'favorites' ? `⭐ ${t('nav.favorites')}` : t('form.searchRadius')}
                 </h3>
                 {mapMode === 'stops' && (<button onClick={() => showHelpFor('mapPlanning')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', textDecoration: 'underline' }}>{t('general.help')}</button>)}
+                {mapMode === 'favorites' && (<button onClick={() => showHelpFor('favoritesMap')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', textDecoration: 'underline' }}>{t('general.help')}</button>)}
               </div>
               {mapMode !== 'stops' && mapMode !== 'favorites' && (
               <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
@@ -9285,14 +9291,6 @@ const FouFouApp = () => {
                   onClick={() => setShowFavMapFilter(true)}
                   style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 1000, padding: '8px 14px', borderRadius: '20px', background: (mapFavFilter.size > 0 || mapFavArea) ? '#7c3aed' : 'white', color: (mapFavFilter.size > 0 || mapFavArea) ? 'white' : '#374151', border: '2px solid ' + ((mapFavFilter.size > 0 || mapFavArea) ? '#7c3aed' : '#d1d5db'), boxShadow: '0 2px 10px rgba(0,0,0,0.2)', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                 >🔍 {t('general.filter') || 'סינון'}{(mapFavFilter.size > 0 || mapFavArea) ? ' ●' : ''}</button>
-              )}
-              {/* Legend button — favorites mode */}
-              {mapMode === 'favorites' && !showFavMapFilter && (
-                <button
-                  onClick={() => showHelpFor('favoritesMap')}
-                  style={{ position: 'absolute', top: '12px', left: '12px', zIndex: 1000, width: '34px', height: '34px', borderRadius: '50%', background: 'white', border: '2px solid #d1d5db', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', fontSize: '15px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  title={t('general.help')}
-                >❓</button>
               )}
               {/* Filter dialog overlay — favorites mode */}
               {mapMode === 'favorites' && showFavMapFilter && (() => {
@@ -9470,10 +9468,21 @@ const FouFouApp = () => {
               {mapMode === 'favorites' && (
                 <button
                   onClick={() => {
-                    if (mapUserLocation) { setMapUserLocation(null); return; }
+                    if (mapUserLocation) {
+                      if (leafletMapRef?.current) {
+                        leafletMapRef.current.setView([mapUserLocation.lat, mapUserLocation.lng], 15, { animate: true });
+                      }
+                      return;
+                    }
                     if (navigator.geolocation) {
                       navigator.geolocation.getCurrentPosition(
-                        pos => setMapUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }),
+                        pos => {
+                          const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy };
+                          setMapUserLocation(loc);
+                          if (leafletMapRef?.current) {
+                            leafletMapRef.current.setView([loc.lat, loc.lng], 15, { animate: true });
+                          }
+                        },
                         () => showToast('📍 GPS unavailable', 'warning'),
                         { enableHighAccuracy: true, timeout: 8000 }
                       );
@@ -9515,7 +9524,7 @@ const FouFouApp = () => {
                     <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                       <button onClick={() => { const u = window.BKK.getGoogleMapsUrl(loc); if (u && u !== '#') window.open(u, '_blank'); }}
                         style={{ flex: 1, padding: '7px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#f9fafb', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>🗺️ {t('route.navigate') || 'נווט'}</button>
-                      <button onClick={() => { setShowMapModal(false); setMapBottomSheet(null); handleEditLocation(loc); }}
+                      <button onClick={() => { setMapReturnPlace(null); setShowMapModal(false); setMapBottomSheet(null); handleEditLocation(loc); }}
                         style={{ flex: 1, padding: '7px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#f9fafb', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>✏️ {t('places.detailsEdit') || 'ערוך'}</button>
                       <button onClick={() => setMapBottomSheet(null)}
                         style={{ padding: '7px 12px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#f3f4f6', fontSize: '12px', cursor: 'pointer', color: '#6b7280' }}>✕</button>
@@ -9994,6 +10003,8 @@ const FouFouApp = () => {
                           type="button"
                           onClick={() => {
                             const locAreas = newLocation.areas || (newLocation.area ? [newLocation.area] : []);
+                            setMapReturnPlace(editingLocation || null);
+                            setShowEditLocationDialog(false);
                             setMapMode('favorites');
                             setMapFavArea(locAreas[0] || null);
                             setMapFocusPlace({ id: editingLocation?.id, lat: newLocation.lat, lng: newLocation.lng, name: newLocation.name });
@@ -10359,6 +10370,7 @@ const FouFouApp = () => {
                       <button type="button"
                         onClick={() => {
                           const locAreas = newLocation.areas || (newLocation.area ? [newLocation.area] : []);
+                          setMapReturnPlace(editingLocation || null);
                           setShowEditLocationDialog(false);
                           setMapMode('favorites');
                           setMapFavArea(locAreas[0] || null);
@@ -10651,7 +10663,7 @@ const FouFouApp = () => {
                 {/* Color override for map markers — admin only */}
                 {isUnlocked && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
-                    <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#6b7280' }}>🎨</span>
+                    <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#6b7280' }}>{t('interests.mapColor') || 'צבע במפה:'}</span>
                     <input
                       type="color"
                       value={newInterest.color || window.BKK.getInterestColor(newInterest.id || '', window.BKK.interestOptions || [])}
@@ -10661,6 +10673,21 @@ const FouFouApp = () => {
                     {newInterest.color && (
                       <button onClick={() => setNewInterest({...newInterest, color: ''})}
                         style={{ fontSize: '9px', color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer' }}>✕ auto</button>
+                    )}
+                    {newInterest.id && (
+                      <button
+                        onClick={() => {
+                          setShowAddInterestDialog(false);
+                          setMapMode('favorites');
+                          setMapFavArea(null);
+                          setMapFocusPlace(null);
+                          setMapFavFilter(new Set([newInterest.id]));
+                          setMapBottomSheet(null);
+                          setMapReturnPlace(null);
+                          setShowMapModal(true);
+                        }}
+                        style={{ fontSize: '9px', padding: '2px 8px', borderRadius: '4px', background: '#f3e8ff', border: '1px solid #c084fc', color: '#7c3aed', cursor: 'pointer', fontWeight: 'bold', marginRight: 'auto' }}
+                      >🗺️ {t('wizard.showMap') || 'מפה'}</button>
                     )}
                   </div>
                 )}

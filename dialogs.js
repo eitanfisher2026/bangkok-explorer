@@ -229,6 +229,8 @@
                           type="button"
                           onClick={() => {
                             const locAreas = newLocation.areas || (newLocation.area ? [newLocation.area] : []);
+                            setMapReturnPlace(editingLocation || null);
+                            setShowEditLocationDialog(false);
                             setMapMode('favorites');
                             setMapFavArea(locAreas[0] || null);
                             setMapFocusPlace({ id: editingLocation?.id, lat: newLocation.lat, lng: newLocation.lng, name: newLocation.name });
@@ -599,6 +601,7 @@
                       <button type="button"
                         onClick={() => {
                           const locAreas = newLocation.areas || (newLocation.area ? [newLocation.area] : []);
+                          setMapReturnPlace(editingLocation || null);
                           setShowEditLocationDialog(false);
                           setMapMode('favorites');
                           setMapFavArea(locAreas[0] || null);
@@ -891,7 +894,7 @@
                 {/* Color override for map markers — admin only */}
                 {isUnlocked && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
-                    <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#6b7280' }}>🎨</span>
+                    <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#6b7280' }}>{t('interests.mapColor') || 'צבע במפה:'}</span>
                     <input
                       type="color"
                       value={newInterest.color || window.BKK.getInterestColor(newInterest.id || '', window.BKK.interestOptions || [])}
@@ -901,6 +904,21 @@
                     {newInterest.color && (
                       <button onClick={() => setNewInterest({...newInterest, color: ''})}
                         style={{ fontSize: '9px', color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer' }}>✕ auto</button>
+                    )}
+                    {newInterest.id && (
+                      <button
+                        onClick={() => {
+                          setShowAddInterestDialog(false);
+                          setMapMode('favorites');
+                          setMapFavArea(null);
+                          setMapFocusPlace(null);
+                          setMapFavFilter(new Set([newInterest.id]));
+                          setMapBottomSheet(null);
+                          setMapReturnPlace(null);
+                          setShowMapModal(true);
+                        }}
+                        style={{ fontSize: '9px', padding: '2px 8px', borderRadius: '4px', background: '#f3e8ff', border: '1px solid #c084fc', color: '#7c3aed', cursor: 'pointer', fontWeight: 'bold', marginRight: 'auto' }}
+                      >🗺️ {t('wizard.showMap') || 'מפה'}</button>
                     )}
                   </div>
                 )}

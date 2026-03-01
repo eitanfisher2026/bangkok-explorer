@@ -564,6 +564,7 @@
   const [mapFavArea, setMapFavArea] = useState(null); // area to focus on (null=all)
   const [mapFocusPlace, setMapFocusPlace] = useState(null); // place to highlight
   const [mapBottomSheet, setMapBottomSheet] = useState(null); // { name, loc } for bottom sheet
+  const [mapReturnPlace, setMapReturnPlace] = useState(null); // place to reopen dialog for after map close
   const [showFavMapFilter, setShowFavMapFilter] = useState(false); // filter dialog open
   const [startPointCoords, setStartPointCoords] = useState(null); // { lat, lng, address }
   const leafletMapRef = React.useRef(null);

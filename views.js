@@ -3387,7 +3387,11 @@
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b">
               <button
-                onClick={() => { setShowMapModal(false); setMapUserLocation(null); setMapSkippedStops(new Set()); setMapBottomSheet(null); setShowFavMapFilter(false); setMapFavFilter(new Set()); setMapFavArea(null); setMapFocusPlace(null); }}
+                onClick={() => {
+                  const returnPlace = mapReturnPlace;
+                  setShowMapModal(false); setMapUserLocation(null); setMapSkippedStops(new Set()); setMapBottomSheet(null); setShowFavMapFilter(false); setMapFavFilter(new Set()); setMapFavArea(null); setMapFocusPlace(null); setMapReturnPlace(null);
+                  if (returnPlace) { setTimeout(() => handleEditLocation(returnPlace), 100); }
+                }}
                 className="text-gray-400 hover:text-gray-600 text-lg font-bold"
               >✕</button>
               <div className="flex items-center gap-2">
@@ -3395,6 +3399,7 @@
                   {mapMode === 'areas' ? t('wizard.allAreasMap') : mapMode === 'stops' ? `${t('route.showStopsOnMap')} (${mapStops.length})` : mapMode === 'favorites' ? `⭐ ${t('nav.favorites')}` : t('form.searchRadius')}
                 </h3>
                 {mapMode === 'stops' && (<button onClick={() => showHelpFor('mapPlanning')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', textDecoration: 'underline' }}>{t('general.help')}</button>)}
+                {mapMode === 'favorites' && (<button onClick={() => showHelpFor('favoritesMap')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', textDecoration: 'underline' }}>{t('general.help')}</button>)}
               </div>
               {mapMode !== 'stops' && mapMode !== 'favorites' && (
               <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
@@ -3444,14 +3449,6 @@
                   onClick={() => setShowFavMapFilter(true)}
                   style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 1000, padding: '8px 14px', borderRadius: '20px', background: (mapFavFilter.size > 0 || mapFavArea) ? '#7c3aed' : 'white', color: (mapFavFilter.size > 0 || mapFavArea) ? 'white' : '#374151', border: '2px solid ' + ((mapFavFilter.size > 0 || mapFavArea) ? '#7c3aed' : '#d1d5db'), boxShadow: '0 2px 10px rgba(0,0,0,0.2)', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                 >🔍 {t('general.filter') || 'סינון'}{(mapFavFilter.size > 0 || mapFavArea) ? ' ●' : ''}</button>
-              )}
-              {/* Legend button — favorites mode */}
-              {mapMode === 'favorites' && !showFavMapFilter && (
-                <button
-                  onClick={() => showHelpFor('favoritesMap')}
-                  style={{ position: 'absolute', top: '12px', left: '12px', zIndex: 1000, width: '34px', height: '34px', borderRadius: '50%', background: 'white', border: '2px solid #d1d5db', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', fontSize: '15px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  title={t('general.help')}
-                >❓</button>
               )}
               {/* Filter dialog overlay — favorites mode */}
               {mapMode === 'favorites' && showFavMapFilter && (() => {
@@ -3630,10 +3627,23 @@
               {mapMode === 'favorites' && (
                 <button
                   onClick={() => {
-                    if (mapUserLocation) { setMapUserLocation(null); return; }
+                    if (mapUserLocation) {
+                      // Already have location — just center map on it
+                      if (leafletMapRef?.current) {
+                        leafletMapRef.current.setView([mapUserLocation.lat, mapUserLocation.lng], 15, { animate: true });
+                      }
+                      return;
+                    }
                     if (navigator.geolocation) {
                       navigator.geolocation.getCurrentPosition(
-                        pos => setMapUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }),
+                        pos => {
+                          const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy };
+                          setMapUserLocation(loc);
+                          // Center map on new location
+                          if (leafletMapRef?.current) {
+                            leafletMapRef.current.setView([loc.lat, loc.lng], 15, { animate: true });
+                          }
+                        },
                         () => showToast('📍 GPS unavailable', 'warning'),
                         { enableHighAccuracy: true, timeout: 8000 }
                       );
@@ -3675,7 +3685,7 @@
                     <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                       <button onClick={() => { const u = window.BKK.getGoogleMapsUrl(loc); if (u && u !== '#') window.open(u, '_blank'); }}
                         style={{ flex: 1, padding: '7px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#f9fafb', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>🗺️ {t('route.navigate') || 'נווט'}</button>
-                      <button onClick={() => { setShowMapModal(false); setMapBottomSheet(null); handleEditLocation(loc); }}
+                      <button onClick={() => { setMapReturnPlace(null); setShowMapModal(false); setMapBottomSheet(null); handleEditLocation(loc); }}
                         style={{ flex: 1, padding: '7px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#f9fafb', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>✏️ {t('places.detailsEdit') || 'ערוך'}</button>
                       <button onClick={() => setMapBottomSheet(null)}
                         style={{ padding: '7px 12px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#f3f4f6', fontSize: '12px', cursor: 'pointer', color: '#6b7280' }}>✕</button>
