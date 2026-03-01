@@ -6427,8 +6427,27 @@ const FouFouApp = () => {
               </div>
               
             </div>
-            {wizardStep === 1 && (
+            {/* Step 2: Choose Area (was step 1) */}
+            {wizardStep === 2 && (
               <div className="bg-white rounded-xl shadow-lg p-3">
+                {/* Breadcrumb: back to interests */}
+                <div style={{ 
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+                  fontSize: '11px', color: '#9ca3af', marginBottom: '6px'
+                }}>
+                  <span
+                    onClick={() => { setWizardStep(1); window.scrollTo(0, 0); }}
+                    style={{ cursor: 'pointer', color: '#3b82f6', fontWeight: '600', textDecoration: 'underline' }}
+                  >{currentLang === 'he' ? '→' : '←'} {t("general.back")}</span>
+                  <span style={{ color: '#d1d5db' }}>|</span>
+                  <span
+                    onClick={() => { setWizardStep(1); window.scrollTo(0, 0); }}
+                    style={{ cursor: 'pointer' }}
+                  >⭐ {formData.interests.slice(0, 3).map(id => {
+                    const opt = allInterestOptions.find(o => o.id === id);
+                    return opt ? (opt.icon || '') : '';
+                  }).join(' ')}{formData.interests.length > 3 ? ` +${formData.interests.length - 3}` : ''} ({formData.interests.length})</span>
+                </div>
                 {/* City Selector - small button only */}
                 {Object.values(window.BKK.cities || {}).filter(c => c.active !== false).length > 1 && (
                   <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '4px' }}>
@@ -6576,43 +6595,23 @@ const FouFouApp = () => {
                   </div>
                 )}
 
-                {/* Continue button */}
+                {/* Generate button */}
                 <button
-                  onClick={() => { setWizardStep(2); window.scrollTo(0, 0); }}
-                  disabled={formData.searchMode === 'radius' ? !formData.currentLat : !formData.area}
-                  style={{ width: '100%', padding: '12px', borderRadius: '12px', border: 'none', marginTop: '6px',
-                    cursor: (formData.searchMode === 'radius' ? formData.currentLat : formData.area) ? 'pointer' : 'not-allowed',
-                    background: (formData.searchMode === 'radius' ? formData.currentLat : formData.area) ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : '#d1d5db',
+                  onClick={() => { generateRoute(); setRouteChoiceMade(null); setWizardStep(3); window.scrollTo(0, 0); }}
+                  disabled={!isDataLoaded || formData.interests.length === 0 || (formData.searchMode === 'radius' ? !formData.currentLat : (formData.searchMode === 'areas' && !formData.area))}
+                  style={{ width: '100%', padding: '14px', borderRadius: '12px', border: 'none', marginTop: '6px',
+                    cursor: (isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : true)) ? 'pointer' : 'not-allowed',
+                    background: (isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : true)) ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : '#d1d5db',
                     color: 'white', fontSize: '16px', fontWeight: 'bold',
-                    boxShadow: (formData.searchMode === 'radius' ? formData.currentLat : formData.area) ? '0 4px 6px rgba(37,99,235,0.3)' : 'none'
+                    boxShadow: (isDataLoaded && formData.interests.length > 0) ? '0 4px 6px rgba(37,99,235,0.3)' : 'none'
                   }}
-                >{t("general.next")}</button>
+                >{isDataLoaded ? `🔍 ${t('wizard.findPlaces')} (${formData.maxStops})` : `⏳ ${t('general.loading')}...`}</button>
               </div>
             )}
 
-            {/* Step 2: Choose Interests */}
-            {wizardStep === 2 && (
+            {/* Step 1: Choose Interests (was step 2) */}
+            {wizardStep === 1 && (
               <div className="bg-white rounded-xl shadow-lg p-3">
-                {/* Breadcrumb: back + area selection */}
-                <div style={{ 
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
-                  fontSize: '11px', color: '#9ca3af', marginBottom: '6px'
-                }}>
-                  <span
-                    onClick={() => { setWizardStep(1); window.scrollTo(0, 0); }}
-                    style={{ cursor: 'pointer', color: '#3b82f6', fontWeight: '600', textDecoration: 'underline' }}
-                  >{currentLang === 'he' ? '→' : '←'} {t("general.back")}</span>
-                  <span style={{ color: '#d1d5db' }}>|</span>
-                  <span
-                    onClick={() => { setWizardStep(1); window.scrollTo(0, 0); }}
-                    style={{ cursor: 'pointer' }}
-                  >📍 {(() => {
-                    if (formData.searchMode === 'all') return t('wizard.allCity');
-                    if (formData.searchMode === 'radius') return `${t('general.nearMe')} (${formData.radiusMeters >= 1000 ? `${formData.radiusMeters/1000}km` : `${formData.radiusMeters}m`})`;
-                    const area = (window.BKK.areaOptions || []).find(a => a.id === formData.area);
-                    return area ? tLabel(area) : '';
-                  })()}</span>
-                </div>
                 <h2 style={{ textAlign: 'center', fontSize: '17px', fontWeight: 'bold', marginBottom: '2px' }}>{`⭐ ${t("wizard.step2Title")}`}</h2>
                 <p style={{ textAlign: 'center', fontSize: '11px', color: '#6b7280', marginBottom: '10px' }}>{t("wizard.step2Subtitle")}</p>
                 
@@ -6653,19 +6652,19 @@ const FouFouApp = () => {
                   })}
                 </div>
 
-                {/* Search button */}
+                {/* Next button */}
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
                   <button
-                    onClick={() => { generateRoute(); setRouteChoiceMade(null); setWizardStep(3); window.scrollTo(0, 0); }}
-                    disabled={!isDataLoaded || formData.interests.length === 0}
+                    onClick={() => { setWizardStep(2); window.scrollTo(0, 0); }}
+                    disabled={formData.interests.length === 0}
                     style={{
                       flex: 1, padding: '14px', borderRadius: '12px', border: 'none',
-                      cursor: isDataLoaded && formData.interests.length > 0 ? 'pointer' : 'not-allowed',
-                      background: isDataLoaded && formData.interests.length > 0 ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : '#d1d5db',
-                      color: 'white', fontSize: '14px', fontWeight: 'bold',
-                      boxShadow: isDataLoaded && formData.interests.length > 0 ? '0 4px 6px rgba(37,99,235,0.3)' : 'none'
+                      cursor: formData.interests.length > 0 ? 'pointer' : 'not-allowed',
+                      background: formData.interests.length > 0 ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : '#d1d5db',
+                      color: 'white', fontSize: '16px', fontWeight: 'bold',
+                      boxShadow: formData.interests.length > 0 ? '0 4px 6px rgba(37,99,235,0.3)' : 'none'
                     }}
-                  >{isDataLoaded ? `🔍 ${t('wizard.findPlaces')} (${formData.maxStops})` : `⏳ ${t('general.loading')}...`}</button>
+                  >{t("general.next")}</button>
                 </div>
               </div>
             )}
@@ -6781,20 +6780,20 @@ const FouFouApp = () => {
             <span
               onClick={() => { setWizardStep(1); setRoute(null); setRouteChoiceMade(null); setCurrentView('form'); window.scrollTo(0, 0); }}
               style={{ cursor: 'pointer', textDecoration: 'underline', textDecorationColor: '#d1d5db' }}
+            >⭐ {formData.interests.slice(0, 3).map(id => {
+              const opt = allInterestOptions.find(o => o.id === id);
+              return opt ? tLabel(opt) : id;
+            }).join(', ')}{formData.interests.length > 3 ? ` +${formData.interests.length - 3}` : ''}</span>
+            <span style={{ color: '#d1d5db' }}>|</span>
+            <span
+              onClick={() => { setWizardStep(2); setRoute(null); setRouteChoiceMade(null); setCurrentView('form'); window.scrollTo(0, 0); }}
+              style={{ cursor: 'pointer', textDecoration: 'underline', textDecorationColor: '#d1d5db' }}
             >📍 {(() => {
               if (formData.searchMode === 'all') return t('wizard.allCity');
               if (formData.searchMode === 'radius') return `${t('general.nearMe')} (${formData.radiusMeters >= 1000 ? `${formData.radiusMeters/1000}km` : `${formData.radiusMeters}m`})`;
               const area = (window.BKK.areaOptions || []).find(a => a.id === formData.area);
               return area ? tLabel(area) : '';
             })()}</span>
-            <span style={{ color: '#d1d5db' }}>|</span>
-            <span
-              onClick={() => { setWizardStep(2); setRoute(null); setRouteChoiceMade(null); setCurrentView('form'); window.scrollTo(0, 0); }}
-              style={{ cursor: 'pointer', textDecoration: 'underline', textDecorationColor: '#d1d5db' }}
-            >⭐ {formData.interests.slice(0, 3).map(id => {
-              const opt = allInterestOptions.find(o => o.id === id);
-              return opt ? tLabel(opt) : id;
-            }).join(', ')}{formData.interests.length > 3 ? ` +${formData.interests.length - 3}` : ''}</span>
           </div>
         )}
 
