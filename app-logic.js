@@ -2034,7 +2034,8 @@
       userStatusRef2.on('value', (snapshot) => {
         const data = snapshot.val();
         if (data) {
-          setInterestStatus(prev => ({ ...prev, ...data }));
+          // Replace fully — don't merge with stale prev values
+          setInterestStatus(data);
         }
       });
     } else {
@@ -5119,21 +5120,15 @@
   // Compute default interest status from interestConfig flags
   const computeDefaultInterestStatus = () => {
     const defaults = {};
-    // Built-in interests: default=true unless interestConfig says otherwise
-    for (const i of interestOptions) {
-      const cfg = interestConfig[i.id];
-      defaults[i.id] = cfg?.defaultEnabled !== undefined ? cfg.defaultEnabled : true;
-    }
-    // Uncovered interests: default=false unless interestConfig says otherwise
-    for (const i of uncoveredInterests) {
-      const id = i.id || i.name.replace(/\s+/g, '_').toLowerCase();
+    const builtInIds = new Set(interestOptions.map(i => i.id));
+    // Unified logic for ALL interests — same as ⚪/🔵 toggle display
+    const allInterests = [...interestOptions, ...uncoveredInterests, ...(cityCustomInterests || [])];
+    for (const i of allInterests) {
+      const id = i.id || i.name?.replace(/\s+/g, '_').toLowerCase();
+      if (!id) continue;
       const cfg = interestConfig[id];
-      defaults[id] = cfg?.defaultEnabled !== undefined ? cfg.defaultEnabled : false;
-    }
-    // Custom interests: default=true unless interestConfig says otherwise
-    for (const i of (cityCustomInterests || [])) {
-      const cfg = interestConfig[i.id];
-      defaults[i.id] = cfg?.defaultEnabled !== undefined ? cfg.defaultEnabled : true;
+      // If admin explicitly set defaultEnabled, use it. Otherwise: built-in=true, non-built-in=false
+      defaults[id] = cfg?.defaultEnabled !== undefined ? cfg.defaultEnabled : builtInIds.has(id);
     }
     return defaults;
   };

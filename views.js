@@ -2035,10 +2035,6 @@
               </div>
               <div className="flex gap-1">
                 <button
-                  onClick={() => { setMapMode('favorites'); setMapFavArea(null); setMapFavRadius(null); setMapFocusPlace(null); setMapFavFilter(new Set()); setMapBottomSheet(null); setShowMapModal(true); }}
-                  style={{ padding: '2px 8px', borderRadius: '8px', border: '2px solid #8b5cf6', background: 'linear-gradient(135deg, #faf5ff, #ede9fe)', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold', color: '#6d28d9' }}
-                >🗺️</button>
-                <button
                   onClick={resetInterestStatusToDefault}
                   className="bg-gray-200 text-gray-700 px-2 py-1.5 rounded-lg text-[10px] font-bold hover:bg-gray-300"
                   title={t("interests.resetToDefault")}
@@ -2094,6 +2090,13 @@
               };
               
               // Render a single interest row with toggle button
+              // Pre-compute favorites count per interest
+              const favCountByInterest = {};
+              customLocations.forEach(loc => {
+                if (loc.status === 'blacklist' || !loc.lat || !loc.lng) return;
+                (loc.interests || []).forEach(iid => { favCountByInterest[iid] = (favCountByInterest[iid] || 0) + 1; });
+              });
+
               const renderInterestRow = (interest, isActive = true) => {
                 const isValid = isInterestValid(interest.id);
                 const effectiveActive = isValid ? isActive : false;
@@ -2101,6 +2104,7 @@
                 const isDraft = aStatus === 'draft';
                 const isHidden = aStatus === 'hidden';
                 const interestColor = window.BKK.getInterestColor(interest.id, allInterestOptions);
+                const favCount = favCountByInterest[interest.id] || 0;
                 const borderClass = isHidden ? 'border-2 border-red-300 bg-red-50 opacity-50'
                   : isDraft ? 'border-2 border-amber-300 bg-amber-50'
                   : !effectiveActive ? 'border border-gray-300 bg-gray-50 opacity-60'
@@ -2113,10 +2117,19 @@
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <span className="text-lg flex-shrink-0">{interest.icon?.startsWith?.('data:') ? <img src={interest.icon} alt="" className="w-5 h-5 object-contain" /> : interest.icon}</span>
                       <span className={`font-medium text-sm truncate ${isHidden ? 'text-red-400 line-through' : isDraft ? 'text-amber-700' : !effectiveActive ? 'text-gray-500' : ''}`}>{tLabel(interest)}</span>
+                      {favCount > 0 && <span style={{ fontSize: '10px', color: '#9ca3af', flexShrink: 0 }}>({favCount})</span>}
                       {!isValid && <span className="text-red-500 text-xs flex-shrink-0" title={t("interests.missingSearchConfig")}>⚠️</span>}
                       {interest.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '11px' }} className="flex-shrink-0">🔒</span>}
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
+                      {/* Map button — show favorites filtered to this interest */}
+                      {favCount > 0 && (
+                        <button
+                          onClick={() => { setMapMode('favorites'); setMapFavArea(null); setMapFavRadius(null); setMapFocusPlace(null); setMapFavFilter(new Set([interest.id])); setMapBottomSheet(null); setShowMapModal(true); }}
+                          style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '4px', border: '1px solid #c084fc', background: '#faf5ff', cursor: 'pointer', color: '#7c3aed', fontWeight: 'bold' }}
+                          title={`${t('wizard.showMap')} (${favCount})`}
+                        >🗺️</button>
+                      )}
                       {/* Admin status cycle — admin only, hide green (active is default) */}
                       {isUnlocked && (isDraft || isHidden) && (
                         <button
