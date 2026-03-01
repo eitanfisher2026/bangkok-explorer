@@ -964,14 +964,6 @@ const FouFouApp = () => {
               const la = loc.areas || (loc.area ? [loc.area] : []);
               if (!la.includes(mapFavArea)) return false;
             }
-            if (mapFavRadius) {
-              const R = 6371e3;
-              const dLat = (loc.lat - mapFavRadius.lat) * Math.PI / 180;
-              const dLng = (loc.lng - mapFavRadius.lng) * Math.PI / 180;
-              const a2 = Math.sin(dLat/2)**2 + Math.cos(mapFavRadius.lat*Math.PI/180)*Math.cos(loc.lat*Math.PI/180)*Math.sin(dLng/2)**2;
-              const dist = R * 2 * Math.atan2(Math.sqrt(a2), Math.sqrt(1-a2));
-              if (dist > mapFavRadius.meters) return false;
-            }
             if (mapFavFilter.size > 0) {
               if (!(loc.interests || []).some(i => mapFavFilter.has(i))) return false;
             }
@@ -993,41 +985,42 @@ const FouFouApp = () => {
           const map = L.map(container).setView([cLat, cLng], defZoom);
           L.tileLayer(window.BKK.getTileUrl(), { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(map);
           
-          const areasOnly = locs.length === 0;
+          const areasOnly = locs.length === 0 && !mapFavRadius;
+          const hasSelection = !!mapFavArea || !!mapFavRadius;
           areas.forEach(area => {
             const c = coords[area.id];
             if (!c) return;
-            const isActive = !mapFavArea || mapFavArea === area.id;
+            const isSelected = mapFavArea === area.id;
             const aColor = areaColors[area.id] || '#6b7280';
             L.circle([c.lat, c.lng], {
               radius: c.radius,
-              color: areasOnly ? aColor : (isActive ? '#94a3b8' : '#e2e8f0'),
-              fillColor: areasOnly ? aColor : (isActive ? '#94a3b8' : '#e2e8f0'),
-              fillOpacity: areasOnly ? 0.15 : (isActive ? 0.07 : 0.02),
-              weight: areasOnly ? 2 : (isActive ? 1.5 : 0.5)
+              color: areasOnly ? aColor : (isSelected ? '#2563eb' : '#cbd5e1'),
+              fillColor: areasOnly ? aColor : (isSelected ? '#2563eb' : '#e2e8f0'),
+              fillOpacity: areasOnly ? 0.15 : (isSelected ? 0.10 : 0.03),
+              weight: areasOnly ? 2 : (isSelected ? 3 : 0.8),
+              dashArray: isSelected ? '' : ''
             }).addTo(map).on('click', () => {
               if (window._favMapAreaClick) window._favMapAreaClick(area.id);
             });
-            if (areasOnly || isActive || !mapFavArea) {
-              L.marker([c.lat, c.lng], {
-                icon: L.divIcon({
-                  className: '',
-                  html: '<div style="font-size:' + (areasOnly ? '10px' : '9px') + ';color:' + (areasOnly ? aColor : (isActive ? '#64748b' : '#cbd5e1')) + ';text-align:center;white-space:nowrap;font-weight:bold;background:rgba(255,255,255,' + (areasOnly ? '0.88' : '0.7') + ');padding:' + (areasOnly ? '2px 5px' : '0 3px') + ';border-radius:' + (areasOnly ? '4px' : '3px') + ';' + (areasOnly ? 'border:1.5px solid ' + aColor + ';box-shadow:0 1px 3px rgba(0,0,0,0.15);' : '') + 'cursor:pointer;">' + tLabel(area) + '</div>',
-                  iconSize: [80, 22], iconAnchor: [40, 11]
-                })
-              }).addTo(map).on('click', () => {
-                if (window._favMapAreaClick) window._favMapAreaClick(area.id);
-              });
-            }
+            const labelVisible = areasOnly || !hasSelection || isSelected;
+            L.marker([c.lat, c.lng], {
+              icon: L.divIcon({
+                className: '',
+                html: '<div style="font-size:' + (areasOnly ? '10px' : '9px') + ';color:' + (areasOnly ? aColor : (isSelected ? '#1e40af' : '#94a3b8')) + ';text-align:center;white-space:nowrap;font-weight:bold;background:rgba(255,255,255,' + (areasOnly ? '0.88' : (isSelected ? '0.95' : '0.6')) + ');padding:' + (areasOnly || isSelected ? '2px 5px' : '0 3px') + ';border-radius:' + (areasOnly || isSelected ? '4px' : '3px') + ';' + ((areasOnly || isSelected) ? 'border:1.5px solid ' + (isSelected ? '#2563eb' : aColor) + ';box-shadow:0 1px 3px rgba(0,0,0,0.15);' : '') + 'cursor:pointer;">' + tLabel(area) + '</div>',
+                iconSize: [80, 22], iconAnchor: [40, 11]
+              })
+            }).addTo(map).on('click', () => {
+              if (window._favMapAreaClick) window._favMapAreaClick(area.id);
+            });
           });
           
           if (mapFavRadius) {
             L.circle([mapFavRadius.lat, mapFavRadius.lng], {
               radius: mapFavRadius.meters,
-              color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.08, weight: 2, dashArray: '8,6'
+              color: '#2563eb', fillColor: '#2563eb', fillOpacity: 0.08, weight: 3
             }).addTo(map);
             L.circleMarker([mapFavRadius.lat, mapFavRadius.lng], {
-              radius: 6, color: '#ef4444', fillColor: '#ef4444', fillOpacity: 1, weight: 2
+              radius: 7, color: '#2563eb', fillColor: '#3b82f6', fillOpacity: 1, weight: 2
             }).addTo(map);
           }
           
@@ -9295,11 +9288,6 @@ const FouFouApp = () => {
                     if (loc.status === 'blacklist' || !loc.lat || !loc.lng) return false;
                     if (window.BKK.systemParams?.showDraftsOnMap === false && !loc.locked) return false;
                     if (mapFavArea) { const la = loc.areas || (loc.area ? [loc.area] : []); if (!la.includes(mapFavArea)) return false; }
-                    if (mapFavRadius) {
-                      const R = 6371e3, dLat = (loc.lat - mapFavRadius.lat) * Math.PI / 180, dLng = (loc.lng - mapFavRadius.lng) * Math.PI / 180;
-                      const a2 = Math.sin(dLat/2)**2 + Math.cos(mapFavRadius.lat*Math.PI/180)*Math.cos(loc.lat*Math.PI/180)*Math.sin(dLng/2)**2;
-                      if (R * 2 * Math.atan2(Math.sqrt(a2), Math.sqrt(1-a2)) > mapFavRadius.meters) return false;
-                    }
                     if (mapFavFilter.size > 0) { if (!(loc.interests || []).some(i => mapFavFilter.has(i))) return false; }
                     return true;
                   }).length;
@@ -9370,7 +9358,7 @@ const FouFouApp = () => {
                 return (
                   <div style={{ position: 'absolute', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
                     onClick={() => { setShowFavMapFilter(false); setMapFavFilter(new Set(mapFavFilter)); /* force refresh */ }}>
-                    <div style={{ width: '100%', maxWidth: '500px', maxHeight: '80vh', background: 'white', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 30px rgba(0,0,0,0.2)', overflow: 'hidden', direction: 'rtl' }}
+                    <div style={{ width: '100%', maxWidth: '500px', maxHeight: 'calc(100% - 50px)', background: 'white', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 30px rgba(0,0,0,0.2)', overflow: 'hidden', direction: 'rtl', display: 'flex', flexDirection: 'column' }}
                       onClick={e => e.stopPropagation()}>
                       {/* Filter header */}
                       <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -9382,7 +9370,7 @@ const FouFouApp = () => {
                             style={{ fontSize: '15px', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>✕</button>
                         </div>
                       </div>
-                      <div style={{ padding: '12px 16px', overflowY: 'auto', maxHeight: '60vh' }}>
+                      <div style={{ padding: '12px 16px', overflowY: 'auto', flex: 1, minHeight: 0, WebkitOverflowScrolling: 'touch' }}>
                         {/* Area filter */}
                         <div style={{ marginBottom: '14px' }}>
                           <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', color: '#374151' }}>📍 {t('general.areas')}</div>
@@ -9525,6 +9513,13 @@ const FouFouApp = () => {
                           </div>
                         </div>
                       </div>
+                      {/* Sticky done button */}
+                      <div style={{ padding: '10px 16px', borderTop: '1px solid #e5e7eb', background: 'white', flexShrink: 0 }}>
+                        <button
+                          onClick={() => { setShowFavMapFilter(false); setMapFavFilter(new Set(mapFavFilter)); }}
+                          style={{ width: '100%', padding: '10px', borderRadius: '10px', border: 'none', background: '#7c3aed', color: 'white', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' }}
+                        >✓ {t('general.close') || 'סגור'}</button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -9555,7 +9550,7 @@ const FouFouApp = () => {
                   }}
                   style={{ position: 'absolute', bottom: mapBottomSheet ? '130px' : '16px', right: '12px', zIndex: 1000, padding: '8px 12px', borderRadius: '20px', background: mapUserLocation ? '#3b82f6' : 'white', color: mapUserLocation ? 'white' : '#374151', border: '2px solid ' + (mapUserLocation ? '#3b82f6' : '#d1d5db'), boxShadow: '0 2px 8px rgba(0,0,0,0.2)', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                   title={t('form.currentLocation')}
-                >📍 {t('form.myLocation')}</button>
+                >📍 {t('wizard.myLocation')}</button>
               )}
               {/* Bottom sheet — favorites mode marker info */}
               {mapMode === 'favorites' && mapBottomSheet && (() => {

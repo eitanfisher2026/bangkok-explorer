@@ -1017,14 +1017,7 @@
               const la = loc.areas || (loc.area ? [loc.area] : []);
               if (!la.includes(mapFavArea)) return false;
             }
-            if (mapFavRadius) {
-              const R = 6371e3;
-              const dLat = (loc.lat - mapFavRadius.lat) * Math.PI / 180;
-              const dLng = (loc.lng - mapFavRadius.lng) * Math.PI / 180;
-              const a2 = Math.sin(dLat/2)**2 + Math.cos(mapFavRadius.lat*Math.PI/180)*Math.cos(loc.lat*Math.PI/180)*Math.sin(dLng/2)**2;
-              const dist = R * 2 * Math.atan2(Math.sqrt(a2), Math.sqrt(1-a2));
-              if (dist > mapFavRadius.meters) return false;
-            }
+            // Radius mode: don't filter — show all places, just display the ring
             if (mapFavFilter.size > 0) {
               if (!(loc.interests || []).some(i => mapFavFilter.has(i))) return false;
             }
@@ -1047,43 +1040,46 @@
           const map = L.map(container).setView([cLat, cLng], defZoom);
           L.tileLayer(window.BKK.getTileUrl(), { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(map);
           
-          // Area circles (context layer — prominent when no places visible)
-          const areasOnly = locs.length === 0;
+          // Area circles — always show all, highlight selected with bold ring
+          const areasOnly = locs.length === 0 && !mapFavRadius;
+          const hasSelection = !!mapFavArea || !!mapFavRadius;
           areas.forEach(area => {
             const c = coords[area.id];
             if (!c) return;
-            const isActive = !mapFavArea || mapFavArea === area.id;
+            const isSelected = mapFavArea === area.id;
             const aColor = areaColors[area.id] || '#6b7280';
+            // Base circle — always visible
             L.circle([c.lat, c.lng], {
               radius: c.radius,
-              color: areasOnly ? aColor : (isActive ? '#94a3b8' : '#e2e8f0'),
-              fillColor: areasOnly ? aColor : (isActive ? '#94a3b8' : '#e2e8f0'),
-              fillOpacity: areasOnly ? 0.15 : (isActive ? 0.07 : 0.02),
-              weight: areasOnly ? 2 : (isActive ? 1.5 : 0.5)
+              color: areasOnly ? aColor : (isSelected ? '#2563eb' : '#cbd5e1'),
+              fillColor: areasOnly ? aColor : (isSelected ? '#2563eb' : '#e2e8f0'),
+              fillOpacity: areasOnly ? 0.15 : (isSelected ? 0.10 : 0.03),
+              weight: areasOnly ? 2 : (isSelected ? 3 : 0.8),
+              dashArray: isSelected ? '' : ''
             }).addTo(map).on('click', () => {
               if (window._favMapAreaClick) window._favMapAreaClick(area.id);
             });
-            if (areasOnly || isActive || !mapFavArea) {
-              L.marker([c.lat, c.lng], {
-                icon: L.divIcon({
-                  className: '',
-                  html: '<div style="font-size:' + (areasOnly ? '10px' : '9px') + ';color:' + (areasOnly ? aColor : (isActive ? '#64748b' : '#cbd5e1')) + ';text-align:center;white-space:nowrap;font-weight:bold;background:rgba(255,255,255,' + (areasOnly ? '0.88' : '0.7') + ');padding:' + (areasOnly ? '2px 5px' : '0 3px') + ';border-radius:' + (areasOnly ? '4px' : '3px') + ';' + (areasOnly ? 'border:1.5px solid ' + aColor + ';box-shadow:0 1px 3px rgba(0,0,0,0.15);' : '') + 'cursor:pointer;">' + tLabel(area) + '</div>',
-                  iconSize: [80, 22], iconAnchor: [40, 11]
-                })
-              }).addTo(map).on('click', () => {
-                if (window._favMapAreaClick) window._favMapAreaClick(area.id);
-              });
-            }
+            // Labels — always show all
+            const labelVisible = areasOnly || !hasSelection || isSelected;
+            L.marker([c.lat, c.lng], {
+              icon: L.divIcon({
+                className: '',
+                html: '<div style="font-size:' + (areasOnly ? '10px' : '9px') + ';color:' + (areasOnly ? aColor : (isSelected ? '#1e40af' : '#94a3b8')) + ';text-align:center;white-space:nowrap;font-weight:bold;background:rgba(255,255,255,' + (areasOnly ? '0.88' : (isSelected ? '0.95' : '0.6')) + ');padding:' + (areasOnly || isSelected ? '2px 5px' : '0 3px') + ';border-radius:' + (areasOnly || isSelected ? '4px' : '3px') + ';' + ((areasOnly || isSelected) ? 'border:1.5px solid ' + (isSelected ? '#2563eb' : aColor) + ';box-shadow:0 1px 3px rgba(0,0,0,0.15);' : '') + 'cursor:pointer;">' + tLabel(area) + '</div>',
+                iconSize: [80, 22], iconAnchor: [40, 11]
+              })
+            }).addTo(map).on('click', () => {
+              if (window._favMapAreaClick) window._favMapAreaClick(area.id);
+            });
           });
           
-          // Radius circle (when opened from radius search mode)
+          // Radius circle — bold ring matching selected-area style
           if (mapFavRadius) {
             L.circle([mapFavRadius.lat, mapFavRadius.lng], {
               radius: mapFavRadius.meters,
-              color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.08, weight: 2, dashArray: '8,6'
+              color: '#2563eb', fillColor: '#2563eb', fillOpacity: 0.08, weight: 3
             }).addTo(map);
             L.circleMarker([mapFavRadius.lat, mapFavRadius.lng], {
-              radius: 6, color: '#ef4444', fillColor: '#ef4444', fillOpacity: 1, weight: 2
+              radius: 7, color: '#2563eb', fillColor: '#3b82f6', fillOpacity: 1, weight: 2
             }).addTo(map);
           }
           

@@ -3417,11 +3417,6 @@
                     if (loc.status === 'blacklist' || !loc.lat || !loc.lng) return false;
                     if (window.BKK.systemParams?.showDraftsOnMap === false && !loc.locked) return false;
                     if (mapFavArea) { const la = loc.areas || (loc.area ? [loc.area] : []); if (!la.includes(mapFavArea)) return false; }
-                    if (mapFavRadius) {
-                      const R = 6371e3, dLat = (loc.lat - mapFavRadius.lat) * Math.PI / 180, dLng = (loc.lng - mapFavRadius.lng) * Math.PI / 180;
-                      const a2 = Math.sin(dLat/2)**2 + Math.cos(mapFavRadius.lat*Math.PI/180)*Math.cos(loc.lat*Math.PI/180)*Math.sin(dLng/2)**2;
-                      if (R * 2 * Math.atan2(Math.sqrt(a2), Math.sqrt(1-a2)) > mapFavRadius.meters) return false;
-                    }
                     if (mapFavFilter.size > 0) { if (!(loc.interests || []).some(i => mapFavFilter.has(i))) return false; }
                     return true;
                   }).length;
@@ -3493,7 +3488,7 @@
                 return (
                   <div style={{ position: 'absolute', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
                     onClick={() => { setShowFavMapFilter(false); setMapFavFilter(new Set(mapFavFilter)); /* force refresh */ }}>
-                    <div style={{ width: '100%', maxWidth: '500px', maxHeight: '80vh', background: 'white', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 30px rgba(0,0,0,0.2)', overflow: 'hidden', direction: 'rtl' }}
+                    <div style={{ width: '100%', maxWidth: '500px', maxHeight: 'calc(100% - 50px)', background: 'white', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 30px rgba(0,0,0,0.2)', overflow: 'hidden', direction: 'rtl', display: 'flex', flexDirection: 'column' }}
                       onClick={e => e.stopPropagation()}>
                       {/* Filter header */}
                       <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -3505,7 +3500,7 @@
                             style={{ fontSize: '15px', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>✕</button>
                         </div>
                       </div>
-                      <div style={{ padding: '12px 16px', overflowY: 'auto', maxHeight: '60vh' }}>
+                      <div style={{ padding: '12px 16px', overflowY: 'auto', flex: 1, minHeight: 0, WebkitOverflowScrolling: 'touch' }}>
                         {/* Area filter */}
                         <div style={{ marginBottom: '14px' }}>
                           <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', color: '#374151' }}>📍 {t('general.areas')}</div>
@@ -3648,6 +3643,13 @@
                           </div>
                         </div>
                       </div>
+                      {/* Sticky done button */}
+                      <div style={{ padding: '10px 16px', borderTop: '1px solid #e5e7eb', background: 'white', flexShrink: 0 }}>
+                        <button
+                          onClick={() => { setShowFavMapFilter(false); setMapFavFilter(new Set(mapFavFilter)); }}
+                          style={{ width: '100%', padding: '10px', borderRadius: '10px', border: 'none', background: '#7c3aed', color: 'white', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' }}
+                        >✓ {t('general.close') || 'סגור'}</button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -3680,7 +3682,7 @@
                   }}
                   style={{ position: 'absolute', bottom: mapBottomSheet ? '130px' : '16px', right: '12px', zIndex: 1000, padding: '8px 12px', borderRadius: '20px', background: mapUserLocation ? '#3b82f6' : 'white', color: mapUserLocation ? 'white' : '#374151', border: '2px solid ' + (mapUserLocation ? '#3b82f6' : '#d1d5db'), boxShadow: '0 2px 8px rgba(0,0,0,0.2)', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                   title={t('form.currentLocation')}
-                >📍 {t('form.myLocation')}</button>
+                >📍 {t('wizard.myLocation')}</button>
               )}
               {/* Bottom sheet — favorites mode marker info */}
               {mapMode === 'favorites' && mapBottomSheet && (() => {
