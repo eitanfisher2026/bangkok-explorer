@@ -1036,22 +1036,26 @@
           const map = L.map(container).setView([cLat, cLng], defZoom);
           L.tileLayer(window.BKK.getTileUrl(), { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(map);
           
-          // Area circles (context)
+          // Area circles (context layer — prominent when no places visible)
+          const areasOnly = locs.length === 0;
           areas.forEach(area => {
             const c = coords[area.id];
             if (!c) return;
             const isActive = !mapFavArea || mapFavArea === area.id;
+            const aColor = areaColors[area.id] || '#6b7280';
             L.circle([c.lat, c.lng], {
-              radius: c.radius, color: isActive ? '#94a3b8' : '#e2e8f0',
-              fillColor: isActive ? '#94a3b8' : '#e2e8f0',
-              fillOpacity: isActive ? 0.07 : 0.02, weight: isActive ? 1.5 : 0.5
+              radius: c.radius,
+              color: areasOnly ? aColor : (isActive ? '#94a3b8' : '#e2e8f0'),
+              fillColor: areasOnly ? aColor : (isActive ? '#94a3b8' : '#e2e8f0'),
+              fillOpacity: areasOnly ? 0.15 : (isActive ? 0.07 : 0.02),
+              weight: areasOnly ? 2 : (isActive ? 1.5 : 0.5)
             }).addTo(map);
-            if (isActive || !mapFavArea) {
+            if (areasOnly || isActive || !mapFavArea) {
               L.marker([c.lat, c.lng], {
                 icon: L.divIcon({
                   className: '',
-                  html: '<div style="font-size:9px;color:' + (isActive ? '#64748b' : '#cbd5e1') + ';text-align:center;white-space:nowrap;font-weight:' + (isActive ? 'bold' : 'normal') + ';background:rgba(255,255,255,0.7);padding:0 3px;border-radius:3px;">' + tLabel(area) + '</div>',
-                  iconSize: [70, 14], iconAnchor: [35, 7]
+                  html: '<div style="font-size:' + (areasOnly ? '10px' : '9px') + ';color:' + (areasOnly ? aColor : (isActive ? '#64748b' : '#cbd5e1')) + ';text-align:center;white-space:nowrap;font-weight:bold;background:rgba(255,255,255,' + (areasOnly ? '0.88' : '0.7') + ');padding:' + (areasOnly ? '2px 5px' : '0 3px') + ';border-radius:' + (areasOnly ? '4px' : '3px') + ';' + (areasOnly ? 'border:1.5px solid ' + aColor + ';box-shadow:0 1px 3px rgba(0,0,0,0.15);' : '') + '">' + tLabel(area) + '</div>',
+                  iconSize: [80, 22], iconAnchor: [40, 11]
                 })
               }).addTo(map);
             }

@@ -982,21 +982,25 @@ const FouFouApp = () => {
           const map = L.map(container).setView([cLat, cLng], defZoom);
           L.tileLayer(window.BKK.getTileUrl(), { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(map);
           
+          const areasOnly = locs.length === 0;
           areas.forEach(area => {
             const c = coords[area.id];
             if (!c) return;
             const isActive = !mapFavArea || mapFavArea === area.id;
+            const aColor = areaColors[area.id] || '#6b7280';
             L.circle([c.lat, c.lng], {
-              radius: c.radius, color: isActive ? '#94a3b8' : '#e2e8f0',
-              fillColor: isActive ? '#94a3b8' : '#e2e8f0',
-              fillOpacity: isActive ? 0.07 : 0.02, weight: isActive ? 1.5 : 0.5
+              radius: c.radius,
+              color: areasOnly ? aColor : (isActive ? '#94a3b8' : '#e2e8f0'),
+              fillColor: areasOnly ? aColor : (isActive ? '#94a3b8' : '#e2e8f0'),
+              fillOpacity: areasOnly ? 0.15 : (isActive ? 0.07 : 0.02),
+              weight: areasOnly ? 2 : (isActive ? 1.5 : 0.5)
             }).addTo(map);
-            if (isActive || !mapFavArea) {
+            if (areasOnly || isActive || !mapFavArea) {
               L.marker([c.lat, c.lng], {
                 icon: L.divIcon({
                   className: '',
-                  html: '<div style="font-size:9px;color:' + (isActive ? '#64748b' : '#cbd5e1') + ';text-align:center;white-space:nowrap;font-weight:' + (isActive ? 'bold' : 'normal') + ';background:rgba(255,255,255,0.7);padding:0 3px;border-radius:3px;">' + tLabel(area) + '</div>',
-                  iconSize: [70, 14], iconAnchor: [35, 7]
+                  html: '<div style="font-size:' + (areasOnly ? '10px' : '9px') + ';color:' + (areasOnly ? aColor : (isActive ? '#64748b' : '#cbd5e1')) + ';text-align:center;white-space:nowrap;font-weight:bold;background:rgba(255,255,255,' + (areasOnly ? '0.88' : '0.7') + ');padding:' + (areasOnly ? '2px 5px' : '0 3px') + ';border-radius:' + (areasOnly ? '4px' : '3px') + ';' + (areasOnly ? 'border:1.5px solid ' + aColor + ';box-shadow:0 1px 3px rgba(0,0,0,0.15);' : '') + '">' + tLabel(area) + '</div>',
+                  iconSize: [80, 22], iconAnchor: [40, 11]
                 })
               }).addTo(map);
             }
@@ -6513,14 +6517,6 @@ const FouFouApp = () => {
                 {/* AREA MODE content */}
                 {formData.searchMode !== 'radius' && (
                   <>
-                    {/* Map button */}
-                    <div style={{ textAlign: 'center', marginBottom: '6px' }}>
-                      <button
-                        onClick={() => { setMapMode('areas'); setShowMapModal(true); }}
-                        style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', borderRadius: '10px', padding: '6px 16px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 2px 6px rgba(5,150,105,0.3)' }}
-                      >{t("wizard.showMap")}</button>
-                    </div>
-
                     {/* Area Grid */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px', marginBottom: '6px' }}>
                       {(window.BKK.areaOptions || []).map(area => {
@@ -6573,13 +6569,6 @@ const FouFouApp = () => {
                             >{r >= 1000 ? `${r/1000}km` : `${r}m`}</button>
                           ))}
                         </div>
-                        {/* Map button */}
-                        <div style={{ marginTop: '8px' }}>
-                          <button
-                            onClick={() => { setMapMode('radius'); setShowMapModal(true); }}
-                            style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', borderRadius: '10px', padding: '6px 16px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 2px 6px rgba(5,150,105,0.3)' }}
-                          >{t("wizard.showMap")}</button>
-                        </div>
                       </>
                     ) : (
                       <div style={{ padding: '20px 0' }}>
@@ -6595,8 +6584,8 @@ const FouFouApp = () => {
                   </div>
                 )}
 
-                {/* Generate + Map buttons */}
-                <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                {/* Map + Generate buttons */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
                   <button
                     onClick={() => {
                       setMapMode('favorites');
@@ -6608,14 +6597,15 @@ const FouFouApp = () => {
                       setShowMapModal(true);
                     }}
                     style={{
-                      padding: '14px 16px', borderRadius: '12px', border: '2px solid #c084fc',
-                      cursor: 'pointer', background: 'white', color: '#7c3aed', fontSize: '15px', fontWeight: 'bold'
+                      width: '100%', padding: '12px', borderRadius: '12px', border: '2px solid #10b981',
+                      cursor: 'pointer', background: 'linear-gradient(135deg, #ecfdf5, #d1fae5)', color: '#065f46', fontSize: '14px', fontWeight: 'bold',
+                      boxShadow: '0 2px 6px rgba(16,185,129,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
                     }}
-                  >🗺️</button>
+                  >🗺️ {t('wizard.showMap')}</button>
                   <button
                     onClick={() => { generateRoute(); setRouteChoiceMade(null); setWizardStep(3); window.scrollTo(0, 0); }}
                     disabled={!isDataLoaded || formData.interests.length === 0 || (formData.searchMode === 'radius' ? !formData.currentLat : (formData.searchMode === 'areas' && !formData.area))}
-                    style={{ flex: 1, padding: '14px', borderRadius: '12px', border: 'none',
+                    style={{ width: '100%', padding: '14px', borderRadius: '12px', border: 'none',
                       cursor: (isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : true)) ? 'pointer' : 'not-allowed',
                       background: (isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : true)) ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : '#d1d5db',
                       color: 'white', fontSize: '16px', fontWeight: 'bold',
@@ -6669,8 +6659,8 @@ const FouFouApp = () => {
                   })}
                 </div>
 
-                {/* Next + Map buttons */}
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                {/* Map + Next buttons */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '8px' }}>
                   <button
                     onClick={() => {
                       setMapMode('favorites');
@@ -6682,10 +6672,11 @@ const FouFouApp = () => {
                       setShowMapModal(true);
                     }}
                     style={{
-                      padding: '14px 16px', borderRadius: '12px', border: '2px solid #c084fc',
-                      cursor: 'pointer', background: 'white', color: '#7c3aed', fontSize: '15px', fontWeight: 'bold'
+                      width: '100%', padding: '12px', borderRadius: '12px', border: '2px solid #10b981',
+                      cursor: 'pointer', background: 'linear-gradient(135deg, #ecfdf5, #d1fae5)', color: '#065f46', fontSize: '14px', fontWeight: 'bold',
+                      boxShadow: '0 2px 6px rgba(16,185,129,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
                     }}
-                  >🗺️</button>
+                  >🗺️ {t('wizard.showMap')}</button>
                   <button
                     onClick={() => { setWizardStep(2); window.scrollTo(0, 0); }}
                     disabled={formData.interests.length === 0}
@@ -9375,6 +9366,8 @@ const FouFouApp = () => {
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
                             <button onClick={() => setMapFavFilter(new Set())}
                               style={{ padding: '4px 10px', borderRadius: '8px', border: mapFavFilter.size === 0 ? '2px solid #7c3aed' : '1px solid #d1d5db', background: mapFavFilter.size === 0 ? '#f3e8ff' : 'white', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', color: mapFavFilter.size === 0 ? '#7c3aed' : '#6b7280' }}>{t('general.all') || 'הכל'}</button>
+                            <button onClick={() => setMapFavFilter(new Set(['__areas_only__']))}
+                              style={{ padding: '4px 10px', borderRadius: '8px', border: mapFavFilter.has('__areas_only__') ? '2px solid #10b981' : '1px solid #d1d5db', background: mapFavFilter.has('__areas_only__') ? '#ecfdf5' : 'white', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', color: mapFavFilter.has('__areas_only__') ? '#065f46' : '#6b7280' }}>📍 {t('wizard.areasOnly') || 'אזורים בלבד'}</button>
                             {relevant.map(int => {
                               const color = window.BKK.getInterestColor(int.id, allInts);
                               const isOn = mapFavFilter.size === 0 || mapFavFilter.has(int.id);
