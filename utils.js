@@ -102,6 +102,8 @@ window.BKK.getAreasForCoordinates = (lat, lng) => {
  * Backward-compatible migration
  */
 window.BKK.normalizeLocationAreas = (loc) => {
+  return window.BKK.getLocationAreas(loc);
+};
 
 /**
  * Generate a distinct color for an interest based on its position.
