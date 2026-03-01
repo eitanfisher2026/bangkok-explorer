@@ -547,6 +547,7 @@ const FouFouApp = () => {
   const [mapSkippedStops, setMapSkippedStops] = useState(new Set()); // indices of skipped stops on map
   const [mapFavFilter, setMapFavFilter] = useState(new Set()); // interest IDs to show (empty=all)
   const [mapFavArea, setMapFavArea] = useState(null); // area to focus on (null=all)
+  const [mapFavRadius, setMapFavRadius] = useState(null); // { lat, lng, meters } for radius mode on fav map
   const [mapFocusPlace, setMapFocusPlace] = useState(null); // place to highlight
   const [mapBottomSheet, setMapBottomSheet] = useState(null); // { name, loc } for bottom sheet
   const [mapReturnPlace, setMapReturnPlace] = useState(null); // place to reopen dialog for after map close
@@ -963,6 +964,14 @@ const FouFouApp = () => {
               const la = loc.areas || (loc.area ? [loc.area] : []);
               if (!la.includes(mapFavArea)) return false;
             }
+            if (mapFavRadius) {
+              const R = 6371e3;
+              const dLat = (loc.lat - mapFavRadius.lat) * Math.PI / 180;
+              const dLng = (loc.lng - mapFavRadius.lng) * Math.PI / 180;
+              const a2 = Math.sin(dLat/2)**2 + Math.cos(mapFavRadius.lat*Math.PI/180)*Math.cos(loc.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+              const dist = R * 2 * Math.atan2(Math.sqrt(a2), Math.sqrt(1-a2));
+              if (dist > mapFavRadius.meters) return false;
+            }
             if (mapFavFilter.size > 0) {
               if (!(loc.interests || []).some(i => mapFavFilter.has(i))) return false;
             }
@@ -972,6 +981,8 @@ const FouFouApp = () => {
           let cLat, cLng, defZoom;
           if (mapFocusPlace && mapFocusPlace.lat) {
             cLat = mapFocusPlace.lat; cLng = mapFocusPlace.lng; defZoom = 16;
+          } else if (mapFavRadius) {
+            cLat = mapFavRadius.lat; cLng = mapFavRadius.lng; defZoom = mapFavRadius.meters <= 300 ? 16 : mapFavRadius.meters <= 600 ? 15 : 14;
           } else if (mapFavArea && coords[mapFavArea]) {
             cLat = coords[mapFavArea].lat; cLng = coords[mapFavArea].lng; defZoom = 14;
           } else {
@@ -994,17 +1005,31 @@ const FouFouApp = () => {
               fillColor: areasOnly ? aColor : (isActive ? '#94a3b8' : '#e2e8f0'),
               fillOpacity: areasOnly ? 0.15 : (isActive ? 0.07 : 0.02),
               weight: areasOnly ? 2 : (isActive ? 1.5 : 0.5)
-            }).addTo(map);
+            }).addTo(map).on('click', () => {
+              if (window._favMapAreaClick) window._favMapAreaClick(area.id);
+            });
             if (areasOnly || isActive || !mapFavArea) {
               L.marker([c.lat, c.lng], {
                 icon: L.divIcon({
                   className: '',
-                  html: '<div style="font-size:' + (areasOnly ? '10px' : '9px') + ';color:' + (areasOnly ? aColor : (isActive ? '#64748b' : '#cbd5e1')) + ';text-align:center;white-space:nowrap;font-weight:bold;background:rgba(255,255,255,' + (areasOnly ? '0.88' : '0.7') + ');padding:' + (areasOnly ? '2px 5px' : '0 3px') + ';border-radius:' + (areasOnly ? '4px' : '3px') + ';' + (areasOnly ? 'border:1.5px solid ' + aColor + ';box-shadow:0 1px 3px rgba(0,0,0,0.15);' : '') + '">' + tLabel(area) + '</div>',
+                  html: '<div style="font-size:' + (areasOnly ? '10px' : '9px') + ';color:' + (areasOnly ? aColor : (isActive ? '#64748b' : '#cbd5e1')) + ';text-align:center;white-space:nowrap;font-weight:bold;background:rgba(255,255,255,' + (areasOnly ? '0.88' : '0.7') + ');padding:' + (areasOnly ? '2px 5px' : '0 3px') + ';border-radius:' + (areasOnly ? '4px' : '3px') + ';' + (areasOnly ? 'border:1.5px solid ' + aColor + ';box-shadow:0 1px 3px rgba(0,0,0,0.15);' : '') + 'cursor:pointer;">' + tLabel(area) + '</div>',
                   iconSize: [80, 22], iconAnchor: [40, 11]
                 })
-              }).addTo(map);
+              }).addTo(map).on('click', () => {
+                if (window._favMapAreaClick) window._favMapAreaClick(area.id);
+              });
             }
           });
+          
+          if (mapFavRadius) {
+            L.circle([mapFavRadius.lat, mapFavRadius.lng], {
+              radius: mapFavRadius.meters,
+              color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.08, weight: 2, dashArray: '8,6'
+            }).addTo(map);
+            L.circleMarker([mapFavRadius.lat, mapFavRadius.lng], {
+              radius: 6, color: '#ef4444', fillColor: '#ef4444', fillOpacity: 1, weight: 2
+            }).addTo(map);
+          }
           
           const mkrs = [];
           locs.forEach(loc => {
@@ -1020,10 +1045,12 @@ const FouFouApp = () => {
             mkrs.push(m);
           });
           
-          if (!mapFocusPlace && mkrs.length > 1) {
-            if (mapFavArea && coords[mapFavArea]) {
+          if (!mapFocusPlace) {
+            if (mapFavRadius) {
+              map.fitBounds(L.circle([mapFavRadius.lat, mapFavRadius.lng], { radius: mapFavRadius.meters }).getBounds().pad(0.15));
+            } else if (mapFavArea && coords[mapFavArea]) {
               map.fitBounds(L.circle([coords[mapFavArea].lat, coords[mapFavArea].lng], { radius: coords[mapFavArea].radius }).getBounds().pad(0.15));
-            } else {
+            } else if (mkrs.length > 1) {
               map.fitBounds(L.featureGroup(mkrs).getBounds().pad(0.1));
             }
           }
@@ -1039,6 +1066,11 @@ const FouFouApp = () => {
           }
           
           window._favMapSheet = (loc) => { setMapBottomSheet(loc); };
+          window._favMapAreaClick = (areaId) => {
+            setMapFavArea(prev => prev === areaId ? null : areaId);
+            setMapFavRadius(null);
+            setMapBottomSheet(null);
+          };
           
           leafletMapRef.current = map;
         }
@@ -1048,8 +1080,8 @@ const FouFouApp = () => {
     }, 150);
     }); // end loadLeaflet().then
     
-    return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; delete window._mapRedrawLine; delete window._mapStopsOrderRef; delete window._favMapSheet; setMapBottomSheet(null); };
-  }, [showMapModal, mapMode, mapStops, mapUserLocation, mapSkippedStops, mapFavFilter, mapFavArea, mapFocusPlace, customLocations, formData.currentLat, formData.currentLng, formData.radiusMeters]);
+    return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; delete window._mapRedrawLine; delete window._mapStopsOrderRef; delete window._favMapSheet; delete window._favMapAreaClick; setMapBottomSheet(null); };
+  }, [showMapModal, mapMode, mapStops, mapUserLocation, mapSkippedStops, mapFavFilter, mapFavArea, mapFavRadius, mapFocusPlace, customLocations, formData.currentLat, formData.currentLng, formData.radiusMeters]);
   const [modalImage, setModalImage] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -6589,7 +6621,8 @@ const FouFouApp = () => {
                   <button
                     onClick={() => {
                       setMapMode('favorites');
-                      setMapFavArea(formData.searchMode === 'areas' && formData.area ? formData.area : null);
+                      setMapFavArea(formData.searchMode === 'area' && formData.area ? formData.area : null);
+                      setMapFavRadius(formData.searchMode === 'radius' && formData.currentLat ? { lat: formData.currentLat, lng: formData.currentLng, meters: formData.radiusMeters } : null);
                       setMapFocusPlace(null);
                       setMapFavFilter(formData.interests.length > 0 ? new Set(formData.interests) : new Set());
                       setMapBottomSheet(null);
@@ -6604,7 +6637,7 @@ const FouFouApp = () => {
                   >🗺️ {t('wizard.showMap')}</button>
                   <button
                     onClick={() => { generateRoute(); setRouteChoiceMade(null); setWizardStep(3); window.scrollTo(0, 0); }}
-                    disabled={!isDataLoaded || formData.interests.length === 0 || (formData.searchMode === 'radius' ? !formData.currentLat : (formData.searchMode === 'areas' && !formData.area))}
+                    disabled={!isDataLoaded || formData.interests.length === 0 || (formData.searchMode === 'radius' ? !formData.currentLat : (formData.searchMode === 'area' && !formData.area))}
                     style={{ width: '100%', padding: '14px', borderRadius: '12px', border: 'none',
                       cursor: (isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : true)) ? 'pointer' : 'not-allowed',
                       background: (isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : true)) ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : '#d1d5db',
@@ -6665,6 +6698,7 @@ const FouFouApp = () => {
                     onClick={() => {
                       setMapMode('favorites');
                       setMapFavArea(null);
+                      setMapFavRadius(null);
                       setMapFocusPlace(null);
                       setMapFavFilter(formData.interests.length > 0 ? new Set(formData.interests) : new Set());
                       setMapBottomSheet(null);
@@ -7632,7 +7666,7 @@ const FouFouApp = () => {
                   </div>
                   {/* Favorites map button */}
                   <button
-                    onClick={() => { setMapMode('favorites'); setMapFavArea(null); setMapFocusPlace(null); setMapFavFilter(new Set()); setMapBottomSheet(null); setShowMapModal(true); }}
+                    onClick={() => { setMapMode('favorites'); setMapFavArea(null); setMapFavRadius(null); setMapFocusPlace(null); setMapFavFilter(new Set()); setMapBottomSheet(null); setShowMapModal(true); }}
                     style={{ padding: '2px 8px', borderRadius: '8px', border: '1px solid #c084fc', background: '#f3e8ff', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', color: '#7c3aed', whiteSpace: 'nowrap' }}
                     title={t("wizard.showMap")}
                   >🗺️</button>
@@ -9249,21 +9283,34 @@ const FouFouApp = () => {
             display: 'flex', flexDirection: 'column'
           }}>
             {/* Header */}
-            <div className="flex items-center justify-between p-3 border-b">
-              <button
-                onClick={() => {
-                  const returnPlace = mapReturnPlace;
-                  setShowMapModal(false); setMapUserLocation(null); setMapSkippedStops(new Set()); setMapBottomSheet(null); setShowFavMapFilter(false); setMapFavFilter(new Set()); setMapFavArea(null); setMapFocusPlace(null); setMapReturnPlace(null);
-                  if (returnPlace) { setTimeout(() => handleEditLocation(returnPlace), 100); }
-                }}
-                className="text-gray-400 hover:text-gray-600 text-lg font-bold"
-              >✕</button>
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-sm">
+            <div className="flex items-center justify-between p-3 border-b" style={{ gap: '8px' }}>
+              <div className="flex items-center gap-2" style={{ minWidth: 0 }}>
+                <h3 className="font-bold text-sm" style={{ whiteSpace: 'nowrap' }}>
                   {mapMode === 'areas' ? t('wizard.allAreasMap') : mapMode === 'stops' ? `${t('route.showStopsOnMap')} (${mapStops.length})` : mapMode === 'favorites' ? `⭐ ${t('nav.favorites')}` : t('form.searchRadius')}
                 </h3>
                 {mapMode === 'stops' && (<button onClick={() => showHelpFor('mapPlanning')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', textDecoration: 'underline' }}>{t('general.help')}</button>)}
                 {mapMode === 'favorites' && (<button onClick={() => showHelpFor('favoritesMap')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', textDecoration: 'underline' }}>{t('general.help')}</button>)}
+                {mapMode === 'favorites' && (() => {
+                  const activeCount = customLocations.filter(loc => {
+                    if (loc.status === 'blacklist' || !loc.lat || !loc.lng) return false;
+                    if (window.BKK.systemParams?.showDraftsOnMap === false && !loc.locked) return false;
+                    if (mapFavArea) { const la = loc.areas || (loc.area ? [loc.area] : []); if (!la.includes(mapFavArea)) return false; }
+                    if (mapFavRadius) {
+                      const R = 6371e3, dLat = (loc.lat - mapFavRadius.lat) * Math.PI / 180, dLng = (loc.lng - mapFavRadius.lng) * Math.PI / 180;
+                      const a2 = Math.sin(dLat/2)**2 + Math.cos(mapFavRadius.lat*Math.PI/180)*Math.cos(loc.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+                      if (R * 2 * Math.atan2(Math.sqrt(a2), Math.sqrt(1-a2)) > mapFavRadius.meters) return false;
+                    }
+                    if (mapFavFilter.size > 0) { if (!(loc.interests || []).some(i => mapFavFilter.has(i))) return false; }
+                    return true;
+                  }).length;
+                  const areaLabel = mapFavArea ? tLabel((window.BKK.areaOptions || []).find(a => a.id === mapFavArea)) : '';
+                  const radiusLabel = mapFavRadius ? `📍 ${mapFavRadius.meters}m` : '';
+                  return (
+                    <span style={{ fontSize: '10px', color: '#9ca3af', fontWeight: 'normal', whiteSpace: 'nowrap' }}>
+                      {activeCount} {t('nav.favorites')}{areaLabel ? ` · ${areaLabel}` : ''}{radiusLabel ? ` · ${radiusLabel}` : ''}{mapFavFilter.size > 0 ? ` · ${mapFavFilter.size} ${t('general.interests') || 'תחומים'}` : ''}
+                    </span>
+                  );
+                })()}
               </div>
               {mapMode !== 'stops' && mapMode !== 'favorites' && (
               <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
@@ -9288,21 +9335,15 @@ const FouFouApp = () => {
                 >{`📍 ${t("form.radiusMode")}`}</button>
               </div>
               )}
-              {mapMode === 'favorites' && (() => {
-                const activeCount = customLocations.filter(loc => {
-                  if (loc.status === 'blacklist' || !loc.lat || !loc.lng) return false;
-                  if (window.BKK.systemParams?.showDraftsOnMap === false && !loc.locked) return false;
-                  if (mapFavArea) { const la = loc.areas || (loc.area ? [loc.area] : []); if (!la.includes(mapFavArea)) return false; }
-                  if (mapFavFilter.size > 0) { if (!(loc.interests || []).some(i => mapFavFilter.has(i))) return false; }
-                  return true;
-                }).length;
-                const areaLabel = mapFavArea ? tLabel((window.BKK.areaOptions || []).find(a => a.id === mapFavArea)) : '';
-                return (
-                  <span style={{ fontSize: '10px', color: '#9ca3af', fontWeight: 'normal' }}>
-                    {activeCount} {t('nav.favorites')}{areaLabel ? ` · ${areaLabel}` : ''}{mapFavFilter.size > 0 ? ` · ${mapFavFilter.size} ${t('general.interests') || 'תחומים'}` : ''}
-                  </span>
-                );
-              })()}
+              <button
+                onClick={() => {
+                  const returnPlace = mapReturnPlace;
+                  setShowMapModal(false); setMapUserLocation(null); setMapSkippedStops(new Set()); setMapBottomSheet(null); setShowFavMapFilter(false); setMapFavFilter(new Set()); setMapFavArea(null); setMapFavRadius(null); setMapFocusPlace(null); setMapReturnPlace(null);
+                  if (returnPlace) { setTimeout(() => handleEditLocation(returnPlace), 100); }
+                }}
+                className="text-gray-400 hover:text-gray-600 font-bold"
+                style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', whiteSpace: 'nowrap', flexShrink: 0 }}
+              >{t('general.close')} ✕</button>
             </div>
             {/* Map container with floating elements */}
             <div style={{ flex: 1, position: 'relative', minHeight: (mapMode === 'stops' || mapMode === 'favorites') ? '0' : '350px', maxHeight: (mapMode === 'stops' || mapMode === 'favorites') ? 'none' : '70vh' }}>
@@ -9335,7 +9376,7 @@ const FouFouApp = () => {
                       <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontWeight: 'bold', fontSize: '15px' }}>🔍 {t('general.filter') || 'סינון מפה'}</span>
                         <div style={{ display: 'flex', gap: '8px' }}>
-                          <button onClick={() => { setMapFavFilter(new Set()); setMapFavArea(null); setMapFocusPlace(null); }}
+                          <button onClick={() => { setMapFavFilter(new Set()); setMapFavArea(null); setMapFavRadius(null); setMapFocusPlace(null); }}
                             style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #d1d5db', background: '#f3f4f6', cursor: 'pointer', fontWeight: 'bold', color: '#6b7280' }}>{t('general.clearAll') || 'נקה הכל'}</button>
                           <button onClick={() => { setShowFavMapFilter(false); setMapFavFilter(new Set(mapFavFilter)); }}
                             style={{ fontSize: '15px', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>✕</button>
@@ -9346,13 +9387,13 @@ const FouFouApp = () => {
                         <div style={{ marginBottom: '14px' }}>
                           <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', color: '#374151' }}>📍 {t('general.areas')}</div>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                            <button onClick={() => { setMapFavArea(null); setMapFocusPlace(null); }}
+                            <button onClick={() => { setMapFavArea(null); setMapFavRadius(null); setMapFocusPlace(null); }}
                               style={{ padding: '4px 10px', borderRadius: '8px', border: !mapFavArea ? '2px solid #3b82f6' : '1px solid #d1d5db', background: !mapFavArea ? '#dbeafe' : 'white', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', color: !mapFavArea ? '#1e40af' : '#6b7280' }}>{t('general.allCity') || 'הכל'}</button>
                             {areas.map(a => {
                               const cnt = areaCounts[a.id] || 0;
                               const isSel = mapFavArea === a.id;
                               return (
-                                <button key={a.id} onClick={() => { setMapFavArea(isSel ? null : a.id); setMapFocusPlace(null); }}
+                                <button key={a.id} onClick={() => { setMapFavArea(isSel ? null : a.id); setMapFavRadius(null); setMapFocusPlace(null); }}
                                   style={{ padding: '4px 8px', borderRadius: '8px', border: isSel ? '2px solid #3b82f6' : '1px solid #d1d5db', background: isSel ? '#dbeafe' : 'white', fontSize: '11px', fontWeight: isSel ? 'bold' : 'normal', cursor: 'pointer', color: isSel ? '#1e40af' : '#374151', opacity: cnt === 0 ? 0.4 : 1 }}>
                                   {tLabel(a)} <span style={{ fontSize: '9px', color: '#9ca3af' }}>({cnt})</span>
                                 </button>
@@ -9512,9 +9553,9 @@ const FouFouApp = () => {
                       );
                     }
                   }}
-                  style={{ position: 'absolute', bottom: mapBottomSheet ? '130px' : '16px', right: '12px', zIndex: 1000, width: '40px', height: '40px', borderRadius: '50%', background: mapUserLocation ? '#3b82f6' : 'white', color: mapUserLocation ? 'white' : '#374151', border: '2px solid #d1d5db', boxShadow: '0 2px 8px rgba(0,0,0,0.2)', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  style={{ position: 'absolute', bottom: mapBottomSheet ? '130px' : '16px', right: '12px', zIndex: 1000, padding: '8px 12px', borderRadius: '20px', background: mapUserLocation ? '#3b82f6' : 'white', color: mapUserLocation ? 'white' : '#374151', border: '2px solid ' + (mapUserLocation ? '#3b82f6' : '#d1d5db'), boxShadow: '0 2px 8px rgba(0,0,0,0.2)', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                   title={t('form.currentLocation')}
-                >📍</button>
+                >📍 {t('form.myLocation')}</button>
               )}
               {/* Bottom sheet — favorites mode marker info */}
               {mapMode === 'favorites' && mapBottomSheet && (() => {
@@ -10030,6 +10071,7 @@ const FouFouApp = () => {
                             setMapReturnPlace(editingLocation || null);
                             setShowEditLocationDialog(false);
                             setMapMode('favorites');
+                            setMapFavRadius(null);
                             setMapFavArea(locAreas[0] || null);
                             setMapFocusPlace({ id: editingLocation?.id, lat: newLocation.lat, lng: newLocation.lng, name: newLocation.name });
                             setMapFavFilter(new Set());
@@ -10397,6 +10439,7 @@ const FouFouApp = () => {
                           setMapReturnPlace(editingLocation || null);
                           setShowEditLocationDialog(false);
                           setMapMode('favorites');
+                          setMapFavRadius(null);
                           setMapFavArea(locAreas[0] || null);
                           setMapFocusPlace({ id: editingLocation?.id, lat: newLocation.lat, lng: newLocation.lng, name: newLocation.name });
                           setMapFavFilter(new Set());
@@ -10703,6 +10746,7 @@ const FouFouApp = () => {
                         onClick={() => {
                           setShowAddInterestDialog(false);
                           setMapMode('favorites');
+                          setMapFavRadius(null);
                           setMapFavArea(null);
                           setMapFocusPlace(null);
                           setMapFavFilter(new Set([newInterest.id]));

@@ -562,6 +562,7 @@
   const [mapSkippedStops, setMapSkippedStops] = useState(new Set()); // indices of skipped stops on map
   const [mapFavFilter, setMapFavFilter] = useState(new Set()); // interest IDs to show (empty=all)
   const [mapFavArea, setMapFavArea] = useState(null); // area to focus on (null=all)
+  const [mapFavRadius, setMapFavRadius] = useState(null); // { lat, lng, meters } for radius mode on fav map
   const [mapFocusPlace, setMapFocusPlace] = useState(null); // place to highlight
   const [mapBottomSheet, setMapBottomSheet] = useState(null); // { name, loc } for bottom sheet
   const [mapReturnPlace, setMapReturnPlace] = useState(null); // place to reopen dialog for after map close
@@ -1016,6 +1017,14 @@
               const la = loc.areas || (loc.area ? [loc.area] : []);
               if (!la.includes(mapFavArea)) return false;
             }
+            if (mapFavRadius) {
+              const R = 6371e3;
+              const dLat = (loc.lat - mapFavRadius.lat) * Math.PI / 180;
+              const dLng = (loc.lng - mapFavRadius.lng) * Math.PI / 180;
+              const a2 = Math.sin(dLat/2)**2 + Math.cos(mapFavRadius.lat*Math.PI/180)*Math.cos(loc.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+              const dist = R * 2 * Math.atan2(Math.sqrt(a2), Math.sqrt(1-a2));
+              if (dist > mapFavRadius.meters) return false;
+            }
             if (mapFavFilter.size > 0) {
               if (!(loc.interests || []).some(i => mapFavFilter.has(i))) return false;
             }
@@ -1026,6 +1035,8 @@
           let cLat, cLng, defZoom;
           if (mapFocusPlace && mapFocusPlace.lat) {
             cLat = mapFocusPlace.lat; cLng = mapFocusPlace.lng; defZoom = 16;
+          } else if (mapFavRadius) {
+            cLat = mapFavRadius.lat; cLng = mapFavRadius.lng; defZoom = mapFavRadius.meters <= 300 ? 16 : mapFavRadius.meters <= 600 ? 15 : 14;
           } else if (mapFavArea && coords[mapFavArea]) {
             cLat = coords[mapFavArea].lat; cLng = coords[mapFavArea].lng; defZoom = 14;
           } else {
@@ -1049,17 +1060,32 @@
               fillColor: areasOnly ? aColor : (isActive ? '#94a3b8' : '#e2e8f0'),
               fillOpacity: areasOnly ? 0.15 : (isActive ? 0.07 : 0.02),
               weight: areasOnly ? 2 : (isActive ? 1.5 : 0.5)
-            }).addTo(map);
+            }).addTo(map).on('click', () => {
+              if (window._favMapAreaClick) window._favMapAreaClick(area.id);
+            });
             if (areasOnly || isActive || !mapFavArea) {
               L.marker([c.lat, c.lng], {
                 icon: L.divIcon({
                   className: '',
-                  html: '<div style="font-size:' + (areasOnly ? '10px' : '9px') + ';color:' + (areasOnly ? aColor : (isActive ? '#64748b' : '#cbd5e1')) + ';text-align:center;white-space:nowrap;font-weight:bold;background:rgba(255,255,255,' + (areasOnly ? '0.88' : '0.7') + ');padding:' + (areasOnly ? '2px 5px' : '0 3px') + ';border-radius:' + (areasOnly ? '4px' : '3px') + ';' + (areasOnly ? 'border:1.5px solid ' + aColor + ';box-shadow:0 1px 3px rgba(0,0,0,0.15);' : '') + '">' + tLabel(area) + '</div>',
+                  html: '<div style="font-size:' + (areasOnly ? '10px' : '9px') + ';color:' + (areasOnly ? aColor : (isActive ? '#64748b' : '#cbd5e1')) + ';text-align:center;white-space:nowrap;font-weight:bold;background:rgba(255,255,255,' + (areasOnly ? '0.88' : '0.7') + ');padding:' + (areasOnly ? '2px 5px' : '0 3px') + ';border-radius:' + (areasOnly ? '4px' : '3px') + ';' + (areasOnly ? 'border:1.5px solid ' + aColor + ';box-shadow:0 1px 3px rgba(0,0,0,0.15);' : '') + 'cursor:pointer;">' + tLabel(area) + '</div>',
                   iconSize: [80, 22], iconAnchor: [40, 11]
                 })
-              }).addTo(map);
+              }).addTo(map).on('click', () => {
+                if (window._favMapAreaClick) window._favMapAreaClick(area.id);
+              });
             }
           });
+          
+          // Radius circle (when opened from radius search mode)
+          if (mapFavRadius) {
+            L.circle([mapFavRadius.lat, mapFavRadius.lng], {
+              radius: mapFavRadius.meters,
+              color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.08, weight: 2, dashArray: '8,6'
+            }).addTo(map);
+            L.circleMarker([mapFavRadius.lat, mapFavRadius.lng], {
+              radius: 6, color: '#ef4444', fillColor: '#ef4444', fillOpacity: 1, weight: 2
+            }).addTo(map);
+          }
           
           // Place markers
           const mkrs = [];
@@ -1077,10 +1103,12 @@
           });
           
           // Fit bounds
-          if (!mapFocusPlace && mkrs.length > 1) {
-            if (mapFavArea && coords[mapFavArea]) {
+          if (!mapFocusPlace) {
+            if (mapFavRadius) {
+              map.fitBounds(L.circle([mapFavRadius.lat, mapFavRadius.lng], { radius: mapFavRadius.meters }).getBounds().pad(0.15));
+            } else if (mapFavArea && coords[mapFavArea]) {
               map.fitBounds(L.circle([coords[mapFavArea].lat, coords[mapFavArea].lng], { radius: coords[mapFavArea].radius }).getBounds().pad(0.15));
-            } else {
+            } else if (mkrs.length > 1) {
               map.fitBounds(L.featureGroup(mkrs).getBounds().pad(0.1));
             }
           }
@@ -1098,6 +1126,12 @@
           
           // Expose callback for bottom sheet
           window._favMapSheet = (loc) => { setMapBottomSheet(loc); };
+          // Expose callback for area click — toggle filter
+          window._favMapAreaClick = (areaId) => {
+            setMapFavArea(prev => prev === areaId ? null : areaId);
+            setMapFavRadius(null);
+            setMapBottomSheet(null);
+          };
           
           leafletMapRef.current = map;
         }
@@ -1107,8 +1141,8 @@
     }, 150);
     }); // end loadLeaflet().then
     
-    return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; delete window._mapRedrawLine; delete window._mapStopsOrderRef; delete window._favMapSheet; setMapBottomSheet(null); };
-  }, [showMapModal, mapMode, mapStops, mapUserLocation, mapSkippedStops, mapFavFilter, mapFavArea, mapFocusPlace, customLocations, formData.currentLat, formData.currentLng, formData.radiusMeters]);
+    return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; delete window._mapRedrawLine; delete window._mapStopsOrderRef; delete window._favMapSheet; delete window._favMapAreaClick; setMapBottomSheet(null); };
+  }, [showMapModal, mapMode, mapStops, mapUserLocation, mapSkippedStops, mapFavFilter, mapFavArea, mapFavRadius, mapFocusPlace, customLocations, formData.currentLat, formData.currentLng, formData.radiusMeters]);
   const [modalImage, setModalImage] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');

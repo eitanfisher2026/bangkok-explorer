@@ -713,7 +713,8 @@
                   <button
                     onClick={() => {
                       setMapMode('favorites');
-                      setMapFavArea(formData.searchMode === 'areas' && formData.area ? formData.area : null);
+                      setMapFavArea(formData.searchMode === 'area' && formData.area ? formData.area : null);
+                      setMapFavRadius(formData.searchMode === 'radius' && formData.currentLat ? { lat: formData.currentLat, lng: formData.currentLng, meters: formData.radiusMeters } : null);
                       setMapFocusPlace(null);
                       setMapFavFilter(formData.interests.length > 0 ? new Set(formData.interests) : new Set());
                       setMapBottomSheet(null);
@@ -728,7 +729,7 @@
                   >🗺️ {t('wizard.showMap')}</button>
                   <button
                     onClick={() => { generateRoute(); setRouteChoiceMade(null); setWizardStep(3); window.scrollTo(0, 0); }}
-                    disabled={!isDataLoaded || formData.interests.length === 0 || (formData.searchMode === 'radius' ? !formData.currentLat : (formData.searchMode === 'areas' && !formData.area))}
+                    disabled={!isDataLoaded || formData.interests.length === 0 || (formData.searchMode === 'radius' ? !formData.currentLat : (formData.searchMode === 'area' && !formData.area))}
                     style={{ width: '100%', padding: '14px', borderRadius: '12px', border: 'none',
                       cursor: (isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : true)) ? 'pointer' : 'not-allowed',
                       background: (isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : true)) ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : '#d1d5db',
@@ -790,6 +791,7 @@
                     onClick={() => {
                       setMapMode('favorites');
                       setMapFavArea(null);
+                      setMapFavRadius(null);
                       setMapFocusPlace(null);
                       setMapFavFilter(formData.interests.length > 0 ? new Set(formData.interests) : new Set());
                       setMapBottomSheet(null);
@@ -1767,7 +1769,7 @@
                   </div>
                   {/* Favorites map button */}
                   <button
-                    onClick={() => { setMapMode('favorites'); setMapFavArea(null); setMapFocusPlace(null); setMapFavFilter(new Set()); setMapBottomSheet(null); setShowMapModal(true); }}
+                    onClick={() => { setMapMode('favorites'); setMapFavArea(null); setMapFavRadius(null); setMapFocusPlace(null); setMapFavFilter(new Set()); setMapBottomSheet(null); setShowMapModal(true); }}
                     style={{ padding: '2px 8px', borderRadius: '8px', border: '1px solid #c084fc', background: '#f3e8ff', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', color: '#7c3aed', whiteSpace: 'nowrap' }}
                     title={t("wizard.showMap")}
                   >🗺️</button>
@@ -3403,21 +3405,34 @@
             display: 'flex', flexDirection: 'column'
           }}>
             {/* Header */}
-            <div className="flex items-center justify-between p-3 border-b">
-              <button
-                onClick={() => {
-                  const returnPlace = mapReturnPlace;
-                  setShowMapModal(false); setMapUserLocation(null); setMapSkippedStops(new Set()); setMapBottomSheet(null); setShowFavMapFilter(false); setMapFavFilter(new Set()); setMapFavArea(null); setMapFocusPlace(null); setMapReturnPlace(null);
-                  if (returnPlace) { setTimeout(() => handleEditLocation(returnPlace), 100); }
-                }}
-                className="text-gray-400 hover:text-gray-600 text-lg font-bold"
-              >✕</button>
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-sm">
+            <div className="flex items-center justify-between p-3 border-b" style={{ gap: '8px' }}>
+              <div className="flex items-center gap-2" style={{ minWidth: 0 }}>
+                <h3 className="font-bold text-sm" style={{ whiteSpace: 'nowrap' }}>
                   {mapMode === 'areas' ? t('wizard.allAreasMap') : mapMode === 'stops' ? `${t('route.showStopsOnMap')} (${mapStops.length})` : mapMode === 'favorites' ? `⭐ ${t('nav.favorites')}` : t('form.searchRadius')}
                 </h3>
                 {mapMode === 'stops' && (<button onClick={() => showHelpFor('mapPlanning')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', textDecoration: 'underline' }}>{t('general.help')}</button>)}
                 {mapMode === 'favorites' && (<button onClick={() => showHelpFor('favoritesMap')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', textDecoration: 'underline' }}>{t('general.help')}</button>)}
+                {mapMode === 'favorites' && (() => {
+                  const activeCount = customLocations.filter(loc => {
+                    if (loc.status === 'blacklist' || !loc.lat || !loc.lng) return false;
+                    if (window.BKK.systemParams?.showDraftsOnMap === false && !loc.locked) return false;
+                    if (mapFavArea) { const la = loc.areas || (loc.area ? [loc.area] : []); if (!la.includes(mapFavArea)) return false; }
+                    if (mapFavRadius) {
+                      const R = 6371e3, dLat = (loc.lat - mapFavRadius.lat) * Math.PI / 180, dLng = (loc.lng - mapFavRadius.lng) * Math.PI / 180;
+                      const a2 = Math.sin(dLat/2)**2 + Math.cos(mapFavRadius.lat*Math.PI/180)*Math.cos(loc.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+                      if (R * 2 * Math.atan2(Math.sqrt(a2), Math.sqrt(1-a2)) > mapFavRadius.meters) return false;
+                    }
+                    if (mapFavFilter.size > 0) { if (!(loc.interests || []).some(i => mapFavFilter.has(i))) return false; }
+                    return true;
+                  }).length;
+                  const areaLabel = mapFavArea ? tLabel((window.BKK.areaOptions || []).find(a => a.id === mapFavArea)) : '';
+                  const radiusLabel = mapFavRadius ? `📍 ${mapFavRadius.meters}m` : '';
+                  return (
+                    <span style={{ fontSize: '10px', color: '#9ca3af', fontWeight: 'normal', whiteSpace: 'nowrap' }}>
+                      {activeCount} {t('nav.favorites')}{areaLabel ? ` · ${areaLabel}` : ''}{radiusLabel ? ` · ${radiusLabel}` : ''}{mapFavFilter.size > 0 ? ` · ${mapFavFilter.size} ${t('general.interests') || 'תחומים'}` : ''}
+                    </span>
+                  );
+                })()}
               </div>
               {mapMode !== 'stops' && mapMode !== 'favorites' && (
               <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
@@ -3442,21 +3457,15 @@
                 >{`📍 ${t("form.radiusMode")}`}</button>
               </div>
               )}
-              {mapMode === 'favorites' && (() => {
-                const activeCount = customLocations.filter(loc => {
-                  if (loc.status === 'blacklist' || !loc.lat || !loc.lng) return false;
-                  if (window.BKK.systemParams?.showDraftsOnMap === false && !loc.locked) return false;
-                  if (mapFavArea) { const la = loc.areas || (loc.area ? [loc.area] : []); if (!la.includes(mapFavArea)) return false; }
-                  if (mapFavFilter.size > 0) { if (!(loc.interests || []).some(i => mapFavFilter.has(i))) return false; }
-                  return true;
-                }).length;
-                const areaLabel = mapFavArea ? tLabel((window.BKK.areaOptions || []).find(a => a.id === mapFavArea)) : '';
-                return (
-                  <span style={{ fontSize: '10px', color: '#9ca3af', fontWeight: 'normal' }}>
-                    {activeCount} {t('nav.favorites')}{areaLabel ? ` · ${areaLabel}` : ''}{mapFavFilter.size > 0 ? ` · ${mapFavFilter.size} ${t('general.interests') || 'תחומים'}` : ''}
-                  </span>
-                );
-              })()}
+              <button
+                onClick={() => {
+                  const returnPlace = mapReturnPlace;
+                  setShowMapModal(false); setMapUserLocation(null); setMapSkippedStops(new Set()); setMapBottomSheet(null); setShowFavMapFilter(false); setMapFavFilter(new Set()); setMapFavArea(null); setMapFavRadius(null); setMapFocusPlace(null); setMapReturnPlace(null);
+                  if (returnPlace) { setTimeout(() => handleEditLocation(returnPlace), 100); }
+                }}
+                className="text-gray-400 hover:text-gray-600 font-bold"
+                style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', whiteSpace: 'nowrap', flexShrink: 0 }}
+              >{t('general.close')} ✕</button>
             </div>
             {/* Map container with floating elements */}
             <div style={{ flex: 1, position: 'relative', minHeight: (mapMode === 'stops' || mapMode === 'favorites') ? '0' : '350px', maxHeight: (mapMode === 'stops' || mapMode === 'favorites') ? 'none' : '70vh' }}>
@@ -3490,7 +3499,7 @@
                       <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontWeight: 'bold', fontSize: '15px' }}>🔍 {t('general.filter') || 'סינון מפה'}</span>
                         <div style={{ display: 'flex', gap: '8px' }}>
-                          <button onClick={() => { setMapFavFilter(new Set()); setMapFavArea(null); setMapFocusPlace(null); }}
+                          <button onClick={() => { setMapFavFilter(new Set()); setMapFavArea(null); setMapFavRadius(null); setMapFocusPlace(null); }}
                             style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #d1d5db', background: '#f3f4f6', cursor: 'pointer', fontWeight: 'bold', color: '#6b7280' }}>{t('general.clearAll') || 'נקה הכל'}</button>
                           <button onClick={() => { setShowFavMapFilter(false); setMapFavFilter(new Set(mapFavFilter)); }}
                             style={{ fontSize: '15px', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>✕</button>
@@ -3501,13 +3510,13 @@
                         <div style={{ marginBottom: '14px' }}>
                           <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', color: '#374151' }}>📍 {t('general.areas')}</div>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                            <button onClick={() => { setMapFavArea(null); setMapFocusPlace(null); }}
+                            <button onClick={() => { setMapFavArea(null); setMapFavRadius(null); setMapFocusPlace(null); }}
                               style={{ padding: '4px 10px', borderRadius: '8px', border: !mapFavArea ? '2px solid #3b82f6' : '1px solid #d1d5db', background: !mapFavArea ? '#dbeafe' : 'white', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', color: !mapFavArea ? '#1e40af' : '#6b7280' }}>{t('general.allCity') || 'הכל'}</button>
                             {areas.map(a => {
                               const cnt = areaCounts[a.id] || 0;
                               const isSel = mapFavArea === a.id;
                               return (
-                                <button key={a.id} onClick={() => { setMapFavArea(isSel ? null : a.id); setMapFocusPlace(null); }}
+                                <button key={a.id} onClick={() => { setMapFavArea(isSel ? null : a.id); setMapFavRadius(null); setMapFocusPlace(null); }}
                                   style={{ padding: '4px 8px', borderRadius: '8px', border: isSel ? '2px solid #3b82f6' : '1px solid #d1d5db', background: isSel ? '#dbeafe' : 'white', fontSize: '11px', fontWeight: isSel ? 'bold' : 'normal', cursor: 'pointer', color: isSel ? '#1e40af' : '#374151', opacity: cnt === 0 ? 0.4 : 1 }}>
                                   {tLabel(a)} <span style={{ fontSize: '9px', color: '#9ca3af' }}>({cnt})</span>
                                 </button>
@@ -3669,9 +3678,9 @@
                       );
                     }
                   }}
-                  style={{ position: 'absolute', bottom: mapBottomSheet ? '130px' : '16px', right: '12px', zIndex: 1000, width: '40px', height: '40px', borderRadius: '50%', background: mapUserLocation ? '#3b82f6' : 'white', color: mapUserLocation ? 'white' : '#374151', border: '2px solid #d1d5db', boxShadow: '0 2px 8px rgba(0,0,0,0.2)', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  style={{ position: 'absolute', bottom: mapBottomSheet ? '130px' : '16px', right: '12px', zIndex: 1000, padding: '8px 12px', borderRadius: '20px', background: mapUserLocation ? '#3b82f6' : 'white', color: mapUserLocation ? 'white' : '#374151', border: '2px solid ' + (mapUserLocation ? '#3b82f6' : '#d1d5db'), boxShadow: '0 2px 8px rgba(0,0,0,0.2)', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                   title={t('form.currentLocation')}
-                >📍</button>
+                >📍 {t('form.myLocation')}</button>
               )}
               {/* Bottom sheet — favorites mode marker info */}
               {mapMode === 'favorites' && mapBottomSheet && (() => {

@@ -232,6 +232,7 @@
                             setMapReturnPlace(editingLocation || null);
                             setShowEditLocationDialog(false);
                             setMapMode('favorites');
+                            setMapFavRadius(null);
                             setMapFavArea(locAreas[0] || null);
                             setMapFocusPlace({ id: editingLocation?.id, lat: newLocation.lat, lng: newLocation.lng, name: newLocation.name });
                             setMapFavFilter(new Set());
@@ -604,6 +605,7 @@
                           setMapReturnPlace(editingLocation || null);
                           setShowEditLocationDialog(false);
                           setMapMode('favorites');
+                          setMapFavRadius(null);
                           setMapFavArea(locAreas[0] || null);
                           setMapFocusPlace({ id: editingLocation?.id, lat: newLocation.lat, lng: newLocation.lng, name: newLocation.name });
                           setMapFavFilter(new Set());
@@ -910,6 +912,7 @@
                         onClick={() => {
                           setShowAddInterestDialog(false);
                           setMapMode('favorites');
+                          setMapFavRadius(null);
                           setMapFavArea(null);
                           setMapFocusPlace(null);
                           setMapFavFilter(new Set([newInterest.id]));
