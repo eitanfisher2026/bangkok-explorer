@@ -557,47 +557,29 @@
             {/* Step 2: Choose Area (was step 1) */}
             {wizardStep === 2 && (
               <div className="bg-white rounded-xl shadow-lg p-3">
-                {/* Breadcrumb: back to interests */}
+                {/* Compact header: back + interests + title */}
                 <div style={{ 
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
-                  fontSize: '11px', color: '#9ca3af', marginBottom: '6px'
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                  fontSize: '12px', marginBottom: '8px', flexWrap: 'wrap'
                 }}>
                   <span
                     onClick={() => { setWizardStep(1); window.scrollTo(0, 0); }}
-                    style={{ cursor: 'pointer', color: '#3b82f6', fontWeight: '600', textDecoration: 'underline' }}
+                    style={{ cursor: 'pointer', color: '#3b82f6', fontWeight: '600' }}
                   >{currentLang === 'he' ? '→' : '←'} {t("general.back")}</span>
                   <span style={{ color: '#d1d5db' }}>|</span>
                   <span
                     onClick={() => { setWizardStep(1); window.scrollTo(0, 0); }}
-                    style={{ cursor: 'pointer' }}
-                  >⭐ {formData.interests.slice(0, 3).map(id => {
+                    style={{ cursor: 'pointer', fontSize: '11px' }}
+                  >{formData.interests.slice(0, 5).map(id => {
                     const opt = allInterestOptions.find(o => o.id === id);
                     return opt ? (opt.icon || '') : '';
-                  }).join(' ')}{formData.interests.length > 3 ? ` +${formData.interests.length - 3}` : ''} ({formData.interests.length})</span>
-                </div>
-                {/* City Selector - small button only */}
-                {Object.values(window.BKK.cities || {}).filter(c => c.active !== false).length > 1 && (
-                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '4px' }}>
-                    <select
-                      value={selectedCityId}
-                      onChange={(e) => switchCity(e.target.value)}
-                      style={{ padding: '4px 8px', borderRadius: '12px', border: '1.5px solid #e5e7eb', fontSize: '12px', fontWeight: 'bold', color: '#374151', background: 'white', cursor: 'pointer' }}
-                    >
-                      {Object.values(window.BKK.cities || {}).filter(c => c.active !== false).map(city => (
-                        <option key={city.id} value={city.id}>{city.icon} {tLabel(city)}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                <h2 style={{ textAlign: 'center', fontSize: '16px', fontWeight: 'bold', marginBottom: '1px' }}>{`📍 ${t("wizard.step1Title")}`}</h2>
-                <p style={{ textAlign: 'center', fontSize: '11px', color: '#6b7280', marginBottom: '6px' }}>
-                  {t("wizard.step1Subtitle")}
-                  {' '}
-                  <button onClick={() => showHelpFor('main')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', marginRight: '4px', textDecoration: 'underline' }}>
+                  }).join(' ')}{formData.interests.length > 5 ? ` +${formData.interests.length - 5}` : ''}</span>
+                  <span style={{ color: '#d1d5db' }}>|</span>
+                  <span style={{ fontWeight: 'bold', color: '#374151' }}>{`📍 ${t("wizard.step1Title")}`}</span>
+                  <button onClick={() => showHelpFor('main')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', textDecoration: 'underline', padding: 0 }}>
                     {t("general.howItWorks")}
                   </button>
-                </p>
+                </div>
                 
                 {/* Mode selector tabs */}
                 <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
@@ -653,13 +635,14 @@
                           key={area.id}
                           onClick={() => setFormData({...formData, area: area.id, searchMode: 'area'})}
                           style={{
-                            padding: '6px 6px', borderRadius: '8px', border: formData.area === area.id && formData.searchMode === 'area' ? '2px solid #2563eb' : '1.5px solid #e5e7eb',
-                            background: formData.area === area.id && formData.searchMode === 'area' ? '#eff6ff' : 'white',
+                            padding: '6px 6px', borderRadius: '8px',
+                            border: formData.area === area.id && formData.searchMode === 'area' ? '2px solid #22c55e' : '1.5px solid #e5e7eb',
+                            background: formData.area === area.id && formData.searchMode === 'area' ? '#f0fdf4' : 'white',
                             cursor: 'pointer', textAlign: window.BKK.i18n.isRTL() ? 'right' : 'left', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', transition: 'all 0.2s'
                           }}
                         >
-                          <div style={{ fontWeight: 'bold', fontSize: '12px', color: '#1f2937' }}>
-                            {tLabel(area)}
+                          <div style={{ fontWeight: 'bold', fontSize: '12px', color: formData.area === area.id && formData.searchMode === 'area' ? '#15803d' : '#1f2937' }}>
+                            {formData.area === area.id && formData.searchMode === 'area' && '✓ '}{tLabel(area)}
                             {safety === 'caution' && <span style={{ color: '#f59e0b', marginRight: '3px' }} title={t("general.cautionArea")}>⚠️</span>}
                             {safety === 'danger' && <span style={{ color: '#ef4444', marginRight: '3px' }} title={t("general.dangerArea")}>🔴</span>}
                           </div>
@@ -747,6 +730,20 @@
             {/* Step 1: Choose Interests (was step 2) */}
             {wizardStep === 1 && (
               <div className="bg-white rounded-xl shadow-lg p-3">
+                {/* City Selector */}
+                {Object.values(window.BKK.cities || {}).filter(c => c.active !== false).length > 1 && (
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '4px' }}>
+                    <select
+                      value={selectedCityId}
+                      onChange={(e) => switchCity(e.target.value)}
+                      style={{ padding: '4px 8px', borderRadius: '12px', border: '1.5px solid #e5e7eb', fontSize: '12px', fontWeight: 'bold', color: '#374151', background: 'white', cursor: 'pointer' }}
+                    >
+                      {Object.values(window.BKK.cities || {}).filter(c => c.active !== false).map(city => (
+                        <option key={city.id} value={city.id}>{city.icon} {tLabel(city)}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <h2 style={{ textAlign: 'center', fontSize: '17px', fontWeight: 'bold', marginBottom: '2px' }}>{`⭐ ${t("wizard.step2Title")}`}</h2>
                 <p style={{ textAlign: 'center', fontSize: '11px', color: '#6b7280', marginBottom: '10px' }}>{t("wizard.step2Subtitle")}</p>
                 
