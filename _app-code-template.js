@@ -5,6 +5,7 @@ const firebaseConfig = window.BKK.firebaseConfig;
 let firebaseApp = null;
 let database = null;
 let storage = null;
+let auth = null;
 let isFirebaseAvailable = false;
 
 function initFirebase() {
@@ -14,6 +15,7 @@ function initFirebase() {
       if (!cfg || !cfg.apiKey) { console.error('[FIREBASE] Config not found'); return; }
       firebaseApp = firebase.initializeApp(cfg);
       database = firebase.database();
+      if (firebase.auth) { auth = firebase.auth(); }
       window.BKK.firebaseConnected = false;
       var _connTimer = null;
       database.ref('.info/connected').on('value', function(snap) {

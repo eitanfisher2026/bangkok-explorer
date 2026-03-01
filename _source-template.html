@@ -157,7 +157,7 @@
     <!-- Firebase (non-blocking, parallel) -->
     <script>
     window.__firebaseReady = new Promise(function(resolve) {
-      var libs = ['firebase-app-compat.js','firebase-database-compat.js','firebase-storage-compat.js'];
+      var libs = ['firebase-app-compat.js','firebase-auth-compat.js','firebase-database-compat.js','firebase-storage-compat.js'];
       var loaded = 0, failed = false;
       function loadNext() {
         if (failed || loaded >= libs.length) { resolve(!failed); return; }

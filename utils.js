@@ -102,6 +102,51 @@ window.BKK.getAreasForCoordinates = (lat, lng) => {
  * Backward-compatible migration
  */
 window.BKK.normalizeLocationAreas = (loc) => {
+
+/**
+ * Generate a distinct color for an interest based on its position.
+ * Uses HSL with golden-angle spacing for maximum visual separation.
+ * @param {number} index — position in the interest list
+ * @param {number} total — total number of interests
+ * @returns {string} hex color
+ */
+window.BKK.generateInterestColor = (index, total) => {
+  // Golden angle in degrees — ensures maximum separation
+  const hue = (index * 137.508) % 360;
+  const saturation = 65 + (index % 3) * 10; // 65-85%
+  const lightness = 45 + (index % 2) * 8;   // 45-53%
+  return window.BKK.hslToHex(hue, saturation, lightness);
+};
+
+/**
+ * Convert HSL values to hex color string
+ */
+window.BKK.hslToHex = (h, s, l) => {
+  s /= 100; l /= 100;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n) => {
+    const k = (n + h / 30) % 12;
+    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * color).toString(16).padStart(2, '0');
+  };
+  return '#' + f(0) + f(8) + f(4);
+};
+
+/**
+ * Get the color for an interest — uses override if set, otherwise auto-generates.
+ * Call with the full allInterestOptions array for consistent indexing.
+ * @param {string} interestId
+ * @param {Array} allInterests — full ordered list for index calculation
+ * @returns {string} hex color
+ */
+window.BKK.getInterestColor = (interestId, allInterests) => {
+  const interest = allInterests.find(i => i.id === interestId);
+  if (interest?.color) return interest.color;
+  const idx = allInterests.findIndex(i => i.id === interestId);
+  return window.BKK.generateInterestColor(idx >= 0 ? idx : 0, allInterests.length);
+};
+
+// ============================================================================
   if (loc.areas && Array.isArray(loc.areas) && loc.areas.length > 0) {
     return loc.areas;
   }

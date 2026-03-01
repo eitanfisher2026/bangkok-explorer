@@ -5,6 +5,7 @@ const firebaseConfig = window.BKK.firebaseConfig;
 let firebaseApp = null;
 let database = null;
 let storage = null;
+let auth = null;
 let isFirebaseAvailable = false;
 
 function initFirebase() {
@@ -14,6 +15,7 @@ function initFirebase() {
       if (!cfg || !cfg.apiKey) { console.error('[FIREBASE] Config not found'); return; }
       firebaseApp = firebase.initializeApp(cfg);
       database = firebase.database();
+      if (firebase.auth) { auth = firebase.auth(); }
       window.BKK.firebaseConnected = false;
       var _connTimer = null;
       database.ref('.info/connected').on('value', function(snap) {
@@ -74,6 +76,175 @@ const FouFouApp = () => {
       currentLat: null,
       currentLng: null
     };
+  };
+
+  const [authUser, setAuthUser] = useState(null); // Firebase auth user object
+  const [authLoading, setAuthLoading] = useState(true); // true until onAuthStateChanged fires
+  const [userRole, setUserRole] = useState(0); // 0=regular, 1=editor, 2=admin (real role from Firebase)
+  const [userProfile, setUserProfile] = useState(null); // { name, email, photo, role, cities }
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [showUserManagement, setShowUserManagement] = useState(false);
+  const [allUsers, setAllUsers] = useState([]); // admin only: list of users
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginMode, setLoginMode] = useState('login'); // 'login' | 'register'
+  const [loginError, setLoginError] = useState('');
+  const [roleOverride, setRoleOverride] = useState(null); // null = no override, 0/1/2 = impersonate
+
+  const effectiveRole = (roleOverride !== null && userRole >= 2) ? roleOverride : userRole;
+
+  const isEditor = effectiveRole >= 1;
+  const isAdmin = effectiveRole >= 2;
+  const isRealAdmin = userRole >= 2;
+  const isUnlocked = isEditor; // backward compat — most old checks mean "can edit content"
+  const setIsUnlocked = () => {}; // noop — role is determined by Firebase Auth
+  const setIsCurrentUserAdmin = () => {}; // noop — role is determined by Firebase Auth
+
+  useEffect(() => {
+    if (!auth) { setAuthLoading(false); return; }
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      setAuthUser(user);
+      if (user) {
+        try {
+          const snap = await database.ref(`users/${user.uid}`).once('value');
+          let profile = snap.val();
+          if (!profile) {
+            let initialRole = 0;
+            try {
+              const allUsersSnap = await database.ref('users').once('value');
+              if (!allUsersSnap.val() || Object.keys(allUsersSnap.val()).length === 0) {
+                initialRole = 2; // First user ever = admin
+              }
+            } catch (e) { /* ignore */ }
+            profile = {
+              name: user.displayName || '',
+              email: user.email || '',
+              photo: user.photoURL || '',
+              role: initialRole,
+              cities: [],
+              createdAt: new Date().toISOString(),
+              lastLogin: new Date().toISOString()
+            };
+            await database.ref(`users/${user.uid}`).set(profile);
+          } else {
+            database.ref(`users/${user.uid}/lastLogin`).set(new Date().toISOString());
+            if (user.email && profile.email !== user.email) {
+              database.ref(`users/${user.uid}/email`).set(user.email);
+            }
+          }
+          setUserProfile(profile);
+          setUserRole(profile.role || 0);
+          localStorage.setItem('bangkok_is_admin', (profile.role || 0) >= 2 ? 'true' : 'false');
+        } catch (err) {
+          console.error('[AUTH] Error loading profile:', err);
+          setUserRole(0);
+        }
+      } else {
+        setUserProfile(null);
+        setUserRole(0);
+        localStorage.removeItem('bangkok_is_admin');
+      }
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const authSignInGoogle = async () => {
+    if (!auth) return;
+    setLoginError('');
+    try {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      await auth.signInWithPopup(provider);
+      setShowLoginDialog(false);
+    } catch (err) {
+      console.error('[AUTH] Google sign-in error:', err);
+      if (err.code === 'auth/popup-blocked') {
+        try { await auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider()); } catch (e2) { setLoginError(e2.message); }
+      } else {
+        setLoginError(err.message);
+      }
+    }
+  };
+
+  const authSignInEmail = async () => {
+    if (!auth || !loginEmail) return;
+    setLoginError('');
+    try {
+      if (loginMode === 'register') {
+        await auth.createUserWithEmailAndPassword(loginEmail, loginPassword);
+      } else {
+        await auth.signInWithEmailAndPassword(loginEmail, loginPassword);
+      }
+      setShowLoginDialog(false);
+      setLoginEmail(''); setLoginPassword('');
+    } catch (err) {
+      console.error('[AUTH] Email sign-in error:', err);
+      setLoginError(err.code === 'auth/user-not-found' ? (t('auth.userNotFound') || 'משתמש לא קיים. נסה להירשם.') :
+        err.code === 'auth/wrong-password' ? (t('auth.wrongPassword') || 'סיסמה שגויה') :
+        err.code === 'auth/email-already-in-use' ? (t('auth.emailInUse') || 'אימייל כבר רשום. נסה להתחבר.') :
+        err.code === 'auth/weak-password' ? (t('auth.weakPassword') || 'סיסמה חלשה (מינימום 6 תווים)') :
+        err.message);
+    }
+  };
+
+  const authSignInAnonymous = async () => {
+    if (!auth) return;
+    setLoginError('');
+    try {
+      await auth.signInAnonymously();
+      setShowLoginDialog(false);
+    } catch (err) {
+      console.error('[AUTH] Anonymous sign-in error:', err);
+      setLoginError(err.message);
+    }
+  };
+
+  const authSignOut = async () => {
+    if (!auth) return;
+    try {
+      await auth.signOut();
+      setShowLoginDialog(false);
+    } catch (err) {
+      console.error('[AUTH] Sign-out error:', err);
+    }
+  };
+
+  const authLinkAnonymousToGoogle = async () => {
+    if (!auth || !authUser || !authUser.isAnonymous) return;
+    setLoginError('');
+    try {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      await authUser.linkWithPopup(provider);
+      showToast(t('auth.accountLinked') || '✅ החשבון קושר בהצלחה!', 'success');
+    } catch (err) {
+      console.error('[AUTH] Link error:', err);
+      setLoginError(err.message);
+    }
+  };
+
+  const authUpdateUserRole = async (uid, newRole) => {
+    if (!isRealAdmin || !database) return;
+    try {
+      await database.ref(`users/${uid}/role`).set(newRole);
+      if (showUserManagement) authLoadAllUsers();
+      showToast(`✅ Role updated to ${['Regular','Editor','Admin'][newRole]}`, 'success');
+    } catch (err) {
+      console.error('[AUTH] Update role error:', err);
+      showToast('❌ ' + err.message, 'error');
+    }
+  };
+
+  const authLoadAllUsers = async () => {
+    if (!isRealAdmin || !database) return;
+    try {
+      const snap = await database.ref('users').once('value');
+      const data = snap.val() || {};
+      const list = Object.entries(data).map(([uid, profile]) => ({ uid, ...profile }));
+      list.sort((a, b) => (b.role || 0) - (a.role || 0) || (a.name || '').localeCompare(b.name || ''));
+      setAllUsers(list);
+    } catch (err) {
+      console.error('[AUTH] Load users error:', err);
+    }
   };
 
   const [currentView, setCurrentView] = useState('form');
@@ -311,6 +482,7 @@ const FouFouApp = () => {
       slotPenaltyMultiplier: 3,
       slotEndPenaltyMultiplier: 4,
       gapPenaltyMultiplier: 2,
+      showDraftsOnMap: true,
     };
     window.BKK.systemParams = { ...window.BKK._defaultSystemParams };
   }
@@ -339,6 +511,11 @@ const FouFouApp = () => {
   const [mapStops, setMapStops] = useState([]); // stops to show when mapMode='stops'
   const [mapUserLocation, setMapUserLocation] = useState(null); // { lat, lng } for blue dot on map
   const [mapSkippedStops, setMapSkippedStops] = useState(new Set()); // indices of skipped stops on map
+  const [mapFavFilter, setMapFavFilter] = useState(new Set()); // interest IDs to show (empty=all)
+  const [mapFavArea, setMapFavArea] = useState(null); // area to focus on (null=all)
+  const [mapFocusPlace, setMapFocusPlace] = useState(null); // place to highlight
+  const [mapBottomSheet, setMapBottomSheet] = useState(null); // { name, loc } for bottom sheet
+  const [showFavMapFilter, setShowFavMapFilter] = useState(false); // filter dialog open
   const [startPointCoords, setStartPointCoords] = useState(null); // { lat, lng, address }
   const leafletMapRef = React.useRef(null);
   
@@ -739,6 +916,92 @@ const FouFouApp = () => {
           }
           
           leafletMapRef.current = map;
+        } else if (mapMode === 'favorites') {
+          const allInts = window.BKK.interestOptions || [];
+          const showDrafts = window.BKK.systemParams?.showDraftsOnMap !== false;
+          
+          const locs = customLocations.filter(loc => {
+            if (loc.status === 'blacklist') return false;
+            if (!loc.lat || !loc.lng) return false;
+            if (!showDrafts && !loc.locked) return false;
+            if (mapFavArea) {
+              const la = loc.areas || (loc.area ? [loc.area] : []);
+              if (!la.includes(mapFavArea)) return false;
+            }
+            if (mapFavFilter.size > 0) {
+              if (!(loc.interests || []).some(i => mapFavFilter.has(i))) return false;
+            }
+            return true;
+          });
+          
+          let cLat, cLng, defZoom;
+          if (mapFocusPlace && mapFocusPlace.lat) {
+            cLat = mapFocusPlace.lat; cLng = mapFocusPlace.lng; defZoom = 16;
+          } else if (mapFavArea && coords[mapFavArea]) {
+            cLat = coords[mapFavArea].lat; cLng = coords[mapFavArea].lng; defZoom = 14;
+          } else {
+            const cc = window.BKK.selectedCity?.center || { lat: 0, lng: 0 };
+            cLat = cc.lat; cLng = cc.lng; defZoom = 12;
+          }
+          
+          const map = L.map(container).setView([cLat, cLng], defZoom);
+          L.tileLayer(window.BKK.getTileUrl(), { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(map);
+          
+          areas.forEach(area => {
+            const c = coords[area.id];
+            if (!c) return;
+            const isActive = !mapFavArea || mapFavArea === area.id;
+            L.circle([c.lat, c.lng], {
+              radius: c.radius, color: isActive ? '#94a3b8' : '#e2e8f0',
+              fillColor: isActive ? '#94a3b8' : '#e2e8f0',
+              fillOpacity: isActive ? 0.07 : 0.02, weight: isActive ? 1.5 : 0.5
+            }).addTo(map);
+            if (isActive || !mapFavArea) {
+              L.marker([c.lat, c.lng], {
+                icon: L.divIcon({
+                  className: '',
+                  html: '<div style="font-size:9px;color:' + (isActive ? '#64748b' : '#cbd5e1') + ';text-align:center;white-space:nowrap;font-weight:' + (isActive ? 'bold' : 'normal') + ';background:rgba(255,255,255,0.7);padding:0 3px;border-radius:3px;">' + tLabel(area) + '</div>',
+                  iconSize: [70, 14], iconAnchor: [35, 7]
+                })
+              }).addTo(map);
+            }
+          });
+          
+          const mkrs = [];
+          locs.forEach(loc => {
+            const pi = (loc.interests || [])[0];
+            const color = pi ? window.BKK.getInterestColor(pi, allInts) : '#9ca3af';
+            const isFocused = mapFocusPlace && mapFocusPlace.id === loc.id;
+            const r = isFocused ? 11 : 7;
+            const m = L.circleMarker([loc.lat, loc.lng], {
+              radius: r, color: isFocused ? '#000' : color, fillColor: color,
+              fillOpacity: loc.locked ? 0.9 : 0.5, weight: isFocused ? 3 : (loc.locked ? 2 : 1)
+            }).addTo(map);
+            m.on('click', () => { if (window._favMapSheet) window._favMapSheet(loc); });
+            mkrs.push(m);
+          });
+          
+          if (!mapFocusPlace && mkrs.length > 1) {
+            if (mapFavArea && coords[mapFavArea]) {
+              map.fitBounds(L.circle([coords[mapFavArea].lat, coords[mapFavArea].lng], { radius: coords[mapFavArea].radius }).getBounds().pad(0.15));
+            } else {
+              map.fitBounds(L.featureGroup(mkrs).getBounds().pad(0.1));
+            }
+          }
+          
+          if (mapUserLocation && mapUserLocation.lat) {
+            L.circleMarker([mapUserLocation.lat, mapUserLocation.lng], {
+              radius: 7, color: '#2563eb', fillColor: '#3b82f6', fillOpacity: 1, weight: 2
+            }).addTo(map).bindPopup('📍');
+            L.circle([mapUserLocation.lat, mapUserLocation.lng], {
+              radius: mapUserLocation.accuracy || 30, color: '#3b82f6',
+              fillColor: '#3b82f6', fillOpacity: 0.1, weight: 1
+            }).addTo(map);
+          }
+          
+          window._favMapSheet = (loc) => { setMapBottomSheet(loc); };
+          
+          leafletMapRef.current = map;
         }
       } catch(err) {
         console.error('[MAP]', err);
@@ -746,8 +1009,8 @@ const FouFouApp = () => {
     }, 150);
     }); // end loadLeaflet().then
     
-    return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; delete window._mapRedrawLine; delete window._mapStopsOrderRef; };
-  }, [showMapModal, mapMode, mapStops, mapUserLocation, mapSkippedStops, formData.currentLat, formData.currentLng, formData.radiusMeters]);
+    return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; delete window._mapRedrawLine; delete window._mapStopsOrderRef; delete window._favMapSheet; setMapBottomSheet(null); };
+  }, [showMapModal, mapMode, mapStops, mapUserLocation, mapSkippedStops, mapFavFilter, mapFavArea, mapFocusPlace, customLocations, formData.currentLat, formData.currentLng, formData.radiusMeters]);
   const [modalImage, setModalImage] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -763,9 +1026,7 @@ const FouFouApp = () => {
   const [importedData, setImportedData] = useState(null);
   
   const [accessStats, setAccessStats] = useState(null); // { total, weekly: { '2026-W08': { IL: 3, TH: 12 } } }
-  const [isCurrentUserAdmin, setIsCurrentUserAdmin] = useState(() => {
-    return localStorage.getItem('bangkok_is_admin') === 'true';
-  });
+  const isCurrentUserAdmin = isRealAdmin; // backward compat — uses real role, not impersonated
 
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
   const [feedbackText, setFeedbackText] = useState('');
@@ -824,16 +1085,15 @@ const FouFouApp = () => {
     } catch(e) { return 130; }
   });
   
-  const [adminPassword, setAdminPassword] = useState('');
+  const [adminPassword, setAdminPassword] = useState(''); // legacy, will be removed
   const [adminUsers, setAdminUsers] = useState([]);
-  const [isUnlocked, setIsUnlocked] = useState(false);
-  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false); // legacy
   
   const routeTypeRef = React.useRef(routeType);
   React.useEffect(() => { routeTypeRef.current = routeType; }, [routeType]);
   const startPointCoordsRef = React.useRef(startPointCoords);
   React.useEffect(() => { startPointCoordsRef.current = startPointCoords; }, [startPointCoords]);
-  const [showVersionPasswordDialog, setShowVersionPasswordDialog] = useState(false);
+  const [showVersionPasswordDialog, setShowVersionPasswordDialog] = useState(false); // legacy
   const [showAddCityDialog, setShowAddCityDialog] = useState(false);
   const [addCityInput, setAddCityInput] = useState('');
   const [addCitySearchStatus, setAddCitySearchStatus] = useState(''); // '', 'searching', 'found', 'error', 'generating', 'done'
@@ -856,7 +1116,6 @@ const FouFouApp = () => {
   const [debugSessions, setDebugSessions] = useState(() => {
     try { return JSON.parse(localStorage.getItem('foufou_debug_sessions') || '[]'); } catch { return []; }
   });
-  const [stopDebugPopup, setStopDebugPopup] = useState(null); // { stop, x, y } for popup
   const debugModeRef = useRef(debugMode);
   const debugCategoriesRef = useRef(debugCategories);
   useEffect(() => { debugModeRef.current = debugMode; }, [debugMode]);
@@ -1017,49 +1276,6 @@ const FouFouApp = () => {
     }
   };
 
-  const getMyLocation = () => {
-    setIsLocating(true);
-    window.BKK.getValidatedGps(
-      async (position) => {
-        const { latitude: lat, longitude: lng } = position.coords;
-        
-        try {
-          const address = await window.BKK.reverseGeocode(lat, lng);
-          const displayAddress = address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-          setStartPointCoords({ lat, lng, address: displayAddress });
-          startPointCoordsRef.current = { lat, lng, address: displayAddress };
-          setFormData(prev => ({ ...prev, startPoint: displayAddress }));
-          showToast(address ? t('form.locationDetectedFull') : t('form.locationDetectedNoAddr'), 'success');
-        } catch (err) {
-          const fallback = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-          setStartPointCoords({ lat, lng, address: fallback });
-          startPointCoordsRef.current = { lat, lng, address: fallback };
-          setFormData(prev => ({ ...prev, startPoint: fallback }));
-          showToast(t('form.locationDetected'), 'success');
-        }
-        setIsLocating(false);
-      },
-      (reason) => {
-        setIsLocating(false);
-        if (reason === 'outside_city') {
-          showToast(t('toast.outsideCity'), 'warning', 'sticky');
-        } else if (reason === 'denied') {
-          showToast(t('toast.locationNoPermission'), 'error', 'sticky');
-        } else {
-          showToast(t('toast.noGpsSignal'), 'error', 'sticky');
-        }
-        if (route && route.stops && route.stops.length > 0) {
-          const firstStop = route.stops.find(s => s.lat && s.lng);
-          if (firstStop) {
-            setStartPointCoords({ lat: firstStop.lat, lng: firstStop.lng, address: firstStop.name });
-            startPointCoordsRef.current = { lat: firstStop.lat, lng: firstStop.lng, address: firstStop.name };
-            setFormData(prev => ({ ...prev, startPoint: firstStop.name }));
-          }
-        }
-      }
-    );
-  };
-
   const validateStartPoint = async () => {
     const text = formData.startPoint?.trim();
     if (!text) {
@@ -1085,44 +1301,6 @@ const FouFouApp = () => {
     setIsLocating(false);
   };
 
-  const detectArea = () => {
-    setIsLocating(true);
-    window.BKK.getValidatedGps(
-      (position) => {
-        const { latitude: lat, longitude: lng } = position.coords;
-        const coords = window.BKK.areaCoordinates;
-        
-        let closest = null;
-        let closestDist = Infinity;
-        
-        for (const [areaId, center] of Object.entries(coords)) {
-          const dlat = (lat - center.lat) * 111320;
-          const dlng = (lng - center.lng) * 111320 * Math.cos(lat * Math.PI / 180);
-          const dist = Math.sqrt(dlat * dlat + dlng * dlng);
-          
-          if (dist <= center.radius && dist < closestDist) {
-            closest = areaId;
-            closestDist = dist;
-          }
-        }
-        
-        if (closest) {
-          const areaName = areaOptions.find(a => a.id === closest)? tLabel(areaOptions.find(a => a.id === closest)) : closest;
-          setFormData(prev => ({ ...prev, area: closest }));
-          showToast(`${t("toast.foundInArea")} ${areaName}`, 'success');
-        } else {
-          showToast(t('places.locationOutsideSelection'), 'warning');
-        }
-        setIsLocating(false);
-      },
-      (reason) => {
-        setIsLocating(false);
-        if (reason === 'outside_city') showToast(t('toast.outsideCity'), 'warning', 'sticky');
-        else if (reason === 'denied') showToast(t('toast.locationNoPermission'), 'error', 'sticky');
-        else showToast(t('toast.noGpsSignal'), 'error', 'sticky');
-      }
-    );
-  };
   useEffect(() => {
     const handler = (e) => setFirebaseConnected(e.detail.connected);
     window.addEventListener('firebase-connection', handler);
@@ -1745,13 +1923,6 @@ const FouFouApp = () => {
           const usersData = s.adminUsers || {};
           const usersList = Object.entries(usersData).map(([oderId, data]) => ({ oderId, ...data }));
           setAdminUsers(usersList);
-          const userId = localStorage.getItem('bangkok_user_id');
-          const isInAdminList = usersList.some(u => u.oderId === userId);
-          const passwordEmpty = !s.adminPassword;
-          const noAdminListExists = usersList.length === 0;
-          const userIsAdmin = isInAdminList || (passwordEmpty && noAdminListExists);
-          setIsUnlocked(userIsAdmin);
-          setIsCurrentUserAdmin(userIsAdmin);
           
           if (s.googleMaxWaypoints != null) setGoogleMaxWaypoints(s.googleMaxWaypoints);
           const updates = {};
@@ -1834,19 +2005,10 @@ const FouFouApp = () => {
     database.ref('settings').on('value', (snap) => {
       const s = snap.val() || {};
       
-      const pw = s.adminPassword || '';
-      setAdminPassword(pw);
+      setAdminPassword(s.adminPassword || '');
       const usersData = s.adminUsers || {};
       const usersList = Object.entries(usersData).map(([oderId, data]) => ({ oderId, ...data }));
       setAdminUsers(usersList);
-      const cachedUserId = localStorage.getItem('bangkok_user_id');
-      const isInList = usersList.some(u => u.oderId === cachedUserId);
-      const passwordEmpty = !pw;
-      const noAdminListExists = usersList.length === 0;
-      const userIsAdmin = isInList || (passwordEmpty && noAdminListExists);
-      setIsUnlocked(userIsAdmin);
-      setIsCurrentUserAdmin(userIsAdmin);
-      localStorage.setItem('bangkok_is_admin', userIsAdmin ? 'true' : 'false');
       
       if (s.googleMaxWaypoints != null) setGoogleMaxWaypoints(s.googleMaxWaypoints);
       
@@ -4186,6 +4348,7 @@ const FouFouApp = () => {
       name: name,
       notes: '',
       savedAt: new Date().toISOString(),
+      savedBy: authUser?.uid || null,
       locked: false,
       cityId: selectedCityId
     };
@@ -4692,6 +4855,7 @@ const FouFouApp = () => {
       custom: true,
       status: 'active',
       addedAt: new Date().toISOString(),
+      addedBy: authUser?.uid || null,
       fromGoogle: true, // Mark as added from Google
       cityId: selectedCityId // Associate with current city
     };
@@ -4728,83 +4892,6 @@ const FouFouApp = () => {
       setAddingPlaceIds(prev => prev.filter(id => id !== placeId));
       setTimeout(() => handleEditLocation(locationToAdd), 300);
       return true;
-    }
-  };
-  
-  const skipPlacePermanently = (place) => {
-    const exists = customLocations.find(loc => 
-      loc.name.toLowerCase() === place.name.toLowerCase()
-    );
-    
-    if (exists) {
-      if (exists.status === 'blacklist') {
-        showToast(`"${place.name}" ${t("places.alreadyBlacklisted")}`, 'warning');
-        return;
-      }
-      
-      const locationId = exists.id;
-      
-      if (isFirebaseAvailable && database && exists.firebaseId) {
-        database.ref(`cities/${selectedCityId}/locations/${exists.firebaseId}`).update({
-          status: 'blacklist',
-        })
-          .then(() => {
-            showToast(`"${place.name}" ${t("places.addedToSkipList")}`, 'success');
-          })
-          .catch((error) => {
-            console.error('[FIREBASE] Error updating to blacklist:', error);
-            showToast(t('toast.updateError'), 'error');
-          });
-      } else {
-        const updated = customLocations.map(loc => {
-          if (loc.id === locationId) {
-            return { ...loc, status: 'blacklist' };
-          }
-          return loc;
-        });
-        setCustomLocations(updated);
-        localStorage.setItem('bangkok_custom_locations', JSON.stringify(updated));
-        showToast(`"${place.name}" ${t("places.addedToSkipList")}`, 'success');
-      }
-      return;
-    }
-    
-    const boundaryCheck = checkLocationInArea(place.lat, place.lng, formData.area);
-    
-    const locationToAdd = {
-      id: Date.now(),
-      name: place.name,
-      description: place.description || t('toast.addedFromSearch'),
-      notes: '',
-      area: formData.area,
-      areas: (() => { const d = window.BKK.getAreasForCoordinates(place.lat, place.lng); return d.length > 0 ? d : [formData.area]; })(),
-      interests: place.interests && place.interests.length > 0 ? place.interests : [],
-      lat: place.lat,
-      lng: place.lng,
-      uploadedImage: null,
-      imageUrls: [],
-      outsideArea: !boundaryCheck.valid,
-      custom: true,
-      status: 'blacklist', // Start as blacklisted!
-      addedAt: new Date().toISOString(),
-      fromGoogle: true,
-      cityId: selectedCityId
-    };
-    
-    if (isFirebaseAvailable && database) {
-      database.ref(`cities/${selectedCityId}/locations`).push(locationToAdd)
-        .then(() => {
-          showToast(`"${place.name}" ${t("places.addedToSkipList")}`, 'success');
-        })
-        .catch((error) => {
-          console.error('[FIREBASE] Error adding to blacklist:', error);
-          showToast(t('toast.saveError'), 'error');
-        });
-    } else {
-      const updated = [...customLocations, locationToAdd];
-      setCustomLocations(updated);
-      localStorage.setItem('bangkok_custom_locations', JSON.stringify(updated));
-      showToast(`"${place.name}" ${t("places.addedToSkipList")}`, 'success');
     }
   };
   
@@ -4857,7 +4944,8 @@ const FouFouApp = () => {
             maxStops: interest.maxStops || 10,
             routeSlot: interest.routeSlot || 'any',
             minGap: interest.minGap || 1,
-            bestTime: interest.bestTime || 'anytime'
+            bestTime: interest.bestTime || 'anytime',
+            ...(interest.color ? { color: interest.color } : {})
           };
           await database.ref(`customInterests/${interestId}`).set(newInterest);
           addedInterests++;
@@ -4940,7 +5028,8 @@ const FouFouApp = () => {
             rating: loc.rating || null,
             ratingCount: loc.ratingCount || null,
             fromGoogle: loc.fromGoogle || false,
-            addedAt: loc.addedAt || new Date().toISOString()
+            addedAt: loc.addedAt || new Date().toISOString(),
+            addedBy: loc.addedBy || authUser?.uid || null
           };
           
           await database.ref(`cities/${selectedCityId}/locations`).push(newLocation);
@@ -5370,6 +5459,7 @@ const FouFouApp = () => {
       googlePlaceId: locData.googlePlaceId || '',
       googlePlace: !!locData.googlePlace,
       addedAt: new Date().toISOString(),
+      addedBy: authUser?.uid || null,
       cityId: selectedCityId
     };
     
@@ -5750,30 +5840,6 @@ const FouFouApp = () => {
     }
   };
 
-  const toggleStopActive = (stopIndex) => {
-    const stop = route.stops[stopIndex];
-    const stopName = (stop?.name || '').toLowerCase().trim();
-    if (!stopName) return;
-    const isCurrentlyDisabled = isStopDisabled(stop);
-    const newDisabledStops = isCurrentlyDisabled
-      ? disabledStops.filter(n => n !== stopName)
-      : [...disabledStops, stopName];
-    
-    setDisabledStops(newDisabledStops);
-    
-    if (!isCurrentlyDisabled && startPointCoords && stop?.lat && stop?.lng) {
-      if (Math.abs(stop.lat - startPointCoords.lat) < 0.0001 && Math.abs(stop.lng - startPointCoords.lng) < 0.0001) {
-        setStartPointCoords(null);
-        startPointCoordsRef.current = null;
-        setFormData(prev => ({...prev, startPoint: ''}));
-      }
-    }
-    
-    if (route?.optimized) {
-      setRoute(prev => prev ? {...prev, optimized: false} : prev);
-    }
-  };
-
 
 
   const renderIcon = (icon, size = '14px') => {
@@ -5924,17 +5990,12 @@ const FouFouApp = () => {
               <button
                 key={item.view}
                 onClick={() => {
-                  if (item.view === 'settings' && !isUnlocked) {
-                    if (!adminPassword) {
-                      setCurrentView('settings');
-                    } else {
-                      setShowVersionPasswordDialog(true);
-                      setShowHeaderMenu(false);
-                      return;
-                    }
-                  } else {
-                    setCurrentView(item.view);
+                  if (item.view === 'settings' && !isAdmin) {
+                    showToast(t('auth.needAdmin') || 'נדרשת הרשאת מנהל', 'warning');
+                    setShowHeaderMenu(false);
+                    return;
                   }
+                  setCurrentView(item.view);
                   setShowHeaderMenu(false);
                   window.scrollTo(0, 0);
                 }}
@@ -5951,6 +6012,35 @@ const FouFouApp = () => {
                 <span>{item.label}{item.count > 0 ? ` (${item.count})` : ''}</span>
               </button>
             ))}
+            {/* Divider + Auth button */}
+            <div style={{ height: '1px', background: '#e5e7eb', margin: '4px 8px' }}></div>
+            <button
+              onClick={() => { setShowLoginDialog(true); setShowHeaderMenu(false); }}
+              style={{
+                width: '100%', textAlign: currentLang === 'he' ? 'right' : 'left',
+                background: 'transparent', border: 'none', borderRadius: '8px', padding: '8px 12px',
+                color: '#374151', fontSize: '13px', fontWeight: '500',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'
+              }}
+            >
+              <span style={{ fontSize: '15px' }}>{authUser ? '👤' : '🔑'}</span>
+              <span>{authUser ? (authUser.displayName || authUser.email || (t('auth.anonymous') || 'אנונימי')) : (t('auth.signIn') || 'התחבר')}</span>
+              {authUser && <span style={{ fontSize: '9px', marginRight: 'auto', marginLeft: '4px', padding: '1px 5px', borderRadius: '4px', background: isAdmin ? '#fef2f2' : isEditor ? '#f3e8ff' : '#f3f4f6', color: isAdmin ? '#dc2626' : isEditor ? '#7c3aed' : '#9ca3af' }}>{isAdmin ? 'Admin' : isEditor ? 'Editor' : ''}{roleOverride !== null ? ' 🎭' : ''}</span>}
+            </button>
+            {isRealAdmin && (
+              <button
+                onClick={() => { setShowUserManagement(true); authLoadAllUsers(); setShowHeaderMenu(false); }}
+                style={{
+                  width: '100%', textAlign: currentLang === 'he' ? 'right' : 'left',
+                  background: 'transparent', border: 'none', borderRadius: '8px', padding: '8px 12px',
+                  color: '#374151', fontSize: '13px', fontWeight: '500',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'
+                }}
+              >
+                <span style={{ fontSize: '15px' }}>👥</span>
+                <span>{t('auth.userManagement') || 'ניהול משתמשים'}</span>
+              </button>
+            )}
           </div>
         </>)}
       </div>
@@ -6900,24 +6990,6 @@ const FouFouApp = () => {
                                         </span>
                                       )}
                                       <span>{stop.name}</span>
-                                      {/* Debug info button — admin + debug mode only */}
-                                      {isUnlocked && debugMode && stop._debug && (
-                                        <button
-                                          onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            setStopDebugPopup(stopDebugPopup?.name === stop.name ? null : stop);
-                                          }}
-                                          style={{
-                                            fontSize: '9px', padding: '0 3px', borderRadius: '4px',
-                                            background: stopDebugPopup?.name === stop.name ? '#f59e0b' : '#e5e7eb',
-                                            color: stopDebugPopup?.name === stop.name ? 'white' : '#6b7280',
-                                            border: 'none', cursor: 'pointer', lineHeight: '14px',
-                                            fontWeight: 'bold', flexShrink: 0
-                                          }}
-                                          title="Debug info"
-                                        >i</button>
-                                      )}
                                       {isStartPoint && (
                                         <span className="text-[8px] bg-green-600 text-white px-1 py-0.5 rounded font-bold">{t("general.start")}</span>
                                       )}
@@ -6982,27 +7054,6 @@ const FouFouApp = () => {
                                     })()}
                                   </a>
                                   {/* Debug info popup — admin + debug mode only */}
-                                  {isUnlocked && debugMode && stopDebugPopup?.name === stop.name && stop._debug && (() => {
-                                    const d = stop._debug;
-                                    return (
-                                      <div style={{
-                                        fontSize: '10px', padding: '6px 8px', margin: '4px 0',
-                                        background: '#fffbeb', border: '1px solid #f59e0b', borderRadius: '6px',
-                                        direction: 'ltr', textAlign: 'left', lineHeight: '1.5'
-                                      }}>
-                                        <div style={{ fontWeight: 'bold', color: '#92400e', marginBottom: '2px' }}>
-                                          {d.source === 'custom' ? '📌 Custom' : '🌐 Google'} — {d.interestLabel}
-                                        </div>
-                                        {d.searchType && <div><b>Search:</b> {d.searchType}{d.query ? ` → "${d.query}"` : ''}</div>}
-                                        {d.placeTypes && <div><b>Types:</b> {d.placeTypes.join(', ')}</div>}
-                                        {d.blacklist && d.blacklist.length > 0 && <div><b>Blacklist:</b> {d.blacklist.join(', ')}</div>}
-                                        {d.googleTypes && <div><b>Google types:</b> {d.googleTypes.join(', ')}</div>}
-                                        {d.primaryType && <div><b>Primary:</b> {d.primaryType}</div>}
-                                        {d.rank && <div><b>Rank:</b> {d.rank}/{d.totalFromGoogle}</div>}
-                                        <div><b>Area:</b> {d.area} | <b>Center:</b> {d.center || '-'} | <b>R:</b> {d.radius || '-'}m</div>
-                                      </div>
-                                    );
-                                  })()}
                                   {/* Add to favorites row — Google places only */}
                                   {!isCustom && !isDisabled && (() => {
                                     const existingLoc = customLocations.find(loc => loc.name.toLowerCase().trim() === stop.name.toLowerCase().trim());
@@ -7106,6 +7157,7 @@ const FouFouApp = () => {
                           if (result) showToast(`✦ ${result.optimized.length} ${t('route.stops')}`, 'success');
                         }},
                         { icon: '↗', label: t('general.shareRoute'), action: () => {
+                          if (!authUser || authUser.isAnonymous) { setShowLoginDialog(true); return; }
                           setShowRouteMenu(false);
                           if (!route?.optimized) return;
                           const activeStops = (route.stops || []).filter(s => {
@@ -7126,7 +7178,8 @@ const FouFouApp = () => {
                           if (navigator.share) { navigator.share({ title: routeName, text: shareText }); }
                           else { navigator.clipboard.writeText(shareText); showToast(t('route.routeCopied'), 'success'); }
                         }, disabled: !route?.optimized },
-                        { icon: route.name ? '✓' : '⬇', label: route.name ? `${t('route.savedAs')} ${route.name}` : t('route.saveRoute'), action: () => {
+                        { icon: route.name ? '✓' : '⬇', label: route.name ? `${t('route.savedAs')} ${route.name}` : ((!authUser || authUser.isAnonymous) ? (t('auth.loginToSave') || 'התחבר כדי לשמור') : t('route.saveRoute')), action: () => {
+                          if (!authUser || authUser.isAnonymous) { setShowLoginDialog(true); return; }
                           setShowRouteMenu(false);
                           if (!route.name && route?.optimized) quickSaveRoute();
                         }, disabled: !route?.optimized || !!route.name },
@@ -7520,6 +7573,12 @@ const FouFouApp = () => {
                       {t("places.byArea")}
                     </button>
                   </div>
+                  {/* Favorites map button */}
+                  <button
+                    onClick={() => { setMapMode('favorites'); setMapFavArea(null); setMapFocusPlace(null); setMapFavFilter(new Set()); setMapBottomSheet(null); setShowMapModal(true); }}
+                    style={{ padding: '2px 8px', borderRadius: '8px', border: '1px solid #c084fc', background: '#f3e8ff', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', color: '#7c3aed', whiteSpace: 'nowrap' }}
+                    title={t("wizard.showMap")}
+                  >🗺️</button>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: '1', minWidth: '120px', maxWidth: '200px' }}>
                   <input
@@ -7703,6 +7762,11 @@ const FouFouApp = () => {
                                     ))}
                                   </div>
                                 </div>
+                                {(loc.uploadedImage || (loc.imageUrls && loc.imageUrls.length > 0)) && (
+                                  <button onClick={() => { setModalImage(loc.uploadedImage || loc.imageUrls[0]); setShowImageModal(true); }}
+                                    style={{ fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', flexShrink: 0, opacity: 0.6 }}
+                                    title={t("general.viewImage") || "תמונה"}>🖼️</button>
+                                )}
                                 <button onClick={() => handleEditLocation(loc)}
                                   className="text-xs px-1 py-0.5 rounded"
                                   title={canEdit ? t("places.detailsEdit") : t("general.viewOnly")}>{canEdit ? "✏️" : "👁️"}</button>
@@ -7740,6 +7804,11 @@ const FouFouApp = () => {
                                   {!isLocationValid(loc) && <span className="text-red-500 text-[9px]" title={t("places.missingDetails")}>❌</span>}
                                 </div>
                               </div>
+                              {(loc.uploadedImage || (loc.imageUrls && loc.imageUrls.length > 0)) && (
+                                <button onClick={() => { setModalImage(loc.uploadedImage || loc.imageUrls[0]); setShowImageModal(true); }}
+                                  style={{ fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', flexShrink: 0, opacity: 0.6 }}
+                                  title={t("general.viewImage") || "תמונה"}>🖼️</button>
+                              )}
                               <button onClick={() => handleEditLocation(loc)}
                                 className="text-xs px-1 py-0.5 rounded"
                                 title={canEdit ? t("places.detailsEdit") : t("general.viewOnly")}>{canEdit ? "✏️" : "👁️"}</button>
@@ -7775,6 +7844,7 @@ const FouFouApp = () => {
                 >
                   {t("interests.resetToDefault")}
                 </button>
+                {isEditor && (
                 <button
                   onClick={() => {
                     setEditingCustomInterest(null);
@@ -7785,6 +7855,7 @@ const FouFouApp = () => {
                 >
                   {t("interests.addInterest")}
                 </button>
+                )}
               </div>
             </div>
             
@@ -7886,11 +7957,13 @@ const FouFouApp = () => {
                       >
                         {effectiveActive ? t('general.disable') : t('general.enableAlt')}
                       </button>
+                      {isEditor && (
                       <button
                         onClick={() => openInterestDialog(interest, isCustom)}
                         className="text-xs px-1 py-0.5 rounded flex-shrink-0"
                         title={interest.locked && !isUnlocked ? t("general.viewOnly") : t("places.detailsEdit")}
                       >{interest.locked && !isUnlocked ? '👁️' : '✏️'}</button>
+                      )}
                     </div>
                   </div>
                 );
@@ -7992,7 +8065,7 @@ const FouFouApp = () => {
         )}
 
         {/* Settings View - Compact Design */}
-        {currentView === 'settings' && (
+        {currentView === 'settings' && isAdmin && (
           <div className="view-fade-in bg-white rounded-xl shadow-lg p-3">
             <div className="flex items-center gap-2 mb-3">
               <h2 className="text-lg font-bold">{t("settings.title")}</h2>
@@ -8019,7 +8092,7 @@ const FouFouApp = () => {
                   settingsTab === 'general' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >{`⚙️ ${t('settings.generalSettings')}`}</button>
-              {isUnlocked && (
+              {isAdmin && (
               <button
                 onClick={() => setSettingsTab('sysparams')}
                 className={`flex-1 py-2 rounded-lg font-bold text-sm transition ${
@@ -8999,7 +9072,7 @@ const FouFouApp = () => {
             </div>)}
 
             {/* ===== SYSTEM PARAMS TAB ===== */}
-            {settingsTab === 'sysparams' && isUnlocked && (<div>
+            {settingsTab === 'sysparams' && isAdmin && (<div>
             {(() => {
               const sections = [
                 { title: t('sysParams.sectionApp'), icon: '📱', color: '#3b82f6', params: [
@@ -9176,9 +9249,9 @@ const FouFouApp = () => {
             <span style={{ color: '#d1d5db', fontSize: '9px' }}>·</span>
             <span 
               style={{ fontSize: '9px', color: '#9ca3af', cursor: 'default', userSelect: 'none' }}
-              onTouchStart={(e) => { e.currentTarget._lp = setTimeout(() => { if (isUnlocked) { setCurrentView('settings'); } else { setShowVersionPasswordDialog(true); } }, 2000); }}
+              onTouchStart={(e) => { e.currentTarget._lp = setTimeout(() => { if (isAdmin) { setCurrentView('settings'); } else { setShowLoginDialog(true); } }, 2000); }}
               onTouchEnd={(e) => { clearTimeout(e.currentTarget._lp); }}
-              onMouseDown={(e) => { e.currentTarget._lp = setTimeout(() => { if (isUnlocked) { setCurrentView('settings'); } else { setShowVersionPasswordDialog(true); } }, 2000); }}
+              onMouseDown={(e) => { e.currentTarget._lp = setTimeout(() => { if (isAdmin) { setCurrentView('settings'); } else { setShowLoginDialog(true); } }, 2000); }}
               onMouseUp={(e) => { clearTimeout(e.currentTarget._lp); }}
               onMouseLeave={(e) => { clearTimeout(e.currentTarget._lp); }}
             >v{window.BKK.VERSION}</span>
@@ -9192,27 +9265,27 @@ const FouFouApp = () => {
 
       {/* Leaflet Map Modal */}
       {showMapModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)', padding: mapMode === 'stops' ? '0' : '12px' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)', padding: (mapMode === 'stops' || mapMode === 'favorites') ? '0' : '12px' }}>
           <div className="bg-white shadow-2xl w-full" style={{ 
-            maxWidth: mapMode === 'stops' ? '100%' : '42rem',
-            maxHeight: mapMode === 'stops' ? '100%' : '90vh',
-            height: mapMode === 'stops' ? '100%' : 'auto',
-            borderRadius: mapMode === 'stops' ? '0' : '12px',
+            maxWidth: (mapMode === 'stops' || mapMode === 'favorites') ? '100%' : '42rem',
+            maxHeight: (mapMode === 'stops' || mapMode === 'favorites') ? '100%' : '90vh',
+            height: (mapMode === 'stops' || mapMode === 'favorites') ? '100%' : 'auto',
+            borderRadius: (mapMode === 'stops' || mapMode === 'favorites') ? '0' : '12px',
             display: 'flex', flexDirection: 'column'
           }}>
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b">
               <button
-                onClick={() => { setShowMapModal(false); setMapUserLocation(null); setMapSkippedStops(new Set()); }}
+                onClick={() => { setShowMapModal(false); setMapUserLocation(null); setMapSkippedStops(new Set()); setMapBottomSheet(null); setShowFavMapFilter(false); setMapFavFilter(new Set()); setMapFavArea(null); setMapFocusPlace(null); }}
                 className="text-gray-400 hover:text-gray-600 text-lg font-bold"
               >✕</button>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-sm">
-                  {mapMode === 'areas' ? t('wizard.allAreasMap') : mapMode === 'stops' ? `${t('route.showStopsOnMap')} (${mapStops.length})` : t('form.searchRadius')}
+                  {mapMode === 'areas' ? t('wizard.allAreasMap') : mapMode === 'stops' ? `${t('route.showStopsOnMap')} (${mapStops.length})` : mapMode === 'favorites' ? `⭐ ${t('nav.favorites')}` : t('form.searchRadius')}
                 </h3>
                 {mapMode === 'stops' && (<button onClick={() => showHelpFor('mapPlanning')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', textDecoration: 'underline' }}>{t('general.help')}</button>)}
               </div>
-              {mapMode !== 'stops' && (
+              {mapMode !== 'stops' && mapMode !== 'favorites' && (
               <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
                 <button
                   onClick={() => setMapMode('areas')}
@@ -9235,9 +9308,272 @@ const FouFouApp = () => {
                 >{`📍 ${t("form.radiusMode")}`}</button>
               </div>
               )}
+              {mapMode === 'favorites' && (() => {
+                const activeCount = customLocations.filter(loc => {
+                  if (loc.status === 'blacklist' || !loc.lat || !loc.lng) return false;
+                  if (window.BKK.systemParams?.showDraftsOnMap === false && !loc.locked) return false;
+                  if (mapFavArea) { const la = loc.areas || (loc.area ? [loc.area] : []); if (!la.includes(mapFavArea)) return false; }
+                  if (mapFavFilter.size > 0) { if (!(loc.interests || []).some(i => mapFavFilter.has(i))) return false; }
+                  return true;
+                }).length;
+                const areaLabel = mapFavArea ? tLabel((window.BKK.areaOptions || []).find(a => a.id === mapFavArea)) : '';
+                return (
+                  <span style={{ fontSize: '10px', color: '#9ca3af', fontWeight: 'normal' }}>
+                    {activeCount} {t('nav.favorites')}{areaLabel ? ` · ${areaLabel}` : ''}{mapFavFilter.size > 0 ? ` · ${mapFavFilter.size} ${t('general.interests') || 'תחומים'}` : ''}
+                  </span>
+                );
+              })()}
             </div>
-            <div id="leaflet-map-container" style={{ flex: 1, minHeight: mapMode === 'stops' ? '0' : '350px', maxHeight: mapMode === 'stops' ? 'none' : '70vh' }}></div>
+            {/* Map container with floating elements */}
+            <div style={{ flex: 1, position: 'relative', minHeight: (mapMode === 'stops' || mapMode === 'favorites') ? '0' : '350px', maxHeight: (mapMode === 'stops' || mapMode === 'favorites') ? 'none' : '70vh' }}>
+              <div id="leaflet-map-container" style={{ width: '100%', height: '100%' }}></div>
+              {/* Floating filter button — favorites mode */}
+              {mapMode === 'favorites' && !showFavMapFilter && (
+                <button
+                  onClick={() => setShowFavMapFilter(true)}
+                  style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 1000, padding: '8px 14px', borderRadius: '20px', background: (mapFavFilter.size > 0 || mapFavArea) ? '#7c3aed' : 'white', color: (mapFavFilter.size > 0 || mapFavArea) ? 'white' : '#374151', border: '2px solid ' + ((mapFavFilter.size > 0 || mapFavArea) ? '#7c3aed' : '#d1d5db'), boxShadow: '0 2px 10px rgba(0,0,0,0.2)', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                >🔍 {t('general.filter') || 'סינון'}{(mapFavFilter.size > 0 || mapFavArea) ? ' ●' : ''}</button>
+              )}
+              {/* Legend button — favorites mode */}
+              {mapMode === 'favorites' && !showFavMapFilter && (
+                <button
+                  onClick={() => showHelpFor('favoritesMap')}
+                  style={{ position: 'absolute', top: '12px', left: '12px', zIndex: 1000, width: '34px', height: '34px', borderRadius: '50%', background: 'white', border: '2px solid #d1d5db', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', fontSize: '15px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  title={t('general.help')}
+                >❓</button>
+              )}
+              {/* Filter dialog overlay — favorites mode */}
+              {mapMode === 'favorites' && showFavMapFilter && (() => {
+                const allInts = window.BKK.interestOptions || [];
+                const usedInterests = new Set();
+                customLocations.forEach(loc => { if (loc.lat && loc.lng && loc.status !== 'blacklist') (loc.interests || []).forEach(i => usedInterests.add(i)); });
+                const relevant = allInts.filter(i => usedInterests.has(i.id));
+                const areas = window.BKK.areaOptions || [];
+                const areaCounts = {};
+                customLocations.forEach(loc => {
+                  if (!loc.lat || !loc.lng || loc.status === 'blacklist') return;
+                  (loc.areas || [loc.area]).filter(Boolean).forEach(a => { areaCounts[a] = (areaCounts[a] || 0) + 1; });
+                });
+                return (
+                  <div style={{ position: 'absolute', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+                    onClick={() => { setShowFavMapFilter(false); setMapFavFilter(new Set(mapFavFilter)); /* force refresh */ }}>
+                    <div style={{ width: '100%', maxWidth: '500px', maxHeight: '80vh', background: 'white', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 30px rgba(0,0,0,0.2)', overflow: 'hidden', direction: 'rtl' }}
+                      onClick={e => e.stopPropagation()}>
+                      {/* Filter header */}
+                      <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 'bold', fontSize: '15px' }}>🔍 {t('general.filter') || 'סינון מפה'}</span>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button onClick={() => { setMapFavFilter(new Set()); setMapFavArea(null); setMapFocusPlace(null); }}
+                            style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #d1d5db', background: '#f3f4f6', cursor: 'pointer', fontWeight: 'bold', color: '#6b7280' }}>{t('general.clearAll') || 'נקה הכל'}</button>
+                          <button onClick={() => { setShowFavMapFilter(false); setMapFavFilter(new Set(mapFavFilter)); }}
+                            style={{ fontSize: '15px', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>✕</button>
+                        </div>
+                      </div>
+                      <div style={{ padding: '12px 16px', overflowY: 'auto', maxHeight: '60vh' }}>
+                        {/* Area filter */}
+                        <div style={{ marginBottom: '14px' }}>
+                          <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', color: '#374151' }}>📍 {t('general.areas')}</div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                            <button onClick={() => { setMapFavArea(null); setMapFocusPlace(null); }}
+                              style={{ padding: '4px 10px', borderRadius: '8px', border: !mapFavArea ? '2px solid #3b82f6' : '1px solid #d1d5db', background: !mapFavArea ? '#dbeafe' : 'white', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', color: !mapFavArea ? '#1e40af' : '#6b7280' }}>{t('general.allCity') || 'הכל'}</button>
+                            {areas.map(a => {
+                              const cnt = areaCounts[a.id] || 0;
+                              const isSel = mapFavArea === a.id;
+                              return (
+                                <button key={a.id} onClick={() => { setMapFavArea(isSel ? null : a.id); setMapFocusPlace(null); }}
+                                  style={{ padding: '4px 8px', borderRadius: '8px', border: isSel ? '2px solid #3b82f6' : '1px solid #d1d5db', background: isSel ? '#dbeafe' : 'white', fontSize: '11px', fontWeight: isSel ? 'bold' : 'normal', cursor: 'pointer', color: isSel ? '#1e40af' : '#374151', opacity: cnt === 0 ? 0.4 : 1 }}>
+                                  {tLabel(a)} <span style={{ fontSize: '9px', color: '#9ca3af' }}>({cnt})</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        {/* Interest filter */}
+                        <div style={{ marginBottom: '14px' }}>
+                          <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', color: '#374151' }}>🎨 {t('general.interests') || 'תחומים'}</div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                            <button onClick={() => setMapFavFilter(new Set())}
+                              style={{ padding: '4px 10px', borderRadius: '8px', border: mapFavFilter.size === 0 ? '2px solid #7c3aed' : '1px solid #d1d5db', background: mapFavFilter.size === 0 ? '#f3e8ff' : 'white', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', color: mapFavFilter.size === 0 ? '#7c3aed' : '#6b7280' }}>{t('general.all') || 'הכל'}</button>
+                            {relevant.map(int => {
+                              const color = window.BKK.getInterestColor(int.id, allInts);
+                              const isOn = mapFavFilter.size === 0 || mapFavFilter.has(int.id);
+                              return (
+                                <button key={int.id}
+                                  onClick={() => {
+                                    if (mapFavFilter.size === 0) { setMapFavFilter(new Set([int.id])); }
+                                    else if (mapFavFilter.has(int.id) && mapFavFilter.size === 1) { setMapFavFilter(new Set()); }
+                                    else if (mapFavFilter.has(int.id)) { const n = new Set(mapFavFilter); n.delete(int.id); setMapFavFilter(n); }
+                                    else { setMapFavFilter(new Set([...mapFavFilter, int.id])); }
+                                  }}
+                                  style={{ padding: '4px 8px', borderRadius: '8px', border: `2px solid ${isOn ? color : '#e5e7eb'}`, background: isOn ? color + '15' : '#f9fafb', fontSize: '11px', cursor: 'pointer', opacity: isOn ? 1 : 0.4, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                  <span style={{ fontSize: '14px' }}>{int.icon}</span>
+                                  <span style={{ fontWeight: isOn ? 'bold' : 'normal', color: isOn ? color : '#9ca3af' }}>{tLabel(int)}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        {/* Status filter */}
+                        <div style={{ marginBottom: '14px' }}>
+                          <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', color: '#374151' }}>📋 {t('general.status') || 'סטטוס'}</div>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', cursor: 'pointer' }}>
+                              <input type="checkbox" checked={window.BKK.systemParams?.showDraftsOnMap !== false}
+                                onChange={e => { window.BKK.systemParams.showDraftsOnMap = e.target.checked; setMapFavFilter(new Set(mapFavFilter)); }}
+                                style={{ accentColor: '#7c3aed' }} />
+                              {t('places.showDrafts') || 'הצג טיוטות'}
+                            </label>
+                          </div>
+                        </div>
+                        {/* Place search/focus */}
+                        <div style={{ marginBottom: '14px' }}>
+                          <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', color: '#374151' }}>🔎 {t('places.searchPlace') || 'חפש מקום'}</div>
+                          {(() => {
+                            const sd = window.BKK.systemParams?.showDraftsOnMap !== false;
+                            const searchable = customLocations.filter(l => l.lat && l.lng && l.status !== 'blacklist' && (sd || l.locked));
+                            return (
+                              <div>
+                                <input
+                                  type="text"
+                                  placeholder={t('places.searchPlaceholder') || 'הקלד שם מקום...'}
+                                  id="fav-map-place-search"
+                                  onChange={e => {
+                                    const q = e.target.value.trim().toLowerCase();
+                                    const list = document.getElementById('fav-map-place-results');
+                                    if (list) list.style.display = q.length >= 2 ? 'block' : 'none';
+                                    if (list) {
+                                      const items = list.querySelectorAll('[data-name]');
+                                      items.forEach(item => {
+                                        item.style.display = item.dataset.name.toLowerCase().includes(q) ? 'block' : 'none';
+                                      });
+                                    }
+                                  }}
+                                  style={{ width: '100%', padding: '6px 10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '12px', marginBottom: '4px' }}
+                                />
+                                <div id="fav-map-place-results" style={{ display: 'none', maxHeight: '120px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px', background: '#fafafa' }}>
+                                  {searchable.map(loc => {
+                                    const pi = (loc.interests || [])[0];
+                                    const color = pi ? window.BKK.getInterestColor(pi, allInts) : '#9ca3af';
+                                    return (
+                                      <button key={loc.id || loc.name} data-name={loc.name}
+                                        onClick={() => {
+                                          setMapFocusPlace({ id: loc.id, lat: loc.lat, lng: loc.lng, name: loc.name });
+                                          setShowFavMapFilter(false);
+                                          setMapFavFilter(new Set(mapFavFilter)); // force refresh
+                                        }}
+                                        style={{ display: 'block', width: '100%', textAlign: 'right', padding: '5px 10px', border: 'none', borderBottom: '1px solid #f3f4f6', background: 'none', cursor: 'pointer', fontSize: '11px' }}>
+                                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: color, display: 'inline-block', marginLeft: '4px' }}></span>
+                                        {loc.name}
+                                        {loc.locked && <span style={{ fontSize: '8px', color: '#16a34a', marginRight: '4px' }}>✅</span>}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                                {mapFocusPlace && (
+                                  <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 8px', background: '#fef3c7', borderRadius: '6px', border: '1px solid #fbbf24' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: 'bold', flex: 1 }}>📍 {mapFocusPlace.name}</span>
+                                    <button onClick={() => { setMapFocusPlace(null); }}
+                                      style={{ fontSize: '10px', background: 'none', border: 'none', cursor: 'pointer', color: '#92400e' }}>✕</button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                        {/* Color legend */}
+                        <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '10px' }}>
+                          <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', color: '#374151' }}>🎨 {t('general.legend') || 'מקרא צבעים'}</div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {relevant.map(int => {
+                              const color = window.BKK.getInterestColor(int.id, allInts);
+                              return (
+                                <div key={int.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}>
+                                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: color, display: 'inline-block', border: '1px solid ' + color }}></span>
+                                  <span style={{ color: '#6b7280' }}>{int.icon} {tLabel(int)}</span>
+                                </div>
+                              );
+                            })}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}>
+                              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#9ca3af', display: 'inline-block', opacity: 0.5 }}></span>
+                              <span style={{ color: '#9ca3af' }}>{t('places.draft') || 'טיוטה'} ({t('general.transparent') || 'שקוף'})</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}>
+                              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#3b82f6', display: 'inline-block' }}></span>
+                              <span style={{ color: '#9ca3af' }}>📍 {t('form.currentLocation')}</span>
+                            </div>
+                          </div>
+                        </div>
+                        {/* Tip text */}
+                        <div style={{ marginTop: '12px', padding: '8px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+                          <div style={{ fontSize: '10px', color: '#166534', lineHeight: 1.5 }}>
+                            💡 <b>{t('general.tip') || 'טיפ'}:</b> {t('map.favTip') || 'ריכוז נקודות באזור מסוים מעיד שהאזור עשיר בתכנים. סנן לפי תחום כדי לראות במה מתאפיין כל אזור ולתכנן מסלול ממוקד.'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+              {/* GPS location button — floating */}
+              {mapMode === 'favorites' && (
+                <button
+                  onClick={() => {
+                    if (mapUserLocation) { setMapUserLocation(null); return; }
+                    if (navigator.geolocation) {
+                      navigator.geolocation.getCurrentPosition(
+                        pos => setMapUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }),
+                        () => showToast('📍 GPS unavailable', 'warning'),
+                        { enableHighAccuracy: true, timeout: 8000 }
+                      );
+                    }
+                  }}
+                  style={{ position: 'absolute', bottom: mapBottomSheet ? '130px' : '16px', right: '12px', zIndex: 1000, width: '40px', height: '40px', borderRadius: '50%', background: mapUserLocation ? '#3b82f6' : 'white', color: mapUserLocation ? 'white' : '#374151', border: '2px solid #d1d5db', boxShadow: '0 2px 8px rgba(0,0,0,0.2)', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  title={t('form.currentLocation')}
+                >📍</button>
+              )}
+              {/* Bottom sheet — favorites mode marker info */}
+              {mapMode === 'favorites' && mapBottomSheet && (() => {
+                const loc = mapBottomSheet;
+                const intLabels = (loc.interests || []).map(i => {
+                  const opt = (window.BKK.interestOptions || []).find(o => o.id === i);
+                  return opt ? (opt.icon + ' ' + tLabel(opt)) : i;
+                }).join(', ');
+                const areaLabels = (loc.areas || [loc.area]).filter(Boolean).map(aId => {
+                  const a = (window.BKK.areaOptions || []).find(o => o.id === aId);
+                  return a ? tLabel(a) : aId;
+                }).join(', ');
+                const hasImg = loc.uploadedImage || (loc.imageUrls && loc.imageUrls.length > 0);
+                const imgSrc = loc.uploadedImage || (loc.imageUrls ? loc.imageUrls[0] : null);
+                return (
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 1000, background: 'white', borderTop: '2px solid #e5e7eb', borderRadius: '12px 12px 0 0', boxShadow: '0 -4px 20px rgba(0,0,0,0.15)', padding: '10px 14px', direction: 'rtl' }}
+                    onClick={e => e.stopPropagation()}>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                      {hasImg && (
+                        <img src={imgSrc} alt=""
+                          onClick={() => { setModalImage(imgSrc); setShowImageModal(true); }}
+                          style={{ width: '56px', height: '56px', borderRadius: '8px', objectFit: 'cover', cursor: 'pointer', flexShrink: 0, border: '1px solid #e5e7eb' }} />
+                      )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '2px' }}>{loc.name}</div>
+                        <div style={{ fontSize: '11px', color: '#6b7280' }}>📍 {areaLabels}</div>
+                        {intLabels && <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '1px' }}>{intLabels}</div>}
+                        {loc.locked && <span style={{ fontSize: '9px', background: '#dcfce7', color: '#166534', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>✅ {t('places.ready') || 'מוכן'}</span>}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                      <button onClick={() => { const u = window.BKK.getGoogleMapsUrl(loc); if (u && u !== '#') window.open(u, '_blank'); }}
+                        style={{ flex: 1, padding: '7px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#f9fafb', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>🗺️ {t('route.navigate') || 'נווט'}</button>
+                      <button onClick={() => { setShowMapModal(false); setMapBottomSheet(null); handleEditLocation(loc); }}
+                        style={{ flex: 1, padding: '7px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#f9fafb', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>✏️ {t('places.detailsEdit') || 'ערוך'}</button>
+                      <button onClick={() => setMapBottomSheet(null)}
+                        style={{ padding: '7px 12px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#f3f4f6', fontSize: '12px', cursor: 'pointer', color: '#6b7280' }}>✕</button>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
             {/* Footer */}
+            {mapMode !== 'favorites' && (
             <div className="border-t" style={{ background: mapMode === 'stops' ? '#f8fafc' : 'white' }}>
               {mapMode === 'stops' ? (
                 <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -9292,6 +9628,7 @@ const FouFouApp = () => {
               </p>
               )}
             </div>
+            )}
           </div>
         </div>
       )}
@@ -9454,6 +9791,23 @@ const FouFouApp = () => {
           </div>
           );
         })()}
+
+        {/* Floating role impersonation badge */}
+        {isRealAdmin && roleOverride !== null && (
+          <div style={{
+            position: 'fixed', bottom: '70px', left: '50%', transform: 'translateX(-50%)',
+            zIndex: 45, background: 'linear-gradient(135deg, #7c3aed, #a855f7)', color: 'white',
+            padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold',
+            boxShadow: '0 4px 12px rgba(124,58,237,0.4)', display: 'flex', alignItems: 'center', gap: '8px',
+            cursor: 'pointer', userSelect: 'none'
+          }}
+            onClick={() => { setRoleOverride(null); showToast('👑 Admin', 'info'); }}
+          >
+            <span>🎭</span>
+            <span>{roleOverride === 0 ? 'Regular' : 'Editor'}</span>
+            <span style={{ fontSize: '10px', opacity: 0.8 }}>tap to exit</span>
+          </div>
+        )}
 
         {/* === DIALOGS (from dialogs.js) === */}
 
@@ -9682,6 +10036,21 @@ const FouFouApp = () => {
                           }}
                           style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '4px', background: '#dbeafe', border: '1px solid #93c5fd', color: '#1e40af', cursor: 'pointer', fontWeight: 'bold' }}
                         >📍 זהה אזור</button>
+                      )}
+                      {newLocation.lat && newLocation.lng && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const locAreas = newLocation.areas || (newLocation.area ? [newLocation.area] : []);
+                            setMapMode('favorites');
+                            setMapFavArea(locAreas[0] || null);
+                            setMapFocusPlace({ id: editingLocation?.id, lat: newLocation.lat, lng: newLocation.lng, name: newLocation.name });
+                            setMapFavFilter(new Set());
+                            setMapBottomSheet(null);
+                            setShowMapModal(true);
+                          }}
+                          style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '4px', background: '#f3e8ff', border: '1px solid #c084fc', color: '#7c3aed', cursor: 'pointer', fontWeight: 'bold' }}
+                        >🗺️ {t('wizard.showMap') || 'מפה'}</button>
                       )}
                     </div>
                     <div className="grid grid-cols-6 gap-1 p-1.5 bg-gray-50 rounded-lg overflow-y-auto border-2 border-gray-300" style={{ maxHeight: '120px' }}>
@@ -10034,9 +10403,22 @@ const FouFouApp = () => {
                         {newLocation.locked ? '🔒' : '🔓'}
                       </button>
                     )}
+                    {newLocation.lat && newLocation.lng && (
+                      <button type="button"
+                        onClick={() => {
+                          const locAreas = newLocation.areas || (newLocation.area ? [newLocation.area] : []);
+                          setShowEditLocationDialog(false);
+                          setMapMode('favorites');
+                          setMapFavArea(locAreas[0] || null);
+                          setMapFocusPlace({ id: editingLocation?.id, lat: newLocation.lat, lng: newLocation.lng, name: newLocation.name });
+                          setMapFavFilter(new Set());
+                          setMapBottomSheet(null);
+                          setShowMapModal(true);
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-purple-300 bg-purple-50 text-purple-600 cursor-pointer hover:bg-purple-100"
+                      >📍</button>
+                    )}
                   </div>
-                  
-                  {/* Google Place Info Results */}
                   {googlePlaceInfo && !googlePlaceInfo.notFound && (
                     <div className="text-xs space-y-1 bg-white rounded p-2 border border-indigo-200" style={{ direction: 'ltr' }}>
                       <div>
@@ -10070,6 +10452,18 @@ const FouFouApp = () => {
                     </div>
                   )}
 
+                  {/* Metadata row — addedBy + addedAt (editor/admin only) */}
+                  {isUnlocked && showEditLocationDialog && editingLocation && (editingLocation.addedBy || editingLocation.addedAt) && (
+                    <div style={{ fontSize: '10px', color: '#9ca3af', padding: '4px 0', borderTop: '1px solid #e5e7eb', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {editingLocation.addedBy && (() => {
+                        const addedUser = allUsers.find(u => u.uid === editingLocation.addedBy);
+                        return <span>👤 {addedUser ? (addedUser.name || addedUser.email || editingLocation.addedBy.slice(0,8)) : editingLocation.addedBy.slice(0,8)}</span>;
+                      })()}
+                      {editingLocation.addedAt && <span>📅 {new Date(editingLocation.addedAt).toLocaleDateString()}</span>}
+                      {editingLocation.fromGoogle && <span>🔍 Google</span>}
+                    </div>
+                  )}
+
                   {/* Row 2: Skip + Delete (edit mode only) */}
                   {showEditLocationDialog && editingLocation && !(editingLocation.locked && !isUnlocked) && (
                     <div className="flex gap-1.5 pt-1 border-t border-gray-200">
@@ -10096,6 +10490,8 @@ const FouFouApp = () => {
                           🚫 {t('route.skipPermanently')}
                         </button>
                       )}
+                      {/* Delete — only creator (if unlocked), editor (if unlocked), or admin */}
+                      {(isAdmin || (isEditor && !editingLocation.locked) || (editingLocation.addedBy && editingLocation.addedBy === authUser?.uid && !editingLocation.locked)) && (
                       <button
                         onClick={() => {
                           showConfirm(`${t("general.deletePlace")} "${editingLocation.name}"?`, () => {
@@ -10108,6 +10504,7 @@ const FouFouApp = () => {
                       >
                         🗑️ {t("general.deletePlace")}
                       </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -10299,9 +10696,23 @@ const FouFouApp = () => {
                     )}
                   </div>
                 </div>
+                {/* Color override for map markers — admin only */}
+                {isUnlocked && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                    <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#6b7280' }}>🎨</span>
+                    <input
+                      type="color"
+                      value={newInterest.color || window.BKK.getInterestColor(newInterest.id || '', window.BKK.interestOptions || [])}
+                      onChange={e => setNewInterest({...newInterest, color: e.target.value})}
+                      style={{ width: '28px', height: '22px', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer', padding: 0 }}
+                    />
+                    {newInterest.color && (
+                      <button onClick={() => setNewInterest({...newInterest, color: ''})}
+                        style={{ fontSize: '9px', color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer' }}>✕ auto</button>
+                    )}
+                  </div>
+                )}
                 </div>{/* close inner wrapper */}
-
-                {/* Scope (all interests) */}
                 <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-2">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-purple-800">🌍</span>
@@ -10657,7 +11068,10 @@ const FouFouApp = () => {
                       >
                         {interestStatus[editingCustomInterest.id] === false ? t('general.enable') : t('general.disable')}
                       </button>
-                      {(!newInterest.builtIn || isUnlocked) && (
+                      {(!newInterest.builtIn || isUnlocked) && (() => {
+                        const inUseCount = customLocations.filter(loc => (loc.interests || []).includes(editingCustomInterest?.id)).length;
+                        const canDelete = isAdmin || inUseCount === 0;
+                        return canDelete ? (
                         <button
                           onClick={() => {
                             const msg = newInterest.builtIn 
@@ -10681,7 +11095,12 @@ const FouFouApp = () => {
                         >
                           🗑️ {t("general.deleteInterest")}
                         </button>
-                      )}
+                        ) : (
+                        <div className="flex-1 py-2 bg-gray-200 text-gray-500 rounded-lg text-xs font-bold text-center" title={`${inUseCount} ${t('route.places')}`}>
+                          🔗 {t('auth.inUseBy') || `בשימוש ${inUseCount} מקומות`}
+                        </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}
@@ -10732,6 +11151,7 @@ const FouFouApp = () => {
                               configData.labelEnOverride = (newInterest.labelEn || '').trim();
                               configData.iconOverride = newInterest.icon || '';
                               configData.locked = newInterest.locked || false;
+                              if (newInterest.color) configData.color = newInterest.color;
                             }
                             if (isFirebaseAvailable && database) {
                               database.ref(`settings/interestConfig/${interestId}`).set(configData);
@@ -10755,7 +11175,8 @@ const FouFouApp = () => {
                               maxStops: newInterest.maxStops || 10,
                               routeSlot: newInterest.routeSlot || 'any',
                               minGap: newInterest.minGap || 1,
-                              bestTime: newInterest.bestTime || 'anytime', dedupRelated: newInterest.dedupRelated || []
+                              bestTime: newInterest.bestTime || 'anytime', dedupRelated: newInterest.dedupRelated || [],
+                              ...(newInterest.color ? { color: newInterest.color } : {})
                             };
                             delete updatedInterest.builtIn;
                             
@@ -10805,7 +11226,8 @@ const FouFouApp = () => {
                               maxStops: newInterest.maxStops || 10,
                               routeSlot: newInterest.routeSlot || 'any',
                               minGap: newInterest.minGap || 1,
-                              bestTime: newInterest.bestTime || 'anytime', dedupRelated: newInterest.dedupRelated || []
+                              bestTime: newInterest.bestTime || 'anytime', dedupRelated: newInterest.dedupRelated || [],
+                              ...(newInterest.color ? { color: newInterest.color } : {})
                           };
                           
                           setShowAddInterestDialog(false);
@@ -12585,6 +13007,181 @@ const FouFouApp = () => {
             </div>
           </div>
         );})()}
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* LOGIN DIALOG */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {showLoginDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)', padding: '16px' }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full" style={{ maxWidth: '380px', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
+            {/* Header */}
+            <div style={{ padding: '20px 20px 12px', textAlign: 'center' }}>
+              <div style={{ fontSize: '28px', marginBottom: '4px' }}>🐾</div>
+              <h3 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>FouFou</h3>
+              <p style={{ fontSize: '12px', color: '#6b7280', margin: '4px 0 0' }}>{t('auth.loginSubtitle') || 'התחבר כדי לשמור את ההתקדמות שלך'}</p>
+            </div>
+
+            {authUser ? (
+              /* Already signed in — show profile */
+              <div style={{ padding: '0 20px 20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#f0fdf4', borderRadius: '12px', marginBottom: '12px', border: '1px solid #bbf7d0' }}>
+                  {authUser.photoURL && <img src={authUser.photoURL} alt="" style={{ width: '40px', height: '40px', borderRadius: '50%' }} />}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{authUser.displayName || authUser.email || (t('auth.anonymous') || 'אנונימי')}</div>
+                    {authUser.email && <div style={{ fontSize: '11px', color: '#6b7280' }}>{authUser.email}</div>}
+                    <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '2px' }}>
+                      {userRole === 2 ? '👑 Admin' : userRole === 1 ? '✏️ Editor' : '👤 ' + (t('auth.regular') || 'משתמש')}
+                    </div>
+                  </div>
+                </div>
+                {authUser.isAnonymous && (
+                  <div style={{ padding: '10px', background: '#fef3c7', borderRadius: '8px', marginBottom: '10px', border: '1px solid #fbbf24' }}>
+                    <div style={{ fontSize: '11px', color: '#92400e', marginBottom: '6px' }}>{t('auth.anonWarning') || '⚠️ חשבון אנונימי — אם תנקה cache הנתונים יאבדו. קשר לחשבון Google כדי לשמור.'}</div>
+                    <button onClick={authLinkAnonymousToGoogle}
+                      style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #f59e0b', background: 'white', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', color: '#92400e' }}>
+                      🔗 {t('auth.linkGoogle') || 'קשר לחשבון Google'}
+                    </button>
+                  </div>
+                )}
+                <button onClick={authSignOut}
+                  style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid #fca5a5', background: '#fef2f2', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', color: '#dc2626' }}>
+                  🚪 {t('auth.signOut') || 'התנתק'}
+                </button>
+                {/* Role Impersonation — real admin only */}
+                {isRealAdmin && (
+                  <div style={{ marginTop: '10px', padding: '10px', background: '#faf5ff', borderRadius: '8px', border: '1px solid #e9d5ff' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#7c3aed', marginBottom: '6px' }}>🎭 Test as different role:</div>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      {[
+                        { role: null, label: '👑 Admin', desc: 'Real' },
+                        { role: 1, label: '✏️ Editor', desc: '' },
+                        { role: 0, label: '👤 Regular', desc: '' }
+                      ].map(opt => {
+                        const isActive = roleOverride === opt.role;
+                        return (
+                          <button key={String(opt.role)}
+                            onClick={() => { setRoleOverride(opt.role); setShowLoginDialog(false); showToast(`🎭 ${opt.label}`, 'info'); }}
+                            style={{ flex: 1, padding: '6px 4px', borderRadius: '6px', border: isActive ? '2px solid #7c3aed' : '1px solid #d1d5db', background: isActive ? '#ede9fe' : 'white', fontSize: '11px', fontWeight: isActive ? 'bold' : 'normal', cursor: 'pointer', color: isActive ? '#7c3aed' : '#6b7280' }}>
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Not signed in — show login options */
+              <div style={{ padding: '0 20px 20px' }}>
+                {/* Google Sign-In */}
+                <button onClick={authSignInGoogle}
+                  style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #d1d5db', background: 'white', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                  {t('auth.continueGoogle') || 'המשך עם Google'}
+                </button>
+
+                {/* Divider */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '12px 0' }}>
+                  <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }}></div>
+                  <span style={{ fontSize: '11px', color: '#9ca3af' }}>{t('auth.or') || 'או'}</span>
+                  <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }}></div>
+                </div>
+
+                {/* Email login */}
+                <div style={{ marginBottom: '8px' }}>
+                  <input type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder={t('auth.email') || 'אימייל'}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '13px', marginBottom: '6px', boxSizing: 'border-box' }} />
+                  <input type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder={t('auth.password') || 'סיסמה'}
+                    onKeyDown={e => { if (e.key === 'Enter') authSignInEmail(); }}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '13px', boxSizing: 'border-box' }} />
+                </div>
+                <button onClick={authSignInEmail}
+                  style={{ width: '100%', padding: '10px', borderRadius: '10px', border: 'none', background: '#3b82f6', color: 'white', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', marginBottom: '4px' }}>
+                  📧 {loginMode === 'register' ? (t('auth.register') || 'הרשם') : (t('auth.signIn') || 'התחבר')}
+                </button>
+                <button onClick={() => setLoginMode(loginMode === 'login' ? 'register' : 'login')}
+                  style={{ width: '100%', padding: '4px', background: 'none', border: 'none', fontSize: '11px', color: '#3b82f6', cursor: 'pointer', textDecoration: 'underline' }}>
+                  {loginMode === 'register' ? (t('auth.haveAccount') || 'כבר יש חשבון? התחבר') : (t('auth.noAccount') || 'אין חשבון? הירשם')}
+                </button>
+
+                {/* Error */}
+                {loginError && (
+                  <div style={{ marginTop: '8px', padding: '8px', background: '#fef2f2', borderRadius: '8px', border: '1px solid #fca5a5', fontSize: '11px', color: '#dc2626' }}>
+                    ⚠️ {loginError}
+                  </div>
+                )}
+
+                {/* Divider */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '12px 0' }}>
+                  <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }}></div>
+                  <span style={{ fontSize: '11px', color: '#9ca3af' }}>{t('auth.orSkip') || 'או'}</span>
+                  <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }}></div>
+                </div>
+
+                {/* Anonymous */}
+                <button onClick={authSignInAnonymous}
+                  style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid #d1d5db', background: '#f9fafb', fontSize: '12px', cursor: 'pointer', color: '#6b7280' }}>
+                  👻 {t('auth.continueAnonymous') || 'המשך בלי חשבון'}
+                </button>
+              </div>
+            )}
+
+            {/* Close */}
+            <div style={{ padding: '0 20px 16px', textAlign: 'center' }}>
+              <button onClick={() => { setShowLoginDialog(false); setLoginError(''); }}
+                style={{ background: 'none', border: 'none', fontSize: '12px', color: '#9ca3af', cursor: 'pointer' }}>
+                {t('general.close')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* USER MANAGEMENT DIALOG (Admin Only) */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {showUserManagement && isRealAdmin && (() => {
+        const roleLabels = ['👤 Regular', '✏️ Editor', '👑 Admin'];
+        const roleColors = ['#6b7280', '#7c3aed', '#dc2626'];
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)', padding: '12px' }}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full" style={{ maxWidth: '500px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', direction: 'ltr' }}>
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ fontWeight: 'bold', fontSize: '16px', margin: 0 }}>👥 User Management</h3>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={authLoadAllUsers} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #d1d5db', background: '#f3f4f6', cursor: 'pointer' }}>🔄</button>
+                  <button onClick={() => setShowUserManagement(false)} style={{ fontSize: '16px', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>✕</button>
+                </div>
+              </div>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
+                {allUsers.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '20px', color: '#9ca3af' }}>Loading...</div>
+                ) : allUsers.map(user => (
+                  <div key={user.uid} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderBottom: '1px solid #f3f4f6' }}>
+                    {user.photo && <img src={user.photo} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%' }} />}
+                    {!user.photo && <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>👤</div>}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 'bold', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name || user.email || user.uid.slice(0,12)}</div>
+                      <div style={{ fontSize: '10px', color: '#9ca3af' }}>{user.email || 'anonymous'} · {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : '?'}</div>
+                    </div>
+                    <select value={user.role || 0}
+                      onChange={e => authUpdateUserRole(user.uid, parseInt(e.target.value))}
+                      disabled={user.uid === authUser?.uid}
+                      style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '11px', fontWeight: 'bold', color: roleColors[user.role || 0], cursor: user.uid === authUser?.uid ? 'not-allowed' : 'pointer', opacity: user.uid === authUser?.uid ? 0.5 : 1 }}>
+                      <option value={0}>👤 Regular</option>
+                      <option value={1}>✏️ Editor</option>
+                      <option value={2}>👑 Admin</option>
+                    </select>
+                  </div>
+                ))}
+              </div>
+              <div style={{ padding: '12px 16px', borderTop: '1px solid #e5e7eb', fontSize: '10px', color: '#9ca3af', textAlign: 'center' }}>
+                {allUsers.length} users · You cannot change your own role
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
 
 

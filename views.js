@@ -147,17 +147,13 @@
               <button
                 key={item.view}
                 onClick={() => {
-                  if (item.view === 'settings' && !isUnlocked) {
-                    if (!adminPassword) {
-                      setCurrentView('settings');
-                    } else {
-                      setShowVersionPasswordDialog(true);
-                      setShowHeaderMenu(false);
-                      return;
-                    }
-                  } else {
-                    setCurrentView(item.view);
+                  if (item.view === 'settings' && !isAdmin) {
+                    // Only admin can access settings
+                    showToast(t('auth.needAdmin') || 'נדרשת הרשאת מנהל', 'warning');
+                    setShowHeaderMenu(false);
+                    return;
                   }
+                  setCurrentView(item.view);
                   setShowHeaderMenu(false);
                   window.scrollTo(0, 0);
                 }}
@@ -174,6 +170,35 @@
                 <span>{item.label}{item.count > 0 ? ` (${item.count})` : ''}</span>
               </button>
             ))}
+            {/* Divider + Auth button */}
+            <div style={{ height: '1px', background: '#e5e7eb', margin: '4px 8px' }}></div>
+            <button
+              onClick={() => { setShowLoginDialog(true); setShowHeaderMenu(false); }}
+              style={{
+                width: '100%', textAlign: currentLang === 'he' ? 'right' : 'left',
+                background: 'transparent', border: 'none', borderRadius: '8px', padding: '8px 12px',
+                color: '#374151', fontSize: '13px', fontWeight: '500',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'
+              }}
+            >
+              <span style={{ fontSize: '15px' }}>{authUser ? '👤' : '🔑'}</span>
+              <span>{authUser ? (authUser.displayName || authUser.email || (t('auth.anonymous') || 'אנונימי')) : (t('auth.signIn') || 'התחבר')}</span>
+              {authUser && <span style={{ fontSize: '9px', marginRight: 'auto', marginLeft: '4px', padding: '1px 5px', borderRadius: '4px', background: isAdmin ? '#fef2f2' : isEditor ? '#f3e8ff' : '#f3f4f6', color: isAdmin ? '#dc2626' : isEditor ? '#7c3aed' : '#9ca3af' }}>{isAdmin ? 'Admin' : isEditor ? 'Editor' : ''}{roleOverride !== null ? ' 🎭' : ''}</span>}
+            </button>
+            {isRealAdmin && (
+              <button
+                onClick={() => { setShowUserManagement(true); authLoadAllUsers(); setShowHeaderMenu(false); }}
+                style={{
+                  width: '100%', textAlign: currentLang === 'he' ? 'right' : 'left',
+                  background: 'transparent', border: 'none', borderRadius: '8px', padding: '8px 12px',
+                  color: '#374151', fontSize: '13px', fontWeight: '500',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'
+                }}
+              >
+                <span style={{ fontSize: '15px' }}>👥</span>
+                <span>{t('auth.userManagement') || 'ניהול משתמשים'}</span>
+              </button>
+            )}
           </div>
         </>)}
       </div>
@@ -1136,24 +1161,6 @@
                                         </span>
                                       )}
                                       <span>{stop.name}</span>
-                                      {/* Debug info button — admin + debug mode only */}
-                                      {isUnlocked && debugMode && stop._debug && (
-                                        <button
-                                          onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            setStopDebugPopup(stopDebugPopup?.name === stop.name ? null : stop);
-                                          }}
-                                          style={{
-                                            fontSize: '9px', padding: '0 3px', borderRadius: '4px',
-                                            background: stopDebugPopup?.name === stop.name ? '#f59e0b' : '#e5e7eb',
-                                            color: stopDebugPopup?.name === stop.name ? 'white' : '#6b7280',
-                                            border: 'none', cursor: 'pointer', lineHeight: '14px',
-                                            fontWeight: 'bold', flexShrink: 0
-                                          }}
-                                          title="Debug info"
-                                        >i</button>
-                                      )}
                                       {isStartPoint && (
                                         <span className="text-[8px] bg-green-600 text-white px-1 py-0.5 rounded font-bold">{t("general.start")}</span>
                                       )}
@@ -1218,27 +1225,6 @@
                                     })()}
                                   </a>
                                   {/* Debug info popup — admin + debug mode only */}
-                                  {isUnlocked && debugMode && stopDebugPopup?.name === stop.name && stop._debug && (() => {
-                                    const d = stop._debug;
-                                    return (
-                                      <div style={{
-                                        fontSize: '10px', padding: '6px 8px', margin: '4px 0',
-                                        background: '#fffbeb', border: '1px solid #f59e0b', borderRadius: '6px',
-                                        direction: 'ltr', textAlign: 'left', lineHeight: '1.5'
-                                      }}>
-                                        <div style={{ fontWeight: 'bold', color: '#92400e', marginBottom: '2px' }}>
-                                          {d.source === 'custom' ? '📌 Custom' : '🌐 Google'} — {d.interestLabel}
-                                        </div>
-                                        {d.searchType && <div><b>Search:</b> {d.searchType}{d.query ? ` → "${d.query}"` : ''}</div>}
-                                        {d.placeTypes && <div><b>Types:</b> {d.placeTypes.join(', ')}</div>}
-                                        {d.blacklist && d.blacklist.length > 0 && <div><b>Blacklist:</b> {d.blacklist.join(', ')}</div>}
-                                        {d.googleTypes && <div><b>Google types:</b> {d.googleTypes.join(', ')}</div>}
-                                        {d.primaryType && <div><b>Primary:</b> {d.primaryType}</div>}
-                                        {d.rank && <div><b>Rank:</b> {d.rank}/{d.totalFromGoogle}</div>}
-                                        <div><b>Area:</b> {d.area} | <b>Center:</b> {d.center || '-'} | <b>R:</b> {d.radius || '-'}m</div>
-                                      </div>
-                                    );
-                                  })()}
                                   {/* Add to favorites row — Google places only */}
                                   {!isCustom && !isDisabled && (() => {
                                     const existingLoc = customLocations.find(loc => loc.name.toLowerCase().trim() === stop.name.toLowerCase().trim());
@@ -1343,6 +1329,7 @@
                           if (result) showToast(`✦ ${result.optimized.length} ${t('route.stops')}`, 'success');
                         }},
                         { icon: '↗', label: t('general.shareRoute'), action: () => {
+                          if (!authUser || authUser.isAnonymous) { setShowLoginDialog(true); return; }
                           setShowRouteMenu(false);
                           if (!route?.optimized) return;
                           const activeStops = (route.stops || []).filter(s => {
@@ -1363,7 +1350,8 @@
                           if (navigator.share) { navigator.share({ title: routeName, text: shareText }); }
                           else { navigator.clipboard.writeText(shareText); showToast(t('route.routeCopied'), 'success'); }
                         }, disabled: !route?.optimized },
-                        { icon: route.name ? '✓' : '⬇', label: route.name ? `${t('route.savedAs')} ${route.name}` : t('route.saveRoute'), action: () => {
+                        { icon: route.name ? '✓' : '⬇', label: route.name ? `${t('route.savedAs')} ${route.name}` : ((!authUser || authUser.isAnonymous) ? (t('auth.loginToSave') || 'התחבר כדי לשמור') : t('route.saveRoute')), action: () => {
+                          if (!authUser || authUser.isAnonymous) { setShowLoginDialog(true); return; }
                           setShowRouteMenu(false);
                           if (!route.name && route?.optimized) quickSaveRoute();
                         }, disabled: !route?.optimized || !!route.name },
@@ -1759,6 +1747,12 @@
                       {t("places.byArea")}
                     </button>
                   </div>
+                  {/* Favorites map button */}
+                  <button
+                    onClick={() => { setMapMode('favorites'); setMapFavArea(null); setMapFocusPlace(null); setMapFavFilter(new Set()); setMapBottomSheet(null); setShowMapModal(true); }}
+                    style={{ padding: '2px 8px', borderRadius: '8px', border: '1px solid #c084fc', background: '#f3e8ff', fontSize: '13px', cursor: 'pointer', fontWeight: 'bold', color: '#7c3aed', whiteSpace: 'nowrap' }}
+                    title={t("wizard.showMap")}
+                  >🗺️</button>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: '1', minWidth: '120px', maxWidth: '200px' }}>
                   <input
@@ -1942,6 +1936,11 @@
                                     ))}
                                   </div>
                                 </div>
+                                {(loc.uploadedImage || (loc.imageUrls && loc.imageUrls.length > 0)) && (
+                                  <button onClick={() => { setModalImage(loc.uploadedImage || loc.imageUrls[0]); setShowImageModal(true); }}
+                                    style={{ fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', flexShrink: 0, opacity: 0.6 }}
+                                    title={t("general.viewImage") || "תמונה"}>🖼️</button>
+                                )}
                                 <button onClick={() => handleEditLocation(loc)}
                                   className="text-xs px-1 py-0.5 rounded"
                                   title={canEdit ? t("places.detailsEdit") : t("general.viewOnly")}>{canEdit ? "✏️" : "👁️"}</button>
@@ -1979,6 +1978,11 @@
                                   {!isLocationValid(loc) && <span className="text-red-500 text-[9px]" title={t("places.missingDetails")}>❌</span>}
                                 </div>
                               </div>
+                              {(loc.uploadedImage || (loc.imageUrls && loc.imageUrls.length > 0)) && (
+                                <button onClick={() => { setModalImage(loc.uploadedImage || loc.imageUrls[0]); setShowImageModal(true); }}
+                                  style={{ fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', flexShrink: 0, opacity: 0.6 }}
+                                  title={t("general.viewImage") || "תמונה"}>🖼️</button>
+                              )}
                               <button onClick={() => handleEditLocation(loc)}
                                 className="text-xs px-1 py-0.5 rounded"
                                 title={canEdit ? t("places.detailsEdit") : t("general.viewOnly")}>{canEdit ? "✏️" : "👁️"}</button>
@@ -2014,6 +2018,7 @@
                 >
                   {t("interests.resetToDefault")}
                 </button>
+                {isEditor && (
                 <button
                   onClick={() => {
                     setEditingCustomInterest(null);
@@ -2024,6 +2029,7 @@
                 >
                   {t("interests.addInterest")}
                 </button>
+                )}
               </div>
             </div>
             
@@ -2127,11 +2133,13 @@
                       >
                         {effectiveActive ? t('general.disable') : t('general.enableAlt')}
                       </button>
+                      {isEditor && (
                       <button
                         onClick={() => openInterestDialog(interest, isCustom)}
                         className="text-xs px-1 py-0.5 rounded flex-shrink-0"
                         title={interest.locked && !isUnlocked ? t("general.viewOnly") : t("places.detailsEdit")}
                       >{interest.locked && !isUnlocked ? '👁️' : '✏️'}</button>
+                      )}
                     </div>
                   </div>
                 );
@@ -2235,7 +2243,7 @@
         )}
 
         {/* Settings View - Compact Design */}
-        {currentView === 'settings' && (
+        {currentView === 'settings' && isAdmin && (
           <div className="view-fade-in bg-white rounded-xl shadow-lg p-3">
             <div className="flex items-center gap-2 mb-3">
               <h2 className="text-lg font-bold">{t("settings.title")}</h2>
@@ -2262,7 +2270,7 @@
                   settingsTab === 'general' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >{`⚙️ ${t('settings.generalSettings')}`}</button>
-              {isUnlocked && (
+              {isAdmin && (
               <button
                 onClick={() => setSettingsTab('sysparams')}
                 className={`flex-1 py-2 rounded-lg font-bold text-sm transition ${
@@ -3255,7 +3263,7 @@
             </div>)}
 
             {/* ===== SYSTEM PARAMS TAB ===== */}
-            {settingsTab === 'sysparams' && isUnlocked && (<div>
+            {settingsTab === 'sysparams' && isAdmin && (<div>
             {(() => {
               const sections = [
                 { title: t('sysParams.sectionApp'), icon: '📱', color: '#3b82f6', params: [
@@ -3433,9 +3441,9 @@
             <span style={{ color: '#d1d5db', fontSize: '9px' }}>·</span>
             <span 
               style={{ fontSize: '9px', color: '#9ca3af', cursor: 'default', userSelect: 'none' }}
-              onTouchStart={(e) => { e.currentTarget._lp = setTimeout(() => { if (isUnlocked) { setCurrentView('settings'); } else { setShowVersionPasswordDialog(true); } }, 2000); }}
+              onTouchStart={(e) => { e.currentTarget._lp = setTimeout(() => { if (isAdmin) { setCurrentView('settings'); } else { setShowLoginDialog(true); } }, 2000); }}
               onTouchEnd={(e) => { clearTimeout(e.currentTarget._lp); }}
-              onMouseDown={(e) => { e.currentTarget._lp = setTimeout(() => { if (isUnlocked) { setCurrentView('settings'); } else { setShowVersionPasswordDialog(true); } }, 2000); }}
+              onMouseDown={(e) => { e.currentTarget._lp = setTimeout(() => { if (isAdmin) { setCurrentView('settings'); } else { setShowLoginDialog(true); } }, 2000); }}
               onMouseUp={(e) => { clearTimeout(e.currentTarget._lp); }}
               onMouseLeave={(e) => { clearTimeout(e.currentTarget._lp); }}
             >v{window.BKK.VERSION}</span>
@@ -3450,27 +3458,27 @@
 
       {/* Leaflet Map Modal */}
       {showMapModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)', padding: mapMode === 'stops' ? '0' : '12px' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)', padding: (mapMode === 'stops' || mapMode === 'favorites') ? '0' : '12px' }}>
           <div className="bg-white shadow-2xl w-full" style={{ 
-            maxWidth: mapMode === 'stops' ? '100%' : '42rem',
-            maxHeight: mapMode === 'stops' ? '100%' : '90vh',
-            height: mapMode === 'stops' ? '100%' : 'auto',
-            borderRadius: mapMode === 'stops' ? '0' : '12px',
+            maxWidth: (mapMode === 'stops' || mapMode === 'favorites') ? '100%' : '42rem',
+            maxHeight: (mapMode === 'stops' || mapMode === 'favorites') ? '100%' : '90vh',
+            height: (mapMode === 'stops' || mapMode === 'favorites') ? '100%' : 'auto',
+            borderRadius: (mapMode === 'stops' || mapMode === 'favorites') ? '0' : '12px',
             display: 'flex', flexDirection: 'column'
           }}>
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b">
               <button
-                onClick={() => { setShowMapModal(false); setMapUserLocation(null); setMapSkippedStops(new Set()); }}
+                onClick={() => { setShowMapModal(false); setMapUserLocation(null); setMapSkippedStops(new Set()); setMapBottomSheet(null); setShowFavMapFilter(false); setMapFavFilter(new Set()); setMapFavArea(null); setMapFocusPlace(null); }}
                 className="text-gray-400 hover:text-gray-600 text-lg font-bold"
               >✕</button>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-sm">
-                  {mapMode === 'areas' ? t('wizard.allAreasMap') : mapMode === 'stops' ? `${t('route.showStopsOnMap')} (${mapStops.length})` : t('form.searchRadius')}
+                  {mapMode === 'areas' ? t('wizard.allAreasMap') : mapMode === 'stops' ? `${t('route.showStopsOnMap')} (${mapStops.length})` : mapMode === 'favorites' ? `⭐ ${t('nav.favorites')}` : t('form.searchRadius')}
                 </h3>
                 {mapMode === 'stops' && (<button onClick={() => showHelpFor('mapPlanning')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', textDecoration: 'underline' }}>{t('general.help')}</button>)}
               </div>
-              {mapMode !== 'stops' && (
+              {mapMode !== 'stops' && mapMode !== 'favorites' && (
               <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
                 <button
                   onClick={() => setMapMode('areas')}
@@ -3493,9 +3501,273 @@
                 >{`📍 ${t("form.radiusMode")}`}</button>
               </div>
               )}
+              {mapMode === 'favorites' && (() => {
+                const activeCount = customLocations.filter(loc => {
+                  if (loc.status === 'blacklist' || !loc.lat || !loc.lng) return false;
+                  if (window.BKK.systemParams?.showDraftsOnMap === false && !loc.locked) return false;
+                  if (mapFavArea) { const la = loc.areas || (loc.area ? [loc.area] : []); if (!la.includes(mapFavArea)) return false; }
+                  if (mapFavFilter.size > 0) { if (!(loc.interests || []).some(i => mapFavFilter.has(i))) return false; }
+                  return true;
+                }).length;
+                const areaLabel = mapFavArea ? tLabel((window.BKK.areaOptions || []).find(a => a.id === mapFavArea)) : '';
+                return (
+                  <span style={{ fontSize: '10px', color: '#9ca3af', fontWeight: 'normal' }}>
+                    {activeCount} {t('nav.favorites')}{areaLabel ? ` · ${areaLabel}` : ''}{mapFavFilter.size > 0 ? ` · ${mapFavFilter.size} ${t('general.interests') || 'תחומים'}` : ''}
+                  </span>
+                );
+              })()}
             </div>
-            <div id="leaflet-map-container" style={{ flex: 1, minHeight: mapMode === 'stops' ? '0' : '350px', maxHeight: mapMode === 'stops' ? 'none' : '70vh' }}></div>
+            {/* Map container with floating elements */}
+            <div style={{ flex: 1, position: 'relative', minHeight: (mapMode === 'stops' || mapMode === 'favorites') ? '0' : '350px', maxHeight: (mapMode === 'stops' || mapMode === 'favorites') ? 'none' : '70vh' }}>
+              <div id="leaflet-map-container" style={{ width: '100%', height: '100%' }}></div>
+              {/* Floating filter button — favorites mode */}
+              {mapMode === 'favorites' && !showFavMapFilter && (
+                <button
+                  onClick={() => setShowFavMapFilter(true)}
+                  style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 1000, padding: '8px 14px', borderRadius: '20px', background: (mapFavFilter.size > 0 || mapFavArea) ? '#7c3aed' : 'white', color: (mapFavFilter.size > 0 || mapFavArea) ? 'white' : '#374151', border: '2px solid ' + ((mapFavFilter.size > 0 || mapFavArea) ? '#7c3aed' : '#d1d5db'), boxShadow: '0 2px 10px rgba(0,0,0,0.2)', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                >🔍 {t('general.filter') || 'סינון'}{(mapFavFilter.size > 0 || mapFavArea) ? ' ●' : ''}</button>
+              )}
+              {/* Legend button — favorites mode */}
+              {mapMode === 'favorites' && !showFavMapFilter && (
+                <button
+                  onClick={() => showHelpFor('favoritesMap')}
+                  style={{ position: 'absolute', top: '12px', left: '12px', zIndex: 1000, width: '34px', height: '34px', borderRadius: '50%', background: 'white', border: '2px solid #d1d5db', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', fontSize: '15px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  title={t('general.help')}
+                >❓</button>
+              )}
+              {/* Filter dialog overlay — favorites mode */}
+              {mapMode === 'favorites' && showFavMapFilter && (() => {
+                const allInts = window.BKK.interestOptions || [];
+                const usedInterests = new Set();
+                customLocations.forEach(loc => { if (loc.lat && loc.lng && loc.status !== 'blacklist') (loc.interests || []).forEach(i => usedInterests.add(i)); });
+                const relevant = allInts.filter(i => usedInterests.has(i.id));
+                const areas = window.BKK.areaOptions || [];
+                // Count per area
+                const areaCounts = {};
+                customLocations.forEach(loc => {
+                  if (!loc.lat || !loc.lng || loc.status === 'blacklist') return;
+                  (loc.areas || [loc.area]).filter(Boolean).forEach(a => { areaCounts[a] = (areaCounts[a] || 0) + 1; });
+                });
+                return (
+                  <div style={{ position: 'absolute', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+                    onClick={() => { setShowFavMapFilter(false); setMapFavFilter(new Set(mapFavFilter)); /* force refresh */ }}>
+                    <div style={{ width: '100%', maxWidth: '500px', maxHeight: '80vh', background: 'white', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 30px rgba(0,0,0,0.2)', overflow: 'hidden', direction: 'rtl' }}
+                      onClick={e => e.stopPropagation()}>
+                      {/* Filter header */}
+                      <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 'bold', fontSize: '15px' }}>🔍 {t('general.filter') || 'סינון מפה'}</span>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button onClick={() => { setMapFavFilter(new Set()); setMapFavArea(null); setMapFocusPlace(null); }}
+                            style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #d1d5db', background: '#f3f4f6', cursor: 'pointer', fontWeight: 'bold', color: '#6b7280' }}>{t('general.clearAll') || 'נקה הכל'}</button>
+                          <button onClick={() => { setShowFavMapFilter(false); setMapFavFilter(new Set(mapFavFilter)); }}
+                            style={{ fontSize: '15px', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>✕</button>
+                        </div>
+                      </div>
+                      <div style={{ padding: '12px 16px', overflowY: 'auto', maxHeight: '60vh' }}>
+                        {/* Area filter */}
+                        <div style={{ marginBottom: '14px' }}>
+                          <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', color: '#374151' }}>📍 {t('general.areas')}</div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                            <button onClick={() => { setMapFavArea(null); setMapFocusPlace(null); }}
+                              style={{ padding: '4px 10px', borderRadius: '8px', border: !mapFavArea ? '2px solid #3b82f6' : '1px solid #d1d5db', background: !mapFavArea ? '#dbeafe' : 'white', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', color: !mapFavArea ? '#1e40af' : '#6b7280' }}>{t('general.allCity') || 'הכל'}</button>
+                            {areas.map(a => {
+                              const cnt = areaCounts[a.id] || 0;
+                              const isSel = mapFavArea === a.id;
+                              return (
+                                <button key={a.id} onClick={() => { setMapFavArea(isSel ? null : a.id); setMapFocusPlace(null); }}
+                                  style={{ padding: '4px 8px', borderRadius: '8px', border: isSel ? '2px solid #3b82f6' : '1px solid #d1d5db', background: isSel ? '#dbeafe' : 'white', fontSize: '11px', fontWeight: isSel ? 'bold' : 'normal', cursor: 'pointer', color: isSel ? '#1e40af' : '#374151', opacity: cnt === 0 ? 0.4 : 1 }}>
+                                  {tLabel(a)} <span style={{ fontSize: '9px', color: '#9ca3af' }}>({cnt})</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        {/* Interest filter */}
+                        <div style={{ marginBottom: '14px' }}>
+                          <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', color: '#374151' }}>🎨 {t('general.interests') || 'תחומים'}</div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                            <button onClick={() => setMapFavFilter(new Set())}
+                              style={{ padding: '4px 10px', borderRadius: '8px', border: mapFavFilter.size === 0 ? '2px solid #7c3aed' : '1px solid #d1d5db', background: mapFavFilter.size === 0 ? '#f3e8ff' : 'white', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', color: mapFavFilter.size === 0 ? '#7c3aed' : '#6b7280' }}>{t('general.all') || 'הכל'}</button>
+                            {relevant.map(int => {
+                              const color = window.BKK.getInterestColor(int.id, allInts);
+                              const isOn = mapFavFilter.size === 0 || mapFavFilter.has(int.id);
+                              return (
+                                <button key={int.id}
+                                  onClick={() => {
+                                    if (mapFavFilter.size === 0) { setMapFavFilter(new Set([int.id])); }
+                                    else if (mapFavFilter.has(int.id) && mapFavFilter.size === 1) { setMapFavFilter(new Set()); }
+                                    else if (mapFavFilter.has(int.id)) { const n = new Set(mapFavFilter); n.delete(int.id); setMapFavFilter(n); }
+                                    else { setMapFavFilter(new Set([...mapFavFilter, int.id])); }
+                                  }}
+                                  style={{ padding: '4px 8px', borderRadius: '8px', border: `2px solid ${isOn ? color : '#e5e7eb'}`, background: isOn ? color + '15' : '#f9fafb', fontSize: '11px', cursor: 'pointer', opacity: isOn ? 1 : 0.4, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                  <span style={{ fontSize: '14px' }}>{int.icon}</span>
+                                  <span style={{ fontWeight: isOn ? 'bold' : 'normal', color: isOn ? color : '#9ca3af' }}>{tLabel(int)}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        {/* Status filter */}
+                        <div style={{ marginBottom: '14px' }}>
+                          <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', color: '#374151' }}>📋 {t('general.status') || 'סטטוס'}</div>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', cursor: 'pointer' }}>
+                              <input type="checkbox" checked={window.BKK.systemParams?.showDraftsOnMap !== false}
+                                onChange={e => { window.BKK.systemParams.showDraftsOnMap = e.target.checked; setMapFavFilter(new Set(mapFavFilter)); }}
+                                style={{ accentColor: '#7c3aed' }} />
+                              {t('places.showDrafts') || 'הצג טיוטות'}
+                            </label>
+                          </div>
+                        </div>
+                        {/* Place search/focus */}
+                        <div style={{ marginBottom: '14px' }}>
+                          <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', color: '#374151' }}>🔎 {t('places.searchPlace') || 'חפש מקום'}</div>
+                          {(() => {
+                            const sd = window.BKK.systemParams?.showDraftsOnMap !== false;
+                            const searchable = customLocations.filter(l => l.lat && l.lng && l.status !== 'blacklist' && (sd || l.locked));
+                            return (
+                              <div>
+                                <input
+                                  type="text"
+                                  placeholder={t('places.searchPlaceholder') || 'הקלד שם מקום...'}
+                                  id="fav-map-place-search"
+                                  onChange={e => {
+                                    const q = e.target.value.trim().toLowerCase();
+                                    const list = document.getElementById('fav-map-place-results');
+                                    if (list) list.style.display = q.length >= 2 ? 'block' : 'none';
+                                    if (list) {
+                                      const items = list.querySelectorAll('[data-name]');
+                                      items.forEach(item => {
+                                        item.style.display = item.dataset.name.toLowerCase().includes(q) ? 'block' : 'none';
+                                      });
+                                    }
+                                  }}
+                                  style={{ width: '100%', padding: '6px 10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '12px', marginBottom: '4px' }}
+                                />
+                                <div id="fav-map-place-results" style={{ display: 'none', maxHeight: '120px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px', background: '#fafafa' }}>
+                                  {searchable.map(loc => {
+                                    const pi = (loc.interests || [])[0];
+                                    const color = pi ? window.BKK.getInterestColor(pi, allInts) : '#9ca3af';
+                                    return (
+                                      <button key={loc.id || loc.name} data-name={loc.name}
+                                        onClick={() => {
+                                          setMapFocusPlace({ id: loc.id, lat: loc.lat, lng: loc.lng, name: loc.name });
+                                          setShowFavMapFilter(false);
+                                          setMapFavFilter(new Set(mapFavFilter)); // force refresh
+                                        }}
+                                        style={{ display: 'block', width: '100%', textAlign: 'right', padding: '5px 10px', border: 'none', borderBottom: '1px solid #f3f4f6', background: 'none', cursor: 'pointer', fontSize: '11px' }}>
+                                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: color, display: 'inline-block', marginLeft: '4px' }}></span>
+                                        {loc.name}
+                                        {loc.locked && <span style={{ fontSize: '8px', color: '#16a34a', marginRight: '4px' }}>✅</span>}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                                {mapFocusPlace && (
+                                  <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 8px', background: '#fef3c7', borderRadius: '6px', border: '1px solid #fbbf24' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: 'bold', flex: 1 }}>📍 {mapFocusPlace.name}</span>
+                                    <button onClick={() => { setMapFocusPlace(null); }}
+                                      style={{ fontSize: '10px', background: 'none', border: 'none', cursor: 'pointer', color: '#92400e' }}>✕</button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                        {/* Color legend */}
+                        <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '10px' }}>
+                          <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', color: '#374151' }}>🎨 {t('general.legend') || 'מקרא צבעים'}</div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {relevant.map(int => {
+                              const color = window.BKK.getInterestColor(int.id, allInts);
+                              return (
+                                <div key={int.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}>
+                                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: color, display: 'inline-block', border: '1px solid ' + color }}></span>
+                                  <span style={{ color: '#6b7280' }}>{int.icon} {tLabel(int)}</span>
+                                </div>
+                              );
+                            })}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}>
+                              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#9ca3af', display: 'inline-block', opacity: 0.5 }}></span>
+                              <span style={{ color: '#9ca3af' }}>{t('places.draft') || 'טיוטה'} ({t('general.transparent') || 'שקוף'})</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}>
+                              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#3b82f6', display: 'inline-block' }}></span>
+                              <span style={{ color: '#9ca3af' }}>📍 {t('form.currentLocation')}</span>
+                            </div>
+                          </div>
+                        </div>
+                        {/* Tip text */}
+                        <div style={{ marginTop: '12px', padding: '8px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+                          <div style={{ fontSize: '10px', color: '#166534', lineHeight: 1.5 }}>
+                            💡 <b>{t('general.tip') || 'טיפ'}:</b> {t('map.favTip') || 'ריכוז נקודות באזור מסוים מעיד שהאזור עשיר בתכנים. סנן לפי תחום כדי לראות במה מתאפיין כל אזור ולתכנן מסלול ממוקד.'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+              {/* GPS location button — floating */}
+              {mapMode === 'favorites' && (
+                <button
+                  onClick={() => {
+                    if (mapUserLocation) { setMapUserLocation(null); return; }
+                    if (navigator.geolocation) {
+                      navigator.geolocation.getCurrentPosition(
+                        pos => setMapUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }),
+                        () => showToast('📍 GPS unavailable', 'warning'),
+                        { enableHighAccuracy: true, timeout: 8000 }
+                      );
+                    }
+                  }}
+                  style={{ position: 'absolute', bottom: mapBottomSheet ? '130px' : '16px', right: '12px', zIndex: 1000, width: '40px', height: '40px', borderRadius: '50%', background: mapUserLocation ? '#3b82f6' : 'white', color: mapUserLocation ? 'white' : '#374151', border: '2px solid #d1d5db', boxShadow: '0 2px 8px rgba(0,0,0,0.2)', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  title={t('form.currentLocation')}
+                >📍</button>
+              )}
+              {/* Bottom sheet — favorites mode marker info */}
+              {mapMode === 'favorites' && mapBottomSheet && (() => {
+                const loc = mapBottomSheet;
+                const intLabels = (loc.interests || []).map(i => {
+                  const opt = (window.BKK.interestOptions || []).find(o => o.id === i);
+                  return opt ? (opt.icon + ' ' + tLabel(opt)) : i;
+                }).join(', ');
+                const areaLabels = (loc.areas || [loc.area]).filter(Boolean).map(aId => {
+                  const a = (window.BKK.areaOptions || []).find(o => o.id === aId);
+                  return a ? tLabel(a) : aId;
+                }).join(', ');
+                const hasImg = loc.uploadedImage || (loc.imageUrls && loc.imageUrls.length > 0);
+                const imgSrc = loc.uploadedImage || (loc.imageUrls ? loc.imageUrls[0] : null);
+                return (
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 1000, background: 'white', borderTop: '2px solid #e5e7eb', borderRadius: '12px 12px 0 0', boxShadow: '0 -4px 20px rgba(0,0,0,0.15)', padding: '10px 14px', direction: 'rtl' }}
+                    onClick={e => e.stopPropagation()}>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                      {hasImg && (
+                        <img src={imgSrc} alt=""
+                          onClick={() => { setModalImage(imgSrc); setShowImageModal(true); }}
+                          style={{ width: '56px', height: '56px', borderRadius: '8px', objectFit: 'cover', cursor: 'pointer', flexShrink: 0, border: '1px solid #e5e7eb' }} />
+                      )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '2px' }}>{loc.name}</div>
+                        <div style={{ fontSize: '11px', color: '#6b7280' }}>📍 {areaLabels}</div>
+                        {intLabels && <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '1px' }}>{intLabels}</div>}
+                        {loc.locked && <span style={{ fontSize: '9px', background: '#dcfce7', color: '#166534', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>✅ {t('places.ready') || 'מוכן'}</span>}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                      <button onClick={() => { const u = window.BKK.getGoogleMapsUrl(loc); if (u && u !== '#') window.open(u, '_blank'); }}
+                        style={{ flex: 1, padding: '7px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#f9fafb', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>🗺️ {t('route.navigate') || 'נווט'}</button>
+                      <button onClick={() => { setShowMapModal(false); setMapBottomSheet(null); handleEditLocation(loc); }}
+                        style={{ flex: 1, padding: '7px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#f9fafb', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>✏️ {t('places.detailsEdit') || 'ערוך'}</button>
+                      <button onClick={() => setMapBottomSheet(null)}
+                        style={{ padding: '7px 12px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#f3f4f6', fontSize: '12px', cursor: 'pointer', color: '#6b7280' }}>✕</button>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
             {/* Footer */}
+            {mapMode !== 'favorites' && (
             <div className="border-t" style={{ background: mapMode === 'stops' ? '#f8fafc' : 'white' }}>
               {mapMode === 'stops' ? (
                 <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -3550,6 +3822,7 @@
               </p>
               )}
             </div>
+            )}
           </div>
         </div>
       )}
@@ -3712,5 +3985,22 @@
           </div>
           );
         })()}
+
+        {/* Floating role impersonation badge */}
+        {isRealAdmin && roleOverride !== null && (
+          <div style={{
+            position: 'fixed', bottom: '70px', left: '50%', transform: 'translateX(-50%)',
+            zIndex: 45, background: 'linear-gradient(135deg, #7c3aed, #a855f7)', color: 'white',
+            padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold',
+            boxShadow: '0 4px 12px rgba(124,58,237,0.4)', display: 'flex', alignItems: 'center', gap: '8px',
+            cursor: 'pointer', userSelect: 'none'
+          }}
+            onClick={() => { setRoleOverride(null); showToast('👑 Admin', 'info'); }}
+          >
+            <span>🎭</span>
+            <span>{roleOverride === 0 ? 'Regular' : 'Editor'}</span>
+            <span style={{ fontSize: '10px', opacity: 0.8 }}>tap to exit</span>
+          </div>
+        )}
 
         {/* === DIALOGS (from dialogs.js) === */}

@@ -38,6 +38,196 @@
     };
   };
 
+  // ═══════════════════════════════════════════════════════════════
+  // AUTH STATE — Firebase Authentication + Role-based access
+  // Roles: 0 = regular, 1 = editor, 2 = admin
+  // ═══════════════════════════════════════════════════════════════
+  const [authUser, setAuthUser] = useState(null); // Firebase auth user object
+  const [authLoading, setAuthLoading] = useState(true); // true until onAuthStateChanged fires
+  const [userRole, setUserRole] = useState(0); // 0=regular, 1=editor, 2=admin (real role from Firebase)
+  const [userProfile, setUserProfile] = useState(null); // { name, email, photo, role, cities }
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [showUserManagement, setShowUserManagement] = useState(false);
+  const [allUsers, setAllUsers] = useState([]); // admin only: list of users
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginMode, setLoginMode] = useState('login'); // 'login' | 'register'
+  const [loginError, setLoginError] = useState('');
+  const [roleOverride, setRoleOverride] = useState(null); // null = no override, 0/1/2 = impersonate
+
+  // Effective role: override if set (admin testing), otherwise real role
+  const effectiveRole = (roleOverride !== null && userRole >= 2) ? roleOverride : userRole;
+
+  // Computed role checks use effectiveRole
+  const isEditor = effectiveRole >= 1;
+  const isAdmin = effectiveRole >= 2;
+  // But keep real admin check for impersonation UI itself
+  const isRealAdmin = userRole >= 2;
+  const isUnlocked = isEditor; // backward compat — most old checks mean "can edit content"
+  const setIsUnlocked = () => {}; // noop — role is determined by Firebase Auth
+  const setIsCurrentUserAdmin = () => {}; // noop — role is determined by Firebase Auth
+
+  // ═══════════════════════════════════════════════════════════════
+  // AUTH LISTENER — watches Firebase Auth state changes
+  // ═══════════════════════════════════════════════════════════════
+  useEffect(() => {
+    if (!auth) { setAuthLoading(false); return; }
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      setAuthUser(user);
+      if (user) {
+        console.log('[AUTH] Signed in:', user.email || user.uid.slice(0,8) + '(anonymous)');
+        // Load or create user profile from Firebase
+        try {
+          const snap = await database.ref(`users/${user.uid}`).once('value');
+          let profile = snap.val();
+          if (!profile) {
+            // First login — create profile
+            // Bootstrap: if no users exist yet, make this user admin
+            let initialRole = 0;
+            try {
+              const allUsersSnap = await database.ref('users').once('value');
+              if (!allUsersSnap.val() || Object.keys(allUsersSnap.val()).length === 0) {
+                initialRole = 2; // First user ever = admin
+                console.log('[AUTH] 🎉 First user — granting admin role');
+              }
+            } catch (e) { /* ignore */ }
+            profile = {
+              name: user.displayName || '',
+              email: user.email || '',
+              photo: user.photoURL || '',
+              role: initialRole,
+              cities: [],
+              createdAt: new Date().toISOString(),
+              lastLogin: new Date().toISOString()
+            };
+            await database.ref(`users/${user.uid}`).set(profile);
+            console.log('[AUTH] Created new user profile, role:', initialRole);
+          } else {
+            // Update last login
+            database.ref(`users/${user.uid}/lastLogin`).set(new Date().toISOString());
+            if (user.email && profile.email !== user.email) {
+              database.ref(`users/${user.uid}/email`).set(user.email);
+            }
+          }
+          setUserProfile(profile);
+          setUserRole(profile.role || 0);
+          localStorage.setItem('bangkok_is_admin', (profile.role || 0) >= 2 ? 'true' : 'false');
+        } catch (err) {
+          console.error('[AUTH] Error loading profile:', err);
+          setUserRole(0);
+        }
+      } else {
+        console.log('[AUTH] Signed out');
+        setUserProfile(null);
+        setUserRole(0);
+        localStorage.removeItem('bangkok_is_admin');
+      }
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Auth functions
+  const authSignInGoogle = async () => {
+    if (!auth) return;
+    setLoginError('');
+    try {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      await auth.signInWithPopup(provider);
+      setShowLoginDialog(false);
+    } catch (err) {
+      console.error('[AUTH] Google sign-in error:', err);
+      if (err.code === 'auth/popup-blocked') {
+        // Fallback to redirect
+        try { await auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider()); } catch (e2) { setLoginError(e2.message); }
+      } else {
+        setLoginError(err.message);
+      }
+    }
+  };
+
+  const authSignInEmail = async () => {
+    if (!auth || !loginEmail) return;
+    setLoginError('');
+    try {
+      if (loginMode === 'register') {
+        await auth.createUserWithEmailAndPassword(loginEmail, loginPassword);
+      } else {
+        await auth.signInWithEmailAndPassword(loginEmail, loginPassword);
+      }
+      setShowLoginDialog(false);
+      setLoginEmail(''); setLoginPassword('');
+    } catch (err) {
+      console.error('[AUTH] Email sign-in error:', err);
+      setLoginError(err.code === 'auth/user-not-found' ? (t('auth.userNotFound') || 'משתמש לא קיים. נסה להירשם.') :
+        err.code === 'auth/wrong-password' ? (t('auth.wrongPassword') || 'סיסמה שגויה') :
+        err.code === 'auth/email-already-in-use' ? (t('auth.emailInUse') || 'אימייל כבר רשום. נסה להתחבר.') :
+        err.code === 'auth/weak-password' ? (t('auth.weakPassword') || 'סיסמה חלשה (מינימום 6 תווים)') :
+        err.message);
+    }
+  };
+
+  const authSignInAnonymous = async () => {
+    if (!auth) return;
+    setLoginError('');
+    try {
+      await auth.signInAnonymously();
+      setShowLoginDialog(false);
+    } catch (err) {
+      console.error('[AUTH] Anonymous sign-in error:', err);
+      setLoginError(err.message);
+    }
+  };
+
+  const authSignOut = async () => {
+    if (!auth) return;
+    try {
+      await auth.signOut();
+      setShowLoginDialog(false);
+    } catch (err) {
+      console.error('[AUTH] Sign-out error:', err);
+    }
+  };
+
+  const authLinkAnonymousToGoogle = async () => {
+    if (!auth || !authUser || !authUser.isAnonymous) return;
+    setLoginError('');
+    try {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      await authUser.linkWithPopup(provider);
+      showToast(t('auth.accountLinked') || '✅ החשבון קושר בהצלחה!', 'success');
+    } catch (err) {
+      console.error('[AUTH] Link error:', err);
+      setLoginError(err.message);
+    }
+  };
+
+  const authUpdateUserRole = async (uid, newRole) => {
+    if (!isRealAdmin || !database) return;
+    try {
+      await database.ref(`users/${uid}/role`).set(newRole);
+      // Refresh allUsers if open
+      if (showUserManagement) authLoadAllUsers();
+      showToast(`✅ Role updated to ${['Regular','Editor','Admin'][newRole]}`, 'success');
+    } catch (err) {
+      console.error('[AUTH] Update role error:', err);
+      showToast('❌ ' + err.message, 'error');
+    }
+  };
+
+  const authLoadAllUsers = async () => {
+    if (!isRealAdmin || !database) return;
+    try {
+      const snap = await database.ref('users').once('value');
+      const data = snap.val() || {};
+      const list = Object.entries(data).map(([uid, profile]) => ({ uid, ...profile }));
+      list.sort((a, b) => (b.role || 0) - (a.role || 0) || (a.name || '').localeCompare(b.name || ''));
+      setAllUsers(list);
+    } catch (err) {
+      console.error('[AUTH] Load users error:', err);
+    }
+  };
+
   const [currentView, setCurrentView] = useState('form');
   const [currentLang, setCurrentLang] = useState(() => {
     return window.BKK.i18n.currentLang || 'he';
@@ -302,6 +492,7 @@
       slotPenaltyMultiplier: 3,
       slotEndPenaltyMultiplier: 4,
       gapPenaltyMultiplier: 2,
+      showDraftsOnMap: true,
     };
     window.BKK.systemParams = { ...window.BKK._defaultSystemParams };
   }
@@ -330,6 +521,11 @@
   const [mapStops, setMapStops] = useState([]); // stops to show when mapMode='stops'
   const [mapUserLocation, setMapUserLocation] = useState(null); // { lat, lng } for blue dot on map
   const [mapSkippedStops, setMapSkippedStops] = useState(new Set()); // indices of skipped stops on map
+  const [mapFavFilter, setMapFavFilter] = useState(new Set()); // interest IDs to show (empty=all)
+  const [mapFavArea, setMapFavArea] = useState(null); // area to focus on (null=all)
+  const [mapFocusPlace, setMapFocusPlace] = useState(null); // place to highlight
+  const [mapBottomSheet, setMapBottomSheet] = useState(null); // { name, loc } for bottom sheet
+  const [showFavMapFilter, setShowFavMapFilter] = useState(false); // filter dialog open
   const [startPointCoords, setStartPointCoords] = useState(null); // { lat, lng, address }
   const leafletMapRef = React.useRef(null);
   
@@ -763,6 +959,103 @@
           }
           
           leafletMapRef.current = map;
+        } else if (mapMode === 'favorites') {
+          // ═══════════════════════════════════════════════════════════════
+          // FAVORITES MAP — shows saved places colored by interest
+          // Supports: city overview, area focus, single place highlight
+          // ═══════════════════════════════════════════════════════════════
+          const allInts = window.BKK.interestOptions || [];
+          const showDrafts = window.BKK.systemParams?.showDraftsOnMap !== false;
+          
+          // Filter locations
+          const locs = customLocations.filter(loc => {
+            if (loc.status === 'blacklist') return false;
+            if (!loc.lat || !loc.lng) return false;
+            if (!showDrafts && !loc.locked) return false;
+            if (mapFavArea) {
+              const la = loc.areas || (loc.area ? [loc.area] : []);
+              if (!la.includes(mapFavArea)) return false;
+            }
+            if (mapFavFilter.size > 0) {
+              if (!(loc.interests || []).some(i => mapFavFilter.has(i))) return false;
+            }
+            return true;
+          });
+          
+          // Determine center and zoom
+          let cLat, cLng, defZoom;
+          if (mapFocusPlace && mapFocusPlace.lat) {
+            cLat = mapFocusPlace.lat; cLng = mapFocusPlace.lng; defZoom = 16;
+          } else if (mapFavArea && coords[mapFavArea]) {
+            cLat = coords[mapFavArea].lat; cLng = coords[mapFavArea].lng; defZoom = 14;
+          } else {
+            const cc = window.BKK.selectedCity?.center || { lat: 0, lng: 0 };
+            cLat = cc.lat; cLng = cc.lng; defZoom = 12;
+          }
+          
+          const map = L.map(container).setView([cLat, cLng], defZoom);
+          L.tileLayer(window.BKK.getTileUrl(), { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(map);
+          
+          // Area circles (context)
+          areas.forEach(area => {
+            const c = coords[area.id];
+            if (!c) return;
+            const isActive = !mapFavArea || mapFavArea === area.id;
+            L.circle([c.lat, c.lng], {
+              radius: c.radius, color: isActive ? '#94a3b8' : '#e2e8f0',
+              fillColor: isActive ? '#94a3b8' : '#e2e8f0',
+              fillOpacity: isActive ? 0.07 : 0.02, weight: isActive ? 1.5 : 0.5
+            }).addTo(map);
+            if (isActive || !mapFavArea) {
+              L.marker([c.lat, c.lng], {
+                icon: L.divIcon({
+                  className: '',
+                  html: '<div style="font-size:9px;color:' + (isActive ? '#64748b' : '#cbd5e1') + ';text-align:center;white-space:nowrap;font-weight:' + (isActive ? 'bold' : 'normal') + ';background:rgba(255,255,255,0.7);padding:0 3px;border-radius:3px;">' + tLabel(area) + '</div>',
+                  iconSize: [70, 14], iconAnchor: [35, 7]
+                })
+              }).addTo(map);
+            }
+          });
+          
+          // Place markers
+          const mkrs = [];
+          locs.forEach(loc => {
+            const pi = (loc.interests || [])[0];
+            const color = pi ? window.BKK.getInterestColor(pi, allInts) : '#9ca3af';
+            const isFocused = mapFocusPlace && mapFocusPlace.id === loc.id;
+            const r = isFocused ? 11 : 7;
+            const m = L.circleMarker([loc.lat, loc.lng], {
+              radius: r, color: isFocused ? '#000' : color, fillColor: color,
+              fillOpacity: loc.locked ? 0.9 : 0.5, weight: isFocused ? 3 : (loc.locked ? 2 : 1)
+            }).addTo(map);
+            m.on('click', () => { if (window._favMapSheet) window._favMapSheet(loc); });
+            mkrs.push(m);
+          });
+          
+          // Fit bounds
+          if (!mapFocusPlace && mkrs.length > 1) {
+            if (mapFavArea && coords[mapFavArea]) {
+              map.fitBounds(L.circle([coords[mapFavArea].lat, coords[mapFavArea].lng], { radius: coords[mapFavArea].radius }).getBounds().pad(0.15));
+            } else {
+              map.fitBounds(L.featureGroup(mkrs).getBounds().pad(0.1));
+            }
+          }
+          
+          // User location blue dot
+          if (mapUserLocation && mapUserLocation.lat) {
+            L.circleMarker([mapUserLocation.lat, mapUserLocation.lng], {
+              radius: 7, color: '#2563eb', fillColor: '#3b82f6', fillOpacity: 1, weight: 2
+            }).addTo(map).bindPopup('📍');
+            L.circle([mapUserLocation.lat, mapUserLocation.lng], {
+              radius: mapUserLocation.accuracy || 30, color: '#3b82f6',
+              fillColor: '#3b82f6', fillOpacity: 0.1, weight: 1
+            }).addTo(map);
+          }
+          
+          // Expose callback for bottom sheet
+          window._favMapSheet = (loc) => { setMapBottomSheet(loc); };
+          
+          leafletMapRef.current = map;
         }
       } catch(err) {
         console.error('[MAP]', err);
@@ -770,8 +1063,8 @@
     }, 150);
     }); // end loadLeaflet().then
     
-    return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; delete window._mapRedrawLine; delete window._mapStopsOrderRef; };
-  }, [showMapModal, mapMode, mapStops, mapUserLocation, mapSkippedStops, formData.currentLat, formData.currentLng, formData.radiusMeters]);
+    return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; delete window._mapRedrawLine; delete window._mapStopsOrderRef; delete window._favMapSheet; setMapBottomSheet(null); };
+  }, [showMapModal, mapMode, mapStops, mapUserLocation, mapSkippedStops, mapFavFilter, mapFavArea, mapFocusPlace, customLocations, formData.currentLat, formData.currentLng, formData.radiusMeters]);
   const [modalImage, setModalImage] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -788,9 +1081,7 @@
   
   // Access Log System (Admin Only)
   const [accessStats, setAccessStats] = useState(null); // { total, weekly: { '2026-W08': { IL: 3, TH: 12 } } }
-  const [isCurrentUserAdmin, setIsCurrentUserAdmin] = useState(() => {
-    return localStorage.getItem('bangkok_is_admin') === 'true';
-  });
+  const isCurrentUserAdmin = isRealAdmin; // backward compat — uses real role, not impersonated
 
   // Feedback System
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
@@ -858,18 +1149,17 @@
     } catch(e) { return 130; }
   });
   
-  // Admin System - Password based
-  const [adminPassword, setAdminPassword] = useState('');
+  // Admin System - legacy state kept for backward compat during transition
+  const [adminPassword, setAdminPassword] = useState(''); // legacy, will be removed
   const [adminUsers, setAdminUsers] = useState([]);
-  const [isUnlocked, setIsUnlocked] = useState(false);
-  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false); // legacy
   
   // Refs for current values (needed by map closures to avoid stale state)
   const routeTypeRef = React.useRef(routeType);
   React.useEffect(() => { routeTypeRef.current = routeType; }, [routeType]);
   const startPointCoordsRef = React.useRef(startPointCoords);
   React.useEffect(() => { startPointCoordsRef.current = startPointCoords; }, [startPointCoords]);
-  const [showVersionPasswordDialog, setShowVersionPasswordDialog] = useState(false);
+  const [showVersionPasswordDialog, setShowVersionPasswordDialog] = useState(false); // legacy
   const [showAddCityDialog, setShowAddCityDialog] = useState(false);
   const [addCityInput, setAddCityInput] = useState('');
   const [addCitySearchStatus, setAddCitySearchStatus] = useState(''); // '', 'searching', 'found', 'error', 'generating', 'done'
@@ -894,7 +1184,7 @@
   const [debugSessions, setDebugSessions] = useState(() => {
     try { return JSON.parse(localStorage.getItem('foufou_debug_sessions') || '[]'); } catch { return []; }
   });
-  const [stopDebugPopup, setStopDebugPopup] = useState(null); // { stop, x, y } for popup
+  // Debug popup removed — using floating debug panel instead
   const debugModeRef = useRef(debugMode);
   const debugCategoriesRef = useRef(debugCategories);
   useEffect(() => { debugModeRef.current = debugMode; }, [debugMode]);
@@ -1064,51 +1354,7 @@
     }
   };
 
-  // Get current GPS location and reverse geocode to address
-  const getMyLocation = () => {
-    setIsLocating(true);
-    window.BKK.getValidatedGps(
-      async (position) => {
-        const { latitude: lat, longitude: lng } = position.coords;
-        console.log('[GPS] Got location:', lat, lng);
-        
-        try {
-          const address = await window.BKK.reverseGeocode(lat, lng);
-          const displayAddress = address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-          setStartPointCoords({ lat, lng, address: displayAddress });
-          startPointCoordsRef.current = { lat, lng, address: displayAddress };
-          setFormData(prev => ({ ...prev, startPoint: displayAddress }));
-          showToast(address ? t('form.locationDetectedFull') : t('form.locationDetectedNoAddr'), 'success');
-        } catch (err) {
-          const fallback = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-          setStartPointCoords({ lat, lng, address: fallback });
-          startPointCoordsRef.current = { lat, lng, address: fallback };
-          setFormData(prev => ({ ...prev, startPoint: fallback }));
-          showToast(t('form.locationDetected'), 'success');
-        }
-        setIsLocating(false);
-      },
-      (reason) => {
-        setIsLocating(false);
-        if (reason === 'outside_city') {
-          showToast(t('toast.outsideCity'), 'warning', 'sticky');
-        } else if (reason === 'denied') {
-          showToast(t('toast.locationNoPermission'), 'error', 'sticky');
-        } else {
-          showToast(t('toast.noGpsSignal'), 'error', 'sticky');
-        }
-        // Fall back to stop A as start point
-        if (route && route.stops && route.stops.length > 0) {
-          const firstStop = route.stops.find(s => s.lat && s.lng);
-          if (firstStop) {
-            setStartPointCoords({ lat: firstStop.lat, lng: firstStop.lng, address: firstStop.name });
-            startPointCoordsRef.current = { lat: firstStop.lat, lng: firstStop.lng, address: firstStop.name };
-            setFormData(prev => ({ ...prev, startPoint: firstStop.name }));
-          }
-        }
-      }
-    );
-  };
+
 
   // Geocode typed start point address to coordinates
   const validateStartPoint = async () => {
@@ -1137,45 +1383,7 @@
     setIsLocating(false);
   };
 
-  // Detect which area the user is currently in based on GPS
-  const detectArea = () => {
-    setIsLocating(true);
-    window.BKK.getValidatedGps(
-      (position) => {
-        const { latitude: lat, longitude: lng } = position.coords;
-        const coords = window.BKK.areaCoordinates;
-        
-        let closest = null;
-        let closestDist = Infinity;
-        
-        for (const [areaId, center] of Object.entries(coords)) {
-          const dlat = (lat - center.lat) * 111320;
-          const dlng = (lng - center.lng) * 111320 * Math.cos(lat * Math.PI / 180);
-          const dist = Math.sqrt(dlat * dlat + dlng * dlng);
-          
-          if (dist <= center.radius && dist < closestDist) {
-            closest = areaId;
-            closestDist = dist;
-          }
-        }
-        
-        if (closest) {
-          const areaName = areaOptions.find(a => a.id === closest)? tLabel(areaOptions.find(a => a.id === closest)) : closest;
-          setFormData(prev => ({ ...prev, area: closest }));
-          showToast(`${t("toast.foundInArea")} ${areaName}`, 'success');
-        } else {
-          showToast(t('places.locationOutsideSelection'), 'warning');
-        }
-        setIsLocating(false);
-      },
-      (reason) => {
-        setIsLocating(false);
-        if (reason === 'outside_city') showToast(t('toast.outsideCity'), 'warning', 'sticky');
-        else if (reason === 'denied') showToast(t('toast.locationNoPermission'), 'error', 'sticky');
-        else showToast(t('toast.noGpsSignal'), 'error', 'sticky');
-      }
-    );
-  };
+
   // Monitor Firebase connection state
   useEffect(() => {
     const handler = (e) => setFirebaseConnected(e.detail.connected);
@@ -1883,18 +2091,12 @@
             setInterestStatus(defaultStatus);
           }
           
-          // Admin
+          // Legacy admin data (kept for reference, auth is now Firebase Auth)
           setAdminPassword(s.adminPassword || '');
           const usersData = s.adminUsers || {};
           const usersList = Object.entries(usersData).map(([oderId, data]) => ({ oderId, ...data }));
           setAdminUsers(usersList);
-          const userId = localStorage.getItem('bangkok_user_id');
-          const isInAdminList = usersList.some(u => u.oderId === userId);
-          const passwordEmpty = !s.adminPassword;
-          const noAdminListExists = usersList.length === 0;
-          const userIsAdmin = isInAdminList || (passwordEmpty && noAdminListExists);
-          setIsUnlocked(userIsAdmin);
-          setIsCurrentUserAdmin(userIsAdmin);
+          // Role is now determined by Firebase Auth → users/{uid}/role
           
           // App settings
           if (s.googleMaxWaypoints != null) setGoogleMaxWaypoints(s.googleMaxWaypoints);
@@ -1991,20 +2193,12 @@
     database.ref('settings').on('value', (snap) => {
       const s = snap.val() || {};
       
-      // Admin auth
-      const pw = s.adminPassword || '';
-      setAdminPassword(pw);
+      // Legacy admin data (auth is now via Firebase Auth)
+      setAdminPassword(s.adminPassword || '');
       const usersData = s.adminUsers || {};
       const usersList = Object.entries(usersData).map(([oderId, data]) => ({ oderId, ...data }));
       setAdminUsers(usersList);
-      const cachedUserId = localStorage.getItem('bangkok_user_id');
-      const isInList = usersList.some(u => u.oderId === cachedUserId);
-      const passwordEmpty = !pw;
-      const noAdminListExists = usersList.length === 0;
-      const userIsAdmin = isInList || (passwordEmpty && noAdminListExists);
-      setIsUnlocked(userIsAdmin);
-      setIsCurrentUserAdmin(userIsAdmin);
-      localStorage.setItem('bangkok_is_admin', userIsAdmin ? 'true' : 'false');
+      // Role is now determined by Firebase Auth → users/{uid}/role
       
       // App settings — prefer systemParams, fallback to top-level keys for backward compatibility
       if (s.googleMaxWaypoints != null) setGoogleMaxWaypoints(s.googleMaxWaypoints);
@@ -4682,6 +4876,7 @@
       name: name,
       notes: '',
       savedAt: new Date().toISOString(),
+      savedBy: authUser?.uid || null,
       locked: false,
       cityId: selectedCityId
     };
@@ -5248,6 +5443,7 @@
       custom: true,
       status: 'active',
       addedAt: new Date().toISOString(),
+      addedBy: authUser?.uid || null,
       fromGoogle: true, // Mark as added from Google
       cityId: selectedCityId // Associate with current city
     };
@@ -5291,90 +5487,7 @@
     }
   };
   
-  // Skip place permanently (add to blacklist)
-  const skipPlacePermanently = (place) => {
-    // Check if already exists
-    const exists = customLocations.find(loc => 
-      loc.name.toLowerCase() === place.name.toLowerCase()
-    );
-    
-    if (exists) {
-      // Already exists - just update status to blacklist
-      if (exists.status === 'blacklist') {
-        showToast(`"${place.name}" ${t("places.alreadyBlacklisted")}`, 'warning');
-        return;
-      }
-      
-      // Update existing location to blacklist
-      const locationId = exists.id;
-      
-      if (isFirebaseAvailable && database && exists.firebaseId) {
-        database.ref(`cities/${selectedCityId}/locations/${exists.firebaseId}`).update({
-          status: 'blacklist',
-        })
-          .then(() => {
-            showToast(`"${place.name}" ${t("places.addedToSkipList")}`, 'success');
-          })
-          .catch((error) => {
-            console.error('[FIREBASE] Error updating to blacklist:', error);
-            showToast(t('toast.updateError'), 'error');
-          });
-      } else {
-        const updated = customLocations.map(loc => {
-          if (loc.id === locationId) {
-            return { ...loc, status: 'blacklist' };
-          }
-          return loc;
-        });
-        setCustomLocations(updated);
-        localStorage.setItem('bangkok_custom_locations', JSON.stringify(updated));
-        showToast(`"${place.name}" ${t("places.addedToSkipList")}`, 'success');
-      }
-      return;
-    }
-    
-    // Doesn't exist - create new with blacklist status
-    const boundaryCheck = checkLocationInArea(place.lat, place.lng, formData.area);
-    
-    // IMPORTANT: Copy interests from the place - blacklist needs same validation as active
-    const locationToAdd = {
-      id: Date.now(),
-      name: place.name,
-      description: place.description || t('toast.addedFromSearch'),
-      notes: '',
-      area: formData.area,
-      areas: (() => { const d = window.BKK.getAreasForCoordinates(place.lat, place.lng); return d.length > 0 ? d : [formData.area]; })(),
-      interests: place.interests && place.interests.length > 0 ? place.interests : [],
-      lat: place.lat,
-      lng: place.lng,
-      uploadedImage: null,
-      imageUrls: [],
-      outsideArea: !boundaryCheck.valid,
-      custom: true,
-      status: 'blacklist', // Start as blacklisted!
-      addedAt: new Date().toISOString(),
-      fromGoogle: true,
-      cityId: selectedCityId
-    };
-    
-    // Save to Firebase (or localStorage fallback)
-    if (isFirebaseAvailable && database) {
-      database.ref(`cities/${selectedCityId}/locations`).push(locationToAdd)
-        .then(() => {
-          console.log('[FIREBASE] Place added to blacklist');
-          showToast(`"${place.name}" ${t("places.addedToSkipList")}`, 'success');
-        })
-        .catch((error) => {
-          console.error('[FIREBASE] Error adding to blacklist:', error);
-          showToast(t('toast.saveError'), 'error');
-        });
-    } else {
-      const updated = [...customLocations, locationToAdd];
-      setCustomLocations(updated);
-      localStorage.setItem('bangkok_custom_locations', JSON.stringify(updated));
-      showToast(`"${place.name}" ${t("places.addedToSkipList")}`, 'success');
-    }
-  };
+
   
   // Import function - add new only, skip existing
   const handleImportMerge = async () => {
@@ -5431,7 +5544,8 @@
             maxStops: interest.maxStops || 10,
             routeSlot: interest.routeSlot || 'any',
             minGap: interest.minGap || 1,
-            bestTime: interest.bestTime || 'anytime'
+            bestTime: interest.bestTime || 'anytime',
+            ...(interest.color ? { color: interest.color } : {})
           };
           await database.ref(`customInterests/${interestId}`).set(newInterest);
           addedInterests++;
@@ -5519,7 +5633,8 @@
             rating: loc.rating || null,
             ratingCount: loc.ratingCount || null,
             fromGoogle: loc.fromGoogle || false,
-            addedAt: loc.addedAt || new Date().toISOString()
+            addedAt: loc.addedAt || new Date().toISOString(),
+            addedBy: loc.addedBy || authUser?.uid || null
           };
           
           await database.ref(`cities/${selectedCityId}/locations`).push(newLocation);
@@ -5978,6 +6093,7 @@
       googlePlaceId: locData.googlePlaceId || '',
       googlePlace: !!locData.googlePlace,
       addedAt: new Date().toISOString(),
+      addedBy: authUser?.uid || null,
       cityId: selectedCityId
     };
     
@@ -6390,29 +6506,5 @@
     }
   };
 
-  const toggleStopActive = (stopIndex) => {
-    const stop = route.stops[stopIndex];
-    const stopName = (stop?.name || '').toLowerCase().trim();
-    if (!stopName) return;
-    const isCurrentlyDisabled = isStopDisabled(stop);
-    const newDisabledStops = isCurrentlyDisabled
-      ? disabledStops.filter(n => n !== stopName)
-      : [...disabledStops, stopName];
-    
-    setDisabledStops(newDisabledStops);
-    
-    // If disabling the current start point, clear it so recompute picks a new one
-    if (!isCurrentlyDisabled && startPointCoords && stop?.lat && stop?.lng) {
-      if (Math.abs(stop.lat - startPointCoords.lat) < 0.0001 && Math.abs(stop.lng - startPointCoords.lng) < 0.0001) {
-        setStartPointCoords(null);
-        startPointCoordsRef.current = null;
-        setFormData(prev => ({...prev, startPoint: ''}));
-      }
-    }
-    
-    // Mark as not optimized — auto-compute useEffect will recompute
-    if (route?.optimized) {
-      setRoute(prev => prev ? {...prev, optimized: false} : prev);
-    }
-  };
+
 

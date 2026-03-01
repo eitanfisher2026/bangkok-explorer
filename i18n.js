@@ -138,6 +138,13 @@ general: {
   open: 'פתוח',
   viewOnly: 'צפייה בלבד',
   locked: 'נעול',
+  filter: 'סינון',
+  clearAll: 'נקה הכל',
+  legend: 'מקרא צבעים',
+  tip: 'טיפ',
+  transparent: 'שקוף',
+  interests: 'תחומים',
+  status: 'סטטוס',
   readOnly: 'קריאה בלבד',
   error: 'שגיאה',
   unknownError: 'שגיאה לא ידועה',
@@ -420,6 +427,7 @@ form: {
 
 // --- Route ---
 route: {
+  navigate: 'נווט',
   calcRoute: '🧭 חשב מסלול',
   recalcRoute: '🔄 חשב מסלול מחדש',
   helpMePlan: 'עזור לי לתכנן',
@@ -504,6 +512,10 @@ places: {
   placeDeleted: 'המקום נמחק!',
   placeAddedShared: 'המקום נוסף ונשמר לכולם!',
   detailsEdit: 'פרטים / ערוך',
+  showDrafts: 'הצג טיוטות',
+  searchPlace: 'חפש מקום',
+  searchPlaceholder: 'הקלד שם מקום...',
+  draft: 'טיוטה',
   editAddedToList: 'ערוך (נוסף לרשימה)',
   missingDetails: 'חסרים פרטים',
   missingDetailsLong: 'חסרים פרטים (כתובת/קורדינטות/תחום)',
@@ -814,6 +826,41 @@ settings: {
   enterPassword: 'הזן סיסמה לפתיחת ההגדרות',
 },
 
+// --- Auth ---
+auth: {
+  signIn: 'התחבר',
+  signOut: 'התנתק',
+  register: 'הרשם',
+  loginSubtitle: 'התחבר כדי לשמור את ההתקדמות שלך',
+  continueGoogle: 'המשך עם Google',
+  continueAnonymous: 'המשך בלי חשבון',
+  or: 'או',
+  orSkip: 'או',
+  email: 'אימייל',
+  password: 'סיסמה',
+  haveAccount: 'כבר יש חשבון? התחבר',
+  noAccount: 'אין חשבון? הירשם',
+  anonymous: 'אנונימי',
+  regular: 'משתמש',
+  anonWarning: '⚠️ חשבון אנונימי — אם תנקה cache הנתונים יאבדו. קשר לחשבון Google כדי לשמור.',
+  linkGoogle: 'קשר לחשבון Google',
+  accountLinked: '✅ החשבון קושר בהצלחה!',
+  userNotFound: 'משתמש לא קיים. נסה להירשם.',
+  wrongPassword: 'סיסמה שגויה',
+  emailInUse: 'אימייל כבר רשום. נסה להתחבר.',
+  weakPassword: 'סיסמה חלשה (מינימום 6 תווים)',
+  userManagement: 'ניהול משתמשים',
+  needEditor: 'נדרשת הרשאת עורך',
+  needAdmin: 'נדרשת הרשאת מנהל',
+  inUseBy: 'בשימוש מקומות',
+  loginToSave: 'התחבר כדי לשמור',
+},
+
+// --- Map ---
+map: {
+  favTip: 'ריכוז נקודות באזור מסוים מעיד שהאזור עשיר בתכנים. סנן לפי תחום כדי לראות במה מתאפיין כל אזור ולתכנן מסלול ממוקד.',
+},
+
 // --- Help ---
 help: {
   main: {
@@ -849,6 +896,7 @@ help: {
   settings: { title: 'הגדרות', content: "**הגדרות המערכת** (דורש סיסמת מנהל)\n\n**מה אפשר לעשות:**\n• שינוי שפה (עברית / אנגלית)\n• ניהול ערים ואזורים\n• ייבוא/ייצוא נתונים\n• צפייה ביומן כניסות\n• שינוי סיסמת מנהל\n\n**פרמטרי מערכת:**\nהגדרות מתקדמות לכמות מקומות, רדיוס חיפוש, ועוד." },
   addLocation: { title: 'הוספת/עריכת מקום', content: "**חובה:** שם המקום + תחום עניין אחד לפחות.\n\n**שדות נוספים (לא חובה):**\n• איזורים, כתובת, הערות, תמונה\n\n**קואורדינטות** — נדרשות כדי שהמקום יופיע במסלול.\n• 🔍 חיפוש לפי שם — הדרך הקלה ביותר\n• 🏠 חיפוש לפי כתובת\n• 📍 מיקום GPS נוכחי\n\n**כפתורים:**\n• **שמור** — שומר וסוגר\n• **ביטול** — סוגר בלי לשמור\n• **🗑️** — מחק את המקום" },
   addInterest: { title: 'הוספת/עריכת תחום עניין', content: "**איך מוסיפים תחום חדש:**\n1. בחר **שם** ו**אייקון** (אימוג'י)\n2. בחר **סוג חיפוש:**\n   • **Category** — לפי סוג מקום בגוגל (למשל: museum, restaurant)\n   • **Text** — חיפוש חופשי (למשל: \"rooftop bar\")\n3. לחץ **הוסף** — התחום יופיע ברשימת התחומים\n\n**מילות סינון** — מקומות עם מילים אלו בשם לא ייכללו." },
+  favoritesMap: { title: 'מפת מועדפים', content: "**מפת המועדפים** מציגה את כל המקומות ששמרת על המפה.\n\n**מה רואים:**\n• **נקודות צבעוניות** — כל נקודה היא מקום מועדף. הצבע מייצג את **תחום העניין** (גלריות, אוכל, מקדשים וכו')\n• **נקודות בהירות** — טיוטות (עוד לא מוכנות). נקודות חזקות = מוכנות\n• **עיגולים אפורים** — גבולות האזורים\n• **נקודה כחולה** — המיקום שלך (לחץ 📍)\n\n**לחיצה על נקודה:**\n• כרטיס עם שם, אזור, תחומים ותמונה\n• כפתורים: נווט בגוגל מפות, ערוך, סגור\n\n**🔍 סינון:**\n• **לפי אזור** — ראה רק מקומות באזור מסוים\n• **לפי תחום** — ראה רק תחומים נבחרים\n• **הצג/הסתר טיוטות**\n\n**💡 תובנות לתכנון:**\n• **ריכוז נקודות** באזור = האזור עשיר בתכנים, שווה להקדיש לו יותר זמן\n• **מיעוט נקודות** באזור = מספיק ביקור קצר\n• **גוון דומיננטי** באזור (למשל הרבה סגול = גלריות) = מאפיין את האזור\n• **מיקס צבעים** = אזור מגוון, מתאים למסלול של חצי יום\n• סנן לפי תחום אחד וראה באילו אזורים הוא מרוכז — שם כדאי לחפש" },
 },
 
   emoji: {
@@ -1020,6 +1068,13 @@ general: {
   open: 'Open',
   viewOnly: 'View only',
   locked: 'Locked',
+  filter: 'Filter',
+  clearAll: 'Clear all',
+  legend: 'Color legend',
+  tip: 'Tip',
+  transparent: 'transparent',
+  interests: 'Interests',
+  status: 'Status',
   readOnly: 'Read only',
   error: 'Error',
   unknownError: 'Unknown error',
@@ -1295,6 +1350,7 @@ form: {
 },
 
 route: {
+  navigate: 'Navigate',
   calcRoute: '🧭 Calculate route',
   recalcRoute: '🔄 Recalculate route',
   helpMePlan: 'Help me plan',
@@ -1387,6 +1443,10 @@ places: {
   placeDeleted: 'Place deleted!',
   placeAddedShared: 'Place added and saved for everyone!',
   detailsEdit: 'Details / Edit',
+  showDrafts: 'Show drafts',
+  searchPlace: 'Search place',
+  searchPlaceholder: 'Type place name...',
+  draft: 'Draft',
   editAddedToList: 'Edit (added to list)',
   missingDetails: 'Missing details',
   missingDetailsLong: 'Missing details (address/coordinates/topic)',
@@ -1696,6 +1756,41 @@ settings: {
   enterPassword: 'Enter password to unlock',
 },
 
+// --- Auth ---
+auth: {
+  signIn: 'Sign In',
+  signOut: 'Sign Out',
+  register: 'Register',
+  loginSubtitle: 'Sign in to save your progress',
+  continueGoogle: 'Continue with Google',
+  continueAnonymous: 'Continue without account',
+  or: 'or',
+  orSkip: 'or',
+  email: 'Email',
+  password: 'Password',
+  haveAccount: 'Already have an account? Sign in',
+  noAccount: "Don't have an account? Register",
+  anonymous: 'Anonymous',
+  regular: 'User',
+  anonWarning: '⚠️ Anonymous account — data will be lost if you clear cache. Link to Google to keep it safe.',
+  linkGoogle: 'Link to Google account',
+  accountLinked: '✅ Account linked successfully!',
+  userNotFound: 'User not found. Try registering.',
+  wrongPassword: 'Wrong password',
+  emailInUse: 'Email already registered. Try signing in.',
+  weakPassword: 'Weak password (minimum 6 characters)',
+  userManagement: 'User Management',
+  needEditor: 'Editor permission required',
+  needAdmin: 'Admin permission required',
+  inUseBy: 'Used by places',
+  loginToSave: 'Sign in to save',
+},
+
+// --- Map ---
+map: {
+  favTip: 'Dense clusters indicate content-rich areas. Filter by interest to see what characterizes each area and plan a focused route.',
+},
+
 help: {
   main: {
     title: 'How to use?',
@@ -1730,6 +1825,7 @@ help: {
   settings: { title: 'Settings', content: "**System settings** (requires admin password)\n\n**What you can do:**\n• Change language (Hebrew / English)\n• Manage cities and areas\n• Import/export data\n• View access log\n• Change admin password\n\n**System parameters:**\nAdvanced settings for number of places, search radius, and more." },
   addLocation: { title: 'Add/Edit place', content: "**Required:** Place name + at least one interest.\n\n**Additional fields (optional):**\n• Areas, address, notes, image\n\n**Coordinates** — required for the place to appear in the route.\n• 🔍 Search by name — the easiest way\n• 🏠 Search by address\n• 📍 Current GPS location\n\n**Buttons:**\n• **Save** — saves and closes\n• **Cancel** — closes without saving\n• **🗑️** — delete the place" },
   addInterest: { title: 'Add/Edit interest', content: "**How to add a new interest:**\n1. Choose a **name** and **icon** (emoji)\n2. Choose **search type:**\n   • **Category** — by Google place type (e.g.: museum, restaurant)\n   • **Text** — free search (e.g.: \"rooftop bar\")\n3. Click **Add** — the interest will appear in the interests list\n\n**Filter words** — places with these words in their name won't be included." },
+  favoritesMap: { title: 'Favorites Map', content: "**The favorites map** displays all your saved places on an interactive map.\n\n**What you see:**\n• **Colored dots** — each dot is a favorite place. Color represents its **interest** (galleries, food, temples, etc.)\n• **Faded dots** — drafts (not yet ready). Strong dots = ready\n• **Gray circles** — area boundaries\n• **Blue dot** — your location (tap 📍)\n\n**Tapping a dot:**\n• Card with name, area, interests and photo\n• Buttons: navigate in Google Maps, edit, close\n\n**🔍 Filtering:**\n• **By area** — see only places in a specific area\n• **By interest** — see only selected interests\n• **Show/hide drafts**\n\n**💡 Insights for planning:**\n• **Dense clusters** in an area = rich in content, worth spending more time\n• **Few dots** in an area = a short visit is enough\n• **Dominant color** in an area (e.g. lots of purple = galleries) = characterizes the area\n• **Color mix** = diverse area, good for a half-day route\n• Filter by one interest to see where it's concentrated — search there" },
 },
 
   emoji: {

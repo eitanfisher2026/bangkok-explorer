@@ -224,6 +224,21 @@
                           style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '4px', background: '#dbeafe', border: '1px solid #93c5fd', color: '#1e40af', cursor: 'pointer', fontWeight: 'bold' }}
                         >📍 זהה אזור</button>
                       )}
+                      {newLocation.lat && newLocation.lng && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const locAreas = newLocation.areas || (newLocation.area ? [newLocation.area] : []);
+                            setMapMode('favorites');
+                            setMapFavArea(locAreas[0] || null);
+                            setMapFocusPlace({ id: editingLocation?.id, lat: newLocation.lat, lng: newLocation.lng, name: newLocation.name });
+                            setMapFavFilter(new Set());
+                            setMapBottomSheet(null);
+                            setShowMapModal(true);
+                          }}
+                          style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '4px', background: '#f3e8ff', border: '1px solid #c084fc', color: '#7c3aed', cursor: 'pointer', fontWeight: 'bold' }}
+                        >🗺️ {t('wizard.showMap') || 'מפה'}</button>
+                      )}
                     </div>
                     <div className="grid grid-cols-6 gap-1 p-1.5 bg-gray-50 rounded-lg overflow-y-auto border-2 border-gray-300" style={{ maxHeight: '120px' }}>
                       {areaOptions.map(area => {
@@ -580,9 +595,22 @@
                         {newLocation.locked ? '🔒' : '🔓'}
                       </button>
                     )}
+                    {newLocation.lat && newLocation.lng && (
+                      <button type="button"
+                        onClick={() => {
+                          const locAreas = newLocation.areas || (newLocation.area ? [newLocation.area] : []);
+                          setShowEditLocationDialog(false);
+                          setMapMode('favorites');
+                          setMapFavArea(locAreas[0] || null);
+                          setMapFocusPlace({ id: editingLocation?.id, lat: newLocation.lat, lng: newLocation.lng, name: newLocation.name });
+                          setMapFavFilter(new Set());
+                          setMapBottomSheet(null);
+                          setShowMapModal(true);
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-purple-300 bg-purple-50 text-purple-600 cursor-pointer hover:bg-purple-100"
+                      >📍</button>
+                    )}
                   </div>
-                  
-                  {/* Google Place Info Results */}
                   {googlePlaceInfo && !googlePlaceInfo.notFound && (
                     <div className="text-xs space-y-1 bg-white rounded p-2 border border-indigo-200" style={{ direction: 'ltr' }}>
                       <div>
@@ -616,6 +644,18 @@
                     </div>
                   )}
 
+                  {/* Metadata row — addedBy + addedAt (editor/admin only) */}
+                  {isUnlocked && showEditLocationDialog && editingLocation && (editingLocation.addedBy || editingLocation.addedAt) && (
+                    <div style={{ fontSize: '10px', color: '#9ca3af', padding: '4px 0', borderTop: '1px solid #e5e7eb', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {editingLocation.addedBy && (() => {
+                        const addedUser = allUsers.find(u => u.uid === editingLocation.addedBy);
+                        return <span>👤 {addedUser ? (addedUser.name || addedUser.email || editingLocation.addedBy.slice(0,8)) : editingLocation.addedBy.slice(0,8)}</span>;
+                      })()}
+                      {editingLocation.addedAt && <span>📅 {new Date(editingLocation.addedAt).toLocaleDateString()}</span>}
+                      {editingLocation.fromGoogle && <span>🔍 Google</span>}
+                    </div>
+                  )}
+
                   {/* Row 2: Skip + Delete (edit mode only) */}
                   {showEditLocationDialog && editingLocation && !(editingLocation.locked && !isUnlocked) && (
                     <div className="flex gap-1.5 pt-1 border-t border-gray-200">
@@ -642,6 +682,8 @@
                           🚫 {t('route.skipPermanently')}
                         </button>
                       )}
+                      {/* Delete — only creator (if unlocked), editor (if unlocked), or admin */}
+                      {(isAdmin || (isEditor && !editingLocation.locked) || (editingLocation.addedBy && editingLocation.addedBy === authUser?.uid && !editingLocation.locked)) && (
                       <button
                         onClick={() => {
                           showConfirm(`${t("general.deletePlace")} "${editingLocation.name}"?`, () => {
@@ -654,6 +696,7 @@
                       >
                         🗑️ {t("general.deletePlace")}
                       </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -845,9 +888,23 @@
                     )}
                   </div>
                 </div>
+                {/* Color override for map markers — admin only */}
+                {isUnlocked && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                    <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#6b7280' }}>🎨</span>
+                    <input
+                      type="color"
+                      value={newInterest.color || window.BKK.getInterestColor(newInterest.id || '', window.BKK.interestOptions || [])}
+                      onChange={e => setNewInterest({...newInterest, color: e.target.value})}
+                      style={{ width: '28px', height: '22px', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer', padding: 0 }}
+                    />
+                    {newInterest.color && (
+                      <button onClick={() => setNewInterest({...newInterest, color: ''})}
+                        style={{ fontSize: '9px', color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer' }}>✕ auto</button>
+                    )}
+                  </div>
+                )}
                 </div>{/* close inner wrapper */}
-
-                {/* Scope (all interests) */}
                 <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-2">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-purple-800">🌍</span>
@@ -1205,7 +1262,10 @@
                       >
                         {interestStatus[editingCustomInterest.id] === false ? t('general.enable') : t('general.disable')}
                       </button>
-                      {(!newInterest.builtIn || isUnlocked) && (
+                      {(!newInterest.builtIn || isUnlocked) && (() => {
+                        const inUseCount = customLocations.filter(loc => (loc.interests || []).includes(editingCustomInterest?.id)).length;
+                        const canDelete = isAdmin || inUseCount === 0;
+                        return canDelete ? (
                         <button
                           onClick={() => {
                             const msg = newInterest.builtIn 
@@ -1229,7 +1289,12 @@
                         >
                           🗑️ {t("general.deleteInterest")}
                         </button>
-                      )}
+                        ) : (
+                        <div className="flex-1 py-2 bg-gray-200 text-gray-500 rounded-lg text-xs font-bold text-center" title={`${inUseCount} ${t('route.places')}`}>
+                          🔗 {t('auth.inUseBy') || `בשימוש ${inUseCount} מקומות`}
+                        </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}
@@ -1283,6 +1348,7 @@
                               configData.labelEnOverride = (newInterest.labelEn || '').trim();
                               configData.iconOverride = newInterest.icon || '';
                               configData.locked = newInterest.locked || false;
+                              if (newInterest.color) configData.color = newInterest.color;
                             }
                             if (isFirebaseAvailable && database) {
                               database.ref(`settings/interestConfig/${interestId}`).set(configData);
@@ -1307,7 +1373,8 @@
                               maxStops: newInterest.maxStops || 10,
                               routeSlot: newInterest.routeSlot || 'any',
                               minGap: newInterest.minGap || 1,
-                              bestTime: newInterest.bestTime || 'anytime', dedupRelated: newInterest.dedupRelated || []
+                              bestTime: newInterest.bestTime || 'anytime', dedupRelated: newInterest.dedupRelated || [],
+                              ...(newInterest.color ? { color: newInterest.color } : {})
                             };
                             delete updatedInterest.builtIn;
                             
@@ -1358,7 +1425,8 @@
                               maxStops: newInterest.maxStops || 10,
                               routeSlot: newInterest.routeSlot || 'any',
                               minGap: newInterest.minGap || 1,
-                              bestTime: newInterest.bestTime || 'anytime', dedupRelated: newInterest.dedupRelated || []
+                              bestTime: newInterest.bestTime || 'anytime', dedupRelated: newInterest.dedupRelated || [],
+                              ...(newInterest.color ? { color: newInterest.color } : {})
                           };
                           
                           // Close dialog immediately
@@ -3165,3 +3233,178 @@
             </div>
           </div>
         );})()}
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* LOGIN DIALOG */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {showLoginDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)', padding: '16px' }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full" style={{ maxWidth: '380px', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
+            {/* Header */}
+            <div style={{ padding: '20px 20px 12px', textAlign: 'center' }}>
+              <div style={{ fontSize: '28px', marginBottom: '4px' }}>🐾</div>
+              <h3 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>FouFou</h3>
+              <p style={{ fontSize: '12px', color: '#6b7280', margin: '4px 0 0' }}>{t('auth.loginSubtitle') || 'התחבר כדי לשמור את ההתקדמות שלך'}</p>
+            </div>
+
+            {authUser ? (
+              /* Already signed in — show profile */
+              <div style={{ padding: '0 20px 20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#f0fdf4', borderRadius: '12px', marginBottom: '12px', border: '1px solid #bbf7d0' }}>
+                  {authUser.photoURL && <img src={authUser.photoURL} alt="" style={{ width: '40px', height: '40px', borderRadius: '50%' }} />}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{authUser.displayName || authUser.email || (t('auth.anonymous') || 'אנונימי')}</div>
+                    {authUser.email && <div style={{ fontSize: '11px', color: '#6b7280' }}>{authUser.email}</div>}
+                    <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '2px' }}>
+                      {userRole === 2 ? '👑 Admin' : userRole === 1 ? '✏️ Editor' : '👤 ' + (t('auth.regular') || 'משתמש')}
+                    </div>
+                  </div>
+                </div>
+                {authUser.isAnonymous && (
+                  <div style={{ padding: '10px', background: '#fef3c7', borderRadius: '8px', marginBottom: '10px', border: '1px solid #fbbf24' }}>
+                    <div style={{ fontSize: '11px', color: '#92400e', marginBottom: '6px' }}>{t('auth.anonWarning') || '⚠️ חשבון אנונימי — אם תנקה cache הנתונים יאבדו. קשר לחשבון Google כדי לשמור.'}</div>
+                    <button onClick={authLinkAnonymousToGoogle}
+                      style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #f59e0b', background: 'white', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', color: '#92400e' }}>
+                      🔗 {t('auth.linkGoogle') || 'קשר לחשבון Google'}
+                    </button>
+                  </div>
+                )}
+                <button onClick={authSignOut}
+                  style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid #fca5a5', background: '#fef2f2', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', color: '#dc2626' }}>
+                  🚪 {t('auth.signOut') || 'התנתק'}
+                </button>
+                {/* Role Impersonation — real admin only */}
+                {isRealAdmin && (
+                  <div style={{ marginTop: '10px', padding: '10px', background: '#faf5ff', borderRadius: '8px', border: '1px solid #e9d5ff' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#7c3aed', marginBottom: '6px' }}>🎭 Test as different role:</div>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      {[
+                        { role: null, label: '👑 Admin', desc: 'Real' },
+                        { role: 1, label: '✏️ Editor', desc: '' },
+                        { role: 0, label: '👤 Regular', desc: '' }
+                      ].map(opt => {
+                        const isActive = roleOverride === opt.role;
+                        return (
+                          <button key={String(opt.role)}
+                            onClick={() => { setRoleOverride(opt.role); setShowLoginDialog(false); showToast(`🎭 ${opt.label}`, 'info'); }}
+                            style={{ flex: 1, padding: '6px 4px', borderRadius: '6px', border: isActive ? '2px solid #7c3aed' : '1px solid #d1d5db', background: isActive ? '#ede9fe' : 'white', fontSize: '11px', fontWeight: isActive ? 'bold' : 'normal', cursor: 'pointer', color: isActive ? '#7c3aed' : '#6b7280' }}>
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Not signed in — show login options */
+              <div style={{ padding: '0 20px 20px' }}>
+                {/* Google Sign-In */}
+                <button onClick={authSignInGoogle}
+                  style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #d1d5db', background: 'white', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                  {t('auth.continueGoogle') || 'המשך עם Google'}
+                </button>
+
+                {/* Divider */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '12px 0' }}>
+                  <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }}></div>
+                  <span style={{ fontSize: '11px', color: '#9ca3af' }}>{t('auth.or') || 'או'}</span>
+                  <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }}></div>
+                </div>
+
+                {/* Email login */}
+                <div style={{ marginBottom: '8px' }}>
+                  <input type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder={t('auth.email') || 'אימייל'}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '13px', marginBottom: '6px', boxSizing: 'border-box' }} />
+                  <input type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder={t('auth.password') || 'סיסמה'}
+                    onKeyDown={e => { if (e.key === 'Enter') authSignInEmail(); }}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '13px', boxSizing: 'border-box' }} />
+                </div>
+                <button onClick={authSignInEmail}
+                  style={{ width: '100%', padding: '10px', borderRadius: '10px', border: 'none', background: '#3b82f6', color: 'white', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', marginBottom: '4px' }}>
+                  📧 {loginMode === 'register' ? (t('auth.register') || 'הרשם') : (t('auth.signIn') || 'התחבר')}
+                </button>
+                <button onClick={() => setLoginMode(loginMode === 'login' ? 'register' : 'login')}
+                  style={{ width: '100%', padding: '4px', background: 'none', border: 'none', fontSize: '11px', color: '#3b82f6', cursor: 'pointer', textDecoration: 'underline' }}>
+                  {loginMode === 'register' ? (t('auth.haveAccount') || 'כבר יש חשבון? התחבר') : (t('auth.noAccount') || 'אין חשבון? הירשם')}
+                </button>
+
+                {/* Error */}
+                {loginError && (
+                  <div style={{ marginTop: '8px', padding: '8px', background: '#fef2f2', borderRadius: '8px', border: '1px solid #fca5a5', fontSize: '11px', color: '#dc2626' }}>
+                    ⚠️ {loginError}
+                  </div>
+                )}
+
+                {/* Divider */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '12px 0' }}>
+                  <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }}></div>
+                  <span style={{ fontSize: '11px', color: '#9ca3af' }}>{t('auth.orSkip') || 'או'}</span>
+                  <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }}></div>
+                </div>
+
+                {/* Anonymous */}
+                <button onClick={authSignInAnonymous}
+                  style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid #d1d5db', background: '#f9fafb', fontSize: '12px', cursor: 'pointer', color: '#6b7280' }}>
+                  👻 {t('auth.continueAnonymous') || 'המשך בלי חשבון'}
+                </button>
+              </div>
+            )}
+
+            {/* Close */}
+            <div style={{ padding: '0 20px 16px', textAlign: 'center' }}>
+              <button onClick={() => { setShowLoginDialog(false); setLoginError(''); }}
+                style={{ background: 'none', border: 'none', fontSize: '12px', color: '#9ca3af', cursor: 'pointer' }}>
+                {t('general.close')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* USER MANAGEMENT DIALOG (Admin Only) */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {showUserManagement && isRealAdmin && (() => {
+        const roleLabels = ['👤 Regular', '✏️ Editor', '👑 Admin'];
+        const roleColors = ['#6b7280', '#7c3aed', '#dc2626'];
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)', padding: '12px' }}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full" style={{ maxWidth: '500px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', direction: 'ltr' }}>
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ fontWeight: 'bold', fontSize: '16px', margin: 0 }}>👥 User Management</h3>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={authLoadAllUsers} style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid #d1d5db', background: '#f3f4f6', cursor: 'pointer' }}>🔄</button>
+                  <button onClick={() => setShowUserManagement(false)} style={{ fontSize: '16px', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>✕</button>
+                </div>
+              </div>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
+                {allUsers.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '20px', color: '#9ca3af' }}>Loading...</div>
+                ) : allUsers.map(user => (
+                  <div key={user.uid} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderBottom: '1px solid #f3f4f6' }}>
+                    {user.photo && <img src={user.photo} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%' }} />}
+                    {!user.photo && <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>👤</div>}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 'bold', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name || user.email || user.uid.slice(0,12)}</div>
+                      <div style={{ fontSize: '10px', color: '#9ca3af' }}>{user.email || 'anonymous'} · {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : '?'}</div>
+                    </div>
+                    <select value={user.role || 0}
+                      onChange={e => authUpdateUserRole(user.uid, parseInt(e.target.value))}
+                      disabled={user.uid === authUser?.uid}
+                      style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '11px', fontWeight: 'bold', color: roleColors[user.role || 0], cursor: user.uid === authUser?.uid ? 'not-allowed' : 'pointer', opacity: user.uid === authUser?.uid ? 0.5 : 1 }}>
+                      <option value={0}>👤 Regular</option>
+                      <option value={1}>✏️ Editor</option>
+                      <option value={2}>👑 Admin</option>
+                    </select>
+                  </div>
+                ))}
+              </div>
+              <div style={{ padding: '12px 16px', borderTop: '1px solid #e5e7eb', fontSize: '10px', color: '#9ca3af', textAlign: 'center' }}>
+                {allUsers.length} users · You cannot change your own role
+              </div>
+            </div>
+          </div>
+        );
+      })()}
