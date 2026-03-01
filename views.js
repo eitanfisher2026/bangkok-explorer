@@ -2035,6 +2035,10 @@
               </div>
               <div className="flex gap-1">
                 <button
+                  onClick={() => { setMapMode('favorites'); setMapFavArea(null); setMapFavRadius(null); setMapFocusPlace(null); setMapFavFilter(new Set()); setMapBottomSheet(null); setShowMapModal(true); }}
+                  style={{ padding: '2px 8px', borderRadius: '8px', border: '2px solid #8b5cf6', background: 'linear-gradient(135deg, #faf5ff, #ede9fe)', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold', color: '#6d28d9' }}
+                >🗺️</button>
+                <button
                   onClick={resetInterestStatusToDefault}
                   className="bg-gray-200 text-gray-700 px-2 py-1.5 rounded-lg text-[10px] font-bold hover:bg-gray-300"
                   title={t("interests.resetToDefault")}
@@ -2059,9 +2063,10 @@
             {/* Unified Interest List */}
             {(() => {
               // Helper to open interest dialog for editing
-              const openInterestDialog = (interest, isCustom = false) => {
+              const openInterestDialog = (interest) => {
                 const config = interestConfig[interest.id] || {};
-                setEditingCustomInterest(isCustom ? interest : { ...interest, builtIn: true });
+                const isFromCustom = customInterests.some(ci => ci.id === interest.id);
+                setEditingCustomInterest(isFromCustom ? interest : { ...interest, builtIn: true });
                 setNewInterest({
                   id: interest.id,
                   label: interest.label || interest.name || '',
@@ -2073,7 +2078,7 @@
                   blacklist: (config.blacklist || []).join(', '),
                   privateOnly: interest.privateOnly || false,
                   locked: interest.locked || false,
-                  builtIn: !isCustom,
+                  builtIn: !isFromCustom,
                   scope: config.scope || interest.scope || 'global',
                   cityId: config.cityId || interest.cityId || '',
                   category: config.category || interest.category || 'attraction',
@@ -2089,40 +2094,41 @@
               };
               
               // Render a single interest row with toggle button
-              const renderInterestRow = (interest, isCustom = false, isActive = true) => {
+              const renderInterestRow = (interest, isActive = true) => {
                 const isValid = isInterestValid(interest.id);
-                const effectiveActive = isValid ? isActive : false; // Invalid always inactive
+                const effectiveActive = isValid ? isActive : false;
                 const aStatus = interest.adminStatus || (interestConfig[interest.id]?.adminStatus) || 'active';
                 const isDraft = aStatus === 'draft';
                 const isHidden = aStatus === 'hidden';
+                const interestColor = window.BKK.getInterestColor(interest.id, allInterestOptions);
                 const borderClass = isHidden ? 'border-2 border-red-300 bg-red-50 opacity-50'
                   : isDraft ? 'border-2 border-amber-300 bg-amber-50'
                   : !effectiveActive ? 'border border-gray-300 bg-gray-50 opacity-60'
-                  : isCustom ? (isValid ? 'border border-gray-200 bg-white' : 'border-2 border-red-400 bg-red-50')
                   : (isValid ? 'border border-gray-200 bg-white' : 'border-2 border-red-400 bg-red-50');
                 
                 return (
                   <div key={interest.id} className={`flex items-center justify-between gap-2 rounded-lg p-2 ${borderClass}`}>
+                    {/* Color bar */}
+                    <div style={{ width: '4px', alignSelf: 'stretch', borderRadius: '2px', background: effectiveActive ? interestColor : '#d1d5db', flexShrink: 0 }}></div>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <span className="text-lg flex-shrink-0">{interest.icon?.startsWith?.('data:') ? <img src={interest.icon} alt="" className="w-5 h-5 object-contain" /> : interest.icon}</span>
                       <span className={`font-medium text-sm truncate ${isHidden ? 'text-red-400 line-through' : isDraft ? 'text-amber-700' : !effectiveActive ? 'text-gray-500' : ''}`}>{tLabel(interest)}</span>
-                      {isCustom && <span className="text-[10px] bg-purple-200 text-purple-800 px-1 py-0.5 rounded flex-shrink-0">{t("general.custom")}</span>}
                       {!isValid && <span className="text-red-500 text-xs flex-shrink-0" title={t("interests.missingSearchConfig")}>⚠️</span>}
                       {interest.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '11px' }} className="flex-shrink-0">🔒</span>}
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
-                      {/* Admin status cycle — admin only */}
-                      {isUnlocked && (
+                      {/* Admin status cycle — admin only, hide green (active is default) */}
+                      {isUnlocked && (isDraft || isHidden) && (
                         <button
                           onClick={(e) => { e.stopPropagation(); cycleAdminStatus(interest.id); }}
                           style={{
                             fontSize: '9px', padding: '1px 4px', borderRadius: '4px',
-                            background: isHidden ? '#fee2e2' : isDraft ? '#fef3c7' : '#dcfce7',
-                            border: `1px solid ${isHidden ? '#fca5a5' : isDraft ? '#fcd34d' : '#86efac'}`,
+                            background: isHidden ? '#fee2e2' : '#fef3c7',
+                            border: `1px solid ${isHidden ? '#fca5a5' : '#fcd34d'}`,
                             cursor: 'pointer', lineHeight: '14px'
                           }}
                           title={`Status: ${aStatus} (click to cycle)`}
-                        >{isHidden ? '🔴' : isDraft ? '🟡' : '🟢'}</button>
+                        >{isHidden ? '🔴' : '🟡'}</button>
                       )}
                       {/* Default flag toggle — admin only */}
                       {isUnlocked && (() => {
@@ -2158,7 +2164,7 @@
                       </button>
                       {isEditor && (
                       <button
-                        onClick={() => openInterestDialog(interest, isCustom)}
+                        onClick={() => openInterestDialog(interest)}
                         className="text-xs px-1 py-0.5 rounded flex-shrink-0"
                         title={interest.locked && !isUnlocked ? t("general.viewOnly") : t("places.detailsEdit")}
                       >{interest.locked && !isUnlocked ? '👁️' : '✏️'}</button>
@@ -2216,9 +2222,9 @@
                       {t("interests.activeInterests")} ({activeBuiltIn.length + activeUncovered.length + activeCustom.length})
                     </h3>
                     <div className="space-y-1">
-                      {activeBuiltIn.map(i => renderInterestRow(i, false, true))}
-                      {activeUncovered.map(i => renderInterestRow(i, false, true))}
-                      {activeCustom.map(i => renderInterestRow(i, true, true))}
+                      {activeBuiltIn.map(i => renderInterestRow(i, true))}
+                      {activeUncovered.map(i => renderInterestRow(i, true))}
+                      {activeCustom.map(i => renderInterestRow(i, true))}
                     </div>
                   </div>
                   
@@ -2229,9 +2235,9 @@
                         ⏸️ Disabled interests ({inactiveBuiltIn.length + inactiveUncovered.length + inactiveCustom.length})
                       </h3>
                       <div className="space-y-1">
-                        {inactiveBuiltIn.map(i => renderInterestRow(i, false, false))}
-                        {inactiveUncovered.map(i => renderInterestRow(i, false, false))}
-                        {inactiveCustom.map(i => renderInterestRow(i, true, false))}
+                        {inactiveBuiltIn.map(i => renderInterestRow(i, false))}
+                        {inactiveUncovered.map(i => renderInterestRow(i, false))}
+                        {inactiveCustom.map(i => renderInterestRow(i, false))}
                       </div>
                     </div>
                   )}
@@ -2243,7 +2249,7 @@
                         🟡 Draft ({draftInterests.length})
                       </h3>
                       <div className="space-y-1">
-                        {draftInterests.map(i => renderInterestRow(i, !!i.custom, !!interestStatus[i.id]))}
+                        {draftInterests.map(i => renderInterestRow(i, !!interestStatus[i.id]))}
                       </div>
                     </div>
                   )}
@@ -2255,7 +2261,7 @@
                         🔴 Hidden ({hiddenInterests.length})
                       </h3>
                       <div className="space-y-1">
-                        {hiddenInterests.map(i => renderInterestRow(i, !!i.custom, false))}
+                        {hiddenInterests.map(i => renderInterestRow(i, false))}
                       </div>
                     </div>
                   )}

@@ -786,14 +786,6 @@
               <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2.5 rounded-t-xl flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-bold">{editingCustomInterest ? `${newInterest.icon?.startsWith?.('data:') ? '' : newInterest.icon} ${newInterest.label}` : t('interests.addInterest')}</h3>
-                  {editingCustomInterest && (
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${newInterest.builtIn ? 'bg-blue-200 text-blue-800' : 'bg-purple-200 text-purple-800'}`}>
-                      {newInterest.builtIn ? t('general.system') : t('general.private')}
-                    </span>
-                  )}
-                  {!editingCustomInterest && (
-                    <span className="text-[10px] bg-purple-200 text-purple-800 px-2 py-0.5 rounded-full font-bold">{t("general.private")}</span>
-                  )}
                   <button
                     onClick={() => showHelpFor('addInterest')}
                     className="bg-white text-purple-600 hover:bg-purple-100 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shadow"
@@ -827,8 +819,8 @@
                       placeholder={t("interests.exampleTypes")}
                       className="w-full p-2 border-2 border-purple-300 rounded-lg focus:border-purple-500"
                       style={{ direction: 'rtl', fontSize: '16px' }}
-                      disabled={newInterest.builtIn && !isUnlocked}
-                      autoFocus={!newInterest.builtIn}
+                      
+                      autoFocus={!editingCustomInterest}
                     />
                     <div className="flex items-center gap-1 mt-1" style={{ minWidth: 0 }}>
                       <span className="text-[10px] text-gray-400 flex-shrink-0">🇬🇧</span>
@@ -839,7 +831,7 @@
                         placeholder={t("interests.englishName")}
                         className="flex-1 p-1.5 border border-gray-300 rounded-lg focus:border-purple-500"
                         style={{ direction: 'ltr', fontSize: '14px', minWidth: 0 }}
-                        disabled={newInterest.builtIn && !isUnlocked}
+                        
                       />
                     </div>
                   </div>
@@ -863,10 +855,10 @@
                         }}
                         placeholder="📍"
                         className="w-full p-2 text-xl border-2 border-gray-300 rounded-lg text-center"
-                        disabled={newInterest.builtIn && !isUnlocked}
+                        
                       />
                     )}
-                    {(!newInterest.builtIn || isUnlocked) && (
+                    {isEditor && (
                       <label className="block w-full mt-1 p-1 border border-dashed border-gray-300 rounded text-center cursor-pointer hover:bg-gray-50 text-[9px] text-gray-500">
                         📁 File
                         <input
@@ -885,7 +877,7 @@
                         />
                       </label>
                     )}
-                    {(!newInterest.builtIn || isUnlocked) && (
+                    {isEditor && (
                       <button
                         onClick={() => setIconPickerConfig({ description: newInterest.label || '', callback: (emoji) => setNewInterest(prev => ({...prev, icon: emoji})), suggestions: [], loading: false })}
                         className="block w-full mt-1 p-1 border border-dashed border-orange-300 rounded text-center cursor-pointer hover:bg-orange-50 text-[9px] text-orange-600 font-bold"
@@ -955,8 +947,7 @@
                 <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
                   <label className="block text-xs font-bold mb-2 text-blue-800">{`🔍 ${t("general.searchSettings")}`}</label>
                   
-                  {/* Manual toggle - only for custom interests */}
-                  {!newInterest.builtIn && (
+                  {/* Manual/Google toggle */}
                   <div className="flex items-center gap-2 mb-3 pb-2" style={{ borderBottom: '1px solid #bfdbfe' }}>
                     <button type="button"
                       onClick={() => setNewInterest({...newInterest, privateOnly: !newInterest.privateOnly})}
@@ -966,9 +957,8 @@
                     </button>
                     <span className="text-[9px] text-gray-500">{newInterest.privateOnly ? t("interests.myPlacesOnly") : t("interests.searchesGoogle")}</span>
                   </div>
-                  )}
                   
-                  <div style={{ opacity: (!newInterest.builtIn && newInterest.privateOnly) ? 0.3 : 1, pointerEvents: (!newInterest.builtIn && newInterest.privateOnly) ? 'none' : 'auto' }}>
+                  <div style={{ opacity: newInterest.privateOnly ? 0.3 : 1, pointerEvents: newInterest.privateOnly ? 'none' : 'auto' }}>
                   
                   <div className="mb-2">
                     <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t("general.searchMode")}:`}</label>
@@ -1283,7 +1273,7 @@
                       >
                         {interestStatus[editingCustomInterest.id] === false ? t('general.enable') : t('general.disable')}
                       </button>
-                      {(!newInterest.builtIn || isUnlocked) && (() => {
+                      {isEditor && (() => {
                         const inUseCount = customLocations.filter(loc => (loc.interests || []).includes(editingCustomInterest?.id)).length;
                         const canDelete = isAdmin || inUseCount === 0;
                         return canDelete ? (

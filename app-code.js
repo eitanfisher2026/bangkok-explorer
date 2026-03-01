@@ -4580,10 +4580,15 @@ const FouFouApp = () => {
   const resetInterestStatusToDefault = async () => {
     const defaults = computeDefaultInterestStatus();
     
+    setFormData(prev => ({
+      ...prev,
+      interests: prev.interests.filter(id => defaults[id] !== false)
+    }));
+    
     if (isFirebaseAvailable && database) {
       const userId = localStorage.getItem('bangkok_user_id') || 'unknown';
       try {
-        await database.ref(`users/${userId}/interestStatus`).remove();
+        await database.ref(`users/${userId}/interestStatus`).set(defaults);
         setInterestStatus(defaults);
         showToast(t('interests.interestsReset'), 'success');
       } catch (err) {
@@ -4591,7 +4596,7 @@ const FouFouApp = () => {
         showToast(t('toast.resetError'), 'error');
       }
     } else {
-      localStorage.removeItem('bangkok_interest_status');
+      localStorage.setItem('bangkok_interest_status', JSON.stringify(defaults));
       setInterestStatus(defaults);
       showToast(t('interests.interestsReset'), 'success');
     }
@@ -7925,6 +7930,10 @@ const FouFouApp = () => {
               </div>
               <div className="flex gap-1">
                 <button
+                  onClick={() => { setMapMode('favorites'); setMapFavArea(null); setMapFavRadius(null); setMapFocusPlace(null); setMapFavFilter(new Set()); setMapBottomSheet(null); setShowMapModal(true); }}
+                  style={{ padding: '2px 8px', borderRadius: '8px', border: '2px solid #8b5cf6', background: 'linear-gradient(135deg, #faf5ff, #ede9fe)', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold', color: '#6d28d9' }}
+                >🗺️</button>
+                <button
                   onClick={resetInterestStatusToDefault}
                   className="bg-gray-200 text-gray-700 px-2 py-1.5 rounded-lg text-[10px] font-bold hover:bg-gray-300"
                   title={t("interests.resetToDefault")}
@@ -7948,9 +7957,10 @@ const FouFouApp = () => {
             
             {/* Unified Interest List */}
             {(() => {
-              const openInterestDialog = (interest, isCustom = false) => {
+              const openInterestDialog = (interest) => {
                 const config = interestConfig[interest.id] || {};
-                setEditingCustomInterest(isCustom ? interest : { ...interest, builtIn: true });
+                const isFromCustom = customInterests.some(ci => ci.id === interest.id);
+                setEditingCustomInterest(isFromCustom ? interest : { ...interest, builtIn: true });
                 setNewInterest({
                   id: interest.id,
                   label: interest.label || interest.name || '',
@@ -7962,7 +7972,7 @@ const FouFouApp = () => {
                   blacklist: (config.blacklist || []).join(', '),
                   privateOnly: interest.privateOnly || false,
                   locked: interest.locked || false,
-                  builtIn: !isCustom,
+                  builtIn: !isFromCustom,
                   scope: config.scope || interest.scope || 'global',
                   cityId: config.cityId || interest.cityId || '',
                   category: config.category || interest.category || 'attraction',
@@ -7977,40 +7987,41 @@ const FouFouApp = () => {
                 setShowAddInterestDialog(true);
               };
               
-              const renderInterestRow = (interest, isCustom = false, isActive = true) => {
+              const renderInterestRow = (interest, isActive = true) => {
                 const isValid = isInterestValid(interest.id);
-                const effectiveActive = isValid ? isActive : false; // Invalid always inactive
+                const effectiveActive = isValid ? isActive : false;
                 const aStatus = interest.adminStatus || (interestConfig[interest.id]?.adminStatus) || 'active';
                 const isDraft = aStatus === 'draft';
                 const isHidden = aStatus === 'hidden';
+                const interestColor = window.BKK.getInterestColor(interest.id, allInterestOptions);
                 const borderClass = isHidden ? 'border-2 border-red-300 bg-red-50 opacity-50'
                   : isDraft ? 'border-2 border-amber-300 bg-amber-50'
                   : !effectiveActive ? 'border border-gray-300 bg-gray-50 opacity-60'
-                  : isCustom ? (isValid ? 'border border-gray-200 bg-white' : 'border-2 border-red-400 bg-red-50')
                   : (isValid ? 'border border-gray-200 bg-white' : 'border-2 border-red-400 bg-red-50');
                 
                 return (
                   <div key={interest.id} className={`flex items-center justify-between gap-2 rounded-lg p-2 ${borderClass}`}>
+                    {/* Color bar */}
+                    <div style={{ width: '4px', alignSelf: 'stretch', borderRadius: '2px', background: effectiveActive ? interestColor : '#d1d5db', flexShrink: 0 }}></div>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <span className="text-lg flex-shrink-0">{interest.icon?.startsWith?.('data:') ? <img src={interest.icon} alt="" className="w-5 h-5 object-contain" /> : interest.icon}</span>
                       <span className={`font-medium text-sm truncate ${isHidden ? 'text-red-400 line-through' : isDraft ? 'text-amber-700' : !effectiveActive ? 'text-gray-500' : ''}`}>{tLabel(interest)}</span>
-                      {isCustom && <span className="text-[10px] bg-purple-200 text-purple-800 px-1 py-0.5 rounded flex-shrink-0">{t("general.custom")}</span>}
                       {!isValid && <span className="text-red-500 text-xs flex-shrink-0" title={t("interests.missingSearchConfig")}>⚠️</span>}
                       {interest.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '11px' }} className="flex-shrink-0">🔒</span>}
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
-                      {/* Admin status cycle — admin only */}
-                      {isUnlocked && (
+                      {/* Admin status cycle — admin only, hide green (active is default) */}
+                      {isUnlocked && (isDraft || isHidden) && (
                         <button
                           onClick={(e) => { e.stopPropagation(); cycleAdminStatus(interest.id); }}
                           style={{
                             fontSize: '9px', padding: '1px 4px', borderRadius: '4px',
-                            background: isHidden ? '#fee2e2' : isDraft ? '#fef3c7' : '#dcfce7',
-                            border: `1px solid ${isHidden ? '#fca5a5' : isDraft ? '#fcd34d' : '#86efac'}`,
+                            background: isHidden ? '#fee2e2' : '#fef3c7',
+                            border: `1px solid ${isHidden ? '#fca5a5' : '#fcd34d'}`,
                             cursor: 'pointer', lineHeight: '14px'
                           }}
                           title={`Status: ${aStatus} (click to cycle)`}
-                        >{isHidden ? '🔴' : isDraft ? '🟡' : '🟢'}</button>
+                        >{isHidden ? '🔴' : '🟡'}</button>
                       )}
                       {/* Default flag toggle — admin only */}
                       {isUnlocked && (() => {
@@ -8046,7 +8057,7 @@ const FouFouApp = () => {
                       </button>
                       {isEditor && (
                       <button
-                        onClick={() => openInterestDialog(interest, isCustom)}
+                        onClick={() => openInterestDialog(interest)}
                         className="text-xs px-1 py-0.5 rounded flex-shrink-0"
                         title={interest.locked && !isUnlocked ? t("general.viewOnly") : t("places.detailsEdit")}
                       >{interest.locked && !isUnlocked ? '👁️' : '✏️'}</button>
@@ -8102,9 +8113,9 @@ const FouFouApp = () => {
                       {t("interests.activeInterests")} ({activeBuiltIn.length + activeUncovered.length + activeCustom.length})
                     </h3>
                     <div className="space-y-1">
-                      {activeBuiltIn.map(i => renderInterestRow(i, false, true))}
-                      {activeUncovered.map(i => renderInterestRow(i, false, true))}
-                      {activeCustom.map(i => renderInterestRow(i, true, true))}
+                      {activeBuiltIn.map(i => renderInterestRow(i, true))}
+                      {activeUncovered.map(i => renderInterestRow(i, true))}
+                      {activeCustom.map(i => renderInterestRow(i, true))}
                     </div>
                   </div>
                   
@@ -8115,9 +8126,9 @@ const FouFouApp = () => {
                         ⏸️ Disabled interests ({inactiveBuiltIn.length + inactiveUncovered.length + inactiveCustom.length})
                       </h3>
                       <div className="space-y-1">
-                        {inactiveBuiltIn.map(i => renderInterestRow(i, false, false))}
-                        {inactiveUncovered.map(i => renderInterestRow(i, false, false))}
-                        {inactiveCustom.map(i => renderInterestRow(i, true, false))}
+                        {inactiveBuiltIn.map(i => renderInterestRow(i, false))}
+                        {inactiveUncovered.map(i => renderInterestRow(i, false))}
+                        {inactiveCustom.map(i => renderInterestRow(i, false))}
                       </div>
                     </div>
                   )}
@@ -8129,7 +8140,7 @@ const FouFouApp = () => {
                         🟡 Draft ({draftInterests.length})
                       </h3>
                       <div className="space-y-1">
-                        {draftInterests.map(i => renderInterestRow(i, !!i.custom, !!interestStatus[i.id]))}
+                        {draftInterests.map(i => renderInterestRow(i, !!interestStatus[i.id]))}
                       </div>
                     </div>
                   )}
@@ -8141,7 +8152,7 @@ const FouFouApp = () => {
                         🔴 Hidden ({hiddenInterests.length})
                       </h3>
                       <div className="space-y-1">
-                        {hiddenInterests.map(i => renderInterestRow(i, !!i.custom, false))}
+                        {hiddenInterests.map(i => renderInterestRow(i, false))}
                       </div>
                     </div>
                   )}
@@ -10618,14 +10629,6 @@ const FouFouApp = () => {
               <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2.5 rounded-t-xl flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-bold">{editingCustomInterest ? `${newInterest.icon?.startsWith?.('data:') ? '' : newInterest.icon} ${newInterest.label}` : t('interests.addInterest')}</h3>
-                  {editingCustomInterest && (
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${newInterest.builtIn ? 'bg-blue-200 text-blue-800' : 'bg-purple-200 text-purple-800'}`}>
-                      {newInterest.builtIn ? t('general.system') : t('general.private')}
-                    </span>
-                  )}
-                  {!editingCustomInterest && (
-                    <span className="text-[10px] bg-purple-200 text-purple-800 px-2 py-0.5 rounded-full font-bold">{t("general.private")}</span>
-                  )}
                   <button
                     onClick={() => showHelpFor('addInterest')}
                     className="bg-white text-purple-600 hover:bg-purple-100 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shadow"
@@ -10659,8 +10662,8 @@ const FouFouApp = () => {
                       placeholder={t("interests.exampleTypes")}
                       className="w-full p-2 border-2 border-purple-300 rounded-lg focus:border-purple-500"
                       style={{ direction: 'rtl', fontSize: '16px' }}
-                      disabled={newInterest.builtIn && !isUnlocked}
-                      autoFocus={!newInterest.builtIn}
+                      
+                      autoFocus={!editingCustomInterest}
                     />
                     <div className="flex items-center gap-1 mt-1" style={{ minWidth: 0 }}>
                       <span className="text-[10px] text-gray-400 flex-shrink-0">🇬🇧</span>
@@ -10671,7 +10674,7 @@ const FouFouApp = () => {
                         placeholder={t("interests.englishName")}
                         className="flex-1 p-1.5 border border-gray-300 rounded-lg focus:border-purple-500"
                         style={{ direction: 'ltr', fontSize: '14px', minWidth: 0 }}
-                        disabled={newInterest.builtIn && !isUnlocked}
+                        
                       />
                     </div>
                   </div>
@@ -10695,10 +10698,10 @@ const FouFouApp = () => {
                         }}
                         placeholder="📍"
                         className="w-full p-2 text-xl border-2 border-gray-300 rounded-lg text-center"
-                        disabled={newInterest.builtIn && !isUnlocked}
+                        
                       />
                     )}
-                    {(!newInterest.builtIn || isUnlocked) && (
+                    {isEditor && (
                       <label className="block w-full mt-1 p-1 border border-dashed border-gray-300 rounded text-center cursor-pointer hover:bg-gray-50 text-[9px] text-gray-500">
                         📁 File
                         <input
@@ -10717,7 +10720,7 @@ const FouFouApp = () => {
                         />
                       </label>
                     )}
-                    {(!newInterest.builtIn || isUnlocked) && (
+                    {isEditor && (
                       <button
                         onClick={() => setIconPickerConfig({ description: newInterest.label || '', callback: (emoji) => setNewInterest(prev => ({...prev, icon: emoji})), suggestions: [], loading: false })}
                         className="block w-full mt-1 p-1 border border-dashed border-orange-300 rounded text-center cursor-pointer hover:bg-orange-50 text-[9px] text-orange-600 font-bold"
@@ -10787,8 +10790,7 @@ const FouFouApp = () => {
                 <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
                   <label className="block text-xs font-bold mb-2 text-blue-800">{`🔍 ${t("general.searchSettings")}`}</label>
                   
-                  {/* Manual toggle - only for custom interests */}
-                  {!newInterest.builtIn && (
+                  {/* Manual/Google toggle */}
                   <div className="flex items-center gap-2 mb-3 pb-2" style={{ borderBottom: '1px solid #bfdbfe' }}>
                     <button type="button"
                       onClick={() => setNewInterest({...newInterest, privateOnly: !newInterest.privateOnly})}
@@ -10798,9 +10800,8 @@ const FouFouApp = () => {
                     </button>
                     <span className="text-[9px] text-gray-500">{newInterest.privateOnly ? t("interests.myPlacesOnly") : t("interests.searchesGoogle")}</span>
                   </div>
-                  )}
                   
-                  <div style={{ opacity: (!newInterest.builtIn && newInterest.privateOnly) ? 0.3 : 1, pointerEvents: (!newInterest.builtIn && newInterest.privateOnly) ? 'none' : 'auto' }}>
+                  <div style={{ opacity: newInterest.privateOnly ? 0.3 : 1, pointerEvents: newInterest.privateOnly ? 'none' : 'auto' }}>
                   
                   <div className="mb-2">
                     <label className="block text-[10px] text-gray-600 mb-1" style={{ direction: 'ltr' }}>{`${t("general.searchMode")}:`}</label>
@@ -11113,7 +11114,7 @@ const FouFouApp = () => {
                       >
                         {interestStatus[editingCustomInterest.id] === false ? t('general.enable') : t('general.disable')}
                       </button>
-                      {(!newInterest.builtIn || isUnlocked) && (() => {
+                      {isEditor && (() => {
                         const inUseCount = customLocations.filter(loc => (loc.interests || []).includes(editingCustomInterest?.id)).length;
                         const canDelete = isAdmin || inUseCount === 0;
                         return canDelete ? (

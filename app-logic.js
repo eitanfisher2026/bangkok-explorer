@@ -5141,11 +5141,17 @@
   const resetInterestStatusToDefault = async () => {
     const defaults = computeDefaultInterestStatus();
     
+    // Also clean formData.interests — remove any that will be disabled
+    setFormData(prev => ({
+      ...prev,
+      interests: prev.interests.filter(id => defaults[id] !== false)
+    }));
+    
     if (isFirebaseAvailable && database) {
       const userId = localStorage.getItem('bangkok_user_id') || 'unknown';
       try {
-        // Remove user overrides — reset to interestConfig defaults
-        await database.ref(`users/${userId}/interestStatus`).remove();
+        // Write computed defaults explicitly (not just remove)
+        await database.ref(`users/${userId}/interestStatus`).set(defaults);
         setInterestStatus(defaults);
         showToast(t('interests.interestsReset'), 'success');
       } catch (err) {
@@ -5153,7 +5159,7 @@
         showToast(t('toast.resetError'), 'error');
       }
     } else {
-      localStorage.removeItem('bangkok_interest_status');
+      localStorage.setItem('bangkok_interest_status', JSON.stringify(defaults));
       setInterestStatus(defaults);
       showToast(t('interests.interestsReset'), 'success');
     }
