@@ -754,7 +754,7 @@
                     if (option.uncovered) return status === true;
                     if (option.scope === 'local' && option.cityId && option.cityId !== selectedCityId) return false;
                     return status !== false;
-                  }).filter(option => isInterestValid(option.id)).map(option => {
+                  }).map(option => {
                     const isSelected = formData.interests.includes(option.id);
                     const isDraft = (option.adminStatus || 'active') === 'draft';
                     return (
