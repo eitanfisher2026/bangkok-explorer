@@ -3499,6 +3499,8 @@ window.BKK.getInterestColor = (interestId, allInterests) => {
 };
 
 // ============================================================================
+// ============================================================================
+window.BKK.getLocationAreas = (loc) => {
   if (loc.areas && Array.isArray(loc.areas) && loc.areas.length > 0) {
     return loc.areas;
   }

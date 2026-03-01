@@ -147,6 +147,9 @@ window.BKK.getInterestColor = (interestId, allInterests) => {
 };
 
 // ============================================================================
+// Get all areas for a location (handles both .areas array and .area string)
+// ============================================================================
+window.BKK.getLocationAreas = (loc) => {
   if (loc.areas && Array.isArray(loc.areas) && loc.areas.length > 0) {
     return loc.areas;
   }
