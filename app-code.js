@@ -6595,17 +6595,34 @@ const FouFouApp = () => {
                   </div>
                 )}
 
-                {/* Generate button */}
-                <button
-                  onClick={() => { generateRoute(); setRouteChoiceMade(null); setWizardStep(3); window.scrollTo(0, 0); }}
-                  disabled={!isDataLoaded || formData.interests.length === 0 || (formData.searchMode === 'radius' ? !formData.currentLat : (formData.searchMode === 'areas' && !formData.area))}
-                  style={{ width: '100%', padding: '14px', borderRadius: '12px', border: 'none', marginTop: '6px',
-                    cursor: (isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : true)) ? 'pointer' : 'not-allowed',
-                    background: (isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : true)) ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : '#d1d5db',
-                    color: 'white', fontSize: '16px', fontWeight: 'bold',
-                    boxShadow: (isDataLoaded && formData.interests.length > 0) ? '0 4px 6px rgba(37,99,235,0.3)' : 'none'
-                  }}
-                >{isDataLoaded ? `🔍 ${t('wizard.findPlaces')} (${formData.maxStops})` : `⏳ ${t('general.loading')}...`}</button>
+                {/* Generate + Map buttons */}
+                <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                  <button
+                    onClick={() => {
+                      setMapMode('favorites');
+                      setMapFavArea(formData.searchMode === 'areas' && formData.area ? formData.area : null);
+                      setMapFocusPlace(null);
+                      setMapFavFilter(formData.interests.length > 0 ? new Set(formData.interests) : new Set());
+                      setMapBottomSheet(null);
+                      setMapReturnPlace(null);
+                      setShowMapModal(true);
+                    }}
+                    style={{
+                      padding: '14px 16px', borderRadius: '12px', border: '2px solid #c084fc',
+                      cursor: 'pointer', background: 'white', color: '#7c3aed', fontSize: '15px', fontWeight: 'bold'
+                    }}
+                  >🗺️</button>
+                  <button
+                    onClick={() => { generateRoute(); setRouteChoiceMade(null); setWizardStep(3); window.scrollTo(0, 0); }}
+                    disabled={!isDataLoaded || formData.interests.length === 0 || (formData.searchMode === 'radius' ? !formData.currentLat : (formData.searchMode === 'areas' && !formData.area))}
+                    style={{ flex: 1, padding: '14px', borderRadius: '12px', border: 'none',
+                      cursor: (isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : true)) ? 'pointer' : 'not-allowed',
+                      background: (isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : true)) ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : '#d1d5db',
+                      color: 'white', fontSize: '16px', fontWeight: 'bold',
+                      boxShadow: (isDataLoaded && formData.interests.length > 0) ? '0 4px 6px rgba(37,99,235,0.3)' : 'none'
+                    }}
+                  >{isDataLoaded ? `🔍 ${t('wizard.findPlaces')} (${formData.maxStops})` : `⏳ ${t('general.loading')}...`}</button>
+                </div>
               </div>
             )}
 
@@ -6652,8 +6669,23 @@ const FouFouApp = () => {
                   })}
                 </div>
 
-                {/* Next button */}
+                {/* Next + Map buttons */}
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                  <button
+                    onClick={() => {
+                      setMapMode('favorites');
+                      setMapFavArea(null);
+                      setMapFocusPlace(null);
+                      setMapFavFilter(formData.interests.length > 0 ? new Set(formData.interests) : new Set());
+                      setMapBottomSheet(null);
+                      setMapReturnPlace(null);
+                      setShowMapModal(true);
+                    }}
+                    style={{
+                      padding: '14px 16px', borderRadius: '12px', border: '2px solid #c084fc',
+                      cursor: 'pointer', background: 'white', color: '#7c3aed', fontSize: '15px', fontWeight: 'bold'
+                    }}
+                  >🗺️</button>
                   <button
                     onClick={() => { setWizardStep(2); window.scrollTo(0, 0); }}
                     disabled={formData.interests.length === 0}
