@@ -477,8 +477,9 @@
                   }
                 }}
                 style={{
-                  flex: 1, padding: '10px', background: '#2563eb', color: 'white',
-                  border: 'none', borderRadius: '12px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer'
+                  flex: 1, padding: '10px',
+                  background: 'linear-gradient(135deg, #eff6ff, #dbeafe)', color: '#1e40af',
+                  border: '2px solid #3b82f6', borderRadius: '12px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer'
                 }}
               >
                 {`🗺️ ${t('trail.backToMaps')}`}
@@ -599,13 +600,14 @@
                 </p>
                 
                 {/* Mode selector tabs */}
-                <div style={{ display: 'flex', gap: '0', marginBottom: '8px', borderRadius: '10px', overflow: 'hidden', border: '2px solid #e5e7eb' }}>
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
                   <button
                     onClick={() => setFormData({...formData, searchMode: formData.searchMode === 'radius' ? 'area' : formData.searchMode})}
                     style={{
-                      flex: 1, padding: '8px 4px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px',
-                      background: formData.searchMode !== 'radius' ? '#2563eb' : 'white',
-                      color: formData.searchMode !== 'radius' ? 'white' : '#6b7280',
+                      flex: 1, padding: '8px 4px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px',
+                      border: formData.searchMode !== 'radius' ? '2px solid #3b82f6' : '2px solid #e5e7eb',
+                      background: formData.searchMode !== 'radius' ? 'linear-gradient(135deg, #eff6ff, #dbeafe)' : 'white',
+                      color: formData.searchMode !== 'radius' ? '#1e40af' : '#6b7280',
                       transition: 'all 0.2s'
                     }}
                   >🗺️ {t('wizard.chooseArea')}</button>
@@ -630,9 +632,10 @@
                       }
                     }}
                     style={{
-                      flex: 1, padding: '8px 4px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px',
-                      background: formData.searchMode === 'radius' ? '#2563eb' : 'white',
-                      color: formData.searchMode === 'radius' ? 'white' : '#6b7280',
+                      flex: 1, padding: '8px 4px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px',
+                      border: formData.searchMode === 'radius' ? '2px solid #3b82f6' : '2px solid #e5e7eb',
+                      background: formData.searchMode === 'radius' ? 'linear-gradient(135deg, #eff6ff, #dbeafe)' : 'white',
+                      color: formData.searchMode === 'radius' ? '#1e40af' : '#6b7280',
                       transition: 'all 0.2s'
                     }}
                   >📍 {t('general.nearMe')}</button>
@@ -722,19 +725,19 @@
                       setShowMapModal(true);
                     }}
                     style={{
-                      width: '100%', padding: '12px', borderRadius: '12px', border: '2px solid #10b981',
-                      cursor: 'pointer', background: 'linear-gradient(135deg, #ecfdf5, #d1fae5)', color: '#065f46', fontSize: '14px', fontWeight: 'bold',
-                      boxShadow: '0 2px 6px rgba(16,185,129,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                      width: '100%', padding: '12px', borderRadius: '12px', border: '2px solid #8b5cf6',
+                      cursor: 'pointer', background: 'linear-gradient(135deg, #faf5ff, #ede9fe)', color: '#6d28d9', fontSize: '14px', fontWeight: 'bold',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
                     }}
                   >🗺️ {t('wizard.showMap')}</button>
                   <button
                     onClick={() => { generateRoute(); setRouteChoiceMade(null); setWizardStep(3); window.scrollTo(0, 0); }}
                     disabled={!isDataLoaded || formData.interests.length === 0 || (formData.searchMode === 'radius' ? !formData.currentLat : (formData.searchMode === 'area' && !formData.area))}
-                    style={{ width: '100%', padding: '14px', borderRadius: '12px', border: 'none',
+                    style={{ width: '100%', padding: '14px', borderRadius: '12px',
                       cursor: (isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : true)) ? 'pointer' : 'not-allowed',
-                      background: (isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : true)) ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : '#d1d5db',
-                      color: 'white', fontSize: '16px', fontWeight: 'bold',
-                      boxShadow: (isDataLoaded && formData.interests.length > 0) ? '0 4px 6px rgba(37,99,235,0.3)' : 'none'
+                      border: (isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : true)) ? '2px solid #22c55e' : '2px solid #d1d5db',
+                      background: (isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : true)) ? 'linear-gradient(135deg, #f0fdf4, #dcfce7)' : '#f3f4f6',
+                      color: (isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : true)) ? '#15803d' : '#9ca3af', fontSize: '16px', fontWeight: 'bold'
                     }}
                   >{isDataLoaded ? `🔍 ${t('wizard.findPlaces')} (${formData.maxStops})` : `⏳ ${t('general.loading')}...`}</button>
                 </div>
@@ -799,20 +802,20 @@
                       setShowMapModal(true);
                     }}
                     style={{
-                      width: '100%', padding: '12px', borderRadius: '12px', border: '2px solid #10b981',
-                      cursor: 'pointer', background: 'linear-gradient(135deg, #ecfdf5, #d1fae5)', color: '#065f46', fontSize: '14px', fontWeight: 'bold',
-                      boxShadow: '0 2px 6px rgba(16,185,129,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                      width: '100%', padding: '12px', borderRadius: '12px', border: '2px solid #8b5cf6',
+                      cursor: 'pointer', background: 'linear-gradient(135deg, #faf5ff, #ede9fe)', color: '#6d28d9', fontSize: '14px', fontWeight: 'bold',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
                     }}
                   >🗺️ {t('wizard.showMap')}</button>
                   <button
                     onClick={() => { setWizardStep(2); window.scrollTo(0, 0); }}
                     disabled={formData.interests.length === 0}
                     style={{
-                      flex: 1, padding: '14px', borderRadius: '12px', border: 'none',
+                      flex: 1, padding: '14px', borderRadius: '12px',
                       cursor: formData.interests.length > 0 ? 'pointer' : 'not-allowed',
-                      background: formData.interests.length > 0 ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : '#d1d5db',
-                      color: 'white', fontSize: '16px', fontWeight: 'bold',
-                      boxShadow: formData.interests.length > 0 ? '0 4px 6px rgba(37,99,235,0.3)' : 'none'
+                      border: formData.interests.length > 0 ? '2px solid #22c55e' : '2px solid #d1d5db',
+                      background: formData.interests.length > 0 ? 'linear-gradient(135deg, #f0fdf4, #dcfce7)' : '#f3f4f6',
+                      color: formData.interests.length > 0 ? '#15803d' : '#9ca3af', fontSize: '16px', fontWeight: 'bold'
                     }}
                   >{t("general.next")}</button>
                 </div>
@@ -910,8 +913,8 @@
         {!activeTrail && currentView !== 'form' && (
           <div style={{ textAlign: 'center', marginTop: '-6px', marginBottom: '4px' }}>
             <button
-              onClick={() => { setCurrentView('form'); window.scrollTo(0, 0); }}
-              style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '4px 14px', color: '#6b7280', fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}
+              onClick={() => { setCurrentView('form'); setWizardStep(1); setRoute(null); setRouteChoiceMade(null); window.scrollTo(0, 0); }}
+              style={{ background: 'linear-gradient(135deg, #eff6ff, #dbeafe)', border: '2px solid #3b82f6', borderRadius: '16px', padding: '4px 14px', color: '#1e40af', fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}
             >
               {`← ${t('general.backToRoute')}`}
             </button>
@@ -1309,10 +1312,10 @@
                     }}
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      flex: 1, height: '42px', backgroundColor: '#f59e0b', color: 'white',
+                      flex: 1, height: '42px',
+                      background: 'linear-gradient(135deg, #faf5ff, #ede9fe)', color: '#6d28d9',
                       borderRadius: '12px', fontWeight: 'bold', fontSize: '13px',
-                      border: 'none', cursor: 'pointer',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)'
+                      border: '2px solid #8b5cf6', cursor: 'pointer'
                     }}
                   >
                     {`${t("route.showStopsOnMap")} (${route.stops.filter(s => !isStopDisabled(s) && s.lat && s.lng).length})`}

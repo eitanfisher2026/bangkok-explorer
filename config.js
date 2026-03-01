@@ -21,7 +21,7 @@ window.BKK = window.BKK || {};
 })();
 
 // App Version
-window.BKK.VERSION = '3.7.1';
+window.BKK.VERSION = '3.7.2';
 // Convert stop index (0-based) to letter label: 0→A, 1→B, ..., 25→Z, 26→AA
 window.BKK.stopLabel = function(i) {
   if (i < 26) return String.fromCharCode(65 + i);

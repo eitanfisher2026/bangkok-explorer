@@ -1051,10 +1051,10 @@
             // Base circle — always visible
             L.circle([c.lat, c.lng], {
               radius: c.radius,
-              color: areasOnly ? aColor : (isSelected ? '#2563eb' : '#cbd5e1'),
-              fillColor: areasOnly ? aColor : (isSelected ? '#2563eb' : '#e2e8f0'),
-              fillOpacity: areasOnly ? 0.15 : (isSelected ? 0.10 : 0.03),
-              weight: areasOnly ? 2 : (isSelected ? 3 : 0.8),
+              color: areasOnly ? aColor : (isSelected ? '#2563eb' : '#94a3b8'),
+              fillColor: areasOnly ? aColor : (isSelected ? '#2563eb' : '#94a3b8'),
+              fillOpacity: areasOnly ? 0.15 : (isSelected ? 0.10 : 0.05),
+              weight: areasOnly ? 2 : (isSelected ? 3 : 1.2),
               dashArray: isSelected ? '' : ''
             }).addTo(map).on('click', () => {
               if (window._favMapAreaClick) window._favMapAreaClick(area.id);
@@ -1064,7 +1064,7 @@
             L.marker([c.lat, c.lng], {
               icon: L.divIcon({
                 className: '',
-                html: '<div style="font-size:' + (areasOnly ? '10px' : '9px') + ';color:' + (areasOnly ? aColor : (isSelected ? '#1e40af' : '#94a3b8')) + ';text-align:center;white-space:nowrap;font-weight:bold;background:rgba(255,255,255,' + (areasOnly ? '0.88' : (isSelected ? '0.95' : '0.6')) + ');padding:' + (areasOnly || isSelected ? '2px 5px' : '0 3px') + ';border-radius:' + (areasOnly || isSelected ? '4px' : '3px') + ';' + ((areasOnly || isSelected) ? 'border:1.5px solid ' + (isSelected ? '#2563eb' : aColor) + ';box-shadow:0 1px 3px rgba(0,0,0,0.15);' : '') + 'cursor:pointer;">' + tLabel(area) + '</div>',
+                html: '<div style="font-size:' + (areasOnly ? '10px' : '9px') + ';color:' + (areasOnly ? aColor : (isSelected ? '#1e40af' : '#64748b')) + ';text-align:center;white-space:nowrap;font-weight:bold;background:rgba(255,255,255,' + (areasOnly ? '0.88' : (isSelected ? '0.95' : '0.75')) + ');padding:' + (areasOnly || isSelected ? '2px 5px' : '1px 4px') + ';border-radius:' + (areasOnly || isSelected ? '4px' : '3px') + ';' + ((areasOnly || isSelected) ? 'border:1.5px solid ' + (isSelected ? '#2563eb' : aColor) + ';box-shadow:0 1px 3px rgba(0,0,0,0.15);' : '') + 'cursor:pointer;">' + tLabel(area) + '</div>',
                 iconSize: [80, 22], iconAnchor: [40, 11]
               })
             }).addTo(map).on('click', () => {
