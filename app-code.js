@@ -9278,7 +9278,7 @@ const FouFouApp = () => {
             </div>
             {/* Map container with floating elements */}
             <div style={{ flex: 1, position: 'relative', minHeight: (mapMode === 'stops' || mapMode === 'favorites') ? '0' : '350px', maxHeight: (mapMode === 'stops' || mapMode === 'favorites') ? 'none' : '70vh' }}>
-              <div id="leaflet-map-container" style={{ width: '100%', height: '100%' }}></div>
+              <div id="leaflet-map-container" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}></div>
               {/* Floating filter button — favorites mode */}
               {mapMode === 'favorites' && !showFavMapFilter && (
                 <button
