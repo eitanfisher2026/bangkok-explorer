@@ -557,10 +557,10 @@
             {/* Step 2: Choose Area (was step 1) */}
             {wizardStep === 2 && (
               <div className="bg-white rounded-xl shadow-lg p-3">
-                {/* Compact header: back + interests + title */}
+                {/* Compact header: back + interests (words) + title */}
                 <div style={{ 
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                  fontSize: '12px', marginBottom: '8px', flexWrap: 'wrap'
+                  fontSize: '11px', color: '#9ca3af', marginBottom: '8px', flexWrap: 'wrap'
                 }}>
                   <span
                     onClick={() => { setWizardStep(1); window.scrollTo(0, 0); }}
@@ -569,16 +569,13 @@
                   <span style={{ color: '#d1d5db' }}>|</span>
                   <span
                     onClick={() => { setWizardStep(1); window.scrollTo(0, 0); }}
-                    style={{ cursor: 'pointer', fontSize: '11px' }}
-                  >{formData.interests.slice(0, 5).map(id => {
+                    style={{ cursor: 'pointer', textDecoration: 'underline', textDecorationColor: '#d1d5db' }}
+                  >⭐ {formData.interests.slice(0, 3).map(id => {
                     const opt = allInterestOptions.find(o => o.id === id);
-                    return opt ? (opt.icon || '') : '';
-                  }).join(' ')}{formData.interests.length > 5 ? ` +${formData.interests.length - 5}` : ''}</span>
+                    return opt ? tLabel(opt) : id;
+                  }).join(', ')}{formData.interests.length > 3 ? ` +${formData.interests.length - 3}` : ''}</span>
                   <span style={{ color: '#d1d5db' }}>|</span>
                   <span style={{ fontWeight: 'bold', color: '#374151' }}>{`📍 ${t("wizard.step1Title")}`}</span>
-                  <button onClick={() => showHelpFor('main')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', textDecoration: 'underline', padding: 0 }}>
-                    {t("general.howItWorks")}
-                  </button>
                 </div>
                 
                 {/* Mode selector tabs */}
@@ -745,7 +742,13 @@
                   </div>
                 )}
                 <h2 style={{ textAlign: 'center', fontSize: '17px', fontWeight: 'bold', marginBottom: '2px' }}>{`⭐ ${t("wizard.step2Title")}`}</h2>
-                <p style={{ textAlign: 'center', fontSize: '11px', color: '#6b7280', marginBottom: '10px' }}>{t("wizard.step2Subtitle")}</p>
+                <p style={{ textAlign: 'center', fontSize: '11px', color: '#6b7280', marginBottom: '10px' }}>
+                  {t("wizard.step2Subtitle")}
+                  {' '}
+                  <button onClick={() => showHelpFor('main')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', textDecoration: 'underline', padding: 0 }}>
+                    {t("general.howItWorks")}
+                  </button>
+                </p>
                 
                 {/* Interest Grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '12px' }}>

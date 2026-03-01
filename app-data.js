@@ -1,4 +1,4 @@
-// FouFou app-data.js v3.7.7
+// FouFou app-data.js v3.7.8
 // ============================================================================
 // FouFou — City Trail Generator - Internationalization (i18n)
 // Copyright © 2026 Eitan Fisher. All Rights Reserved.
@@ -868,7 +868,7 @@ map: {
 help: {
   main: {
     title: 'איך להשתמש?',
-    content: "**FouFou** עוזר לך לגלות מקומות מעניינים ולתכנן מסלול טיול.\n\n**3 שלבים פשוטים:**\n1. **בחר אזור** — לחץ על אזור ברשימה, או \"קרוב אליי\" לחיפוש לפי GPS\n2. **בחר תחומי עניין** — מה מעניין אותך? גלריות, אוכל, קפה, מקדשים...\n3. **קבל תוצאות** — המערכת מחפשת מקומות מהמועדפים שלך ומגוגל\n\n**אחרי שקיבלת תוצאות:**\n• **\"יאללה לדרך!\"** — פותח ניווט בגוגל מפות מיד\n• **\"מצב ידני\"** — שליטה מלאה: דלג על מקומות, שנה סדר, בחר נקודת התחלה\n• **\"🗺️ מפה ותכנון\"** — מפה אינטראקטיבית עם מסלול הליכה אמיתי\n\n**תפריט ☰ (למעלה מימין):**\n• 🗺️ **מסלול** — חזרה לתכנון\n• 💾 **שמורים** — מסלולים ששמרת\n• ⭐ **מועדפים** — מקומות שאהבת והוספת\n• 🏷️ **תחומים** — ניהול תחומי עניין\n• ⚙️ **הגדרות** — הגדרות מערכת (דורש סיסמא)\n\n**במהלך מסלול פעיל:**\n• **📸 צלם מקום חדש** — צלם, המערכת מזהה מקומות קרובים בגוגל\n• **⭐ דרג** — דרג מקומות מועדפים או הוסף מגוגל למועדפים\n• **📍 איפה אני** — מפה עם המיקום שלך והמסלול\n\n**טיפ:** לחץ על שם מקום כדי לפתוח אותו בגוגל מפות"
+    content: "**FouFou** עוזר לך לגלות מקומות מעניינים ולתכנן מסלול טיול.\n\n**3 שלבים פשוטים:**\n1. **בחר תחומי עניין** — מה מעניין אותך? גלריות, אוכל, קפה, מקדשים...\n2. **בחר אזור** — לחץ על אזור ברשימה, או \"קרוב אליי\" לחיפוש לפי GPS\n3. **קבל תוצאות** — המערכת מחפשת מקומות מהמועדפים שלך ומגוגל\n\n**אחרי שקיבלת תוצאות:**\n• **\"יאללה לדרך!\"** — פותח ניווט בגוגל מפות מיד\n• **\"מצב ידני\"** — שליטה מלאה: דלג על מקומות, שנה סדר, בחר נקודת התחלה\n• **\"🗺️ מפה ותכנון\"** — מפה אינטראקטיבית עם מסלול הליכה אמיתי\n\n**תפריט ☰ (למעלה מימין):**\n• 🗺️ **מסלול** — חזרה לתכנון\n• 💾 **שמורים** — מסלולים ששמרת\n• ⭐ **מועדפים** — מקומות שאהבת והוספת\n• 🏷️ **תחומים** — ניהול תחומי עניין\n• ⚙️ **הגדרות** — הגדרות מערכת (דורש סיסמא)\n\n**במהלך מסלול פעיל:**\n• **📸 צלם מקום חדש** — צלם, המערכת מזהה מקומות קרובים בגוגל\n• **⭐ דרג** — דרג מקומות מועדפים או הוסף מגוגל למועדפים\n• **📍 איפה אני** — מפה עם המיקום שלך והמסלול\n\n**טיפ:** מקומות שדורגו גבוה ב-FouFou יופיעו ראשונים במסלול!"
   },
   placesListing: {
     title: 'רשימת המקומות',
@@ -1800,7 +1800,7 @@ map: {
 help: {
   main: {
     title: 'How to use?',
-    content: "**FouFou** helps you discover interesting places and plan a trip route.\n\n**3 simple steps:**\n1. **Choose an area** — tap an area from the list, or \"Near me\" to search by GPS\n2. **Choose interests** — what interests you? Galleries, food, coffee, temples...\n3. **Get results** — the system searches your favorites and Google for places\n\n**After getting results:**\n• **\"Let's Go!\"** — opens navigation in Google Maps immediately\n• **\"Manual mode\"** — full control: skip places, change order, choose starting point\n• **\"🗺️ Map & Plan\"** — interactive map with real walking route\n\n**Menu ☰ (top right):**\n• 🗺️ **Route** — back to planning\n• 💾 **Saved** — routes you saved\n• ⭐ **Favorites** — places you liked and added\n• 🏷️ **Interests** — manage interest categories\n• ⚙️ **Settings** — system settings (requires password)\n\n**During an active trail:**\n• **📸 Snap a place** — take a photo, the system identifies nearby Google places\n• **⭐ Rate** — rate favorite places or add Google places to favorites\n• **📍 Where am I** — map with your location and the route\n\n**Tip:** Click on a place name to open it in Google Maps"
+    content: "**FouFou** helps you discover interesting places and plan a trip route.\n\n**3 simple steps:**\n1. **Choose interests** — what interests you? Galleries, food, coffee, temples...\n2. **Choose an area** — tap an area from the list, or \"Near me\" to search by GPS\n3. **Get results** — the system searches your favorites and Google for places\n\n**After getting results:**\n• **\"Let's Go!\"** — opens navigation in Google Maps immediately\n• **\"Manual mode\"** — full control: skip places, change order, choose starting point\n• **\"🗺️ Map & Plan\"** — interactive map with real walking route\n\n**Menu ☰ (top right):**\n• 🗺️ **Route** — back to planning\n• 💾 **Saved** — routes you saved\n• ⭐ **Favorites** — places you liked and added\n• 🏷️ **Interests** — manage interest categories\n• ⚙️ **Settings** — system settings (requires password)\n\n**During an active trail:**\n• **📸 Snap a place** — take a photo, the system identifies nearby Google places\n• **⭐ Rate** — rate favorite places or add Google places to favorites\n• **📍 Where am I** — map with your location and the route\n\n**Tip:** Places rated highly in FouFou will appear first in your route!"
   },
   placesListing: {
     title: 'Places list',
@@ -2992,7 +2992,7 @@ window.BKK = window.BKK || {};
   window.BKK.visitorName = vname || vid.slice(0, 10);
 })();
 
-window.BKK.VERSION = '3.7.7';
+window.BKK.VERSION = '3.7.8';
 window.BKK.stopLabel = function(i) {
   if (i < 26) return String.fromCharCode(65 + i);
   return String.fromCharCode(65 + Math.floor(i / 26) - 1) + String.fromCharCode(65 + (i % 26));
