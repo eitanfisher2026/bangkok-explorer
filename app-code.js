@@ -6400,7 +6400,7 @@ const FouFouApp = () => {
                   const activeStops = activeTrail.stops?.filter((_, i) => !skippedTrailStops.has(i));
                   if (activeStops?.length >= 2) {
                     const coords = activeStops.map(s => `${s.lat},${s.lng}`).join('/');
-                    window.open(`https://www.google.com/maps/dir//${coords}/data=!4m2!4m1!3e2`, 'city_explorer_map');
+                    window.open(`https://www.google.com/maps/dir//${coords}/data=!4m2!4m1!3e2`, '_blank');
                   } else {
                     showToast(t('trail.needTwoStops'), 'warning');
                   }
@@ -6619,7 +6619,7 @@ const FouFouApp = () => {
                 )}
 
                 {/* Map + Generate buttons */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px', marginBottom: '60px' }}>
                   <button
                     onClick={() => {
                       setMapMode('favorites');
@@ -6637,18 +6637,30 @@ const FouFouApp = () => {
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
                     }}
                   >🗺️ {t('wizard.showMap')}</button>
+                </div>
+              </div>
+              {/* Fixed find places button */}
+              {(() => {
+                const canSearch = isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : (formData.searchMode === 'area' ? formData.area : true));
+                return (
+                <div style={{
+                  position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
+                  padding: '8px 16px 16px', background: 'linear-gradient(to top, white 80%, rgba(255,255,255,0))',
+                }}>
                   <button
-                    onClick={() => { generateRoute(); setRouteChoiceMade(null); setWizardStep(3); window.scrollTo(0, 0); }}
-                    disabled={!isDataLoaded || formData.interests.length === 0 || (formData.searchMode === 'radius' ? !formData.currentLat : (formData.searchMode === 'area' && !formData.area))}
+                    onClick={() => { if (canSearch) { generateRoute(); setRouteChoiceMade(null); setWizardStep(3); window.scrollTo(0, 0); } }}
+                    disabled={!canSearch}
                     style={{ width: '100%', padding: '14px', borderRadius: '12px',
-                      cursor: (isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : true)) ? 'pointer' : 'not-allowed',
-                      border: (isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : true)) ? '2px solid #22c55e' : '2px solid #d1d5db',
-                      background: (isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : true)) ? 'linear-gradient(135deg, #f0fdf4, #dcfce7)' : '#f3f4f6',
-                      color: (isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : true)) ? '#15803d' : '#9ca3af', fontSize: '16px', fontWeight: 'bold'
+                      cursor: canSearch ? 'pointer' : 'not-allowed',
+                      border: canSearch ? '2px solid #22c55e' : '2px solid #d1d5db',
+                      background: canSearch ? 'linear-gradient(135deg, #f0fdf4, #dcfce7)' : '#f3f4f6',
+                      color: canSearch ? '#15803d' : '#9ca3af', fontSize: '16px', fontWeight: 'bold',
+                      boxShadow: '0 -2px 16px rgba(0,0,0,0.12)'
                     }}
                   >{isDataLoaded ? `🔍 ${t('wizard.findPlaces')} (${formData.maxStops})` : `⏳ ${t('general.loading')}...`}</button>
                 </div>
-              </div>
+                );
+              })()}
             )}
 
             {/* Step 1: Choose Interests (was step 2) */}
@@ -6715,7 +6727,7 @@ const FouFouApp = () => {
                 </div>
 
                 {/* Map + Next buttons */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: formData.interests.length > 0 ? '60px' : '8px' }}>
                   <button
                     onClick={() => {
                       setMapMode('favorites');
@@ -6733,19 +6745,27 @@ const FouFouApp = () => {
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
                     }}
                   >🗺️ {t('wizard.showMap')}</button>
-                  <button
-                    onClick={() => { setWizardStep(2); window.scrollTo(0, 0); }}
-                    disabled={formData.interests.length === 0}
-                    style={{
-                      flex: 1, padding: '14px', borderRadius: '12px',
-                      cursor: formData.interests.length > 0 ? 'pointer' : 'not-allowed',
-                      border: formData.interests.length > 0 ? '2px solid #22c55e' : '2px solid #d1d5db',
-                      background: formData.interests.length > 0 ? 'linear-gradient(135deg, #f0fdf4, #dcfce7)' : '#f3f4f6',
-                      color: formData.interests.length > 0 ? '#15803d' : '#9ca3af', fontSize: '16px', fontWeight: 'bold'
-                    }}
-                  >{t("general.next")}</button>
                 </div>
               </div>
+              {/* Fixed continue button — always visible at bottom when interests selected */}
+              {formData.interests.length > 0 && (
+                <div style={{
+                  position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
+                  padding: '8px 16px 16px', background: 'linear-gradient(to top, white 80%, rgba(255,255,255,0))',
+                }}>
+                  <button
+                    onClick={() => { setWizardStep(2); window.scrollTo(0, 0); }}
+                    style={{
+                      width: '100%', padding: '14px', borderRadius: '12px',
+                      cursor: 'pointer',
+                      border: '2px solid #22c55e',
+                      background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)',
+                      color: '#15803d', fontSize: '16px', fontWeight: 'bold',
+                      boxShadow: '0 -2px 16px rgba(0,0,0,0.12)'
+                    }}
+                  >{t("general.next")} ({formData.interests.length})</button>
+                </div>
+              )}
             )}
           </div>
         )}
@@ -9392,9 +9412,13 @@ const FouFouApp = () => {
                   setShowMapModal(false); setMapUserLocation(null); setMapSkippedStops(new Set()); setMapBottomSheet(null); setShowFavMapFilter(false); setMapFavFilter(new Set()); setMapFavArea(null); setMapFavRadius(null); setMapFocusPlace(null); setMapReturnPlace(null);
                   if (returnPlace) { setTimeout(() => handleEditLocation(returnPlace), 100); }
                 }}
-                className="text-gray-400 hover:text-gray-600 font-bold"
-                style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', whiteSpace: 'nowrap', flexShrink: 0 }}
-              >{t('general.close')} ✕</button>
+                style={{ 
+                  padding: '6px 12px', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer',
+                  background: '#f3f4f6', color: '#374151', border: '1.5px solid #d1d5db',
+                  display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', flexShrink: 0,
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                }}
+              >✕ {t('general.close')}</button>
             </div>
             {/* Map container with floating elements */}
             <div style={{ flex: 1, position: 'relative', minHeight: (mapMode === 'stops' || mapMode === 'favorites') ? '0' : '350px', maxHeight: (mapMode === 'stops' || mapMode === 'favorites') ? 'none' : '70vh' }}>

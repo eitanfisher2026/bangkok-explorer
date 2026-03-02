@@ -1,4 +1,4 @@
-// FouFou app-data.js v3.7.8
+// FouFou app-data.js v3.7.11
 // ============================================================================
 // FouFou — City Trail Generator - Internationalization (i18n)
 // Copyright © 2026 Eitan Fisher. All Rights Reserved.
@@ -478,7 +478,7 @@ route: {
   tapStopForStart: 'לחץ על נקודה כדי לקבוע כהתחלה',
   autoComputeHint: 'המסלול מחושב אוטומטית. שנה ב🗺️ מפה ותכנון',
   autoComputeReady: 'המסלול מחושב ומוכן!',
-  routeActionsHint: '🗺️ מפה ותכנון — סדר עצירות, בחר התחלה, הוסף נקודות\n📍 פתח בגוגל — צא לדרך עם ניווט',
+  routeActionsHint: '🗺️ מפה ותכנון — סדר עצירות, בחר התחלה, הוסף נקודות\n🚀 יאללה לדרך — צא לדרך עם ניווט בגוגל',
   timeAuto: 'אוטומטי',
   timeDay: 'יום',
   timeAfternoon: 'אחה״צ',
@@ -660,7 +660,7 @@ trail: {
   capturePlace: 'צלם מקום חדש',
   whatDidYouSee: 'מה ראית?',
   stops: 'עצירות במסלול',
-  backToMaps: 'חזרה למפות',
+  backToMaps: 'חזרה לניווט',
   end: 'סיים',
   endTrail: 'סיים מסלול',
   ended: 'המסלול הסתיים',
@@ -884,7 +884,7 @@ help: {
   },
   activeTrail: {
     title: 'מסלול פעיל',
-    content: "**כשמסלול פעיל** האפליקציה עוזרת לך בזמן הטיול.\n\n**📸 צלם מקום חדש:**\nצלם מקום מעניין שאתה רואה. המערכת:\n• מזהה את המיקום שלך ב-GPS\n• מחפשת מקומות קרובים בגוגל\n• מציעה לך להוסיף למועדפים\n\n**רשימת העצירות:**\n• **⭐** — דרג מקום מועדף (לחיץ!)\n• **☆** — הוסף מקום גוגל למועדפים (לחיץ!)\n• **🖼️** — צפה בתמונה ששמרת\n• **⏸️** — דלג על עצירה\n• **לחיצה על שם** — מועדף: עריכה. גוגל: פתיחה בגוגל מפות\n\n**כפתורים למטה:**\n• **📍 איפה אני** — מפה עם המיקום שלך ומסלול הליכה\n• **🗺️ חזרה למפות** — פתח גוגל מפות עם העצירות הפעילות\n• **🏁 סיים מסלול** — סיום הטיול\n\n**טיפ:** אותיות Ⓐ Ⓑ Ⓒ תואמות את סדר העצירות בגוגל מפות."
+    content: "**כשמסלול פעיל** האפליקציה עוזרת לך בזמן הטיול.\n\n**📸 צלם מקום חדש:**\nצלם מקום מעניין שאתה רואה. המערכת:\n• מזהה את המיקום שלך ב-GPS\n• מחפשת מקומות קרובים בגוגל\n• מציעה לך להוסיף למועדפים\n\n**רשימת העצירות:**\n• **⭐** — דרג מקום מועדף (לחיץ!)\n• **☆** — הוסף מקום גוגל למועדפים (לחיץ!)\n• **🖼️** — צפה בתמונה ששמרת\n• **⏸️** — דלג על עצירה\n• **לחיצה על שם** — מועדף: עריכה. גוגל: פתיחה בגוגל מפות\n\n**כפתורים למטה:**\n• **📍 איפה אני** — מפה עם המיקום שלך ומסלול הליכה\n• **🗺️ חזרה לניווט** — פתח גוגל מפות עם העצירות הפעילות\n• **🏁 סיים מסלול** — סיום הטיול\n\n**טיפ:** אותיות Ⓐ Ⓑ Ⓒ תואמות את סדר העצירות בגוגל מפות."
   },
   route: {
     title: 'תוצאות המסלול',
@@ -1413,7 +1413,7 @@ route: {
   tapStopForStart: 'Tap a stop to set as start point',
   autoComputeHint: 'Route is auto-calculated. Change via 🗺️ Map & Plan',
   autoComputeReady: 'Route calculated and ready!',
-  routeActionsHint: '🗺️ Map & Plan — reorder stops, set start, add points\n📍 Open in Google — start navigating',
+  routeActionsHint: '🗺️ Map & Plan — reorder stops, set start, add points\n🚀 Let\'s Go — start navigating with Google Maps',
   timeAuto: 'Auto',
   timeDay: 'Day',
   timeAfternoon: 'Afternoon',
@@ -1592,7 +1592,7 @@ trail: {
   capturePlace: 'Capture New Place',
   whatDidYouSee: 'What did you see?',
   stops: 'Trail Stops',
-  backToMaps: 'Back to Maps',
+  backToMaps: 'Resume Navigation',
   end: 'End',
   endTrail: 'End Trail',
   ended: 'Trail ended',
@@ -1816,7 +1816,7 @@ help: {
   },
   activeTrail: {
     title: 'Active trail',
-    content: "**When a trail is active** the app helps you during the trip.\n\n**📸 Snap a new place:**\nTake a photo of an interesting place. The system:\n• Detects your location via GPS\n• Searches for nearby Google places\n• Offers to add them to your favorites\n\n**Stop list:**\n• **⭐** — rate a favorite place (clickable!)\n• **☆** — add a Google place to favorites (clickable!)\n• **🖼️** — view a photo you saved\n• **⏸️** — skip a stop\n• **Click name** — favorite: edit. Google: open in Google Maps\n\n**Buttons at bottom:**\n• **📍 Where am I** — map with your location and walking route\n• **🗺️ Back to Maps** — open Google Maps with active stops\n• **🏁 Finish trail** — end the trip\n\n**Tip:** Letters Ⓐ Ⓑ Ⓒ match the stop order in Google Maps."
+    content: "**When a trail is active** the app helps you during the trip.\n\n**📸 Snap a new place:**\nTake a photo of an interesting place. The system:\n• Detects your location via GPS\n• Searches for nearby Google places\n• Offers to add them to your favorites\n\n**Stop list:**\n• **⭐** — rate a favorite place (clickable!)\n• **☆** — add a Google place to favorites (clickable!)\n• **🖼️** — view a photo you saved\n• **⏸️** — skip a stop\n• **Click name** — favorite: edit. Google: open in Google Maps\n\n**Buttons at bottom:**\n• **📍 Where am I** — map with your location and walking route\n• **🗺️ Resume Navigation** — open Google Maps with active stops\n• **🏁 Finish trail** — end the trip\n\n**Tip:** Letters Ⓐ Ⓑ Ⓒ match the stop order in Google Maps."
   },
   route: {
     title: 'Route results',
@@ -2992,7 +2992,7 @@ window.BKK = window.BKK || {};
   window.BKK.visitorName = vname || vid.slice(0, 10);
 })();
 
-window.BKK.VERSION = '3.7.8';
+window.BKK.VERSION = '3.7.11';
 window.BKK.stopLabel = function(i) {
   if (i < 26) return String.fromCharCode(65 + i);
   return String.fromCharCode(65 + Math.floor(i / 26) - 1) + String.fromCharCode(65 + (i % 26));
