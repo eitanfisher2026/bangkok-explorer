@@ -8830,6 +8830,57 @@ const FouFouApp = () => {
               </div>
             </div>
 
+            {/* Interest Groups Overview */}
+            {isUnlocked && (
+            <div style={{ marginTop: '12px', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px', background: '#fafafa' }}>
+              <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', color: '#374151' }}>📂 Interest Groups</div>
+              {(() => {
+                const allOpts = allInterestOptions || [];
+                const groups = {};
+                const ungrouped = [];
+                allOpts.forEach(opt => {
+                  const aStatus = opt.adminStatus || 'active';
+                  if (aStatus === 'hidden') return;
+                  if (opt.group) {
+                    if (!groups[opt.group]) groups[opt.group] = [];
+                    groups[opt.group].push(opt);
+                  } else {
+                    ungrouped.push(opt);
+                  }
+                });
+                const groupNames = Object.keys(groups).sort();
+                if (groupNames.length === 0) return <div style={{ fontSize: '10px', color: '#9ca3af' }}>No groups defined. Edit interests to assign groups.</div>;
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {groupNames.map(g => (
+                      <div key={g} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 6px', background: 'white', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
+                        <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#6b7280', minWidth: '60px' }}>{g}</span>
+                        <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', flex: 1 }}>
+                          {groups[g].map(opt => (
+                            <span key={opt.id} style={{ fontSize: '10px', padding: '1px 5px', borderRadius: '4px', background: '#eff6ff', border: '1px solid #bfdbfe' }}
+                            >{opt.icon} {tLabel(opt)}</span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    {ungrouped.length > 0 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 6px', background: '#fff7ed', borderRadius: '6px', border: '1px solid #fed7aa' }}>
+                        <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#9a3412', minWidth: '60px' }}>none</span>
+                        <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', flex: 1 }}>
+                          {ungrouped.map(opt => (
+                            <span key={opt.id} style={{ fontSize: '10px', padding: '1px 5px', borderRadius: '4px', background: '#fef3c7', border: '1px solid #fcd34d' }}
+                            >{opt.icon} {tLabel(opt)}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ fontSize: '9px', color: '#9ca3af', marginTop: '2px' }}>To change groups: edit each interest in the Interests tab → Group field</div>
+                  </div>
+                );
+              })()}
+            </div>
+            )}
+
             </div>)}
 
             {/* ===== GENERAL SETTINGS TAB ===== */}
@@ -9154,15 +9205,20 @@ const FouFouApp = () => {
                             if (data.customLocations) {
                               const fieldMap = {
                                 'שם המקום': 'name', 'שם': 'name', 'place': 'name', 'placeName': 'name', 'place_name': 'name', 'title': 'name',
-                                'תיאור': 'description', 'desc': 'description',
-                                'הערות': 'notes', 'note': 'notes', 'tip': 'notes', 'tips': 'notes',
-                                'כתובת': 'address', 'location': 'address',
+                                'name_he': 'name', 'שם_עברית': 'name',
+                                'תיאור': 'description', 'desc': 'description', 'description_he': 'description',
+                                'הערות': 'notes', 'note': 'notes', 'tip': 'notes', 'tips': 'notes', 'notes_he': 'notes',
+                                'כתובת': 'address', 'address_he': 'address',
                                 'קטגוריה': '_category', 'category': '_category', 'type': '_category', 'סוג': '_category',
                                 'קטגוריות': '_category', 'categories': '_category',
                                 'תחומים': 'interests', 'interest': 'interests', 'tags': 'interests',
                                 'אזור': 'areas', 'area': 'areas', 'אזורים': 'areas',
                                 'latitude': 'lat', 'longitude': 'lng', 'קו רוחב': 'lat', 'קו אורך': 'lng',
                                 'קישור': 'mapsUrl', 'url': 'mapsUrl', 'link': 'mapsUrl', 'google_maps': 'mapsUrl', 'googleMaps': 'mapsUrl',
+                                'google_maps_url': 'mapsUrl', 'googleMapsUrl': 'mapsUrl',
+                                'place_id': 'placeId', 'placeId': 'placeId',
+                                'reviews_count': 'reviewsCount', 'reviewsCount': 'reviewsCount',
+                                'area_name_he': '_areaMeta', 'category_name_he': '_catMeta', 'places_count': '_countMeta',
                               };
                               
                               data.customLocations = data.customLocations.map(loc => {
@@ -9171,6 +9227,28 @@ const FouFouApp = () => {
                                   const mapped = fieldMap[key] || fieldMap[key.toLowerCase()] || key;
                                   normalized[mapped] = val;
                                 }
+                                if (normalized.address && typeof normalized.address === 'object' && normalized.address.lat) {
+                                  if (!normalized.lat) normalized.lat = normalized.address.lat;
+                                  if (!normalized.lng) normalized.lng = normalized.address.lng || normalized.address.lon;
+                                  delete normalized.address;
+                                }
+                                if (loc.location && typeof loc.location === 'object' && loc.location.lat) {
+                                  if (!normalized.lat) normalized.lat = loc.location.lat;
+                                  if (!normalized.lng) normalized.lng = loc.location.lng || loc.location.lon;
+                                } else if (loc.location && typeof loc.location === 'string') {
+                                  if (!normalized.address) normalized.address = loc.location;
+                                }
+                                if (loc.name && loc.name_he && loc.name !== loc.name_he) {
+                                  normalized.name = loc.name_he;
+                                  normalized.nameEn = loc.name;
+                                }
+                                if (!normalized.name && normalized.name_he) normalized.name = normalized.name_he;
+                                if (!normalized.description && normalized.description_he) normalized.description = normalized.description_he;
+                                if (!normalized.notes && normalized.notes_he) normalized.notes = normalized.notes_he;
+                                if (!normalized.mapsUrl && normalized.google_maps_url) normalized.mapsUrl = normalized.google_maps_url;
+                                if (!normalized.placeId && normalized.place_id) normalized.placeId = normalized.place_id;
+                                if (!normalized.reviewsCount && normalized.reviews_count) normalized.reviewsCount = normalized.reviews_count;
+                                delete normalized._areaMeta; delete normalized._catMeta; delete normalized._countMeta;
                                 if (!normalized.name) {
                                   const firstStr = Object.values(loc).find(v => typeof v === 'string' && v.length > 1 && v.length < 100);
                                   if (firstStr) normalized.name = firstStr;
@@ -11503,6 +11581,7 @@ const FouFouApp = () => {
                           const interestId = editingCustomInterest.id;
                           
                           if (newInterest.builtIn) {
+                            const existingConfig = interestConfig[interestId] || {};
                             const configData = { ...searchConfig };
                             configData.scope = newInterest.scope || 'global';
                             configData.cityId = newInterest.scope === 'local' ? (newInterest.cityId || selectedCityId) : '';
@@ -11515,6 +11594,8 @@ const FouFouApp = () => {
                             configData.bestTime = newInterest.bestTime || 'anytime';
                             configData.dedupRelated = newInterest.dedupRelated || [];
                             configData.group = newInterest.group || '';
+                            if (existingConfig.defaultEnabled !== undefined) configData.defaultEnabled = existingConfig.defaultEnabled;
+                            if (existingConfig.adminStatus) configData.adminStatus = existingConfig.adminStatus;
                             if (isUnlocked) {
                               configData.labelOverride = newInterest.label.trim();
                               configData.labelEnOverride = (newInterest.labelEn || '').trim();

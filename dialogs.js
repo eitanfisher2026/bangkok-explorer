@@ -1353,6 +1353,7 @@
                           
                           if (newInterest.builtIn) {
                             // Built-in interest - save search config + admin overrides to interestConfig
+                            const existingConfig = interestConfig[interestId] || {};
                             const configData = { ...searchConfig };
                             configData.scope = newInterest.scope || 'global';
                             configData.cityId = newInterest.scope === 'local' ? (newInterest.cityId || selectedCityId) : '';
@@ -1365,6 +1366,9 @@
                             configData.bestTime = newInterest.bestTime || 'anytime';
                             configData.dedupRelated = newInterest.dedupRelated || [];
                             configData.group = newInterest.group || '';
+                            // Preserve admin flags that are set separately
+                            if (existingConfig.defaultEnabled !== undefined) configData.defaultEnabled = existingConfig.defaultEnabled;
+                            if (existingConfig.adminStatus) configData.adminStatus = existingConfig.adminStatus;
                             if (isUnlocked) {
                               configData.labelOverride = newInterest.label.trim();
                               configData.labelEnOverride = (newInterest.labelEn || '').trim();
