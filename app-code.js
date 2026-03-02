@@ -1650,6 +1650,11 @@ const FouFouApp = () => {
         if (data) {
           const locationsArray = Object.keys(data).map(key => {
             const loc = { ...data[key], firebaseId: key, cityId: selectedCityId };
+            if (loc.address && typeof loc.address === 'object') {
+              if (loc.address.lat && !loc.lat) { loc.lat = loc.address.lat; loc.lng = loc.address.lng; }
+              delete loc.address;
+            }
+            if (loc.placeId && !loc.googlePlaceId) loc.googlePlaceId = loc.placeId;
             if (loc.outsideArea && loc.lat && loc.lng && window.BKK.getAreasForCoordinates) {
               const detected = window.BKK.getAreasForCoordinates(loc.lat, loc.lng);
               if (detected.length > 0) loc.outsideArea = false;

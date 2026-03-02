@@ -1,4 +1,4 @@
-// FouFou app-data.js v3.7.22
+// FouFou app-data.js v3.7.23
 // ============================================================================
 // FouFou — City Trail Generator - Internationalization (i18n)
 // Copyright © 2026 Eitan Fisher. All Rights Reserved.
@@ -3025,7 +3025,7 @@ window.BKK = window.BKK || {};
   window.BKK.visitorName = vname || vid.slice(0, 10);
 })();
 
-window.BKK.VERSION = '3.7.22';
+window.BKK.VERSION = '3.7.23';
 window.BKK.stopLabel = function(i) {
   if (i < 26) return String.fromCharCode(65 + i);
   return String.fromCharCode(65 + Math.floor(i / 26) - 1) + String.fromCharCode(65 + (i % 26));
@@ -3840,24 +3840,26 @@ window.BKK.hashPassword = async function(password) {
 window.BKK.getGoogleMapsUrl = (place) => {
   if (!place) return '#';
   const hasCoords = place.lat && place.lng;
+  const addressStr = (typeof place.address === 'string') ? place.address.trim() : '';
   
   if (place.mapsUrl && place.mapsUrl.includes('google.com/maps') && !place.mapsUrl.match(/\?q=\d+\.\d+,\d+\.\d+$/)) {
     return place.mapsUrl;
   }
   
-  if (!hasCoords && !place.address?.trim()) return '#';
+  if (!hasCoords && !addressStr) return '#';
   
-  if (place.googlePlaceId) {
-    const query = encodeURIComponent(place.name || place.address || `${place.lat},${place.lng}`);
-    return `https://www.google.com/maps/search/?api=1&query=${query}&query_place_id=${place.googlePlaceId}`;
+  if (place.googlePlaceId || place.placeId) {
+    const pid = place.googlePlaceId || place.placeId;
+    const query = encodeURIComponent(place.name || addressStr || `${place.lat},${place.lng}`);
+    return `https://www.google.com/maps/search/?api=1&query=${query}&query_place_id=${pid}`;
   }
   
   if ((place.fromGoogle || place.googlePlace) && place.name && hasCoords) {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&center=${place.lat},${place.lng}&zoom=17`;
   }
   
-  if (place.address?.trim()) {
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.address.trim())}`;
+  if (addressStr) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressStr)}`;
   }
   
   if (place.name?.trim() && hasCoords) {

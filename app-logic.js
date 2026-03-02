@@ -1783,6 +1783,13 @@
         if (data) {
           const locationsArray = Object.keys(data).map(key => {
             const loc = { ...data[key], firebaseId: key, cityId: selectedCityId };
+            // Sanitize: fix address if it's an object (import bug)
+            if (loc.address && typeof loc.address === 'object') {
+              if (loc.address.lat && !loc.lat) { loc.lat = loc.address.lat; loc.lng = loc.address.lng; }
+              delete loc.address;
+            }
+            // Sanitize: use placeId as googlePlaceId if available
+            if (loc.placeId && !loc.googlePlaceId) loc.googlePlaceId = loc.placeId;
             // Only clear stale outsideArea if coords now match an area. Never set it here.
             if (loc.outsideArea && loc.lat && loc.lng && window.BKK.getAreasForCoordinates) {
               const detected = window.BKK.getAreasForCoordinates(loc.lat, loc.lng);

@@ -470,18 +470,20 @@ window.BKK.hashPassword = async function(password) {
 window.BKK.getGoogleMapsUrl = (place) => {
   if (!place) return '#';
   const hasCoords = place.lat && place.lng;
+  const addressStr = (typeof place.address === 'string') ? place.address.trim() : '';
   
   // Top priority: user-set or API-provided mapsUrl (if it's a real Google URL, not just coords)
   if (place.mapsUrl && place.mapsUrl.includes('google.com/maps') && !place.mapsUrl.match(/\?q=\d+\.\d+,\d+\.\d+$/)) {
     return place.mapsUrl;
   }
   
-  if (!hasCoords && !place.address?.trim()) return '#';
+  if (!hasCoords && !addressStr) return '#';
   
   // Best: use Place ID → opens the actual Google Maps place page
-  if (place.googlePlaceId) {
-    const query = encodeURIComponent(place.name || place.address || `${place.lat},${place.lng}`);
-    return `https://www.google.com/maps/search/?api=1&query=${query}&query_place_id=${place.googlePlaceId}`;
+  if (place.googlePlaceId || place.placeId) {
+    const pid = place.googlePlaceId || place.placeId;
+    const query = encodeURIComponent(place.name || addressStr || `${place.lat},${place.lng}`);
+    return `https://www.google.com/maps/search/?api=1&query=${query}&query_place_id=${pid}`;
   }
   
   // Google-origin place without Place ID (saved before this feature):
@@ -491,8 +493,8 @@ window.BKK.getGoogleMapsUrl = (place) => {
   }
   
   // Fallback: address
-  if (place.address?.trim()) {
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.address.trim())}`;
+  if (addressStr) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressStr)}`;
   }
   
   // Custom place with name + coords: search by name near location
