@@ -6666,7 +6666,7 @@ const FouFouApp = () => {
                 </div>
               </div>
               {/* Fixed find places button — hidden when overlays are open */}
-              {!showMapModal && (() => {
+              {!showMapModal && !showFeedbackDialog && !showHelpModal && (() => {
                 const canSearch = isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : (formData.searchMode === 'area' ? formData.area : true));
                 return (
                 <div style={{
@@ -6795,7 +6795,7 @@ const FouFouApp = () => {
                 </div>
               </div>
               {/* Fixed continue button — hidden when overlays are open */}
-              {!showMapModal && formData.interests.length > 0 && (
+              {!showMapModal && !showFeedbackDialog && !showHelpModal && formData.interests.length > 0 && (
                 <div style={{
                   position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 40,
                   padding: '8px 16px 16px', background: 'linear-gradient(to top, white 80%, rgba(255,255,255,0))',
@@ -11082,22 +11082,28 @@ const FouFouApp = () => {
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-2">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-gray-600">📂 Group:</span>
-                    <input
-                      list="interest-groups"
+                    <select
                       value={newInterest.group || ''}
-                      onChange={(e) => setNewInterest({...newInterest, group: e.target.value.trim().toLowerCase()})}
-                      placeholder="e.g. art, food, heritage"
+                      onChange={(e) => setNewInterest({...newInterest, group: e.target.value})}
                       className="p-1 text-xs border rounded flex-1"
                       style={{ minWidth: 0 }}
-                    />
-                    <datalist id="interest-groups">
+                    >
+                      <option value="">— none —</option>
                       {(() => {
                         const groups = new Set();
+                        (allInterestOptions || []).forEach(i => { if (i.group) groups.add(i.group); });
                         (window.BKK.interestOptions || []).forEach(i => { if (i.group) groups.add(i.group); });
                         (window.BKK.uncoveredInterests || []).forEach(i => { if (i.group) groups.add(i.group); });
-                        return [...groups].map(g => <option key={g} value={g} />);
+                        return [...groups].sort().map(g => <option key={g} value={g}>{g}</option>);
                       })()}
-                    </datalist>
+                    </select>
+                    <input
+                      value={newInterest.group || ''}
+                      onChange={(e) => setNewInterest({...newInterest, group: e.target.value.trim().toLowerCase()})}
+                      placeholder="or type new..."
+                      className="p-1 text-xs border rounded"
+                      style={{ width: '90px' }}
+                    />
                   </div>
                 </div>
                 )}
@@ -12135,7 +12141,7 @@ const FouFouApp = () => {
       {/* Toast Notification - Subtle */}
       {/* Feedback Dialog */}
       {showFeedbackDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ zIndex: 200 }}>
           <div className="bg-white rounded-t-2xl sm:rounded-xl w-full max-w-sm shadow-2xl">
             <div className="bg-gradient-to-r from-slate-600 to-slate-700 text-white p-3 rounded-t-2xl sm:rounded-t-xl flex justify-between items-center">
               <h3 className="text-base font-bold">{`💬 ${t("settings.sendFeedback")}`}</h3>

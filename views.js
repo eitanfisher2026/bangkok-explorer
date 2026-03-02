@@ -713,7 +713,7 @@
                 </div>
               </div>
               {/* Fixed find places button — hidden when overlays are open */}
-              {!showMapModal && (() => {
+              {!showMapModal && !showFeedbackDialog && !showHelpModal && (() => {
                 const canSearch = isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : (formData.searchMode === 'area' ? formData.area : true));
                 return (
                 <div style={{
@@ -844,7 +844,7 @@
                 </div>
               </div>
               {/* Fixed continue button — hidden when overlays are open */}
-              {!showMapModal && formData.interests.length > 0 && (
+              {!showMapModal && !showFeedbackDialog && !showHelpModal && formData.interests.length > 0 && (
                 <div style={{
                   position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 40,
                   padding: '8px 16px 16px', background: 'linear-gradient(to top, white 80%, rgba(255,255,255,0))',
