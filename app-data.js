@@ -1,4 +1,4 @@
-// FouFou app-data.js v3.7.11
+// FouFou app-data.js v3.7.12
 // ============================================================================
 // FouFou — City Trail Generator - Internationalization (i18n)
 // Copyright © 2026 Eitan Fisher. All Rights Reserved.
@@ -269,6 +269,7 @@ general: {
   importExport: 'ייבוא וייצוא',
   saveAndTransfer: 'שמור והעבר נתונים בין מכשירים',
   exportAll: 'ייצא הכל',
+  exportSchema: 'ייצא סכמה (עבור AI)',
   importFromFile: 'ייבא מקובץ',
   transferDevices: 'העברה בין Claude ל-GitHub',
   dataBackup: 'גיבוי נתונים',
@@ -921,6 +922,7 @@ help: {
     configs: 'הגדרות:',
     locations: 'מקומות:',
     routes: 'מסלולים:',
+    importedAsDrafts: 'מקומות יובאו כטיוטות — סקור במועדפים > טיוטות',
   },
   reviews: {
     title: 'ביקורות',
@@ -1199,6 +1201,7 @@ general: {
   importExport: 'Import & Export',
   saveAndTransfer: 'Save and transfer data between devices',
   exportAll: 'Export all',
+  exportSchema: 'Export Schema (for AI)',
   importFromFile: 'Import from file',
   transferDevices: 'Transfer between Claude and GitHub',
   dataBackup: 'Data backup',
@@ -1853,6 +1856,7 @@ help: {
     configs: 'Settings:',
     locations: 'Places:',
     routes: 'Routes:',
+    importedAsDrafts: 'Places imported as drafts — review in Favorites > Drafts',
   },
   reviews: {
     title: 'Reviews',
@@ -2992,7 +2996,7 @@ window.BKK = window.BKK || {};
   window.BKK.visitorName = vname || vid.slice(0, 10);
 })();
 
-window.BKK.VERSION = '3.7.11';
+window.BKK.VERSION = '3.7.12';
 window.BKK.stopLabel = function(i) {
   if (i < 26) return String.fromCharCode(65 + i);
   return String.fromCharCode(65 + Math.floor(i / 26) - 1) + String.fromCharCode(65 + (i % 26));

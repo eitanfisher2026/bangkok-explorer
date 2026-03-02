@@ -268,6 +268,7 @@ general: {
   importExport: 'ייבוא וייצוא',
   saveAndTransfer: 'שמור והעבר נתונים בין מכשירים',
   exportAll: 'ייצא הכל',
+  exportSchema: 'ייצא סכמה (עבור AI)',
   importFromFile: 'ייבא מקובץ',
   transferDevices: 'העברה בין Claude ל-GitHub',
   dataBackup: 'גיבוי נתונים',
@@ -920,6 +921,7 @@ help: {
     configs: 'הגדרות:',
     locations: 'מקומות:',
     routes: 'מסלולים:',
+    importedAsDrafts: 'מקומות יובאו כטיוטות — סקור במועדפים > טיוטות',
   },
   reviews: {
     title: 'ביקורות',
@@ -1198,6 +1200,7 @@ general: {
   importExport: 'Import & Export',
   saveAndTransfer: 'Save and transfer data between devices',
   exportAll: 'Export all',
+  exportSchema: 'Export Schema (for AI)',
   importFromFile: 'Import from file',
   transferDevices: 'Transfer between Claude and GitHub',
   dataBackup: 'Data backup',
@@ -1852,6 +1855,7 @@ help: {
     configs: 'Settings:',
     locations: 'Places:',
     routes: 'Routes:',
+    importedAsDrafts: 'Places imported as drafts — review in Favorites > Drafts',
   },
   reviews: {
     title: 'Reviews',

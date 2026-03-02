@@ -5734,12 +5734,13 @@
             
             custom: true,
             status: loc.status || 'active',
-            locked: !!loc.locked,
+            locked: false, // Always import as draft for review
             rating: loc.rating || null,
             ratingCount: loc.ratingCount || null,
             fromGoogle: loc.fromGoogle || false,
             addedAt: loc.addedAt || new Date().toISOString(),
-            addedBy: loc.addedBy || authUser?.uid || null
+            addedBy: authUser?.uid || null,
+            importBatch: new Date().toISOString().slice(0, 16).replace('T', '_')
           };
           
           await database.ref(`cities/${selectedCityId}/locations`).push(newLocation);
@@ -5932,6 +5933,15 @@
     
     const totalAdded = addedInterests + addedLocations + addedRoutes + updatedConfigs;
     showToast(report.join(' | ') || t('toast.noImportItems'), totalAdded > 0 ? 'success' : 'warning');
+    
+    // If locations were imported, switch to favorites > drafts view for review
+    if (addedLocations > 0) {
+      setTimeout(() => {
+        showToast(`📋 ${addedLocations} ${t('import.importedAsDrafts') || 'places imported as drafts — review in Favorites > Drafts'}`, 'info', 'sticky');
+        setCurrentView('favorites');
+        setPlacesTab('drafts');
+      }, 1500);
+    }
   };
 
   // ===== Active Trail Management =====

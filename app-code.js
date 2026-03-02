@@ -5114,12 +5114,13 @@ const FouFouApp = () => {
             
             custom: true,
             status: loc.status || 'active',
-            locked: !!loc.locked,
+            locked: false, // Always import as draft for review
             rating: loc.rating || null,
             ratingCount: loc.ratingCount || null,
             fromGoogle: loc.fromGoogle || false,
             addedAt: loc.addedAt || new Date().toISOString(),
-            addedBy: loc.addedBy || authUser?.uid || null
+            addedBy: authUser?.uid || null,
+            importBatch: new Date().toISOString().slice(0, 16).replace('T', '_')
           };
           
           await database.ref(`cities/${selectedCityId}/locations`).push(newLocation);
@@ -5302,6 +5303,14 @@ const FouFouApp = () => {
     
     const totalAdded = addedInterests + addedLocations + addedRoutes + updatedConfigs;
     showToast(report.join(' | ') || t('toast.noImportItems'), totalAdded > 0 ? 'success' : 'warning');
+    
+    if (addedLocations > 0) {
+      setTimeout(() => {
+        showToast(`📋 ${addedLocations} ${t('import.importedAsDrafts') || 'places imported as drafts — review in Favorites > Drafts'}`, 'info', 'sticky');
+        setCurrentView('favorites');
+        setPlacesTab('drafts');
+      }, 1500);
+    }
   };
 
   // ===== Active Trail Management =====
@@ -6484,7 +6493,7 @@ const FouFouApp = () => {
               
             </div>
             {/* Step 2: Choose Area (was step 1) */}
-            {wizardStep === 2 && (
+            {wizardStep === 2 && (<>
               <div className="bg-white rounded-xl shadow-lg p-3">
                 {/* Compact header: back + interests (words) + title */}
                 <div style={{ 
@@ -6661,10 +6670,10 @@ const FouFouApp = () => {
                 </div>
                 );
               })()}
-            )}
+            </>)}
 
             {/* Step 1: Choose Interests (was step 2) */}
-            {wizardStep === 1 && (
+            {wizardStep === 1 && (<>
               <div className="bg-white rounded-xl shadow-lg p-3">
                 {/* City Selector */}
                 {Object.values(window.BKK.cities || {}).filter(c => c.active !== false).length > 1 && (
@@ -6766,7 +6775,7 @@ const FouFouApp = () => {
                   >{t("general.next")} ({formData.interests.length})</button>
                 </div>
               )}
-            )}
+            </>)}
           </div>
         )}
 
@@ -9098,6 +9107,86 @@ const FouFouApp = () => {
                       <li>{t("general.shareWithFriends")}</li>
                     </ul>
                   </div>
+
+                  {/* Export Schema for AI agents */}
+                  <button
+                    onClick={() => {
+                      try {
+                        const allInterests = [...(window.BKK.interestOptions || []), ...(cityCustomInterests || [])];
+                        const schema = {
+                          _description: "FouFou Places Import Schema — use this to generate places for import",
+                          _instructions: "Generate a JSON file with a 'customLocations' array. Each item is a place object following the format below. The file will be imported via Settings > Import.",
+                          cityId: selectedCityId,
+                          cityName: tLabel((window.BKK.cities || {})[selectedCityId]) || selectedCityId,
+                          placeFormat: {
+                            name: { type: "string", required: true, description: "Place name (Hebrew or English)" },
+                            description: { type: "string", required: false, description: "Short description of the place" },
+                            notes: { type: "string", required: false, description: "Personal notes or tips" },
+                            lat: { type: "number", required: true, description: "Latitude coordinate" },
+                            lng: { type: "number", required: true, description: "Longitude coordinate" },
+                            address: { type: "string", required: false, description: "Street address" },
+                            mapsUrl: { type: "string", required: false, description: "Google Maps URL" },
+                            interests: { type: "array of strings", required: false, description: "Interest IDs from the availableInterests list. Can be empty — places without interests can be assigned later." },
+                            areas: { type: "array of strings", required: false, description: "Area IDs from the availableAreas list. If empty, will be auto-detected from coordinates." },
+                          },
+                          availableInterests: allInterests.map(i => ({
+                            id: i.id,
+                            label: i.label || i.name,
+                            labelEn: i.labelEn || '',
+                            icon: i.icon?.startsWith?.('data:') ? '(custom image)' : (i.icon || ''),
+                          })),
+                          availableAreas: (window.BKK.areaOptions || []).map(a => ({
+                            id: a.id,
+                            label: a.label,
+                            labelEn: a.labelEn || '',
+                            ...(window.BKK.areaCoordinates?.[a.id] ? {
+                              center: { lat: window.BKK.areaCoordinates[a.id].lat, lng: window.BKK.areaCoordinates[a.id].lng },
+                              radiusMeters: window.BKK.areaCoordinates[a.id].radius || 1500
+                            } : {})
+                          })),
+                          examplePlace: {
+                            name: "Example Cafe",
+                            description: "Cozy corner cafe with great espresso",
+                            notes: "Best visited in the morning",
+                            lat: 13.7563,
+                            lng: 100.5018,
+                            address: "123 Sukhumvit Soi 11, Bangkok",
+                            interests: allInterests.length > 0 ? [allInterests[0].id] : [],
+                            areas: (window.BKK.areaOptions || []).length > 0 ? [(window.BKK.areaOptions[0]).id] : []
+                          },
+                          exampleImportFile: {
+                            customLocations: [
+                              {
+                                name: "Example Cafe",
+                                description: "Cozy corner cafe",
+                                lat: 13.7563,
+                                lng: 100.5018,
+                                interests: allInterests.length > 0 ? [allInterests[0].id] : [],
+                                areas: (window.BKK.areaOptions || []).length > 0 ? [(window.BKK.areaOptions[0]).id] : []
+                              }
+                            ]
+                          }
+                        };
+                        const dataStr = JSON.stringify(schema, null, 2);
+                        const blob = new Blob([dataStr], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = `foufou-schema-${selectedCityId}-${new Date().toISOString().split('T')[0]}.json`;
+                        link.click();
+                        URL.revokeObjectURL(url);
+                        showToast(`📋 Schema exported (${allInterests.length} interests, ${(window.BKK.areaOptions || []).length} areas)`, 'success');
+                      } catch (e) {
+                        console.error('[SCHEMA]', e);
+                        showToast('Error exporting schema', 'error');
+                      }
+                    }}
+                    style={{
+                      width: '100%', padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold',
+                      cursor: 'pointer', border: '1.5px solid #d1d5db', background: '#f9fafb', color: '#374151',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                    }}
+                  >📋 {t('settings.exportSchema') || 'Export Schema (for AI)'}</button>
                   
                   {/* Firebase Cleanup (Admin only) */}
                   {isUnlocked && (
