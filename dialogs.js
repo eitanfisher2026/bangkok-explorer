@@ -922,6 +922,31 @@
                   </div>
                 </div>
 
+                {/* Group — for visual grouping in wizard */}
+                {isUnlocked && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-gray-600">📂 Group:</span>
+                    <input
+                      list="interest-groups"
+                      value={newInterest.group || ''}
+                      onChange={(e) => setNewInterest({...newInterest, group: e.target.value.trim().toLowerCase()})}
+                      placeholder="e.g. art, food, heritage"
+                      className="p-1 text-xs border rounded flex-1"
+                      style={{ minWidth: 0 }}
+                    />
+                    <datalist id="interest-groups">
+                      {(() => {
+                        const groups = new Set();
+                        (window.BKK.interestOptions || []).forEach(i => { if (i.group) groups.add(i.group); });
+                        (window.BKK.uncoveredInterests || []).forEach(i => { if (i.group) groups.add(i.group); });
+                        return [...groups].map(g => <option key={g} value={g} />);
+                      })()}
+                    </datalist>
+                  </div>
+                </div>
+                )}
+
                 {/* Search Configuration — with manual toggle at top */}
                 <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
                   <label className="block text-xs font-bold mb-2 text-blue-800">{`🔍 ${t("general.searchSettings")}`}</label>
@@ -1333,6 +1358,7 @@
                             configData.minGap = newInterest.minGap || 1;
                             configData.bestTime = newInterest.bestTime || 'anytime';
                             configData.dedupRelated = newInterest.dedupRelated || [];
+                            configData.group = newInterest.group || '';
                             if (isUnlocked) {
                               configData.labelOverride = newInterest.label.trim();
                               configData.labelEnOverride = (newInterest.labelEn || '').trim();
@@ -1364,6 +1390,7 @@
                               routeSlot: newInterest.routeSlot || 'any',
                               minGap: newInterest.minGap || 1,
                               bestTime: newInterest.bestTime || 'anytime', dedupRelated: newInterest.dedupRelated || [],
+                              group: newInterest.group || '',
                               ...(newInterest.color ? { color: newInterest.color } : {})
                             };
                             delete updatedInterest.builtIn;
@@ -1416,6 +1443,7 @@
                               routeSlot: newInterest.routeSlot || 'any',
                               minGap: newInterest.minGap || 1,
                               bestTime: newInterest.bestTime || 'anytime', dedupRelated: newInterest.dedupRelated || [],
+                              group: newInterest.group || '',
                               ...(newInterest.color ? { color: newInterest.color } : {})
                           };
                           
@@ -2023,7 +2051,7 @@
                     : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 }`}
               >
-                📨 Send
+                📨 {t('settings.send')}
               </button>
             </div>
           </div>

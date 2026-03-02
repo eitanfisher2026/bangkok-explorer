@@ -2174,8 +2174,11 @@ const FouFouApp = () => {
     const feedbackEntry = {
       category: feedbackCategory,
       text: feedbackText.trim(),
-      userId: localStorage.getItem('bangkok_user_id') || 'unknown',
-      currentView: currentView,
+      userId: authUser?.uid || localStorage.getItem('bangkok_user_id') || 'unknown',
+      userEmail: authUser?.email || '',
+      currentView: currentView || 'unknown',
+      wizardStep: wizardStep || 0,
+      cityId: selectedCityId || '',
       timestamp: Date.now(),
       date: new Date().toISOString(),
       resolved: false
@@ -2189,18 +2192,21 @@ const FouFouApp = () => {
           setFeedbackCategory('general');
           setShowFeedbackDialog(false);
         })
-        .catch(() => showToast(t('toast.sendError'), 'error'));
+        .catch((err) => {
+          console.error('[FEEDBACK] ❌ Error:', err);
+          showToast(`${t('toast.sendError')}: ${err.message || err}`, 'error');
+        });
     } else {
       showToast(t('toast.firebaseUnavailable'), 'error');
     }
   };
 
+  const feedbackCountRef = useRef(null); // track count to detect new arrivals
   useEffect(() => {
     if (!isFirebaseAvailable || !database) return;
     if (!isCurrentUserAdmin) return;
     
     const feedbackRef = database.ref('feedback').orderByChild('timestamp').limitToLast(100);
-    const lastSeenFeedback = parseInt(localStorage.getItem('bangkok_last_seen_feedback') || '0');
     
     const unsubscribe = feedbackRef.on('value', (snapshot) => {
       const data = snapshot.val();
@@ -2211,12 +2217,22 @@ const FouFouApp = () => {
         })).sort((a, b) => b.timestamp - a.timestamp);
         setFeedbackList(arr);
         
-        const hasNew = arr.some(f => f.timestamp > lastSeenFeedback);
-        if (hasNew && lastSeenFeedback > 0) {
+        const prevCount = feedbackCountRef.current;
+        if (prevCount !== null && arr.length > prevCount) {
+          const newest = arr[0];
           setHasNewFeedback(true);
+          showToast(`💬 ${t('settings.newFeedback')}: "${(newest.text || '').slice(0, 40)}${(newest.text || '').length > 40 ? '...' : ''}"`, 'info', 5000);
+        }
+        feedbackCountRef.current = arr.length;
+        
+        if (prevCount === null) {
+          const lastSeen = parseInt(localStorage.getItem('bangkok_last_seen_feedback') || '0');
+          const hasUnseen = arr.some(f => f.timestamp > lastSeen);
+          if (hasUnseen) setHasNewFeedback(true);
         }
       } else {
         setFeedbackList([]);
+        feedbackCountRef.current = 0;
       }
     });
     
@@ -2949,7 +2965,8 @@ const FouFouApp = () => {
         weight: config.weight || opt.weight || sp.defaultInterestWeight,
         minStops: config.minStops != null ? config.minStops : (opt.minStops != null ? opt.minStops : 1),
         maxStops: config.maxStops || opt.maxStops || 10,
-        adminStatus: config.adminStatus || 'active' // 'active' | 'draft' | 'hidden'
+        adminStatus: config.adminStatus || 'active', // 'active' | 'draft' | 'hidden'
+        group: config.group || opt.group || ''
       };
     });
   }, [interestOptions, uncoveredInterests, cityCustomInterests, interestConfig]);
@@ -6010,7 +6027,7 @@ const FouFouApp = () => {
               transition: 'background 0.2s'
             }}
             title={t("settings.sendFeedback")}
-          >💬</button>
+          >💬{hasNewFeedback && isCurrentUserAdmin && <span style={{ position: 'absolute', top: '1px', right: '1px', width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', border: '1px solid white' }} />}</button>
           {/* Hamburger menu button - right in RTL, left in LTR */}
           <button
             onClick={() => setShowHeaderMenu(prev => !prev)}
@@ -6648,12 +6665,12 @@ const FouFouApp = () => {
                   >🗺️ {t('wizard.showMap')}</button>
                 </div>
               </div>
-              {/* Fixed find places button */}
-              {(() => {
+              {/* Fixed find places button — hidden when overlays are open */}
+              {!showMapModal && (() => {
                 const canSearch = isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : (formData.searchMode === 'area' ? formData.area : true));
                 return (
                 <div style={{
-                  position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
+                  position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 40,
                   padding: '8px 16px 16px', background: 'linear-gradient(to top, white 80%, rgba(255,255,255,0))',
                 }}>
                   <button
@@ -6698,41 +6715,62 @@ const FouFouApp = () => {
                   </button>
                 </p>
                 
-                {/* Interest Grid */}
+                {/* Interest Grid — grouped by category */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '12px' }}>
-                  {allInterestOptions.filter(option => {
-                    const aStatus = option.adminStatus || 'active';
-                    if (aStatus === 'hidden') return false;
-                    if (aStatus === 'draft' && !isUnlocked) return false;
-                    const status = interestStatus[option.id];
-                    if (option.uncovered) return status === true;
-                    if (option.scope === 'local' && option.cityId && option.cityId !== selectedCityId) return false;
-                    return status !== false;
-                  }).map(option => {
-                    const isSelected = formData.interests.includes(option.id);
-                    const isDraft = (option.adminStatus || 'active') === 'draft';
-                    return (
-                      <button
-                        key={option.id}
-                        onClick={() => {
-                          const newInterests = isSelected
-                            ? formData.interests.filter(id => id !== option.id)
-                            : [...formData.interests, option.id];
-                          setFormData({...formData, interests: newInterests});
-                        }}
-                        style={{
-                          padding: '8px 4px', borderRadius: '10px', cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s',
-                          border: isSelected ? '2px solid #2563eb' : isDraft ? '2px dashed #f59e0b' : '2px solid #e5e7eb',
-                          background: isSelected ? '#eff6ff' : isDraft ? '#fffbeb' : 'white',
-                          position: 'relative'
-                        }}
-                      >
-                        {isDraft && <span style={{ position: 'absolute', top: '2px', right: '4px', fontSize: '8px' }}>🟡</span>}
-                        <div style={{ fontSize: '22px', marginBottom: '2px' }}>{option.icon?.startsWith?.('data:') ? <img src={option.icon} alt="" style={{ width: '24px', height: '24px', objectFit: 'contain', display: 'inline' }} /> : option.icon}</div>
-                        <div style={{ fontWeight: '700', fontSize: '11px', color: isSelected ? '#1e40af' : '#374151', wordBreak: 'break-word' }}>{tLabel(option)}</div>
-                      </button>
-                    );
-                  })}
+                  {(() => {
+                    const filtered = allInterestOptions.filter(option => {
+                      const aStatus = option.adminStatus || 'active';
+                      if (aStatus === 'hidden') return false;
+                      if (aStatus === 'draft' && !isUnlocked) return false;
+                      const status = interestStatus[option.id];
+                      if (option.uncovered) return status === true;
+                      if (option.scope === 'local' && option.cityId && option.cityId !== selectedCityId) return false;
+                      return status !== false;
+                    });
+                    const groupOrder = [];
+                    filtered.forEach(o => { if (o.group && !groupOrder.includes(o.group)) groupOrder.push(o.group); });
+                    groupOrder.push('_none'); // ungrouped at end
+                    const sorted = [...filtered].sort((a, b) => {
+                      const ga = groupOrder.indexOf(a.group || '_none');
+                      const gb = groupOrder.indexOf(b.group || '_none');
+                      return ga - gb;
+                    });
+                    let lastGroup = null;
+                    const elements = [];
+                    sorted.forEach((option, idx) => {
+                      const thisGroup = option.group || '_none';
+                      if (lastGroup !== null && thisGroup !== lastGroup) {
+                        elements.push(
+                          <div key={`sep-${idx}`} style={{ gridColumn: '1 / -1', height: '1px', background: '#e5e7eb', margin: '2px 0' }} />
+                        );
+                      }
+                      lastGroup = thisGroup;
+                      const isSelected = formData.interests.includes(option.id);
+                      const isDraft = (option.adminStatus || 'active') === 'draft';
+                      elements.push(
+                        <button
+                          key={option.id}
+                          onClick={() => {
+                            const newInterests = isSelected
+                              ? formData.interests.filter(id => id !== option.id)
+                              : [...formData.interests, option.id];
+                            setFormData({...formData, interests: newInterests});
+                          }}
+                          style={{
+                            padding: '8px 4px', borderRadius: '10px', cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s',
+                            border: isSelected ? '2px solid #2563eb' : isDraft ? '2px dashed #f59e0b' : '2px solid #e5e7eb',
+                            background: isSelected ? '#eff6ff' : isDraft ? '#fffbeb' : 'white',
+                            position: 'relative'
+                          }}
+                        >
+                          {isDraft && <span style={{ position: 'absolute', top: '2px', right: '4px', fontSize: '8px' }}>🟡</span>}
+                          <div style={{ fontSize: '22px', marginBottom: '2px' }}>{option.icon?.startsWith?.('data:') ? <img src={option.icon} alt="" style={{ width: '24px', height: '24px', objectFit: 'contain', display: 'inline' }} /> : option.icon}</div>
+                          <div style={{ fontWeight: '700', fontSize: '11px', color: isSelected ? '#1e40af' : '#374151', wordBreak: 'break-word' }}>{tLabel(option)}</div>
+                        </button>
+                      );
+                    });
+                    return elements;
+                  })()}
                 </div>
 
                 {/* Map + Next buttons */}
@@ -6756,10 +6794,10 @@ const FouFouApp = () => {
                   >🗺️ {t('wizard.showMap')}</button>
                 </div>
               </div>
-              {/* Fixed continue button — always visible at bottom when interests selected */}
-              {formData.interests.length > 0 && (
+              {/* Fixed continue button — hidden when overlays are open */}
+              {!showMapModal && formData.interests.length > 0 && (
                 <div style={{
-                  position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
+                  position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 40,
                   padding: '8px 16px 16px', background: 'linear-gradient(to top, white 80%, rgba(255,255,255,0))',
                 }}>
                   <button
@@ -8044,7 +8082,8 @@ const FouFouApp = () => {
                   routeSlot: config.routeSlot || interest.routeSlot || 'any',
                   minGap: config.minGap || interest.minGap || 1,
                   bestTime: config.bestTime || interest.bestTime || 'anytime',
-                  dedupRelated: config.dedupRelated || interest.dedupRelated || []
+                  dedupRelated: config.dedupRelated || interest.dedupRelated || [],
+                  group: config.group || interest.group || ''
                 });
                 setShowAddInterestDialog(true);
               };
@@ -11038,6 +11077,31 @@ const FouFouApp = () => {
                   </div>
                 </div>
 
+                {/* Group — for visual grouping in wizard */}
+                {isUnlocked && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-gray-600">📂 Group:</span>
+                    <input
+                      list="interest-groups"
+                      value={newInterest.group || ''}
+                      onChange={(e) => setNewInterest({...newInterest, group: e.target.value.trim().toLowerCase()})}
+                      placeholder="e.g. art, food, heritage"
+                      className="p-1 text-xs border rounded flex-1"
+                      style={{ minWidth: 0 }}
+                    />
+                    <datalist id="interest-groups">
+                      {(() => {
+                        const groups = new Set();
+                        (window.BKK.interestOptions || []).forEach(i => { if (i.group) groups.add(i.group); });
+                        (window.BKK.uncoveredInterests || []).forEach(i => { if (i.group) groups.add(i.group); });
+                        return [...groups].map(g => <option key={g} value={g} />);
+                      })()}
+                    </datalist>
+                  </div>
+                </div>
+                )}
+
                 {/* Search Configuration — with manual toggle at top */}
                 <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
                   <label className="block text-xs font-bold mb-2 text-blue-800">{`🔍 ${t("general.searchSettings")}`}</label>
@@ -11444,6 +11508,7 @@ const FouFouApp = () => {
                             configData.minGap = newInterest.minGap || 1;
                             configData.bestTime = newInterest.bestTime || 'anytime';
                             configData.dedupRelated = newInterest.dedupRelated || [];
+                            configData.group = newInterest.group || '';
                             if (isUnlocked) {
                               configData.labelOverride = newInterest.label.trim();
                               configData.labelEnOverride = (newInterest.labelEn || '').trim();
@@ -11474,6 +11539,7 @@ const FouFouApp = () => {
                               routeSlot: newInterest.routeSlot || 'any',
                               minGap: newInterest.minGap || 1,
                               bestTime: newInterest.bestTime || 'anytime', dedupRelated: newInterest.dedupRelated || [],
+                              group: newInterest.group || '',
                               ...(newInterest.color ? { color: newInterest.color } : {})
                             };
                             delete updatedInterest.builtIn;
@@ -11525,6 +11591,7 @@ const FouFouApp = () => {
                               routeSlot: newInterest.routeSlot || 'any',
                               minGap: newInterest.minGap || 1,
                               bestTime: newInterest.bestTime || 'anytime', dedupRelated: newInterest.dedupRelated || [],
+                              group: newInterest.group || '',
                               ...(newInterest.color ? { color: newInterest.color } : {})
                           };
                           
@@ -12116,7 +12183,7 @@ const FouFouApp = () => {
                     : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 }`}
               >
-                📨 Send
+                📨 {t('settings.send')}
               </button>
             </div>
           </div>

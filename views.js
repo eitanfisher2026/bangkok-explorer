@@ -68,7 +68,7 @@
               transition: 'background 0.2s'
             }}
             title={t("settings.sendFeedback")}
-          >💬</button>
+          >💬{hasNewFeedback && isCurrentUserAdmin && <span style={{ position: 'absolute', top: '1px', right: '1px', width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', border: '1px solid white' }} />}</button>
           {/* Hamburger menu button - right in RTL, left in LTR */}
           <button
             onClick={() => setShowHeaderMenu(prev => !prev)}
@@ -712,12 +712,12 @@
                   >🗺️ {t('wizard.showMap')}</button>
                 </div>
               </div>
-              {/* Fixed find places button */}
-              {(() => {
+              {/* Fixed find places button — hidden when overlays are open */}
+              {!showMapModal && (() => {
                 const canSearch = isDataLoaded && formData.interests.length > 0 && (formData.searchMode === 'radius' ? formData.currentLat : (formData.searchMode === 'area' ? formData.area : true));
                 return (
                 <div style={{
-                  position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
+                  position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 40,
                   padding: '8px 16px 16px', background: 'linear-gradient(to top, white 80%, rgba(255,255,255,0))',
                 }}>
                   <button
@@ -762,42 +762,64 @@
                   </button>
                 </p>
                 
-                {/* Interest Grid */}
+                {/* Interest Grid — grouped by category */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '12px' }}>
-                  {allInterestOptions.filter(option => {
-                    // Admin status: hidden=never in wizard, draft=admin only
-                    const aStatus = option.adminStatus || 'active';
-                    if (aStatus === 'hidden') return false;
-                    if (aStatus === 'draft' && !isUnlocked) return false;
-                    const status = interestStatus[option.id];
-                    if (option.uncovered) return status === true;
-                    if (option.scope === 'local' && option.cityId && option.cityId !== selectedCityId) return false;
-                    return status !== false;
-                  }).map(option => {
-                    const isSelected = formData.interests.includes(option.id);
-                    const isDraft = (option.adminStatus || 'active') === 'draft';
-                    return (
-                      <button
-                        key={option.id}
-                        onClick={() => {
-                          const newInterests = isSelected
-                            ? formData.interests.filter(id => id !== option.id)
-                            : [...formData.interests, option.id];
-                          setFormData({...formData, interests: newInterests});
-                        }}
-                        style={{
-                          padding: '8px 4px', borderRadius: '10px', cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s',
-                          border: isSelected ? '2px solid #2563eb' : isDraft ? '2px dashed #f59e0b' : '2px solid #e5e7eb',
-                          background: isSelected ? '#eff6ff' : isDraft ? '#fffbeb' : 'white',
-                          position: 'relative'
-                        }}
-                      >
-                        {isDraft && <span style={{ position: 'absolute', top: '2px', right: '4px', fontSize: '8px' }}>🟡</span>}
-                        <div style={{ fontSize: '22px', marginBottom: '2px' }}>{option.icon?.startsWith?.('data:') ? <img src={option.icon} alt="" style={{ width: '24px', height: '24px', objectFit: 'contain', display: 'inline' }} /> : option.icon}</div>
-                        <div style={{ fontWeight: '700', fontSize: '11px', color: isSelected ? '#1e40af' : '#374151', wordBreak: 'break-word' }}>{tLabel(option)}</div>
-                      </button>
-                    );
-                  })}
+                  {(() => {
+                    const filtered = allInterestOptions.filter(option => {
+                      const aStatus = option.adminStatus || 'active';
+                      if (aStatus === 'hidden') return false;
+                      if (aStatus === 'draft' && !isUnlocked) return false;
+                      const status = interestStatus[option.id];
+                      if (option.uncovered) return status === true;
+                      if (option.scope === 'local' && option.cityId && option.cityId !== selectedCityId) return false;
+                      return status !== false;
+                    });
+                    // Sort by group, preserving order within groups
+                    const groupOrder = [];
+                    filtered.forEach(o => { if (o.group && !groupOrder.includes(o.group)) groupOrder.push(o.group); });
+                    groupOrder.push('_none'); // ungrouped at end
+                    const sorted = [...filtered].sort((a, b) => {
+                      const ga = groupOrder.indexOf(a.group || '_none');
+                      const gb = groupOrder.indexOf(b.group || '_none');
+                      return ga - gb;
+                    });
+                    // Render with separator lines between groups
+                    let lastGroup = null;
+                    const elements = [];
+                    sorted.forEach((option, idx) => {
+                      const thisGroup = option.group || '_none';
+                      if (lastGroup !== null && thisGroup !== lastGroup) {
+                        elements.push(
+                          <div key={`sep-${idx}`} style={{ gridColumn: '1 / -1', height: '1px', background: '#e5e7eb', margin: '2px 0' }} />
+                        );
+                      }
+                      lastGroup = thisGroup;
+                      const isSelected = formData.interests.includes(option.id);
+                      const isDraft = (option.adminStatus || 'active') === 'draft';
+                      elements.push(
+                        <button
+                          key={option.id}
+                          onClick={() => {
+                            const newInterests = isSelected
+                              ? formData.interests.filter(id => id !== option.id)
+                              : [...formData.interests, option.id];
+                            setFormData({...formData, interests: newInterests});
+                          }}
+                          style={{
+                            padding: '8px 4px', borderRadius: '10px', cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s',
+                            border: isSelected ? '2px solid #2563eb' : isDraft ? '2px dashed #f59e0b' : '2px solid #e5e7eb',
+                            background: isSelected ? '#eff6ff' : isDraft ? '#fffbeb' : 'white',
+                            position: 'relative'
+                          }}
+                        >
+                          {isDraft && <span style={{ position: 'absolute', top: '2px', right: '4px', fontSize: '8px' }}>🟡</span>}
+                          <div style={{ fontSize: '22px', marginBottom: '2px' }}>{option.icon?.startsWith?.('data:') ? <img src={option.icon} alt="" style={{ width: '24px', height: '24px', objectFit: 'contain', display: 'inline' }} /> : option.icon}</div>
+                          <div style={{ fontWeight: '700', fontSize: '11px', color: isSelected ? '#1e40af' : '#374151', wordBreak: 'break-word' }}>{tLabel(option)}</div>
+                        </button>
+                      );
+                    });
+                    return elements;
+                  })()}
                 </div>
 
                 {/* Map + Next buttons */}
@@ -821,10 +843,10 @@
                   >🗺️ {t('wizard.showMap')}</button>
                 </div>
               </div>
-              {/* Fixed continue button — always visible at bottom when interests selected */}
-              {formData.interests.length > 0 && (
+              {/* Fixed continue button — hidden when overlays are open */}
+              {!showMapModal && formData.interests.length > 0 && (
                 <div style={{
-                  position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
+                  position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 40,
                   padding: '8px 16px 16px', background: 'linear-gradient(to top, white 80%, rgba(255,255,255,0))',
                 }}>
                   <button
@@ -2120,7 +2142,8 @@
                   routeSlot: config.routeSlot || interest.routeSlot || 'any',
                   minGap: config.minGap || interest.minGap || 1,
                   bestTime: config.bestTime || interest.bestTime || 'anytime',
-                  dedupRelated: config.dedupRelated || interest.dedupRelated || []
+                  dedupRelated: config.dedupRelated || interest.dedupRelated || [],
+                  group: config.group || interest.group || ''
                 });
                 setShowAddInterestDialog(true);
               };

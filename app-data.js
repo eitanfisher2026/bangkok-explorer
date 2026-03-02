@@ -1,4 +1,4 @@
-// FouFou app-data.js v3.7.14
+// FouFou app-data.js v3.7.17
 // ============================================================================
 // FouFou — City Trail Generator - Internationalization (i18n)
 // Copyright © 2026 Eitan Fisher. All Rights Reserved.
@@ -769,6 +769,8 @@ toast: {
 settings: {
   title: 'הגדרות',
   sendFeedback: 'שלח משוב',
+  newFeedback: 'משוב חדש',
+  send: 'שלח',
   writeFeedback: 'אנא כתוב משוב',
   feedbackPlaceholder: 'ספר לנו מה חשבת...',
   setPassword: 'הגדר סיסמה',
@@ -1704,6 +1706,8 @@ toast: {
 settings: {
   title: 'Settings',
   sendFeedback: 'Send feedback',
+  newFeedback: 'New feedback',
+  send: 'Send',
   writeFeedback: 'Please write feedback',
   feedbackPlaceholder: 'Tell us what you think...',
   setPassword: 'Set password',
@@ -2118,10 +2122,10 @@ window.BKK.cityData.bangkok = {
     },
     {
       "id": "bang-krachao",
-      "label": "באנג קצ'או",
+      "label": "באנג קרצ'או",
       "labelEn": "Bang Krachao",
-      "desc": "",
-      "descEn": "",
+      "desc": "אי ירוק של טבע ופנאי",
+      "descEn": "A green island of nature and leisure",
       "lat": 13.682,
       "lng": 100.5661,
       "radius": 3100,
@@ -2134,79 +2138,92 @@ window.BKK.cityData.bangkok = {
       "id": "temples",
       "label": "מקדשים",
       "labelEn": "Temples",
-      "icon": "🛕"
-    },
-    {
-      "id": "food",
-      "label": "אוכל",
-      "labelEn": "Food",
-      "icon": "🍜"
-    },
-    {
-      "id": "graffiti",
-      "label": "גרפיטי",
-      "labelEn": "Street Art",
-      "icon": "🎨"
-    },
-    {
-      "id": "artisans",
-      "label": "מלאכה",
-      "labelEn": "Crafts",
-      "icon": "🔨"
-    },
-    {
-      "id": "galleries",
-      "label": "גלריות",
-      "labelEn": "Galleries",
-      "icon": "🖼️"
-    },
-    {
-      "id": "architecture",
-      "label": "ארכיטקטורה",
-      "labelEn": "Architecture",
-      "icon": "🏛️"
+      "icon": "🛕",
+      "group": "heritage"
     },
     {
       "id": "canals",
       "label": "תעלות",
       "labelEn": "Canals",
-      "icon": "🚤"
+      "icon": "🚤",
+      "group": "heritage"
+    },
+    {
+      "id": "graffiti",
+      "label": "גרפיטי",
+      "labelEn": "Street Art",
+      "icon": "🎨",
+      "group": "art"
+    },
+    {
+      "id": "galleries",
+      "label": "גלריות",
+      "labelEn": "Galleries",
+      "icon": "🖼️",
+      "group": "art"
+    },
+    {
+      "id": "artisans",
+      "label": "מלאכה",
+      "labelEn": "Crafts",
+      "icon": "🔨",
+      "group": "art"
+    },
+    {
+      "id": "architecture",
+      "label": "ארכיטקטורה",
+      "labelEn": "Architecture",
+      "icon": "🏛️",
+      "group": "art"
+    },
+    {
+      "id": "food",
+      "label": "אוכל",
+      "labelEn": "Food",
+      "icon": "🍜",
+      "group": "food"
     },
     {
       "id": "cafes",
       "label": "קפה",
       "labelEn": "Coffee",
-      "icon": "☕"
-    },
-    {
-      "id": "markets",
-      "label": "שווקים",
-      "labelEn": "Markets",
-      "icon": "🏪"
-    },
-    {
-      "id": "nightlife",
-      "label": "לילה",
-      "labelEn": "Nightlife",
-      "icon": "🌃"
-    },
-    {
-      "id": "parks",
-      "label": "פארקים",
-      "labelEn": "Parks",
-      "icon": "🌳"
+      "icon": "☕",
+      "group": "food"
     },
     {
       "id": "rooftop",
       "label": "גגות",
       "labelEn": "Rooftops",
-      "icon": "🌆"
+      "icon": "🌆",
+      "group": "food"
+    },
+    {
+      "id": "markets",
+      "label": "שווקים",
+      "labelEn": "Markets",
+      "icon": "🏪",
+      "group": "explore"
+    },
+    {
+      "id": "nightlife",
+      "label": "לילה",
+      "labelEn": "Nightlife",
+      "icon": "🌃",
+      "group": "explore"
     },
     {
       "id": "entertainment",
       "label": "בידור",
       "labelEn": "Entertainment",
-      "icon": "🎭"
+      "icon": "🎭",
+      "group": "explore"
+    },
+    {
+      "id": "parks",
+      "label": "פארקים",
+      "labelEn": "Parks",
+      "icon": "🌳",
+      "group": "outdoors"
     }
   ],
   "interestToGooglePlaces": {
@@ -3008,7 +3025,7 @@ window.BKK = window.BKK || {};
   window.BKK.visitorName = vname || vid.slice(0, 10);
 })();
 
-window.BKK.VERSION = '3.7.14';
+window.BKK.VERSION = '3.7.17';
 window.BKK.stopLabel = function(i) {
   if (i < 26) return String.fromCharCode(65 + i);
   return String.fromCharCode(65 + Math.floor(i / 26) - 1) + String.fromCharCode(65 + (i % 26));

@@ -2388,34 +2388,43 @@
     const feedbackEntry = {
       category: feedbackCategory,
       text: feedbackText.trim(),
-      userId: localStorage.getItem('bangkok_user_id') || 'unknown',
-      currentView: currentView,
+      userId: authUser?.uid || localStorage.getItem('bangkok_user_id') || 'unknown',
+      userEmail: authUser?.email || '',
+      currentView: currentView || 'unknown',
+      wizardStep: wizardStep || 0,
+      cityId: selectedCityId || '',
       timestamp: Date.now(),
       date: new Date().toISOString(),
       resolved: false
     };
     
     if (isFirebaseAvailable && database) {
+      console.log('[FEEDBACK] Submitting:', feedbackEntry);
       database.ref('feedback').push(feedbackEntry)
         .then(() => {
+          console.log('[FEEDBACK] ✅ Sent successfully');
           showToast(t('toast.feedbackThanks'), 'success');
           setFeedbackText('');
           setFeedbackCategory('general');
           setShowFeedbackDialog(false);
         })
-        .catch(() => showToast(t('toast.sendError'), 'error'));
+        .catch((err) => {
+          console.error('[FEEDBACK] ❌ Error:', err);
+          showToast(`${t('toast.sendError')}: ${err.message || err}`, 'error');
+        });
     } else {
+      console.warn('[FEEDBACK] Firebase not available:', { isFirebaseAvailable, database: !!database });
       showToast(t('toast.firebaseUnavailable'), 'error');
     }
   };
 
   // Load feedback list (admin only)
+  const feedbackCountRef = useRef(null); // track count to detect new arrivals
   useEffect(() => {
     if (!isFirebaseAvailable || !database) return;
     if (!isCurrentUserAdmin) return;
     
     const feedbackRef = database.ref('feedback').orderByChild('timestamp').limitToLast(100);
-    const lastSeenFeedback = parseInt(localStorage.getItem('bangkok_last_seen_feedback') || '0');
     
     const unsubscribe = feedbackRef.on('value', (snapshot) => {
       const data = snapshot.val();
@@ -2426,12 +2435,24 @@
         })).sort((a, b) => b.timestamp - a.timestamp);
         setFeedbackList(arr);
         
-        const hasNew = arr.some(f => f.timestamp > lastSeenFeedback);
-        if (hasNew && lastSeenFeedback > 0) {
+        // Detect new feedback arriving in real-time
+        const prevCount = feedbackCountRef.current;
+        if (prevCount !== null && arr.length > prevCount) {
+          const newest = arr[0];
           setHasNewFeedback(true);
+          showToast(`💬 ${t('settings.newFeedback')}: "${(newest.text || '').slice(0, 40)}${(newest.text || '').length > 40 ? '...' : ''}"`, 'info', 5000);
+        }
+        feedbackCountRef.current = arr.length;
+        
+        // Also check unseen on first load
+        if (prevCount === null) {
+          const lastSeen = parseInt(localStorage.getItem('bangkok_last_seen_feedback') || '0');
+          const hasUnseen = arr.some(f => f.timestamp > lastSeen);
+          if (hasUnseen) setHasNewFeedback(true);
         }
       } else {
         setFeedbackList([]);
+        feedbackCountRef.current = 0;
       }
     });
     
@@ -3254,7 +3275,8 @@
         weight: config.weight || opt.weight || sp.defaultInterestWeight,
         minStops: config.minStops != null ? config.minStops : (opt.minStops != null ? opt.minStops : 1),
         maxStops: config.maxStops || opt.maxStops || 10,
-        adminStatus: config.adminStatus || 'active' // 'active' | 'draft' | 'hidden'
+        adminStatus: config.adminStatus || 'active', // 'active' | 'draft' | 'hidden'
+        group: config.group || opt.group || ''
       };
     });
   }, [interestOptions, uncoveredInterests, cityCustomInterests, interestConfig]);

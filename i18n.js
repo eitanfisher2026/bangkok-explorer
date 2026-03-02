@@ -768,6 +768,8 @@ toast: {
 settings: {
   title: 'הגדרות',
   sendFeedback: 'שלח משוב',
+  newFeedback: 'משוב חדש',
+  send: 'שלח',
   writeFeedback: 'אנא כתוב משוב',
   feedbackPlaceholder: 'ספר לנו מה חשבת...',
   setPassword: 'הגדר סיסמה',
@@ -1703,6 +1705,8 @@ toast: {
 settings: {
   title: 'Settings',
   sendFeedback: 'Send feedback',
+  newFeedback: 'New feedback',
+  send: 'Send',
   writeFeedback: 'Please write feedback',
   feedbackPlaceholder: 'Tell us what you think...',
   setPassword: 'Set password',
