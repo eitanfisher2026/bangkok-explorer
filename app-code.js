@@ -469,6 +469,8 @@ const FouFouApp = () => {
   const [firebaseConnected, setFirebaseConnected] = useState(false);
   const [showAddLocationDialog, setShowAddLocationDialog] = useState(false);
   const [placesTab, setPlacesTab] = useState('drafts'); // 'drafts' | 'ready' | 'skipped'
+  const [lastImportBatch, setLastImportBatch] = useState(null); // batch ID of last import
+  const [filterImportBatch, setFilterImportBatch] = useState(false); // filter to show only last import
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [placesGroupBy, setPlacesGroupBy] = useState('interest'); // 'interest' or 'area'
   const [routesSortBy, setRoutesSortBy] = useState('area'); // 'area' or 'name'
@@ -989,6 +991,7 @@ const FouFouApp = () => {
           
           const areasOnly = locs.length === 0 && !mapFavRadius;
           const hasSelection = !!mapFavArea || !!mapFavRadius;
+          const hasPlaceMarkers = locs.length > 0;
           areas.forEach(area => {
             const c = coords[area.id];
             if (!c) return;
@@ -1000,7 +1003,7 @@ const FouFouApp = () => {
               fillColor: areasOnly ? aColor : (isSelected ? '#2563eb' : '#94a3b8'),
               fillOpacity: areasOnly ? 0.15 : (isSelected ? 0.10 : 0.05),
               weight: areasOnly ? 2 : (isSelected ? 3 : 1.2),
-              dashArray: isSelected ? '' : ''
+              interactive: !hasPlaceMarkers
             }).addTo(map).on('click', () => {
               if (window._favMapAreaClick) window._favMapAreaClick(area.id);
             });
@@ -1034,9 +1037,10 @@ const FouFouApp = () => {
             const r = isFocused ? 11 : 7;
             const m = L.circleMarker([loc.lat, loc.lng], {
               radius: r, color: isFocused ? '#000' : color, fillColor: color,
-              fillOpacity: loc.locked ? 0.9 : 0.5, weight: isFocused ? 3 : (loc.locked ? 2 : 1)
+              fillOpacity: loc.locked ? 0.9 : 0.5, weight: isFocused ? 3 : (loc.locked ? 2 : 1),
+              pane: 'markerPane'
             }).addTo(map);
-            m.on('click', () => { if (window._favMapSheet) window._favMapSheet(loc); });
+            m.on('click', (e) => { L.DomEvent.stopPropagation(e); if (window._favMapSheet) window._favMapSheet(loc); });
             mkrs.push(m);
           });
           
@@ -5025,6 +5029,7 @@ const FouFouApp = () => {
       return customLocations.find(l => l.name.toLowerCase() === name.toLowerCase());
     };
     
+    const currentImportBatch = new Date().toISOString().slice(0, 16).replace('T', '_');
     if (isFirebaseAvailable && database) {
       
       for (const interest of (importedData.customInterests || [])) {
@@ -5142,7 +5147,7 @@ const FouFouApp = () => {
             fromGoogle: loc.fromGoogle || false,
             addedAt: loc.addedAt || new Date().toISOString(),
             addedBy: authUser?.uid || null,
-            importBatch: new Date().toISOString().slice(0, 16).replace('T', '_')
+            importBatch: currentImportBatch
           };
           
           await database.ref(`cities/${selectedCityId}/locations`).push(newLocation);
@@ -5269,7 +5274,8 @@ const FouFouApp = () => {
           rating: loc.rating || null,
           ratingCount: loc.ratingCount || null,
           fromGoogle: loc.fromGoogle || false,
-          addedAt: loc.addedAt || new Date().toISOString()
+          addedAt: loc.addedAt || new Date().toISOString(),
+          importBatch: currentImportBatch
         };
         
         newLocations.push(newLocation);
@@ -5327,6 +5333,8 @@ const FouFouApp = () => {
     showToast(report.join(' | ') || t('toast.noImportItems'), totalAdded > 0 ? 'success' : 'warning');
     
     if (addedLocations > 0) {
+      setLastImportBatch(currentImportBatch);
+      setFilterImportBatch(true);
       setTimeout(() => {
         showToast(`📋 ${addedLocations} ${t('import.importedAsDrafts') || 'places imported as drafts — review in Favorites > Drafts'}`, 'info', 'sticky');
         setCurrentView('myPlaces');
@@ -7858,6 +7866,21 @@ const FouFouApp = () => {
               </div>
               
               {/* Pending locations waiting for sync */}
+              {lastImportBatch && placesTab === 'drafts' && (() => {
+                const batchCount = cityCustomLocations.filter(l => l.importBatch === lastImportBatch && l.status !== 'blacklist' && !l.locked).length;
+                if (batchCount === 0) return null;
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: filterImportBatch ? '#dcfce7' : '#f0fdf4', border: `1px solid ${filterImportBatch ? '#86efac' : '#bbf7d0'}`, borderRadius: '8px', padding: '4px 10px', marginBottom: '6px', fontSize: '11px' }}>
+                    <span style={{ fontWeight: 'bold', color: '#166534' }}>📦 {t('import.lastImport') || 'Last import'}: {batchCount} {t('route.places') || 'places'}</span>
+                    <button
+                      onClick={() => setFilterImportBatch(!filterImportBatch)}
+                      style={{ padding: '2px 8px', borderRadius: '4px', border: 'none', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer',
+                        background: filterImportBatch ? '#16a34a' : '#e5e7eb', color: filterImportBatch ? 'white' : '#374151' }}
+                    >{filterImportBatch ? (t('import.showAll') || 'Show all') : (t('import.filterImport') || 'Filter')}</button>
+                  </div>
+                );
+              })()}
+              {/* Pending locations waiting for sync */}
               {pendingLocations.filter(l => (l.cityId || 'bangkok') === selectedCityId).length > 0 && (
                 <div style={{ background: '#fff7ed', border: '2px dashed #fb923c', borderRadius: '8px', padding: '8px 12px', marginBottom: '8px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
@@ -7915,15 +7938,16 @@ const FouFouApp = () => {
                           <span className="text-gray-400 font-normal">({locs.length})</span>
                         </div>
                         <div className="p-1">
-                          {locs.map(loc => {
+                          {locs.filter(loc => !filterImportBatch || !lastImportBatch || loc.importBatch === lastImportBatch).map(loc => {
                             const mapUrl = (() => { const u = window.BKK.getGoogleMapsUrl(loc); return u === '#' ? null : u; })();
+                            const isNewImport = lastImportBatch && loc.importBatch === lastImportBatch;
                             return (
                               <div key={loc.id}
                                 className={`flex items-center justify-between gap-2 border-2 rounded p-1.5 mb-0.5 ${
                                   placesTab === 'skipped' ? 'border-red-200 bg-red-50' :
                                   isLocationValid(loc) ? "border-gray-200 bg-white" : "border-red-400 bg-red-50"
                                 }`}
-                                style={{ contain: 'layout style' }}
+                                style={{ contain: 'layout style', ...(isNewImport ? { borderLeftWidth: '4px', borderLeftColor: '#22c55e' } : {}) }}
                               >
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-1 flex-wrap">
@@ -7976,13 +8000,14 @@ const FouFouApp = () => {
                         {t("places.noInterest")} ({groupedPlaces.ungrouped.length})
                       </div>
                       <div className="p-1">
-                        {groupedPlaces.ungrouped.map(loc => {
+                        {groupedPlaces.ungrouped.filter(loc => !filterImportBatch || !lastImportBatch || loc.importBatch === lastImportBatch).map(loc => {
                           const mapUrl = (() => { const u = window.BKK.getGoogleMapsUrl(loc); return u === '#' ? null : u; })();
                           const canEdit = placesTab === 'drafts' || isUnlocked;
+                          const isNewImport = lastImportBatch && loc.importBatch === lastImportBatch;
                           return (
                             <div key={loc.id}
                               className={`flex items-center justify-between gap-2 border-2 rounded p-1.5 mb-0.5 ${isLocationValid(loc) ? "border-gray-200 bg-white" : "border-red-400 bg-red-50"}`}
-                              style={{ contain: 'layout style' }}
+                              style={{ contain: 'layout style', ...(isNewImport ? { borderLeftWidth: '4px', borderLeftColor: '#22c55e' } : {}) }}
                             >
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1 flex-wrap">
@@ -9734,10 +9759,14 @@ const FouFouApp = () => {
               )}
               {/* Filter dialog overlay — favorites mode */}
               {mapMode === 'favorites' && showFavMapFilter && (() => {
-                const allInts = window.BKK.interestOptions || [];
+                const allInts = allInterestOptions || [];
                 const usedInterests = new Set();
                 customLocations.forEach(loc => { if (loc.lat && loc.lng && loc.status !== 'blacklist') (loc.interests || []).forEach(i => usedInterests.add(i)); });
-                const relevant = allInts.filter(i => usedInterests.has(i.id));
+                const relevant = allInts.filter(i => {
+                  const cfg = interestConfig[i.id] || {};
+                  const aStatus = cfg.adminStatus || 'active';
+                  return aStatus !== 'hidden' && usedInterests.has(i.id);
+                });
                 const areas = window.BKK.areaOptions || [];
                 const areaCounts = {};
                 customLocations.forEach(loc => {

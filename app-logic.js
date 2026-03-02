@@ -477,6 +477,8 @@
   const [firebaseConnected, setFirebaseConnected] = useState(false);
   const [showAddLocationDialog, setShowAddLocationDialog] = useState(false);
   const [placesTab, setPlacesTab] = useState('drafts'); // 'drafts' | 'ready' | 'skipped'
+  const [lastImportBatch, setLastImportBatch] = useState(null); // batch ID of last import
+  const [filterImportBatch, setFilterImportBatch] = useState(false); // filter to show only last import
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [placesGroupBy, setPlacesGroupBy] = useState('interest'); // 'interest' or 'area'
   const [routesSortBy, setRoutesSortBy] = useState('area'); // 'area' or 'name'
@@ -1046,19 +1048,20 @@
           // Area circles — always show all, highlight selected with bold ring
           const areasOnly = locs.length === 0 && !mapFavRadius;
           const hasSelection = !!mapFavArea || !!mapFavRadius;
+          const hasPlaceMarkers = locs.length > 0;
           areas.forEach(area => {
             const c = coords[area.id];
             if (!c) return;
             const isSelected = mapFavArea === area.id;
             const aColor = areaColors[area.id] || '#6b7280';
-            // Base circle — always visible
+            // Base circle — non-interactive when place markers exist (prevents click blocking)
             L.circle([c.lat, c.lng], {
               radius: c.radius,
               color: areasOnly ? aColor : (isSelected ? '#2563eb' : '#94a3b8'),
               fillColor: areasOnly ? aColor : (isSelected ? '#2563eb' : '#94a3b8'),
               fillOpacity: areasOnly ? 0.15 : (isSelected ? 0.10 : 0.05),
               weight: areasOnly ? 2 : (isSelected ? 3 : 1.2),
-              dashArray: isSelected ? '' : ''
+              interactive: !hasPlaceMarkers
             }).addTo(map).on('click', () => {
               if (window._favMapAreaClick) window._favMapAreaClick(area.id);
             });
@@ -1086,7 +1089,7 @@
             }).addTo(map);
           }
           
-          // Place markers
+          // Place markers — add FIRST so they get events on top
           const mkrs = [];
           locs.forEach(loc => {
             const pi = (loc.interests || [])[0];
@@ -1095,9 +1098,10 @@
             const r = isFocused ? 11 : 7;
             const m = L.circleMarker([loc.lat, loc.lng], {
               radius: r, color: isFocused ? '#000' : color, fillColor: color,
-              fillOpacity: loc.locked ? 0.9 : 0.5, weight: isFocused ? 3 : (loc.locked ? 2 : 1)
+              fillOpacity: loc.locked ? 0.9 : 0.5, weight: isFocused ? 3 : (loc.locked ? 2 : 1),
+              pane: 'markerPane'
             }).addTo(map);
-            m.on('click', () => { if (window._favMapSheet) window._favMapSheet(loc); });
+            m.on('click', (e) => { L.DomEvent.stopPropagation(e); if (window._favMapSheet) window._favMapSheet(loc); });
             mkrs.push(m);
           });
           
@@ -5645,6 +5649,7 @@
     };
     
     // Import to Firebase (or localStorage fallback)
+    const currentImportBatch = new Date().toISOString().slice(0, 16).replace('T', '_');
     if (isFirebaseAvailable && database) {
       // DYNAMIC MODE: Firebase (shared)
       
@@ -5769,7 +5774,7 @@
             fromGoogle: loc.fromGoogle || false,
             addedAt: loc.addedAt || new Date().toISOString(),
             addedBy: authUser?.uid || null,
-            importBatch: new Date().toISOString().slice(0, 16).replace('T', '_')
+            importBatch: currentImportBatch
           };
           
           await database.ref(`cities/${selectedCityId}/locations`).push(newLocation);
@@ -5904,7 +5909,8 @@
           rating: loc.rating || null,
           ratingCount: loc.ratingCount || null,
           fromGoogle: loc.fromGoogle || false,
-          addedAt: loc.addedAt || new Date().toISOString()
+          addedAt: loc.addedAt || new Date().toISOString(),
+          importBatch: currentImportBatch
         };
         
         newLocations.push(newLocation);
@@ -5965,6 +5971,8 @@
     
     // If locations were imported, switch to favorites > drafts view for review
     if (addedLocations > 0) {
+      setLastImportBatch(currentImportBatch);
+      setFilterImportBatch(true);
       setTimeout(() => {
         showToast(`📋 ${addedLocations} ${t('import.importedAsDrafts') || 'places imported as drafts — review in Favorites > Drafts'}`, 'info', 'sticky');
         setCurrentView('myPlaces');
