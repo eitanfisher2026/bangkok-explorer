@@ -5329,7 +5329,7 @@ const FouFouApp = () => {
     if (addedLocations > 0) {
       setTimeout(() => {
         showToast(`📋 ${addedLocations} ${t('import.importedAsDrafts') || 'places imported as drafts — review in Favorites > Drafts'}`, 'info', 'sticky');
-        setCurrentView('favorites');
+        setCurrentView('myPlaces');
         setPlacesTab('drafts');
       }, 1500);
     }
@@ -6129,7 +6129,7 @@ const FouFouApp = () => {
                   transition: 'background 0.15s'
                 }}
               >
-                <span style={{ fontSize: '15px' }}>{item.icon}</span>
+                <span style={{ fontSize: '15px' }}>{renderIcon(item.icon, '16px')}</span>
                 <span>{item.label}{item.count > 0 ? ` (${item.count})` : ''}</span>
               </button>
             ))}
@@ -7381,7 +7381,7 @@ const FouFouApp = () => {
                             textAlign: window.BKK.i18n.isRTL() ? 'right' : 'left'
                           }}
                         >
-                          <span style={{ fontSize: '14px', flexShrink: 0, width: '22px', textAlign: 'center', fontWeight: 'bold', color: item.disabled ? '#d1d5db' : '#6b7280' }}>{item.icon}</span>
+                          <span style={{ fontSize: '14px', flexShrink: 0, width: '22px', textAlign: 'center', fontWeight: 'bold', color: item.disabled ? '#d1d5db' : '#6b7280' }}>{renderIcon(item.icon, '16px')}</span>
                           <span>{item.label}</span>
                         </button>
                       ))}
@@ -7940,7 +7940,7 @@ const FouFouApp = () => {
                                     {!isLocationValid(loc) && <span className="text-red-500 text-[9px]" title={t("places.missingDetailsLong")}>❌</span>}
                                     {placesGroupBy === 'area' && loc.interests?.map((int, idx) => {
                                       const obj2 = interestMap[int];
-                                      return obj2?.icon ? <span key={idx} title={obj2.label} style={{ fontSize: '13px' }}>{obj2.icon}</span> : null;
+                                      return obj2?.icon ? <span key={idx} title={obj2.label} style={{ fontSize: '13px' }}>{renderIcon(obj2.icon, '14px')}</span> : null;
                                     })}
                                     {placesGroupBy === 'interest' && (loc.areas || [loc.area]).filter(Boolean).map((aId, idx) => (
                                       <span key={idx} className="text-[9px] bg-gray-200 text-gray-600 px-1 rounded">{(areaMap[aId] || {}).label || aId}</span>
@@ -8863,7 +8863,7 @@ const FouFouApp = () => {
                         <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', flex: 1 }}>
                           {groups[g].map(opt => (
                             <span key={opt.id} style={{ fontSize: '10px', padding: '1px 5px', borderRadius: '4px', background: '#eff6ff', border: '1px solid #bfdbfe' }}
-                            >{opt.icon} {tLabel(opt)}</span>
+                            >{renderIcon(opt.icon, '12px')} {tLabel(opt)}</span>
                           ))}
                         </div>
                       </div>
@@ -8874,7 +8874,7 @@ const FouFouApp = () => {
                         <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', flex: 1 }}>
                           {ungrouped.map(opt => (
                             <span key={opt.id} style={{ fontSize: '10px', padding: '1px 5px', borderRadius: '4px', background: '#fef3c7', border: '1px solid #fcd34d' }}
-                            >{opt.icon} {tLabel(opt)}</span>
+                            >{renderIcon(opt.icon, '12px')} {tLabel(opt)}</span>
                           ))}
                         </div>
                       </div>
@@ -9798,7 +9798,7 @@ const FouFouApp = () => {
                                     else { setMapFavFilter(new Set([...mapFavFilter, int.id])); }
                                   }}
                                   style={{ padding: '4px 8px', borderRadius: '8px', border: `2px solid ${isOn ? color : '#e5e7eb'}`, background: isOn ? color + '15' : '#f9fafb', fontSize: '11px', cursor: 'pointer', opacity: isOn ? 1 : 0.4, display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                  <span style={{ fontSize: '14px' }}>{int.icon}</span>
+                                  <span style={{ fontSize: '14px' }}>{renderIcon(int.icon, '16px')}</span>
                                   <span style={{ fontWeight: isOn ? 'bold' : 'normal', color: isOn ? color : '#9ca3af' }}>{tLabel(int)}</span>
                                 </button>
                               );
@@ -9881,7 +9881,7 @@ const FouFouApp = () => {
                               return (
                                 <div key={int.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}>
                                   <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: color, display: 'inline-block', border: '1px solid ' + color }}></span>
-                                  <span style={{ color: '#6b7280' }}>{int.icon} {tLabel(int)}</span>
+                                  <span style={{ color: '#6b7280' }}>{renderIcon(int.icon, '14px')} {tLabel(int)}</span>
                                 </div>
                               );
                             })}
@@ -9946,7 +9946,7 @@ const FouFouApp = () => {
                 const loc = mapBottomSheet;
                 const intLabels = (loc.interests || []).map(i => {
                   const opt = (window.BKK.interestOptions || []).find(o => o.id === i);
-                  return opt ? (opt.icon + ' ' + tLabel(opt)) : i;
+                  return opt ? ((opt.icon?.startsWith?.('data:') ? '📍' : opt.icon) + ' ' + tLabel(opt)) : i;
                 }).join(', ');
                 const areaLabels = (loc.areas || [loc.area]).filter(Boolean).map(aId => {
                   const a = (window.BKK.areaOptions || []).find(o => o.id === aId);
@@ -12200,7 +12200,7 @@ const FouFouApp = () => {
 
       {/* Confirm Dialog */}
       {showConfirmDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4" style={{ zIndex: 10200 }}>
           <div className="bg-white rounded-xl p-4 max-w-sm w-full shadow-2xl">
             <p className="text-sm text-gray-800 mb-4 text-center font-medium" style={{ whiteSpace: 'pre-line' }}>{confirmConfig.message}</p>
             <div className="flex gap-2">

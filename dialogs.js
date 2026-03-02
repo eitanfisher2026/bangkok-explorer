@@ -1986,7 +1986,7 @@
 
       {/* Confirm Dialog */}
       {showConfirmDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4" style={{ zIndex: 10200 }}>
           <div className="bg-white rounded-xl p-4 max-w-sm w-full shadow-2xl">
             <p className="text-sm text-gray-800 mb-4 text-center font-medium" style={{ whiteSpace: 'pre-line' }}>{confirmConfig.message}</p>
             <div className="flex gap-2">

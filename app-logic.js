@@ -5967,7 +5967,7 @@
     if (addedLocations > 0) {
       setTimeout(() => {
         showToast(`📋 ${addedLocations} ${t('import.importedAsDrafts') || 'places imported as drafts — review in Favorites > Drafts'}`, 'info', 'sticky');
-        setCurrentView('favorites');
+        setCurrentView('myPlaces');
         setPlacesTab('drafts');
       }, 1500);
     }
