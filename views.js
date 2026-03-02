@@ -3163,9 +3163,87 @@
                         const reader = new FileReader();
                         reader.onload = (event) => {
                           try {
-                            const data = JSON.parse(event.target.result);
+                            let raw = event.target.result.trim();
+                            let data;
                             
-                            if (!data.customInterests && !data.customLocations && !data.savedRoutes) {
+                            // Smart JSON parsing: handle various AI-generated formats
+                            try {
+                              data = JSON.parse(raw);
+                            } catch (e1) {
+                              // Try wrapping in array brackets (common AI output: objects without [])
+                              try {
+                                data = JSON.parse(`[${raw}]`);
+                              } catch (e2) {
+                                // Try fixing trailing commas
+                                try {
+                                  data = JSON.parse(raw.replace(/,\s*([}\]])/g, '$1'));
+                                } catch (e3) {
+                                  try {
+                                    data = JSON.parse(`[${raw.replace(/,\s*([}\]])/g, '$1')}]`);
+                                  } catch (e4) {
+                                    throw e1; // Show original error
+                                  }
+                                }
+                              }
+                            }
+                            
+                            // If we got a plain array, treat as customLocations
+                            if (Array.isArray(data)) {
+                              data = { customLocations: data };
+                            }
+                            
+                            // If array is nested under a non-standard key, find it
+                            if (!data.customLocations && !data.customInterests && !data.savedRoutes) {
+                              const arrKey = Object.keys(data).find(k => Array.isArray(data[k]) && data[k].length > 0 && typeof data[k][0] === 'object');
+                              if (arrKey) {
+                                data = { customLocations: data[arrKey] };
+                              }
+                            }
+                            
+                            // Normalize location fields: map Hebrew/alternate names to schema
+                            if (data.customLocations) {
+                              const fieldMap = {
+                                'שם המקום': 'name', 'שם': 'name', 'place': 'name', 'placeName': 'name', 'place_name': 'name', 'title': 'name',
+                                'תיאור': 'description', 'desc': 'description',
+                                'הערות': 'notes', 'note': 'notes', 'tip': 'notes', 'tips': 'notes',
+                                'כתובת': 'address', 'location': 'address',
+                                'קטגוריה': '_category', 'category': '_category', 'type': '_category', 'סוג': '_category',
+                                'קטגוריות': '_category', 'categories': '_category',
+                                'תחומים': 'interests', 'interest': 'interests', 'tags': 'interests',
+                                'אזור': 'areas', 'area': 'areas', 'אזורים': 'areas',
+                                'latitude': 'lat', 'longitude': 'lng', 'קו רוחב': 'lat', 'קו אורך': 'lng',
+                                'קישור': 'mapsUrl', 'url': 'mapsUrl', 'link': 'mapsUrl', 'google_maps': 'mapsUrl', 'googleMaps': 'mapsUrl',
+                              };
+                              
+                              data.customLocations = data.customLocations.map(loc => {
+                                const normalized = {};
+                                for (const [key, val] of Object.entries(loc)) {
+                                  const mapped = fieldMap[key] || fieldMap[key.toLowerCase()] || key;
+                                  normalized[mapped] = val;
+                                }
+                                // Ensure name exists
+                                if (!normalized.name) {
+                                  const firstStr = Object.values(loc).find(v => typeof v === 'string' && v.length > 1 && v.length < 100);
+                                  if (firstStr) normalized.name = firstStr;
+                                }
+                                // Convert _category string to notes (for manual interest assignment later)
+                                if (normalized._category && !normalized.notes) {
+                                  normalized.notes = String(normalized._category);
+                                }
+                                delete normalized._category;
+                                // Normalize areas to array
+                                if (normalized.areas && !Array.isArray(normalized.areas)) {
+                                  normalized.areas = [normalized.areas];
+                                }
+                                // Normalize interests to array
+                                if (normalized.interests && !Array.isArray(normalized.interests)) {
+                                  normalized.interests = [normalized.interests];
+                                }
+                                return normalized;
+                              }).filter(loc => loc.name);
+                            }
+                            
+                            if (!data.customInterests && !data.customLocations?.length && !data.savedRoutes) {
                               showToast(t('toast.invalidFileNoData'), 'error');
                               return;
                             }
@@ -3174,7 +3252,7 @@
                             setShowImportDialog(true);
                           } catch (error) {
                             console.error('[IMPORT] Error:', error);
-                            showToast(t('toast.fileReadError'), 'error');
+                            showToast(`${t('toast.fileReadError')}: ${error.message}`, 'error');
                           }
                         };
                         reader.readAsText(file);
@@ -3208,7 +3286,7 @@
                         const allInterests = [...(window.BKK.interestOptions || []), ...(cityCustomInterests || [])];
                         const schema = {
                           _description: "FouFou Places Import Schema — use this to generate places for import",
-                          _instructions: "Generate a JSON file with a 'customLocations' array. Each item is a place object following the format below. The file will be imported via Settings > Import.",
+                          _instructions: "Generate a JSON file with a 'customLocations' array (or just a plain JSON array). Each item is a place. The importer auto-maps Hebrew field names (שם המקום→name, תיאור→description, כתובת→address, קטגוריה→notes). Coordinates (lat/lng) are recommended but optional. Interests array is optional — places can be assigned to interests manually after import.",
                           cityId: selectedCityId,
                           cityName: tLabel((window.BKK.cities || {})[selectedCityId]) || selectedCityId,
                           placeFormat: {
@@ -3258,6 +3336,19 @@
                                 areas: (window.BKK.areaOptions || []).length > 0 ? [(window.BKK.areaOptions[0]).id] : []
                               }
                             ]
+                          },
+                          exampleMinimalFile: [
+                            { "שם המקום": "בית קפה לדוגמה", "תיאור": "בית קפה נעים", "קטגוריה": "קפה" },
+                            { "שם המקום": "מסעדה לדוגמה", "תיאור": "אוכל מצוין", "קטגוריה": "אוכל" }
+                          ],
+                          acceptedFieldAliases: {
+                            "name": ["שם המקום", "שם", "place", "title"],
+                            "description": ["תיאור", "desc"],
+                            "notes": ["הערות", "tip", "tips"],
+                            "address": ["כתובת", "location"],
+                            "interests": ["תחומים", "tags"],
+                            "areas": ["אזור", "אזורים", "area"],
+                            "_category→notes": ["קטגוריה", "category", "type", "סוג"]
                           }
                         };
                         const dataStr = JSON.stringify(schema, null, 2);
