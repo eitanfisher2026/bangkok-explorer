@@ -2709,21 +2709,7 @@
                                 {safetyLabels[area.safety || 'safe']}
                               </span>
                             )}
-                            {!area.isWholeCity && !isEditing && (
-                              <button onClick={() => {
-                                const newName = prompt(t('settings.renameArea'), tLabel(area));
-                                if (!newName || !newName.trim() || newName.trim() === tLabel(area)) return;
-                                area.label = newName.trim();
-                                area.labelEn = newName.trim();
-                                const ao = window.BKK.areaOptions?.find(a => a.id === area.id);
-                                if (ao) { ao.label = area.label; ao.labelEn = area.labelEn; }
-                                setCityModified(true); setCityEditCounter(c => c + 1);
-                                showToast(`✏️ ${newName.trim()}`, 'success');
-                                setFormData(prev => ({...prev}));
-                              }} style={{ fontSize: '8px', color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px' }}
-                              title={t('settings.renameArea')}>✏️</button>
-                            )}
-                            {!area.isWholeCity && !isEditing && (
+                            {!isEditing && (
                               <button onClick={() => {
                                 showConfirm(`${t('general.remove')} ${tLabel(area)}?`, () => {
                                 const city = window.BKK.selectedCity;
@@ -2744,7 +2730,7 @@
                                   try { if (window._editMap) { window._editMap.off(); window._editMap.remove(); } } catch(e) {}
                                   window._editMap = null; window._editCircle = null; window._editMarker = null;
                                   // Store original values for cancel
-                                  window._editOriginal = { lat: area.lat, lng: area.lng, radius: area.radius, safety: area.safety, distanceMultiplier: area.distanceMultiplier };
+                                  window._editOriginal = { lat: area.lat, lng: area.lng, radius: area.radius, safety: area.safety, distanceMultiplier: area.distanceMultiplier, label: area.label, labelEn: area.labelEn, desc: area.desc, descEn: area.descEn };
                                   setEditingArea(area);
                                   setTimeout(() => {
                                     const container = document.getElementById(`area-edit-map-${area.id}`);
@@ -2784,6 +2770,29 @@
                           {/* Edit mode */}
                           {isEditing && (
                             <div style={{ marginTop: '8px', border: '2px solid #3b82f6', borderRadius: '8px', padding: '8px', background: '#f0f9ff' }}>
+                              {/* Name & description fields */}
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', marginBottom: '6px', fontSize: '10px' }}>
+                                <div>
+                                  <label style={{ color: '#6b7280', fontSize: '9px' }}>שם (עברית)</label>
+                                  <input value={area.label || ''} onChange={(e) => { area.label = e.target.value; const ao = window.BKK.areaOptions?.find(a => a.id === area.id); if (ao) ao.label = area.label; setFormData(prev => ({...prev})); }}
+                                    style={{ width: '100%', padding: '3px 5px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '11px', direction: 'rtl' }} />
+                                </div>
+                                <div>
+                                  <label style={{ color: '#6b7280', fontSize: '9px' }}>Name (English)</label>
+                                  <input value={area.labelEn || ''} onChange={(e) => { area.labelEn = e.target.value; const ao = window.BKK.areaOptions?.find(a => a.id === area.id); if (ao) ao.labelEn = area.labelEn; setFormData(prev => ({...prev})); }}
+                                    style={{ width: '100%', padding: '3px 5px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '11px', direction: 'ltr' }} />
+                                </div>
+                                <div>
+                                  <label style={{ color: '#6b7280', fontSize: '9px' }}>תיאור (עברית)</label>
+                                  <input value={area.desc || ''} onChange={(e) => { area.desc = e.target.value; setFormData(prev => ({...prev})); }}
+                                    style={{ width: '100%', padding: '3px 5px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '11px', direction: 'rtl' }} placeholder="מקדשים, אוכל, שווקים..." />
+                                </div>
+                                <div>
+                                  <label style={{ color: '#6b7280', fontSize: '9px' }}>Description (English)</label>
+                                  <input value={area.descEn || ''} onChange={(e) => { area.descEn = e.target.value; setFormData(prev => ({...prev})); }}
+                                    style={{ width: '100%', padding: '3px 5px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '11px', direction: 'ltr' }} placeholder="Temples, food, markets..." />
+                                </div>
+                              </div>
                               <div id={`area-edit-map-${area.id}`} style={{ height: '400px', borderRadius: '8px', border: '1px solid #d1d5db', marginBottom: '8px' }}></div>
                               <div className="flex items-center gap-3 flex-wrap mb-2">
                                 <label className="text-[9px] text-gray-600 flex items-center gap-1">
@@ -2842,6 +2851,7 @@
                                     const orig = window._editOriginal;
                                     if (orig) {
                                       area.lat = orig.lat; area.lng = orig.lng; area.radius = orig.radius; area.safety = orig.safety; area.distanceMultiplier = orig.distanceMultiplier;
+                                      if (orig.label !== undefined) { area.label = orig.label; area.labelEn = orig.labelEn; area.desc = orig.desc; area.descEn = orig.descEn; const ao = window.BKK.areaOptions?.find(a => a.id === area.id); if (ao) { ao.label = orig.label; ao.labelEn = orig.labelEn; } }
                                       if (area.isWholeCity) { city.center = { lat: orig.lat, lng: orig.lng }; city.allCityRadius = orig.radius; }
                                       else { const ac = window.BKK.areaCoordinates?.[area.id]; if (ac) { ac.lat = orig.lat; ac.lng = orig.lng; ac.radius = orig.radius; ac.safety = orig.safety; ac.distanceMultiplier = orig.distanceMultiplier; } }
                                     }

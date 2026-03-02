@@ -141,6 +141,18 @@ window.BKK.cityData.bangkok = {
       "radius": 3400,
       "size": "medium",
       "safety": "safe"
+    },
+    {
+      "id": "bang-krachao",
+      "label": "באנג קצ'או",
+      "labelEn": "Bang Krachao",
+      "desc": "",
+      "descEn": "",
+      "lat": 13.682,
+      "lng": 100.5661,
+      "radius": 3100,
+      "size": "medium",
+      "safety": "safe"
     }
   ],
   "interests": [
