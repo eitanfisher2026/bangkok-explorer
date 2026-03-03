@@ -3648,6 +3648,7 @@
                   { key: 'timeConflictPenalty', label: t('sysParams.timePenalty'), desc: t('sysParams.timePenaltyDesc'), min: 0, max: 20, step: 1, type: 'int' },
                   { key: 'slotEarlyThreshold', label: t('sysParams.earlyThreshold'), desc: t('sysParams.earlyThresholdDesc'), min: 0.1, max: 0.9, step: 0.05, type: 'float' },
                   { key: 'slotLateThreshold', label: t('sysParams.lateThreshold'), desc: t('sysParams.lateThresholdDesc'), min: 0.1, max: 0.9, step: 0.05, type: 'float' },
+                  { key: 'speechMaxSeconds', label: t('sysParams.speechDuration') || '🎤 הקלטה (שניות)', desc: t('sysParams.speechDurationDesc') || 'משך הקלטה מרבי לתיאור קולי', min: 5, max: 60, step: 5, type: 'int' },
                   { key: 'slotEndThreshold', label: t('sysParams.endThreshold'), desc: t('sysParams.endThresholdDesc'), min: 0.1, max: 0.9, step: 0.05, type: 'float' },
                   { key: 'slotPenaltyMultiplier', label: t('sysParams.slotPenalty'), desc: t('sysParams.slotPenaltyDesc'), min: 1, max: 20, step: 1, type: 'int' },
                   { key: 'slotEndPenaltyMultiplier', label: t('sysParams.endPenalty'), desc: t('sysParams.endPenaltyDesc'), min: 1, max: 20, step: 1, type: 'int' },

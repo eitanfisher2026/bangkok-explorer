@@ -444,7 +444,7 @@
                             } else {
                               setIsRecording(true);
                               const stop = window.BKK.startSpeechToText({
-                                maxDuration: 10000,
+                                maxDuration: (window.BKK.systemParams?.speechMaxSeconds || 15) * 1000,
                                 onResult: (text) => {
                                   setNewLocation(prev => ({...prev, description: text}));
                                 },
@@ -2772,7 +2772,7 @@
                           // Start recording
                           setIsRecording(true);
                           const stop = window.BKK.startSpeechToText({
-                            maxDuration: 10000,
+                            maxDuration: (window.BKK.systemParams?.speechMaxSeconds || 15) * 1000,
                             onResult: (text, isFinal) => {
                               setNewLocation(prev => ({...prev, description: text}));
                             },

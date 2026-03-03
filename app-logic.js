@@ -536,6 +536,8 @@
       showDraftsOnMap: true,
       // FouFou rating boost (multiplier for user ratings in bucket sort)
       foufouRatingBoost: 2,
+      // Speech recording
+      speechMaxSeconds: 15,
     };
     window.BKK.systemParams = { ...window.BKK._defaultSystemParams };
   }
