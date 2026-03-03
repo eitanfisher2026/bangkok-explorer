@@ -574,6 +574,7 @@
   const [mapFocusPlace, setMapFocusPlace] = useState(null); // place to highlight
   const [mapBottomSheet, setMapBottomSheet] = useState(null); // { name, loc } for bottom sheet
   const [mapReturnPlace, setMapReturnPlace] = useState(null); // place to reopen dialog for after map close
+  const [reopenMapAfterEdit, setReopenMapAfterEdit] = useState(null); // loc to focus when reopening map after edit
   const [showFavMapFilter, setShowFavMapFilter] = useState(false); // filter dialog open
   const [startPointCoords, setStartPointCoords] = useState(null); // { lat, lng, address }
   const leafletMapRef = React.useRef(null);
@@ -1100,8 +1101,24 @@
             }).addTo(map);
           }
           
+          // Highlight ring for selected marker
+          let highlightRing = null;
+          
           // CALLBACKS FIRST - must exist before any code that might crash
-          window._favMapSheet = (loc) => { setMapBottomSheet(loc); };
+          window._favMapSheet = (loc) => {
+            setMapBottomSheet(loc);
+            // Add highlight ring around selected marker
+            if (highlightRing && leafletMapRef.current) {
+              try { leafletMapRef.current.removeLayer(highlightRing); } catch(e) {}
+            }
+            if (loc && loc.lat && loc.lng && leafletMapRef.current) {
+              highlightRing = L.circleMarker([loc.lat, loc.lng], {
+                radius: 22, color: '#3b82f6', fillColor: '#3b82f6',
+                fillOpacity: 0.15, weight: 3, dashArray: '6,4',
+                pane: 'placeMarkersPane'
+              }).addTo(leafletMapRef.current);
+            }
+          };
           window._favMapAreaClick = (areaId) => {
             setMapFavArea(prev => prev === areaId ? null : areaId);
             setMapFavRadius(null);
@@ -3409,6 +3426,20 @@
       });
     }
   }, [showEditLocationDialog, editingLocation]);
+
+  // Reopen favorites map after edit dialog closes (when opened from map bottom sheet)
+  React.useEffect(() => {
+    if (!showEditLocationDialog && reopenMapAfterEdit) {
+      const loc = reopenMapAfterEdit;
+      setReopenMapAfterEdit(null);
+      setTimeout(() => {
+        setMapMode('favorites');
+        setMapFocusPlace(loc);
+        setMapBottomSheet(loc);
+        setShowMapModal(true);
+      }, 150);
+    }
+  }, [showEditLocationDialog]);
 
   const areaOptions = window.BKK.areaOptions || [];
 

@@ -557,6 +557,7 @@ const FouFouApp = () => {
   const [mapFocusPlace, setMapFocusPlace] = useState(null); // place to highlight
   const [mapBottomSheet, setMapBottomSheet] = useState(null); // { name, loc } for bottom sheet
   const [mapReturnPlace, setMapReturnPlace] = useState(null); // place to reopen dialog for after map close
+  const [reopenMapAfterEdit, setReopenMapAfterEdit] = useState(null); // loc to focus when reopening map after edit
   const [showFavMapFilter, setShowFavMapFilter] = useState(false); // filter dialog open
   const [startPointCoords, setStartPointCoords] = useState(null); // { lat, lng, address }
   const leafletMapRef = React.useRef(null);
@@ -1038,7 +1039,21 @@ const FouFouApp = () => {
             }).addTo(map);
           }
           
-          window._favMapSheet = (loc) => { setMapBottomSheet(loc); };
+          let highlightRing = null;
+          
+          window._favMapSheet = (loc) => {
+            setMapBottomSheet(loc);
+            if (highlightRing && leafletMapRef.current) {
+              try { leafletMapRef.current.removeLayer(highlightRing); } catch(e) {}
+            }
+            if (loc && loc.lat && loc.lng && leafletMapRef.current) {
+              highlightRing = L.circleMarker([loc.lat, loc.lng], {
+                radius: 22, color: '#3b82f6', fillColor: '#3b82f6',
+                fillOpacity: 0.15, weight: 3, dashArray: '6,4',
+                pane: 'placeMarkersPane'
+              }).addTo(leafletMapRef.current);
+            }
+          };
           window._favMapAreaClick = (areaId) => {
             setMapFavArea(prev => prev === areaId ? null : areaId);
             setMapFavRadius(null);
@@ -3085,6 +3100,19 @@ const FouFouApp = () => {
       });
     }
   }, [showEditLocationDialog, editingLocation]);
+
+  React.useEffect(() => {
+    if (!showEditLocationDialog && reopenMapAfterEdit) {
+      const loc = reopenMapAfterEdit;
+      setReopenMapAfterEdit(null);
+      setTimeout(() => {
+        setMapMode('favorites');
+        setMapFocusPlace(loc);
+        setMapBottomSheet(loc);
+        setShowMapModal(true);
+      }, 150);
+    }
+  }, [showEditLocationDialog]);
 
   const areaOptions = window.BKK.areaOptions || [];
 
@@ -10102,7 +10130,7 @@ const FouFouApp = () => {
                     <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                       <button onClick={() => { const u = window.BKK.getGoogleMapsUrl(loc); if (u && u !== '#') window.open(u, '_blank'); }}
                         style={{ flex: 1, padding: '9px', borderRadius: '10px', border: '1px solid #d1d5db', background: '#f9fafb', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}>🗺️ {t('route.navigate') || 'נווט'}</button>
-                      <button onClick={() => { setMapReturnPlace(null); setShowMapModal(false); setMapBottomSheet(null); handleEditLocation(loc); }}
+                      <button onClick={() => { setReopenMapAfterEdit(loc); setShowMapModal(false); setMapBottomSheet(null); handleEditLocation(loc); }}
                         style={{ flex: 1, padding: '9px', borderRadius: '10px', border: '1px solid #d1d5db', background: '#f9fafb', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}>✏️ {t('places.detailsEdit') || 'ערוך'}</button>
                       <button onClick={() => setMapBottomSheet(null)}
                         style={{ padding: '9px 14px', borderRadius: '10px', border: '1px solid #d1d5db', background: '#f3f4f6', fontSize: '13px', cursor: 'pointer', color: '#6b7280' }}>✕</button>
