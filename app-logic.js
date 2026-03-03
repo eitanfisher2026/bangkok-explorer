@@ -5063,7 +5063,15 @@
         })
         .catch((error) => {
           console.error('[FIREBASE] Error saving route:', error);
-          showToast(t('toast.routeSaveError'), 'error');
+          // Fallback to localStorage for anonymous/restricted users
+          const updated = [routeToSave, ...savedRoutes];
+          setSavedRoutes(updated);
+          try { localStorage.setItem('bangkok_saved_routes', JSON.stringify(updated.map(stripRouteForStorage))); } catch(e) {}
+          setRoute(routeToSave);
+          setEditingRoute({...routeToSave});
+          setRouteDialogMode('add');
+          setShowRouteDialog(true);
+          showToast(t('route.routeSaved'), 'success');
         });
     } else {
       const updated = [routeToSave, ...savedRoutes];
