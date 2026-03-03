@@ -557,6 +557,7 @@
   const [showImageModal, setShowImageModal] = useState(false);
   const [showAddressDialog, setShowAddressDialog] = useState(false);
   const [showMapModal, setShowMapModal] = useState(false);
+  const [mapVersion, setMapVersion] = useState(0); // Increment to force map re-render
   const [settingsTab, setSettingsTab] = useState('general'); // 'general', 'cities', or 'sysparams'
   const [editingParamKey, setEditingParamKey] = useState(null); // key of param being edited inline
   const [editingParamVal, setEditingParamVal] = useState('');
@@ -1145,7 +1146,7 @@
     }); // end loadLeaflet().then
     
     return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; delete window._mapRedrawLine; delete window._mapStopsOrderRef; delete window._favMapSheet; delete window._favMapAreaClick; setMapBottomSheet(null); };
-  }, [showMapModal, mapMode, mapStops, mapUserLocation, mapSkippedStops, mapFavFilter, mapFavArea, mapFavRadius, mapFocusPlace, customLocations, formData.currentLat, formData.currentLng, formData.radiusMeters]);
+  }, [showMapModal, mapMode, mapStops, mapUserLocation, mapSkippedStops, mapFavFilter, mapFavArea, mapFavRadius, mapFocusPlace, customLocations, formData.currentLat, formData.currentLng, formData.radiusMeters, mapVersion]);
   const [modalImage, setModalImage] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');

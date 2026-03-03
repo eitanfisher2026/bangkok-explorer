@@ -1,4 +1,4 @@
-// FouFou app-data.js v3.7.28
+// FouFou app-data.js v3.7.29
 // ============================================================================
 // FouFou — City Trail Generator - Internationalization (i18n)
 // Copyright © 2026 Eitan Fisher. All Rights Reserved.
@@ -2008,7 +2008,7 @@ window.BKK.cityData.bangkok = {
       "descEn": "Nightlife, restaurants, malls",
       "lat": 13.7347,
       "lng": 100.5702,
-      "radius": 2900,
+      "radius": 2700,
       "size": "large",
       "safety": "safe"
     },
@@ -2018,9 +2018,9 @@ window.BKK.cityData.bangkok = {
       "labelEn": "Old Town",
       "desc": "מקדשים, ארמון המלך, היסטוריה",
       "descEn": "Temples, Grand Palace, history",
-      "lat": 13.7624,
-      "lng": 100.4995,
-      "radius": 2000,
+      "lat": 13.7617,
+      "lng": 100.4992,
+      "radius": 2200,
       "size": "medium",
       "safety": "safe"
     },
@@ -2030,9 +2030,9 @@ window.BKK.cityData.bangkok = {
       "labelEn": "Chinatown & Talad Noi",
       "desc": "אוכל רחוב, שווקים, מקדשים סיניים",
       "descEn": "Street food, markets, Chinese temples",
-      "lat": 13.7407,
-      "lng": 100.5163,
-      "radius": 1300,
+      "lat": 13.7421,
+      "lng": 100.5173,
+      "radius": 1600,
       "size": "medium",
       "safety": "safe"
     },
@@ -2042,9 +2042,9 @@ window.BKK.cityData.bangkok = {
       "labelEn": "Riverside & Thonburi",
       "desc": "נהר, מקדשים, שווקי לילה",
       "descEn": "River, temples, night markets",
-      "lat": 13.725,
-      "lng": 100.4837,
-      "radius": 3000,
+      "lat": 13.7212,
+      "lng": 100.4873,
+      "radius": 2900,
       "size": "medium",
       "safety": "safe"
     },
@@ -2054,8 +2054,8 @@ window.BKK.cityData.bangkok = {
       "labelEn": "Siam & Pratunam",
       "desc": "קניות, קניונים, מרכז העיר",
       "descEn": "Shopping, malls, city center",
-      "lat": 13.7531,
-      "lng": 100.5359,
+      "lat": 13.7581,
+      "lng": 100.5369,
       "radius": 2000,
       "size": "medium",
       "safety": "safe"
@@ -2066,8 +2066,8 @@ window.BKK.cityData.bangkok = {
       "labelEn": "Chatuchak & Ari",
       "desc": "שוק ענק, פארקים, אמנות",
       "descEn": "Huge market, parks, art",
-      "lat": 13.7884,
-      "lng": 100.5295,
+      "lat": 13.7891,
+      "lng": 100.5393,
       "radius": 2700,
       "size": "medium",
       "safety": "safe"
@@ -2078,9 +2078,9 @@ window.BKK.cityData.bangkok = {
       "labelEn": "Silom & Sathorn",
       "desc": "עסקים, מקדשים, חיי לילה",
       "descEn": "Business, temples, nightlife",
-      "lat": 13.715,
-      "lng": 100.5321,
-      "radius": 2300,
+      "lat": 13.7207,
+      "lng": 100.5325,
+      "radius": 2000,
       "size": "medium",
       "safety": "safe"
     },
@@ -2090,9 +2090,9 @@ window.BKK.cityData.bangkok = {
       "labelEn": "Ratchada",
       "desc": "שווקי לילה, אוכל, בידור",
       "descEn": "Night markets, food, entertainment",
-      "lat": 13.7724,
-      "lng": 100.5678,
-      "radius": 2300,
+      "lat": 13.7654,
+      "lng": 100.5702,
+      "radius": 2000,
       "size": "medium",
       "safety": "safe"
     },
@@ -2102,8 +2102,8 @@ window.BKK.cityData.bangkok = {
       "labelEn": "On Nut",
       "desc": "מקומי, אוכל זול, שווקים",
       "descEn": "Local, cheap food, markets",
-      "lat": 13.7064,
-      "lng": 100.6015,
+      "lat": 13.7057,
+      "lng": 100.5994,
       "radius": 2000,
       "size": "medium",
       "safety": "safe"
@@ -2114,8 +2114,8 @@ window.BKK.cityData.bangkok = {
       "labelEn": "Yan Nawa & Bang Kho Laem",
       "desc": "נמל, שווקים מקומיים, אוכל",
       "descEn": "Port, local markets, food",
-      "lat": 13.6787,
-      "lng": 100.5108,
+      "lat": 13.684,
+      "lng": 100.518,
       "radius": 3400,
       "size": "medium",
       "safety": "safe"
@@ -2127,8 +2127,8 @@ window.BKK.cityData.bangkok = {
       "desc": "אי ירוק של טבע ופנאי",
       "descEn": "A green island of nature and leisure",
       "lat": 13.6847,
-      "lng": 100.5661,
-      "radius": 2400,
+      "lng": 100.5647,
+      "radius": 2700,
       "size": "medium",
       "safety": "safe"
     }
@@ -3025,7 +3025,7 @@ window.BKK = window.BKK || {};
   window.BKK.visitorName = vname || vid.slice(0, 10);
 })();
 
-window.BKK.VERSION = '3.7.28';
+window.BKK.VERSION = '3.7.29';
 window.BKK.stopLabel = function(i) {
   if (i < 26) return String.fromCharCode(65 + i);
   return String.fromCharCode(65 + Math.floor(i / 26) - 1) + String.fromCharCode(65 + (i % 26));

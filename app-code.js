@@ -541,6 +541,7 @@ const FouFouApp = () => {
   const [showImageModal, setShowImageModal] = useState(false);
   const [showAddressDialog, setShowAddressDialog] = useState(false);
   const [showMapModal, setShowMapModal] = useState(false);
+  const [mapVersion, setMapVersion] = useState(0); // Increment to force map re-render
   const [settingsTab, setSettingsTab] = useState('general'); // 'general', 'cities', or 'sysparams'
   const [editingParamKey, setEditingParamKey] = useState(null); // key of param being edited inline
   const [editingParamVal, setEditingParamVal] = useState('');
@@ -1080,7 +1081,7 @@ const FouFouApp = () => {
     }); // end loadLeaflet().then
     
     return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; delete window._mapRedrawLine; delete window._mapStopsOrderRef; delete window._favMapSheet; delete window._favMapAreaClick; setMapBottomSheet(null); };
-  }, [showMapModal, mapMode, mapStops, mapUserLocation, mapSkippedStops, mapFavFilter, mapFavArea, mapFavRadius, mapFocusPlace, customLocations, formData.currentLat, formData.currentLng, formData.radiusMeters]);
+  }, [showMapModal, mapMode, mapStops, mapUserLocation, mapSkippedStops, mapFavFilter, mapFavArea, mapFavRadius, mapFocusPlace, customLocations, formData.currentLat, formData.currentLng, formData.radiusMeters, mapVersion]);
   const [modalImage, setModalImage] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -8556,50 +8557,7 @@ const FouFouApp = () => {
                   <button onClick={() => {
                     setShowSettingsMap(!showSettingsMap);
                     if (!showSettingsMap) {
-                      setTimeout(() => {
-                        const container = document.getElementById('settings-all-areas-map');
-                        if (!container || !window.L) return;
-                        container.innerHTML = '';
-                        container._leaflet_id = null;
-                        const city = window.BKK.selectedCity;
-                        if (!city) return;
-                        const coords = window.BKK.areaCoordinates || {};
-                        const areas = city.areas || [];
-                        const cityCenter = city.center || window.BKK.activeCityData?.center || { lat: 0, lng: 0 };
-                        const map = L.map(container).setView([cityCenter.lat, cityCenter.lng], 12);
-                        L.tileLayer(window.BKK.getTileUrl(), { attribution: '© OpenStreetMap contributors', maxZoom: 18 }).addTo(map);
-                        const colorPalette = ['#3b82f6', '#f59e0b', '#ef4444', '#10b981', '#ec4899', '#6366f1', '#8b5cf6', '#06b6d4', '#f97316', '#a855f7', '#14b8a6', '#e11d48', '#84cc16', '#0ea5e9', '#d946ef', '#f43f5e'];
-                        const allCircles = [];
-                        mapMarkersRef.current = [];
-                        areas.forEach((area, i) => {
-                          const c = coords[area.id];
-                          if (!c) return;
-                          const color = colorPalette[i % colorPalette.length];
-                          const circle = L.circle([c.lat, c.lng], { radius: c.radius, color, fillColor: color, fillOpacity: 0.15, weight: 2 }).addTo(map);
-                          allCircles.push(circle);
-                          const marker = L.marker([c.lat, c.lng], { draggable: false, title: tLabel(area) }).addTo(map);
-                          marker.bindTooltip(tLabel(area), { permanent: true, direction: 'top', className: 'area-label-tooltip', offset: [0, -10] });
-                          marker._areaId = area.id;
-                          marker._circle = circle;
-                          marker._area = area;
-                          marker._coords = c;
-                          marker.on('dragend', () => {
-                            const pos = marker.getLatLng();
-                            const newLat = Math.round(pos.lat * 10000) / 10000;
-                            const newLng = Math.round(pos.lng * 10000) / 10000;
-                            area.lat = newLat; area.lng = newLng;
-                            c.lat = newLat; c.lng = newLng;
-                            circle.setLatLng(pos);
-                          });
-                          mapMarkersRef.current.push(marker);
-                        });
-                        if (allCircles.length > 0) {
-                          const group = L.featureGroup(allCircles);
-                          map.fitBounds(group.getBounds().pad(0.1));
-                        }
-                        window._settingsMap = map;
-                        setTimeout(() => map.invalidateSize(), 200);
-                      }, 300);
+                      setTimeout(() => window._initSettingsMap?.(), 300);
                     } else {
                       try { if (window._settingsMap) { window._settingsMap.off(); window._settingsMap.remove(); } } catch(e) {}
                       window._settingsMap = null;
@@ -8607,6 +8565,7 @@ const FouFouApp = () => {
                       mapMarkersRef.current = [];
                     }
                   }} style={{ fontSize: '10px', padding: '3px 10px', borderRadius: '6px', border: '1.5px solid #3b82f6', cursor: 'pointer', background: showSettingsMap ? '#3b82f6' : '#eff6ff', color: showSettingsMap ? 'white' : '#2563eb', fontWeight: 'bold' }}
+                  data-settings-map-btn="true"
                   >{showSettingsMap ? '✕' : '🗺️'} {t('wizard.allAreasMap')}</button>
                   <button onClick={() => {
                     const city = window.BKK.selectedCity;
@@ -8619,12 +8578,64 @@ const FouFouApp = () => {
                     city.areas.push(newArea);
                     window.BKK.areaCoordinates[id] = { lat: newArea.lat, lng: newArea.lng, radius: newArea.radius, distanceMultiplier: city.distanceMultiplier || 1.2, size: 'medium', safety: 'safe' };
                     window.BKK.areaOptions.push({ id, label: newArea.label, labelEn: newArea.labelEn, desc: '', descEn: '' });
-                    setCityModified(true); setCityEditCounter(c => c + 1);
+                    setCityModified(true); setCityEditCounter(c => c + 1); setMapVersion(v => v + 1);
+                    if (showSettingsMap) setTimeout(() => window._initSettingsMap?.(), 300);
                     showToast(`➕ ${name.trim()}`, 'success');
                     setFormData(prev => ({...prev}));
                   }} style={{ fontSize: '10px', padding: '3px 10px', borderRadius: '6px', border: '1.5px dashed #d1d5db', cursor: 'pointer', background: 'white', color: '#6b7280' }}
                   >➕ {t('settings.addArea')}</button>
                 </div>
+
+                {/* All areas map — init function */}
+                {(() => {
+                  window._initSettingsMap = () => {
+                    const container = document.getElementById('settings-all-areas-map');
+                    if (!container || !window.L) return;
+                    try { if (window._settingsMap) { window._settingsMap.off(); window._settingsMap.remove(); } } catch(e) {}
+                    container.innerHTML = '';
+                    container._leaflet_id = null;
+                    const city = window.BKK.selectedCity;
+                    if (!city) return;
+                    const coords = window.BKK.areaCoordinates || {};
+                    const areas = city.areas || [];
+                    const cityCenter = city.center || window.BKK.activeCityData?.center || { lat: 0, lng: 0 };
+                    const map = L.map(container).setView([cityCenter.lat, cityCenter.lng], 12);
+                    L.tileLayer(window.BKK.getTileUrl(), { attribution: '© OpenStreetMap contributors', maxZoom: 18 }).addTo(map);
+                    const colorPalette = ['#3b82f6', '#f59e0b', '#ef4444', '#10b981', '#ec4899', '#6366f1', '#8b5cf6', '#06b6d4', '#f97316', '#a855f7', '#14b8a6', '#e11d48', '#84cc16', '#0ea5e9', '#d946ef', '#f43f5e'];
+                    const allCircles = [];
+                    mapMarkersRef.current = [];
+                    areas.forEach((area, i) => {
+                      const c = coords[area.id];
+                      if (!c) return;
+                      const color = colorPalette[i % colorPalette.length];
+                      const circle = L.circle([c.lat, c.lng], { radius: c.radius, color, fillColor: color, fillOpacity: 0.15, weight: 2 }).addTo(map);
+                      allCircles.push(circle);
+                      const marker = L.marker([c.lat, c.lng], { draggable: false, title: tLabel(area) }).addTo(map);
+                      marker.bindTooltip(tLabel(area), { permanent: true, direction: 'top', className: 'area-label-tooltip', offset: [0, -10] });
+                      marker._areaId = area.id;
+                      marker._circle = circle;
+                      marker._area = area;
+                      marker._coords = c;
+                      marker.on('dragend', () => {
+                        const pos = marker.getLatLng();
+                        const newLat = Math.round(pos.lat * 10000) / 10000;
+                        const newLng = Math.round(pos.lng * 10000) / 10000;
+                        area.lat = newLat; area.lng = newLng;
+                        c.lat = newLat; c.lng = newLng;
+                        circle.setLatLng(pos);
+                      });
+                      mapMarkersRef.current.push(marker);
+                    });
+                    if (allCircles.length > 0) {
+                      const group = L.featureGroup(allCircles);
+                      map.fitBounds(group.getBounds().pad(0.1));
+                    }
+                    window._settingsMap = map;
+                    setMapEditMode(false);
+                    setTimeout(() => map.invalidateSize(), 200);
+                  };
+                  return null;
+                })()}
 
                 {/* All areas map */}
                 {showSettingsMap && (
@@ -8718,7 +8729,8 @@ const FouFouApp = () => {
                                 city.areas = city.areas.filter(a => a.id !== area.id);
                                 delete window.BKK.areaCoordinates[area.id];
                                 window.BKK.areaOptions = window.BKK.areaOptions.filter(a => a.id !== area.id);
-                                setCityModified(true); setCityEditCounter(c => c + 1);
+                                setCityModified(true); setCityEditCounter(c => c + 1); setMapVersion(v => v + 1);
+                                if (showSettingsMap) setTimeout(() => window._initSettingsMap?.(), 300);
                                 showToast(`🗑️ ${tLabel(area)}`, 'info');
                                 setFormData(prev => ({...prev}));
                                 });
@@ -8841,6 +8853,10 @@ const FouFouApp = () => {
                                     window._editMap = null;
                                     setEditingArea(null);
                                     setCityModified(true); setCityEditCounter(c => c + 1);
+                                    setMapVersion(v => v + 1);
+                                    if (showSettingsMap) {
+                                      setTimeout(() => window._initSettingsMap?.(), 300);
+                                    }
                                     showToast(`✓ ${tLabel(area)}`, 'success');
                                   }}
                                   className="px-3 py-1 bg-emerald-500 text-white rounded-lg text-xs font-bold hover:bg-emerald-600"
