@@ -8624,6 +8624,10 @@ const FouFouApp = () => {
                         c.lat = newLat; c.lng = newLng;
                         circle.setLatLng(pos);
                       });
+                      marker.on('click', () => {
+                        window._selectedMapMarker = marker;
+                        setFormData(prev => ({...prev, _selectedMapArea: area.id}));
+                      });
                       mapMarkersRef.current.push(marker);
                     });
                     if (allCircles.length > 0) {
@@ -8648,9 +8652,10 @@ const FouFouApp = () => {
                           mapOriginalPositions.current = {};
                           mapMarkersRef.current.forEach(m => {
                             const ll = m.getLatLng();
-                            mapOriginalPositions.current[m._areaId] = { lat: ll.lat, lng: ll.lng };
+                            mapOriginalPositions.current[m._areaId] = { lat: ll.lat, lng: ll.lng, radius: m._circle?.getRadius() || 0 };
                             m.dragging.enable();
                           });
+                          setFormData(prev => ({...prev, _selectedMapArea: null}));
                         }} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-amber-500 text-white">
                           ✏️ {t('general.editMap')}
                         </button>
@@ -8661,8 +8666,8 @@ const FouFouApp = () => {
                             mapMarkersRef.current.forEach(m => {
                               m.dragging.disable();
                             });
+                            setFormData(prev => { const n = {...prev}; delete n._selectedMapArea; return n; });
                             setCityModified(true); setCityEditCounter(c => c + 1); setMapVersion(v => v + 1);
-                            setFormData(prev => ({...prev}));
                             showToast(t('general.mapSaved'), 'success');
                           }} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-green-500 text-white">
                             ✅ {t('general.confirm')}
@@ -8675,6 +8680,7 @@ const FouFouApp = () => {
                               if (orig) {
                                 m.setLatLng([orig.lat, orig.lng]);
                                 m._circle.setLatLng([orig.lat, orig.lng]);
+                                if (orig.radius) { m._circle.setRadius(orig.radius); m._area.radius = orig.radius; m._coords.radius = orig.radius; }
                                 m._area.lat = Math.round(orig.lat * 10000) / 10000;
                                 m._area.lng = Math.round(orig.lng * 10000) / 10000;
                                 m._coords.lat = Math.round(orig.lat * 10000) / 10000;
@@ -8682,6 +8688,7 @@ const FouFouApp = () => {
                               }
                               m.dragging.disable();
                             });
+                            setFormData(prev => { const n = {...prev}; delete n._selectedMapArea; return n; });
                             showToast(t('general.cancel'), 'info');
                           }} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-gray-400 text-white">
                             ✕ {t('general.cancel')}
@@ -8692,6 +8699,33 @@ const FouFouApp = () => {
                     {mapEditMode && (
                       <p className="text-center text-[10px] text-red-500 mt-1 font-bold">{t('general.dragToMove')}</p>
                     )}
+                    {mapEditMode && formData._selectedMapArea && (() => {
+                      const city = window.BKK.selectedCity;
+                      const selArea = city?.areas?.find(a => a.id === formData._selectedMapArea);
+                      const selCoords = window.BKK.areaCoordinates?.[formData._selectedMapArea];
+                      if (!selArea || !selCoords) return null;
+                      const setR = (v) => {
+                        const clamped = Math.max(500, Math.min(10000, v));
+                        selArea.radius = clamped;
+                        selCoords.radius = clamped;
+                        const m = window._selectedMapMarker;
+                        if (m && m._circle) m._circle.setRadius(clamped);
+                        setFormData(prev => ({...prev}));
+                      };
+                      return (
+                        <div style={{ marginTop: '6px', padding: '8px 12px', background: '#eff6ff', borderRadius: '8px', border: '2px solid #3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#1e40af' }}>{tLabel(selArea)}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                            <span style={{ fontSize: '10px', color: '#6b7280' }}>{t('settings.radius')}:</span>
+                            <button onClick={() => setR(selArea.radius - 100)} style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: '#dbeafe', color: '#1e40af', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                            <input type="number" value={selArea.radius} onChange={(e) => setR(parseInt(e.target.value) || 0)}
+                              style={{ width: '65px', textAlign: 'center', fontSize: '13px', fontWeight: 'bold', border: '1.5px solid #93c5fd', borderRadius: '6px', padding: '4px' }} />
+                            <button onClick={() => setR(selArea.radius + 100)} style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: '#dbeafe', color: '#1e40af', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                            <span style={{ fontSize: '10px', color: '#9ca3af' }}>m</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 
@@ -8809,18 +8843,27 @@ const FouFouApp = () => {
                               <div className="flex items-center gap-3 flex-wrap mb-2">
                                 <label className="text-[9px] text-gray-600 flex items-center gap-1">
                                   {t('settings.radius')}:
-                                  <input type="range" min={area.isWholeCity ? '5000' : '500'} max={area.isWholeCity ? '30000' : '10000'} step="100" value={area.radius}
-                                    onChange={(e) => {
-                                      const v = parseInt(e.target.value);
-                                      area.radius = v;
-                                      if (area.isWholeCity) { city.allCityRadius = v; }
-                                      else { const ac = window.BKK.areaCoordinates?.[area.id]; if (ac) ac.radius = v; }
-                                      if (window._editCircle) window._editCircle.setRadius(v);
+                                  {(() => {
+                                    const setR = (v) => {
+                                      const min = area.isWholeCity ? 5000 : 500;
+                                      const max = area.isWholeCity ? 30000 : 10000;
+                                      const clamped = Math.max(min, Math.min(max, v));
+                                      area.radius = clamped;
+                                      if (area.isWholeCity) { city.allCityRadius = clamped; }
+                                      else { const ac = window.BKK.areaCoordinates?.[area.id]; if (ac) ac.radius = clamped; }
+                                      if (window._editCircle) window._editCircle.setRadius(clamped);
                                       setFormData(prev => ({...prev}));
-                                    }}
-                                    style={{ width: '100px' }}
-                                  />
-                                  <span className="font-bold">{area.radius}m</span>
+                                    };
+                                    return (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                        <button onClick={() => setR(area.radius - 100)} style={{ width: '24px', height: '24px', borderRadius: '6px', border: 'none', background: '#e5e7eb', color: '#374151', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>−</button>
+                                        <input type="number" value={area.radius} onChange={(e) => setR(parseInt(e.target.value) || 0)}
+                                          style={{ width: '60px', textAlign: 'center', fontSize: '11px', fontWeight: 'bold', border: '1px solid #d1d5db', borderRadius: '4px', padding: '2px 4px' }} />
+                                        <button onClick={() => setR(area.radius + 100)} style={{ width: '24px', height: '24px', borderRadius: '6px', border: 'none', background: '#e5e7eb', color: '#374151', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>+</button>
+                                        <span style={{ fontSize: '9px', color: '#9ca3af' }}>m</span>
+                                      </div>
+                                    );
+                                  })()}
                                 </label>
                                 {!area.isWholeCity && (
                                   <label className="text-[9px] text-gray-600 flex items-center gap-1">
@@ -10719,14 +10762,14 @@ const FouFouApp = () => {
                 <div className="space-y-1.5">
                   <div>
                     <label className="block text-xs font-bold mb-1">{`📝 ${t("places.description")}`}</label>
-                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                      <input
-                        type="text"
+                    <div style={{ display: 'flex', gap: '4px', alignItems: 'flex-start' }}>
+                      <textarea
                         value={newLocation.description || ''}
                         onChange={(e) => setNewLocation({...newLocation, description: e.target.value})}
                         placeholder={t("places.description")}
                         className="flex-1 p-2 border-2 border-gray-300 rounded-lg focus:border-purple-500"
-                        style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', fontSize: '16px' }}
+                        style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', fontSize: '16px', minHeight: '60px', resize: 'vertical', lineHeight: '1.4' }}
+                        rows="2"
                       />
                       {window.BKK.speechSupported && (
                         <button

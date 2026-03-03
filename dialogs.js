@@ -424,14 +424,14 @@
                 <div className="space-y-1.5">
                   <div>
                     <label className="block text-xs font-bold mb-1">{`📝 ${t("places.description")}`}</label>
-                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                      <input
-                        type="text"
+                    <div style={{ display: 'flex', gap: '4px', alignItems: 'flex-start' }}>
+                      <textarea
                         value={newLocation.description || ''}
                         onChange={(e) => setNewLocation({...newLocation, description: e.target.value})}
                         placeholder={t("places.description")}
                         className="flex-1 p-2 border-2 border-gray-300 rounded-lg focus:border-purple-500"
-                        style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', fontSize: '16px' }}
+                        style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', fontSize: '16px', minHeight: '60px', resize: 'vertical', lineHeight: '1.4' }}
+                        rows="2"
                       />
                       {window.BKK.speechSupported && (
                         <button
