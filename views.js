@@ -1887,7 +1887,7 @@
                     onChange={(e) => { parseImportFile(e.target.files?.[0]); e.target.value = ''; }} />
                   <label htmlFor="importDataFav"
                     style={{ padding: '5px 10px', fontSize: '10px', fontWeight: 'bold', background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.15)', display: 'inline-block' }}
-                  >📥 {t('general.import') || 'ייבוא'}</label>
+                  >📥 {t('general.import')}</label>
                 </div>
               )}
             </div>
@@ -1919,7 +1919,7 @@
                     title={t("wizard.showMap")}
                   >🗺️</button>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: '1', minWidth: '120px', maxWidth: '200px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: '1', minWidth: '120px' }}>
                   <input
                     type="text"
                     placeholder={`🔍 ${t("places.searchByNameHint")}`}
@@ -2098,11 +2098,13 @@
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-1 flex-wrap">
                                     {mapUrl ? (
+                                      <><span onClick={() => handleEditLocation(loc)}
+                                        className="font-medium text-sm text-blue-600 truncate cursor-pointer hover:underline"
+                                      >{loc.name}</span>
                                       <a href={mapUrl} target="city_explorer_map" rel="noopener noreferrer"
-                                        className="font-medium text-sm text-blue-600 truncate"
-                                      >{loc.name}</a>
+                                        style={{ fontSize: '10px', opacity: 0.5, flexShrink: 0 }} title={t("general.openInGoogle")}>🔗</a></>
                                     ) : (
-                                      <span className="font-medium text-sm truncate">{loc.name}</span>
+                                      <span onClick={() => handleEditLocation(loc)} className="font-medium text-sm truncate cursor-pointer hover:underline">{loc.name}</span>
                                     )}
                                     {loc.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '12px' }}>🔒</span>}
                                     {loc.outsideArea && <span className="text-orange-500 text-xs" title={t("general.outsideBoundary")}>🔺</span>}
@@ -2158,11 +2160,13 @@
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1 flex-wrap">
                                   {mapUrl ? (
+                                    <><span onClick={() => handleEditLocation(loc)}
+                                      className="font-medium text-sm text-blue-600 truncate cursor-pointer hover:underline"
+                                    >{loc.name}</span>
                                     <a href={mapUrl} target="city_explorer_map" rel="noopener noreferrer"
-                                      className="font-medium text-sm text-blue-600 truncate"
-                                    >{loc.name}</a>
+                                      style={{ fontSize: '10px', opacity: 0.5, flexShrink: 0 }} title={t("general.openInGoogle")}>🔗</a></>
                                   ) : (
-                                    <span className="font-medium text-sm truncate">{loc.name}</span>
+                                    <span onClick={() => handleEditLocation(loc)} className="font-medium text-sm truncate cursor-pointer hover:underline">{loc.name}</span>
                                   )}
                                   {loc.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '12px' }}>🔒</span>}
                                   {!isLocationValid(loc) && <span className="text-red-500 text-[9px]" title={t("places.missingDetails")}>❌</span>}
