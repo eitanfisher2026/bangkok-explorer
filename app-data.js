@@ -1,4 +1,4 @@
-// FouFou app-data.js v3.7.29
+// FouFou app-data.js v3.7.30
 // ============================================================================
 // FouFou — City Trail Generator - Internationalization (i18n)
 // Copyright © 2026 Eitan Fisher. All Rights Reserved.
@@ -2006,9 +2006,9 @@ window.BKK.cityData.bangkok = {
       "labelEn": "Sukhumvit & Thonglor",
       "desc": "חיי לילה, מסעדות, קניונים",
       "descEn": "Nightlife, restaurants, malls",
-      "lat": 13.7347,
-      "lng": 100.5702,
-      "radius": 2700,
+      "lat": 13.7317,
+      "lng": 100.5713,
+      "radius": 2800,
       "size": "large",
       "safety": "safe"
     },
@@ -2018,8 +2018,8 @@ window.BKK.cityData.bangkok = {
       "labelEn": "Old Town",
       "desc": "מקדשים, ארמון המלך, היסטוריה",
       "descEn": "Temples, Grand Palace, history",
-      "lat": 13.7617,
-      "lng": 100.4992,
+      "lat": 13.7634,
+      "lng": 100.5016,
       "radius": 2200,
       "size": "medium",
       "safety": "safe"
@@ -2032,7 +2032,7 @@ window.BKK.cityData.bangkok = {
       "descEn": "Street food, markets, Chinese temples",
       "lat": 13.7421,
       "lng": 100.5173,
-      "radius": 1600,
+      "radius": 1700,
       "size": "medium",
       "safety": "safe"
     },
@@ -2054,8 +2054,8 @@ window.BKK.cityData.bangkok = {
       "labelEn": "Siam & Pratunam",
       "desc": "קניות, קניונים, מרכז העיר",
       "descEn": "Shopping, malls, city center",
-      "lat": 13.7581,
-      "lng": 100.5369,
+      "lat": 13.7547,
+      "lng": 100.5379,
       "radius": 2000,
       "size": "medium",
       "safety": "safe"
@@ -2066,8 +2066,8 @@ window.BKK.cityData.bangkok = {
       "labelEn": "Chatuchak & Ari",
       "desc": "שוק ענק, פארקים, אמנות",
       "descEn": "Huge market, parks, art",
-      "lat": 13.7891,
-      "lng": 100.5393,
+      "lat": 13.7874,
+      "lng": 100.5342,
       "radius": 2700,
       "size": "medium",
       "safety": "safe"
@@ -2078,9 +2078,9 @@ window.BKK.cityData.bangkok = {
       "labelEn": "Silom & Sathorn",
       "desc": "עסקים, מקדשים, חיי לילה",
       "descEn": "Business, temples, nightlife",
-      "lat": 13.7207,
-      "lng": 100.5325,
-      "radius": 2000,
+      "lat": 13.7194,
+      "lng": 100.5366,
+      "radius": 2300,
       "size": "medium",
       "safety": "safe"
     },
@@ -2090,8 +2090,8 @@ window.BKK.cityData.bangkok = {
       "labelEn": "Ratchada",
       "desc": "שווקי לילה, אוכל, בידור",
       "descEn": "Night markets, food, entertainment",
-      "lat": 13.7654,
-      "lng": 100.5702,
+      "lat": 13.7671,
+      "lng": 100.5692,
       "radius": 2000,
       "size": "medium",
       "safety": "safe"
@@ -3025,7 +3025,7 @@ window.BKK = window.BKK || {};
   window.BKK.visitorName = vname || vid.slice(0, 10);
 })();
 
-window.BKK.VERSION = '3.7.29';
+window.BKK.VERSION = '3.7.30';
 window.BKK.stopLabel = function(i) {
   if (i < 26) return String.fromCharCode(65 + i);
   return String.fromCharCode(65 + Math.floor(i / 26) - 1) + String.fromCharCode(65 + (i % 26));

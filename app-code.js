@@ -8661,7 +8661,7 @@ const FouFouApp = () => {
                             mapMarkersRef.current.forEach(m => {
                               m.dragging.disable();
                             });
-                            setCityModified(true); setCityEditCounter(c => c + 1);
+                            setCityModified(true); setCityEditCounter(c => c + 1); setMapVersion(v => v + 1);
                             setFormData(prev => ({...prev}));
                             showToast(t('general.mapSaved'), 'success');
                           }} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-green-500 text-white">
