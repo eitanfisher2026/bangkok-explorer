@@ -1408,7 +1408,10 @@
                             if (isFirebaseAvailable && database) {
                               database.ref(`customInterests/${editingCustomInterest.firebaseId || interestId}`).update(updatedInterest);
                               if (Object.keys(searchConfig).length > 0) {
-                                database.ref(`settings/interestConfig/${interestId}`).set(searchConfig);
+                                // Merge with existing config to preserve adminStatus, defaultEnabled, etc.
+                                const existingCfg = interestConfig[interestId] || {};
+                                const mergedConfig = { ...existingCfg, ...searchConfig };
+                                database.ref(`settings/interestConfig/${interestId}`).set(mergedConfig);
                               }
                             } else {
                               const updated = customInterests.map(ci => ci.id === interestId ? updatedInterest : ci);

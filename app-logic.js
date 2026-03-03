@@ -1068,12 +1068,12 @@
             }).addTo(map).on('click', () => {
               if (window._favMapAreaClick) window._favMapAreaClick(area.id);
             });
-            // Labels — always show all
-            const labelVisible = areasOnly || !hasSelection || isSelected;
+            // Labels — always show all, non-interactive when place markers exist
             L.marker([c.lat, c.lng], {
+              interactive: !hasPlaceMarkers,
               icon: L.divIcon({
                 className: '',
-                html: '<div style="font-size:' + (areasOnly ? '10px' : '9px') + ';color:' + (areasOnly ? aColor : (isSelected ? '#1e40af' : '#64748b')) + ';text-align:center;white-space:nowrap;font-weight:bold;background:rgba(255,255,255,' + (areasOnly ? '0.88' : (isSelected ? '0.95' : '0.75')) + ');padding:' + (areasOnly || isSelected ? '2px 5px' : '1px 4px') + ';border-radius:' + (areasOnly || isSelected ? '4px' : '3px') + ';' + ((areasOnly || isSelected) ? 'border:1.5px solid ' + (isSelected ? '#2563eb' : aColor) + ';box-shadow:0 1px 3px rgba(0,0,0,0.15);' : '') + 'cursor:pointer;">' + tLabel(area) + '</div>',
+                html: '<div style="font-size:' + (areasOnly ? '10px' : '9px') + ';color:' + (areasOnly ? aColor : (isSelected ? '#1e40af' : '#64748b')) + ';text-align:center;white-space:nowrap;font-weight:bold;background:rgba(255,255,255,' + (areasOnly ? '0.88' : (isSelected ? '0.95' : '0.75')) + ');padding:' + (areasOnly || isSelected ? '2px 5px' : '1px 4px') + ';border-radius:' + (areasOnly || isSelected ? '4px' : '3px') + ';' + ((areasOnly || isSelected) ? 'border:1.5px solid ' + (isSelected ? '#2563eb' : aColor) + ';box-shadow:0 1px 3px rgba(0,0,0,0.15);' : '') + (hasPlaceMarkers ? 'pointer-events:none;' : 'cursor:pointer;') + '">' + tLabel(area) + '</div>',
                 iconSize: [80, 22], iconAnchor: [40, 11]
               })
             }).addTo(map).on('click', () => {
@@ -3317,7 +3317,7 @@
     // Don't save if data hasn't loaded yet - prevents overwriting saved interests with empty state
     if (!isDataLoaded) return;
     // Strip admin-controlled settings before saving — these come from Firebase, not localStorage
-    const { maxStops, fetchMoreCount, ...userPrefs } = formData;
+    const { maxStops, fetchMoreCount, _selectedMapArea, ...userPrefs } = formData;
     localStorage.setItem('bangkok_preferences', JSON.stringify(userPrefs));
   }, [formData, isDataLoaded]);
 
@@ -5179,7 +5179,9 @@
           console.log('[FIREBASE] User interest status updated:', interestId, newStatus);
         })
         .catch(err => {
-          console.error('Error updating interest status:', err);
+          console.error('Error updating interest status to Firebase, saving locally:', err);
+          // Fallback: save to localStorage so change persists for anonymous/restricted users
+          localStorage.setItem('bangkok_interest_status', JSON.stringify(updatedStatus));
         });
     } else {
       localStorage.setItem('bangkok_interest_status', JSON.stringify(updatedStatus));
@@ -5220,8 +5222,11 @@
         setInterestStatus(defaults);
         showToast(t('interests.interestsReset'), 'success');
       } catch (err) {
-        console.error('Error resetting interest status:', err);
-        showToast(t('toast.resetError'), 'error');
+        console.error('Error resetting interest status to Firebase, falling back to localStorage:', err);
+        // Fallback: save locally so anonymous/restricted users can still reset
+        localStorage.setItem('bangkok_interest_status', JSON.stringify(defaults));
+        setInterestStatus(defaults);
+        showToast(t('interests.interestsReset'), 'success');
       }
     } else {
       localStorage.setItem('bangkok_interest_status', JSON.stringify(defaults));

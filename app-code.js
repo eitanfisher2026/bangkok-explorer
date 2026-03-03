@@ -1009,11 +1009,11 @@ const FouFouApp = () => {
             }).addTo(map).on('click', () => {
               if (window._favMapAreaClick) window._favMapAreaClick(area.id);
             });
-            const labelVisible = areasOnly || !hasSelection || isSelected;
             L.marker([c.lat, c.lng], {
+              interactive: !hasPlaceMarkers,
               icon: L.divIcon({
                 className: '',
-                html: '<div style="font-size:' + (areasOnly ? '10px' : '9px') + ';color:' + (areasOnly ? aColor : (isSelected ? '#1e40af' : '#64748b')) + ';text-align:center;white-space:nowrap;font-weight:bold;background:rgba(255,255,255,' + (areasOnly ? '0.88' : (isSelected ? '0.95' : '0.75')) + ');padding:' + (areasOnly || isSelected ? '2px 5px' : '1px 4px') + ';border-radius:' + (areasOnly || isSelected ? '4px' : '3px') + ';' + ((areasOnly || isSelected) ? 'border:1.5px solid ' + (isSelected ? '#2563eb' : aColor) + ';box-shadow:0 1px 3px rgba(0,0,0,0.15);' : '') + 'cursor:pointer;">' + tLabel(area) + '</div>',
+                html: '<div style="font-size:' + (areasOnly ? '10px' : '9px') + ';color:' + (areasOnly ? aColor : (isSelected ? '#1e40af' : '#64748b')) + ';text-align:center;white-space:nowrap;font-weight:bold;background:rgba(255,255,255,' + (areasOnly ? '0.88' : (isSelected ? '0.95' : '0.75')) + ');padding:' + (areasOnly || isSelected ? '2px 5px' : '1px 4px') + ';border-radius:' + (areasOnly || isSelected ? '4px' : '3px') + ';' + ((areasOnly || isSelected) ? 'border:1.5px solid ' + (isSelected ? '#2563eb' : aColor) + ';box-shadow:0 1px 3px rgba(0,0,0,0.15);' : '') + (hasPlaceMarkers ? 'pointer-events:none;' : 'cursor:pointer;') + '">' + tLabel(area) + '</div>',
                 iconSize: [80, 22], iconAnchor: [40, 11]
               })
             }).addTo(map).on('click', () => {
@@ -3001,7 +3001,7 @@ const FouFouApp = () => {
   }, [customInterests, cityCustomInterests, allInterestOptions, debugMode]);
   useEffect(() => {
     if (!isDataLoaded) return;
-    const { maxStops, fetchMoreCount, ...userPrefs } = formData;
+    const { maxStops, fetchMoreCount, _selectedMapArea, ...userPrefs } = formData;
     localStorage.setItem('bangkok_preferences', JSON.stringify(userPrefs));
   }, [formData, isDataLoaded]);
 
@@ -4610,7 +4610,8 @@ const FouFouApp = () => {
         .then(() => {
         })
         .catch(err => {
-          console.error('Error updating interest status:', err);
+          console.error('Error updating interest status to Firebase, saving locally:', err);
+          localStorage.setItem('bangkok_interest_status', JSON.stringify(updatedStatus));
         });
     } else {
       localStorage.setItem('bangkok_interest_status', JSON.stringify(updatedStatus));
@@ -4645,8 +4646,10 @@ const FouFouApp = () => {
         setInterestStatus(defaults);
         showToast(t('interests.interestsReset'), 'success');
       } catch (err) {
-        console.error('Error resetting interest status:', err);
-        showToast(t('toast.resetError'), 'error');
+        console.error('Error resetting interest status to Firebase, falling back to localStorage:', err);
+        localStorage.setItem('bangkok_interest_status', JSON.stringify(defaults));
+        setInterestStatus(defaults);
+        showToast(t('interests.interestsReset'), 'success');
       }
     } else {
       localStorage.setItem('bangkok_interest_status', JSON.stringify(defaults));
@@ -5991,6 +5994,96 @@ const FouFouApp = () => {
     return isUrl 
       ? <img src={icon} alt="" style={{ width: size, height: size, objectFit: 'contain', display: 'inline', verticalAlign: 'middle' }} />
       : icon;
+  };
+
+  const parseImportFile = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        let raw = event.target.result.trim();
+        let data;
+        try { data = JSON.parse(raw); } catch (e1) {
+          try { data = JSON.parse(`[${raw}]`); } catch (e2) {
+            try { data = JSON.parse(raw.replace(/,\s*([}\]])/g, '$1')); } catch (e3) {
+              try { data = JSON.parse(`[${raw.replace(/,\s*([}\]])/g, '$1')}]`); } catch (e4) { throw e1; }
+            }
+          }
+        }
+        if (Array.isArray(data)) data = { customLocations: data };
+        if (!data.customLocations && !data.customInterests && !data.savedRoutes) {
+          const arrKey = Object.keys(data).find(k => Array.isArray(data[k]) && data[k].length > 0 && typeof data[k][0] === 'object');
+          if (arrKey) data = { customLocations: data[arrKey] };
+        }
+        if (data.customLocations) {
+          const fieldMap = {
+            'שם המקום': 'name', 'שם': 'name', 'place': 'name', 'placeName': 'name', 'place_name': 'name', 'title': 'name',
+            'name_he': 'name', 'שם_עברית': 'name',
+            'תיאור': 'description', 'desc': 'description', 'description_he': 'description',
+            'הערות': 'notes', 'note': 'notes', 'tip': 'notes', 'tips': 'notes', 'notes_he': 'notes',
+            'כתובת': 'address', 'address_he': 'address',
+            'קטגוריה': '_category', 'category': '_category', 'type': '_category', 'סוג': '_category',
+            'קטגוריות': '_category', 'categories': '_category',
+            'תחומים': 'interests', 'interest': 'interests', 'tags': 'interests',
+            'אזור': 'areas', 'area': 'areas', 'אזורים': 'areas',
+            'latitude': 'lat', 'longitude': 'lng', 'קו רוחב': 'lat', 'קו אורך': 'lng',
+            'קישור': 'mapsUrl', 'url': 'mapsUrl', 'link': 'mapsUrl', 'google_maps': 'mapsUrl', 'googleMaps': 'mapsUrl',
+            'google_maps_url': 'mapsUrl', 'googleMapsUrl': 'mapsUrl',
+            'place_id': 'placeId', 'placeId': 'placeId',
+            'reviews_count': 'reviewsCount', 'reviewsCount': 'reviewsCount',
+            'area_name_he': '_areaMeta', 'category_name_he': '_catMeta', 'places_count': '_countMeta',
+          };
+          data.customLocations = data.customLocations.map(loc => {
+            const normalized = {};
+            for (const [key, val] of Object.entries(loc)) {
+              const mapped = fieldMap[key] || fieldMap[key.toLowerCase()] || key;
+              normalized[mapped] = val;
+            }
+            if (normalized.address && typeof normalized.address === 'object' && normalized.address.lat) {
+              if (!normalized.lat) normalized.lat = normalized.address.lat;
+              if (!normalized.lng) normalized.lng = normalized.address.lng || normalized.address.lon;
+              delete normalized.address;
+            }
+            if (loc.location && typeof loc.location === 'object' && loc.location.lat) {
+              if (!normalized.lat) normalized.lat = loc.location.lat;
+              if (!normalized.lng) normalized.lng = loc.location.lng || loc.location.lon;
+            } else if (loc.location && typeof loc.location === 'string') {
+              if (!normalized.address) normalized.address = loc.location;
+            }
+            if (loc.name && loc.name_he && loc.name !== loc.name_he) {
+              normalized.name = loc.name_he;
+              normalized.nameEn = loc.name;
+            }
+            if (!normalized.name && normalized.name_he) normalized.name = normalized.name_he;
+            if (!normalized.description && normalized.description_he) normalized.description = normalized.description_he;
+            if (!normalized.notes && normalized.notes_he) normalized.notes = normalized.notes_he;
+            if (!normalized.mapsUrl && normalized.google_maps_url) normalized.mapsUrl = normalized.google_maps_url;
+            if (!normalized.placeId && normalized.place_id) normalized.placeId = normalized.place_id;
+            if (!normalized.reviewsCount && normalized.reviews_count) normalized.reviewsCount = normalized.reviews_count;
+            delete normalized._areaMeta; delete normalized._catMeta; delete normalized._countMeta;
+            if (!normalized.name) {
+              const firstStr = Object.values(loc).find(v => typeof v === 'string' && v.length > 1 && v.length < 100);
+              if (firstStr) normalized.name = firstStr;
+            }
+            if (normalized._category && !normalized.notes) normalized.notes = String(normalized._category);
+            delete normalized._category;
+            if (normalized.areas && !Array.isArray(normalized.areas)) normalized.areas = [normalized.areas];
+            if (normalized.interests && !Array.isArray(normalized.interests)) normalized.interests = [normalized.interests];
+            return normalized;
+          }).filter(loc => loc.name);
+        }
+        if (!data.customInterests && !data.customLocations?.length && !data.savedRoutes) {
+          showToast(t('toast.invalidFileNoData'), 'error');
+          return;
+        }
+        setImportedData(data);
+        setShowImportDialog(true);
+      } catch (error) {
+        console.error('[IMPORT] Error:', error);
+        showToast(`${t('toast.fileReadError')}: ${error.message}`, 'error');
+      }
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -7758,6 +7851,15 @@ const FouFouApp = () => {
                   >📐 {t('dedup.scanCoordsButton')}</button>
                 </div>
               )}
+              {isUnlocked && (
+                <div style={{ marginLeft: customLocations.length <= 1 ? 'auto' : '0' }}>
+                  <input type="file" accept=".json" id="importDataFav" className="hidden"
+                    onChange={(e) => { parseImportFile(e.target.files?.[0]); e.target.value = ''; }} />
+                  <label htmlFor="importDataFav"
+                    style={{ padding: '5px 10px', fontSize: '10px', fontWeight: 'bold', background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.15)', display: 'inline-block' }}
+                  >📥 {t('general.import') || 'ייבוא'}</label>
+                </div>
+              )}
             </div>
             
             {/* Custom Locations Section - Tabbed */}
@@ -9265,125 +9367,7 @@ const FouFouApp = () => {
                     <input
                       type="file"
                       accept=".json"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        
-                        const reader = new FileReader();
-                        reader.onload = (event) => {
-                          try {
-                            let raw = event.target.result.trim();
-                            let data;
-                            
-                            try {
-                              data = JSON.parse(raw);
-                            } catch (e1) {
-                              try {
-                                data = JSON.parse(`[${raw}]`);
-                              } catch (e2) {
-                                try {
-                                  data = JSON.parse(raw.replace(/,\s*([}\]])/g, '$1'));
-                                } catch (e3) {
-                                  try {
-                                    data = JSON.parse(`[${raw.replace(/,\s*([}\]])/g, '$1')}]`);
-                                  } catch (e4) {
-                                    throw e1; // Show original error
-                                  }
-                                }
-                              }
-                            }
-                            
-                            if (Array.isArray(data)) {
-                              data = { customLocations: data };
-                            }
-                            
-                            if (!data.customLocations && !data.customInterests && !data.savedRoutes) {
-                              const arrKey = Object.keys(data).find(k => Array.isArray(data[k]) && data[k].length > 0 && typeof data[k][0] === 'object');
-                              if (arrKey) {
-                                data = { customLocations: data[arrKey] };
-                              }
-                            }
-                            
-                            if (data.customLocations) {
-                              const fieldMap = {
-                                'שם המקום': 'name', 'שם': 'name', 'place': 'name', 'placeName': 'name', 'place_name': 'name', 'title': 'name',
-                                'name_he': 'name', 'שם_עברית': 'name',
-                                'תיאור': 'description', 'desc': 'description', 'description_he': 'description',
-                                'הערות': 'notes', 'note': 'notes', 'tip': 'notes', 'tips': 'notes', 'notes_he': 'notes',
-                                'כתובת': 'address', 'address_he': 'address',
-                                'קטגוריה': '_category', 'category': '_category', 'type': '_category', 'סוג': '_category',
-                                'קטגוריות': '_category', 'categories': '_category',
-                                'תחומים': 'interests', 'interest': 'interests', 'tags': 'interests',
-                                'אזור': 'areas', 'area': 'areas', 'אזורים': 'areas',
-                                'latitude': 'lat', 'longitude': 'lng', 'קו רוחב': 'lat', 'קו אורך': 'lng',
-                                'קישור': 'mapsUrl', 'url': 'mapsUrl', 'link': 'mapsUrl', 'google_maps': 'mapsUrl', 'googleMaps': 'mapsUrl',
-                                'google_maps_url': 'mapsUrl', 'googleMapsUrl': 'mapsUrl',
-                                'place_id': 'placeId', 'placeId': 'placeId',
-                                'reviews_count': 'reviewsCount', 'reviewsCount': 'reviewsCount',
-                                'area_name_he': '_areaMeta', 'category_name_he': '_catMeta', 'places_count': '_countMeta',
-                              };
-                              
-                              data.customLocations = data.customLocations.map(loc => {
-                                const normalized = {};
-                                for (const [key, val] of Object.entries(loc)) {
-                                  const mapped = fieldMap[key] || fieldMap[key.toLowerCase()] || key;
-                                  normalized[mapped] = val;
-                                }
-                                if (normalized.address && typeof normalized.address === 'object' && normalized.address.lat) {
-                                  if (!normalized.lat) normalized.lat = normalized.address.lat;
-                                  if (!normalized.lng) normalized.lng = normalized.address.lng || normalized.address.lon;
-                                  delete normalized.address;
-                                }
-                                if (loc.location && typeof loc.location === 'object' && loc.location.lat) {
-                                  if (!normalized.lat) normalized.lat = loc.location.lat;
-                                  if (!normalized.lng) normalized.lng = loc.location.lng || loc.location.lon;
-                                } else if (loc.location && typeof loc.location === 'string') {
-                                  if (!normalized.address) normalized.address = loc.location;
-                                }
-                                if (loc.name && loc.name_he && loc.name !== loc.name_he) {
-                                  normalized.name = loc.name_he;
-                                  normalized.nameEn = loc.name;
-                                }
-                                if (!normalized.name && normalized.name_he) normalized.name = normalized.name_he;
-                                if (!normalized.description && normalized.description_he) normalized.description = normalized.description_he;
-                                if (!normalized.notes && normalized.notes_he) normalized.notes = normalized.notes_he;
-                                if (!normalized.mapsUrl && normalized.google_maps_url) normalized.mapsUrl = normalized.google_maps_url;
-                                if (!normalized.placeId && normalized.place_id) normalized.placeId = normalized.place_id;
-                                if (!normalized.reviewsCount && normalized.reviews_count) normalized.reviewsCount = normalized.reviews_count;
-                                delete normalized._areaMeta; delete normalized._catMeta; delete normalized._countMeta;
-                                if (!normalized.name) {
-                                  const firstStr = Object.values(loc).find(v => typeof v === 'string' && v.length > 1 && v.length < 100);
-                                  if (firstStr) normalized.name = firstStr;
-                                }
-                                if (normalized._category && !normalized.notes) {
-                                  normalized.notes = String(normalized._category);
-                                }
-                                delete normalized._category;
-                                if (normalized.areas && !Array.isArray(normalized.areas)) {
-                                  normalized.areas = [normalized.areas];
-                                }
-                                if (normalized.interests && !Array.isArray(normalized.interests)) {
-                                  normalized.interests = [normalized.interests];
-                                }
-                                return normalized;
-                              }).filter(loc => loc.name);
-                            }
-                            
-                            if (!data.customInterests && !data.customLocations?.length && !data.savedRoutes) {
-                              showToast(t('toast.invalidFileNoData'), 'error');
-                              return;
-                            }
-                            
-                            setImportedData(data);
-                            setShowImportDialog(true);
-                          } catch (error) {
-                            console.error('[IMPORT] Error:', error);
-                            showToast(`${t('toast.fileReadError')}: ${error.message}`, 'error');
-                          }
-                        };
-                        reader.readAsText(file);
-                        e.target.value = '';
-                      }}
+                      onChange={(e) => { parseImportFile(e.target.files?.[0]); e.target.value = ''; }}
                       id="importData"
                       className="hidden"
                     />
@@ -11741,7 +11725,9 @@ const FouFouApp = () => {
                             if (isFirebaseAvailable && database) {
                               database.ref(`customInterests/${editingCustomInterest.firebaseId || interestId}`).update(updatedInterest);
                               if (Object.keys(searchConfig).length > 0) {
-                                database.ref(`settings/interestConfig/${interestId}`).set(searchConfig);
+                                const existingCfg = interestConfig[interestId] || {};
+                                const mergedConfig = { ...existingCfg, ...searchConfig };
+                                database.ref(`settings/interestConfig/${interestId}`).set(mergedConfig);
                               }
                             } else {
                               const updated = customInterests.map(ci => ci.id === interestId ? updatedInterest : ci);

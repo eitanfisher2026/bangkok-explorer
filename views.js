@@ -7,6 +7,97 @@
       : icon;
   };
 
+  // Shared import file parser — used from settings and favorites screen
+  const parseImportFile = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        let raw = event.target.result.trim();
+        let data;
+        try { data = JSON.parse(raw); } catch (e1) {
+          try { data = JSON.parse(`[${raw}]`); } catch (e2) {
+            try { data = JSON.parse(raw.replace(/,\s*([}\]])/g, '$1')); } catch (e3) {
+              try { data = JSON.parse(`[${raw.replace(/,\s*([}\]])/g, '$1')}]`); } catch (e4) { throw e1; }
+            }
+          }
+        }
+        if (Array.isArray(data)) data = { customLocations: data };
+        if (!data.customLocations && !data.customInterests && !data.savedRoutes) {
+          const arrKey = Object.keys(data).find(k => Array.isArray(data[k]) && data[k].length > 0 && typeof data[k][0] === 'object');
+          if (arrKey) data = { customLocations: data[arrKey] };
+        }
+        if (data.customLocations) {
+          const fieldMap = {
+            'שם המקום': 'name', 'שם': 'name', 'place': 'name', 'placeName': 'name', 'place_name': 'name', 'title': 'name',
+            'name_he': 'name', 'שם_עברית': 'name',
+            'תיאור': 'description', 'desc': 'description', 'description_he': 'description',
+            'הערות': 'notes', 'note': 'notes', 'tip': 'notes', 'tips': 'notes', 'notes_he': 'notes',
+            'כתובת': 'address', 'address_he': 'address',
+            'קטגוריה': '_category', 'category': '_category', 'type': '_category', 'סוג': '_category',
+            'קטגוריות': '_category', 'categories': '_category',
+            'תחומים': 'interests', 'interest': 'interests', 'tags': 'interests',
+            'אזור': 'areas', 'area': 'areas', 'אזורים': 'areas',
+            'latitude': 'lat', 'longitude': 'lng', 'קו רוחב': 'lat', 'קו אורך': 'lng',
+            'קישור': 'mapsUrl', 'url': 'mapsUrl', 'link': 'mapsUrl', 'google_maps': 'mapsUrl', 'googleMaps': 'mapsUrl',
+            'google_maps_url': 'mapsUrl', 'googleMapsUrl': 'mapsUrl',
+            'place_id': 'placeId', 'placeId': 'placeId',
+            'reviews_count': 'reviewsCount', 'reviewsCount': 'reviewsCount',
+            'area_name_he': '_areaMeta', 'category_name_he': '_catMeta', 'places_count': '_countMeta',
+          };
+          data.customLocations = data.customLocations.map(loc => {
+            const normalized = {};
+            for (const [key, val] of Object.entries(loc)) {
+              const mapped = fieldMap[key] || fieldMap[key.toLowerCase()] || key;
+              normalized[mapped] = val;
+            }
+            if (normalized.address && typeof normalized.address === 'object' && normalized.address.lat) {
+              if (!normalized.lat) normalized.lat = normalized.address.lat;
+              if (!normalized.lng) normalized.lng = normalized.address.lng || normalized.address.lon;
+              delete normalized.address;
+            }
+            if (loc.location && typeof loc.location === 'object' && loc.location.lat) {
+              if (!normalized.lat) normalized.lat = loc.location.lat;
+              if (!normalized.lng) normalized.lng = loc.location.lng || loc.location.lon;
+            } else if (loc.location && typeof loc.location === 'string') {
+              if (!normalized.address) normalized.address = loc.location;
+            }
+            if (loc.name && loc.name_he && loc.name !== loc.name_he) {
+              normalized.name = loc.name_he;
+              normalized.nameEn = loc.name;
+            }
+            if (!normalized.name && normalized.name_he) normalized.name = normalized.name_he;
+            if (!normalized.description && normalized.description_he) normalized.description = normalized.description_he;
+            if (!normalized.notes && normalized.notes_he) normalized.notes = normalized.notes_he;
+            if (!normalized.mapsUrl && normalized.google_maps_url) normalized.mapsUrl = normalized.google_maps_url;
+            if (!normalized.placeId && normalized.place_id) normalized.placeId = normalized.place_id;
+            if (!normalized.reviewsCount && normalized.reviews_count) normalized.reviewsCount = normalized.reviews_count;
+            delete normalized._areaMeta; delete normalized._catMeta; delete normalized._countMeta;
+            if (!normalized.name) {
+              const firstStr = Object.values(loc).find(v => typeof v === 'string' && v.length > 1 && v.length < 100);
+              if (firstStr) normalized.name = firstStr;
+            }
+            if (normalized._category && !normalized.notes) normalized.notes = String(normalized._category);
+            delete normalized._category;
+            if (normalized.areas && !Array.isArray(normalized.areas)) normalized.areas = [normalized.areas];
+            if (normalized.interests && !Array.isArray(normalized.interests)) normalized.interests = [normalized.interests];
+            return normalized;
+          }).filter(loc => loc.name);
+        }
+        if (!data.customInterests && !data.customLocations?.length && !data.savedRoutes) {
+          showToast(t('toast.invalidFileNoData'), 'error');
+          return;
+        }
+        setImportedData(data);
+        setShowImportDialog(true);
+      } catch (error) {
+        console.error('[IMPORT] Error:', error);
+        showToast(`${t('toast.fileReadError')}: ${error.message}`, 'error');
+      }
+    };
+    reader.readAsText(file);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 to-rose-50" dir={window.BKK.i18n.isRTL() ? 'rtl' : 'ltr'}>
       {/* Loading Overlay */}
@@ -1790,6 +1881,15 @@
                   >📐 {t('dedup.scanCoordsButton')}</button>
                 </div>
               )}
+              {isUnlocked && (
+                <div style={{ marginLeft: customLocations.length <= 1 ? 'auto' : '0' }}>
+                  <input type="file" accept=".json" id="importDataFav" className="hidden"
+                    onChange={(e) => { parseImportFile(e.target.files?.[0]); e.target.value = ''; }} />
+                  <label htmlFor="importDataFav"
+                    style={{ padding: '5px 10px', fontSize: '10px', fontWeight: 'bold', background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.15)', display: 'inline-block' }}
+                  >📥 {t('general.import') || 'ייבוא'}</label>
+                </div>
+              )}
             </div>
             
             {/* Custom Locations Section - Tabbed */}
@@ -3318,140 +3418,7 @@
                     <input
                       type="file"
                       accept=".json"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        
-                        const reader = new FileReader();
-                        reader.onload = (event) => {
-                          try {
-                            let raw = event.target.result.trim();
-                            let data;
-                            
-                            // Smart JSON parsing: handle various AI-generated formats
-                            try {
-                              data = JSON.parse(raw);
-                            } catch (e1) {
-                              // Try wrapping in array brackets (common AI output: objects without [])
-                              try {
-                                data = JSON.parse(`[${raw}]`);
-                              } catch (e2) {
-                                // Try fixing trailing commas
-                                try {
-                                  data = JSON.parse(raw.replace(/,\s*([}\]])/g, '$1'));
-                                } catch (e3) {
-                                  try {
-                                    data = JSON.parse(`[${raw.replace(/,\s*([}\]])/g, '$1')}]`);
-                                  } catch (e4) {
-                                    throw e1; // Show original error
-                                  }
-                                }
-                              }
-                            }
-                            
-                            // If we got a plain array, treat as customLocations
-                            if (Array.isArray(data)) {
-                              data = { customLocations: data };
-                            }
-                            
-                            // If array is nested under a non-standard key, find it
-                            if (!data.customLocations && !data.customInterests && !data.savedRoutes) {
-                              const arrKey = Object.keys(data).find(k => Array.isArray(data[k]) && data[k].length > 0 && typeof data[k][0] === 'object');
-                              if (arrKey) {
-                                data = { customLocations: data[arrKey] };
-                              }
-                            }
-                            
-                            // Normalize location fields: map Hebrew/alternate names to schema
-                            if (data.customLocations) {
-                              const fieldMap = {
-                                'שם המקום': 'name', 'שם': 'name', 'place': 'name', 'placeName': 'name', 'place_name': 'name', 'title': 'name',
-                                'name_he': 'name', 'שם_עברית': 'name',
-                                'תיאור': 'description', 'desc': 'description', 'description_he': 'description',
-                                'הערות': 'notes', 'note': 'notes', 'tip': 'notes', 'tips': 'notes', 'notes_he': 'notes',
-                                'כתובת': 'address', 'address_he': 'address',
-                                'קטגוריה': '_category', 'category': '_category', 'type': '_category', 'סוג': '_category',
-                                'קטגוריות': '_category', 'categories': '_category',
-                                'תחומים': 'interests', 'interest': 'interests', 'tags': 'interests',
-                                'אזור': 'areas', 'area': 'areas', 'אזורים': 'areas',
-                                'latitude': 'lat', 'longitude': 'lng', 'קו רוחב': 'lat', 'קו אורך': 'lng',
-                                'קישור': 'mapsUrl', 'url': 'mapsUrl', 'link': 'mapsUrl', 'google_maps': 'mapsUrl', 'googleMaps': 'mapsUrl',
-                                'google_maps_url': 'mapsUrl', 'googleMapsUrl': 'mapsUrl',
-                                'place_id': 'placeId', 'placeId': 'placeId',
-                                'reviews_count': 'reviewsCount', 'reviewsCount': 'reviewsCount',
-                                'area_name_he': '_areaMeta', 'category_name_he': '_catMeta', 'places_count': '_countMeta',
-                              };
-                              
-                              data.customLocations = data.customLocations.map(loc => {
-                                const normalized = {};
-                                for (const [key, val] of Object.entries(loc)) {
-                                  const mapped = fieldMap[key] || fieldMap[key.toLowerCase()] || key;
-                                  normalized[mapped] = val;
-                                }
-                                // Handle nested location object: {lat, lng}
-                                if (normalized.address && typeof normalized.address === 'object' && normalized.address.lat) {
-                                  if (!normalized.lat) normalized.lat = normalized.address.lat;
-                                  if (!normalized.lng) normalized.lng = normalized.address.lng || normalized.address.lon;
-                                  delete normalized.address;
-                                }
-                                if (loc.location && typeof loc.location === 'object' && loc.location.lat) {
-                                  if (!normalized.lat) normalized.lat = loc.location.lat;
-                                  if (!normalized.lng) normalized.lng = loc.location.lng || loc.location.lon;
-                                } else if (loc.location && typeof loc.location === 'string') {
-                                  if (!normalized.address) normalized.address = loc.location;
-                                }
-                                // Handle name + name_he: prefer Hebrew as name, keep English as nameEn
-                                if (loc.name && loc.name_he && loc.name !== loc.name_he) {
-                                  normalized.name = loc.name_he;
-                                  normalized.nameEn = loc.name;
-                                }
-                                // Handle _he suffix fields (from AI agents generating Hebrew content)
-                                if (!normalized.name && normalized.name_he) normalized.name = normalized.name_he;
-                                if (!normalized.description && normalized.description_he) normalized.description = normalized.description_he;
-                                if (!normalized.notes && normalized.notes_he) normalized.notes = normalized.notes_he;
-                                // Handle google_maps_url and place_id
-                                if (!normalized.mapsUrl && normalized.google_maps_url) normalized.mapsUrl = normalized.google_maps_url;
-                                if (!normalized.placeId && normalized.place_id) normalized.placeId = normalized.place_id;
-                                if (!normalized.reviewsCount && normalized.reviews_count) normalized.reviewsCount = normalized.reviews_count;
-                                // Clean up meta fields
-                                delete normalized._areaMeta; delete normalized._catMeta; delete normalized._countMeta;
-                                // Ensure name exists
-                                if (!normalized.name) {
-                                  const firstStr = Object.values(loc).find(v => typeof v === 'string' && v.length > 1 && v.length < 100);
-                                  if (firstStr) normalized.name = firstStr;
-                                }
-                                // Convert _category string to notes (for manual interest assignment later)
-                                if (normalized._category && !normalized.notes) {
-                                  normalized.notes = String(normalized._category);
-                                }
-                                delete normalized._category;
-                                // Normalize areas to array
-                                if (normalized.areas && !Array.isArray(normalized.areas)) {
-                                  normalized.areas = [normalized.areas];
-                                }
-                                // Normalize interests to array
-                                if (normalized.interests && !Array.isArray(normalized.interests)) {
-                                  normalized.interests = [normalized.interests];
-                                }
-                                return normalized;
-                              }).filter(loc => loc.name);
-                            }
-                            
-                            if (!data.customInterests && !data.customLocations?.length && !data.savedRoutes) {
-                              showToast(t('toast.invalidFileNoData'), 'error');
-                              return;
-                            }
-                            
-                            setImportedData(data);
-                            setShowImportDialog(true);
-                          } catch (error) {
-                            console.error('[IMPORT] Error:', error);
-                            showToast(`${t('toast.fileReadError')}: ${error.message}`, 'error');
-                          }
-                        };
-                        reader.readAsText(file);
-                        e.target.value = '';
-                      }}
+                      onChange={(e) => { parseImportFile(e.target.files?.[0]); e.target.value = ''; }}
                       id="importData"
                       className="hidden"
                     />
