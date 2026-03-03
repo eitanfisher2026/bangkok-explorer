@@ -4510,14 +4510,7 @@ const FouFouApp = () => {
         })
         .catch((error) => {
           console.error('[FIREBASE] Error saving route:', error);
-          const updated = [routeToSave, ...savedRoutes];
-          setSavedRoutes(updated);
-          try { localStorage.setItem('bangkok_saved_routes', JSON.stringify(updated.map(stripRouteForStorage))); } catch(e) {}
-          setRoute(routeToSave);
-          setEditingRoute({...routeToSave});
-          setRouteDialogMode('add');
-          setShowRouteDialog(true);
-          showToast(t('route.routeSaved'), 'success');
+          showToast(t('toast.routeSaveError'), 'error');
         });
     } else {
       const updated = [routeToSave, ...savedRoutes];
@@ -7273,10 +7266,6 @@ const FouFouApp = () => {
                                   {/* Action buttons - positioned based on language direction */}
                                   <div style={{ position: 'absolute', top: '2px', display: 'flex', gap: '2px', ...(window.BKK.i18n.isRTL() ? { left: '2px' } : { right: '2px' }) }}>
                                     {/* Remove button for manually added stops */}
-                                    <button
-                                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); const nk=(stop.name||'').toLowerCase().trim(); setDisabledStops(prev=>prev.includes(nk)?prev.filter(n=>n!==nk):[...prev,nk]); }}
-                                      style={{ fontSize:'9px',padding:'1px 4px',borderRadius:'4px',border:'1px solid '+(isDisabled?'#86efac':'#fca5a5'),background:isDisabled?'#f0fdf4':'#fef2f2',color:isDisabled?'#166534':'#991b1b',cursor:'pointer',fontWeight:'bold',lineHeight:'1.2' }}
-                                    >{isDisabled?'\u25b6':'\u23f8'}</button>
                                     {stop.manuallyAdded && (
                                       <button
                                         onClick={() => {
@@ -7304,6 +7293,12 @@ const FouFouApp = () => {
                                       if (!hasValidCoords) {
                                         e.preventDefault();
                                         showToast(t('places.editNoCoordsHint'), 'warning');
+                                        return;
+                                      }
+                                      if (isCustom && !stop.mapsUrl && !stop.address && !stop.googlePlaceId && !stop.placeId) {
+                                        e.preventDefault();
+                                        const cl = customLocations.find(loc => loc.name === stop.name);
+                                        if (cl) handleEditLocation(cl);
                                       }
                                     }}
                                   >
@@ -7322,8 +7317,7 @@ const FouFouApp = () => {
                                           ❗
                                         </span>
                                       )}
-                                      <span>{stop.name}</span>
-                                      {hasValidCoords && !isDisabled && <span style={{ fontSize: '8px', opacity: 0.4, marginInlineStart: '2px' }}>{'\u2197'}</span>}
+                                      <span style={!isDisabled ? { textDecoration: 'underline', textUnderlineOffset: '2px' } : undefined}>{stop.name}</span>
                                       {isStartPoint && (
                                         <span className="text-[8px] bg-green-600 text-white px-1 py-0.5 rounded font-bold">{t("general.start")}</span>
                                       )}
@@ -7512,7 +7506,8 @@ const FouFouApp = () => {
                           if (navigator.share) { navigator.share({ title: routeName, text: shareText }); }
                           else { navigator.clipboard.writeText(shareText); showToast(t('route.routeCopied'), 'success'); }
                         }, disabled: !route?.optimized },
-                        { icon: route.name ? '✓' : '⬇', label: route.name ? `${t('route.savedAs')} ${route.name}` : (t('route.saveRoute')), action: () => {
+                        { icon: route.name ? '✓' : '⬇', label: route.name ? `${t('route.savedAs')} ${route.name}` : ((!authUser || authUser.isAnonymous) ? (t('auth.loginToSave') || 'התחבר כדי לשמור') : t('route.saveRoute')), action: () => {
+                          if (!authUser || authUser.isAnonymous) { setShowLoginDialog(true); return; }
                           setShowRouteMenu(false);
                           if (!route.name && route?.optimized) quickSaveRoute();
                         }, disabled: !route?.optimized || !!route.name },
