@@ -1485,7 +1485,16 @@ const FouFouApp = () => {
     const updates = [];
     
     customLocations.forEach(loc => {
+      const isCoordOnly = !loc.googlePlaceId && !loc.placeId && !loc.address;
       const currentUrl = loc.mapsUrl || '';
+      
+      if (isCoordOnly && currentUrl && currentUrl.includes('query=') && !currentUrl.match(/query=\d+\.\d+,\d+\.\d+/)) {
+        updates.push({ firebaseId: loc.firebaseId, name: loc.name, oldUrl: currentUrl, newUrl: '' });
+        return;
+      }
+      
+      if (isCoordOnly) return;
+      
       const needsFix = !currentUrl || 
         currentUrl === '#' || 
         coordsOnlyPattern.test(currentUrl) ||
@@ -7272,6 +7281,19 @@ const FouFouApp = () => {
                                       textDecoration: isDisabled ? 'line-through' : 'none',
                                       flexWrap: 'wrap'
                                     }}>
+                                      <span
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          const nk = (stop.name || '').toLowerCase().trim();
+                                          setDisabledStops(prev => prev.includes(nk) ? prev.filter(n => n !== nk) : [...prev, nk]);
+                                        }}
+                                        style={{
+                                          cursor: 'pointer', fontSize: '14px', flexShrink: 0,
+                                          color: isDisabled ? '#22c55e' : '#dc2626', lineHeight: 1
+                                        }}
+                                        title={isDisabled ? t('trail.unskip') : t('trail.skip')}
+                                      >{isDisabled ? '▶️' : '⏸️'}</span>
                                       {route?.optimized && !isDisabled && hasValidCoords && activeLetterMap[stop.originalIndex] && (() => {
                                         const palette = window.BKK.stopColorPalette;
                                         const stopColor = palette[stop.originalIndex % palette.length];
@@ -12249,7 +12271,7 @@ const FouFouApp = () => {
           <div onClick={e => e.stopPropagation()} className="flex flex-col items-center max-w-full max-h-full">
             <img src={modalImage} alt="enlarged" className="max-w-full max-h-[70vh] rounded-lg shadow-2xl" />
             {modalImageCtx && (
-              <div className="bg-white bg-opacity-95 rounded-lg mt-2 p-3 max-w-md w-full shadow-lg" style={{direction: isRTL ? 'rtl' : 'ltr'}}>
+              <div className="bg-white bg-opacity-95 rounded-lg mt-2 p-3 max-w-md w-full shadow-lg" style={{direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr'}}>
                 {modalImageCtx.description && (
                   <p className="text-gray-700 text-sm mb-2" style={{whiteSpace: 'pre-line'}}>{modalImageCtx.description}</p>
                 )}

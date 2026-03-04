@@ -1331,6 +1331,19 @@
                                       textDecoration: isDisabled ? 'line-through' : 'none',
                                       flexWrap: 'wrap'
                                     }}>
+                                      <span
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          const nk = (stop.name || '').toLowerCase().trim();
+                                          setDisabledStops(prev => prev.includes(nk) ? prev.filter(n => n !== nk) : [...prev, nk]);
+                                        }}
+                                        style={{
+                                          cursor: 'pointer', fontSize: '14px', flexShrink: 0,
+                                          color: isDisabled ? '#22c55e' : '#dc2626', lineHeight: 1
+                                        }}
+                                        title={isDisabled ? t('trail.unskip') : t('trail.skip')}
+                                      >{isDisabled ? '▶️' : '⏸️'}</span>
                                       {route?.optimized && !isDisabled && hasValidCoords && activeLetterMap[stop.originalIndex] && (() => {
                                         const palette = window.BKK.stopColorPalette;
                                         const stopColor = palette[stop.originalIndex % palette.length];

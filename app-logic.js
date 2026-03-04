@@ -1603,7 +1603,18 @@
     const updates = [];
     
     customLocations.forEach(loc => {
+      const isCoordOnly = !loc.googlePlaceId && !loc.placeId && !loc.address;
       const currentUrl = loc.mapsUrl || '';
+      
+      // Coordinate-only places: CLEAR bad search URLs (they show global results)
+      if (isCoordOnly && currentUrl && currentUrl.includes('query=') && !currentUrl.match(/query=\d+\.\d+,\d+\.\d+/)) {
+        updates.push({ firebaseId: loc.firebaseId, name: loc.name, oldUrl: currentUrl, newUrl: '' });
+        return;
+      }
+      
+      // Skip coordinate-only places — no Google identity to generate URL for
+      if (isCoordOnly) return;
+      
       const needsFix = !currentUrl || 
         currentUrl === '#' || 
         coordsOnlyPattern.test(currentUrl) ||

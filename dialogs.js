@@ -1946,7 +1946,7 @@
           <div onClick={e => e.stopPropagation()} className="flex flex-col items-center max-w-full max-h-full">
             <img src={modalImage} alt="enlarged" className="max-w-full max-h-[70vh] rounded-lg shadow-2xl" />
             {modalImageCtx && (
-              <div className="bg-white bg-opacity-95 rounded-lg mt-2 p-3 max-w-md w-full shadow-lg" style={{direction: isRTL ? 'rtl' : 'ltr'}}>
+              <div className="bg-white bg-opacity-95 rounded-lg mt-2 p-3 max-w-md w-full shadow-lg" style={{direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr'}}>
                 {modalImageCtx.description && (
                   <p className="text-gray-700 text-sm mb-2" style={{whiteSpace: 'pre-line'}}>{modalImageCtx.description}</p>
                 )}

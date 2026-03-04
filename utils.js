@@ -519,12 +519,12 @@ window.BKK.getGoogleMapsUrl = (place) => {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressStr)}`;
   }
   
-  // Custom place with name + coords: search by name near location
-  if (place.name?.trim() && hasCoords) {
+  // Custom place with name + coords + address/Google origin: search by name near location
+  if (place.name?.trim() && hasCoords && (place.fromGoogle || place.googlePlace || addressStr)) {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name.trim())}&center=${place.lat},${place.lng}&zoom=17`;
   }
   
-  // Last resort: raw coordinates (pin on map)
+  // Coordinate-only custom place: just pin on map (name search gives irrelevant global results)
   if (hasCoords) {
     return `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`;
   }
