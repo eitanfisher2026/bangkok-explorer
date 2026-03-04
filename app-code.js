@@ -876,7 +876,10 @@ const FouFouApp = () => {
                 }
               };
               
-              drawRoute(pts);
+              if (routeLayerGroup) { map.removeLayer(routeLayerGroup); routeLayerGroup = null; }
+              const rc = window.BKK.mapConfig.route;
+              const placeholder = L.polyline(pts, { color: rc.baseColor, weight: 1.5, opacity: 0.2, dashArray: '6,10', lineCap: 'round' });
+              routeLayerGroup = L.layerGroup([placeholder]).addTo(map);
               
               const coords = pts.map(p => p[1] + ',' + p[0]).join(';');
               fetch('https://router.project-osrm.org/route/v1/foot/' + coords + '?overview=full&geometries=geojson&steps=true')
@@ -912,7 +915,7 @@ const FouFouApp = () => {
                     routeInfoControl.addTo(map);
                   }
                 })
-                .catch(() => { /* Keep straight line as fallback */ });
+                .catch(() => { drawRoute(pts); /* OSRM failed — use straight lines as fallback */ });
             }
           };
           redrawRouteLine();

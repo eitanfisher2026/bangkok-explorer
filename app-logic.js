@@ -920,10 +920,13 @@
                 }
               };
               
-              // Immediate: draw straight lines connecting stops
-              drawRoute(pts);
+              // Phase 1: Subtle dashed placeholder (no animation — clearly a placeholder)
+              if (routeLayerGroup) { map.removeLayer(routeLayerGroup); routeLayerGroup = null; }
+              const rc = window.BKK.mapConfig.route;
+              const placeholder = L.polyline(pts, { color: rc.baseColor, weight: 1.5, opacity: 0.2, dashArray: '6,10', lineCap: 'round' });
+              routeLayerGroup = L.layerGroup([placeholder]).addTo(map);
               
-              // Async: OSRM walking route (atomic replacement)
+              // Phase 2: OSRM walking route (replaces placeholder with animated route)
               const coords = pts.map(p => p[1] + ',' + p[0]).join(';');
               fetch('https://router.project-osrm.org/route/v1/foot/' + coords + '?overview=full&geometries=geojson&steps=true')
                 .then(r => r.json())
@@ -959,7 +962,7 @@
                     routeInfoControl.addTo(map);
                   }
                 })
-                .catch(() => { /* Keep straight line as fallback */ });
+                .catch(() => { drawRoute(pts); /* OSRM failed — use straight lines as fallback */ });
             }
           };
           redrawRouteLine();
