@@ -909,35 +909,27 @@
                     const geojsonCoords = route.geometry.coordinates.map(c => [c[1], c[0]]);
                     if (walkingRouteLine) map.removeLayer(walkingRouteLine);
                     walkingRouteLine = L.polyline(geojsonCoords, { 
-                      color: '#4f46e5', weight: 3, opacity: 0.65 
+                      color: '#6366f1', weight: 2, opacity: 0.45 
                     }).addTo(map);
                     // Fade out the straight dashed line
-                    if (routeLine) routeLine.setStyle({ opacity: 0.08 });
+                    if (routeLine) routeLine.setStyle({ opacity: 0 });
                     
-                    // Add direction arrows along the walking route
-                    const totalDist = route.distance || 1000;
-                    const arrowInterval = Math.max(200, Math.min(600, totalDist / 12)); // 200-600m between arrows
-                    let accumulated = 0;
-                    let nextArrowAt = arrowInterval * 0.5; // start halfway into first segment
-                    for (let ai = 1; ai < geojsonCoords.length; ai++) {
-                      const p0 = geojsonCoords[ai - 1], p1 = geojsonCoords[ai];
-                      const segDist = Math.sqrt(Math.pow((p1[0]-p0[0])*111000, 2) + Math.pow((p1[1]-p0[1])*111000*Math.cos(p0[0]*Math.PI/180), 2));
-                      while (accumulated + segDist >= nextArrowAt) {
-                        const frac = (nextArrowAt - accumulated) / segDist;
-                        const lat = p0[0] + frac * (p1[0] - p0[0]);
-                        const lng = p0[1] + frac * (p1[1] - p0[1]);
-                        const angle = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]) * 180 / Math.PI;
-                        L.marker([lat, lng], {
-                          icon: L.divIcon({
-                            className: '',
-                            html: '<div style="width:10px;height:10px;display:flex;align-items:center;justify-content:center;"><svg width="10" height="10" viewBox="0 0 10 10" style="transform:rotate(' + (90 - angle) + 'deg)"><path d="M2,8 L5,2 L8,8" fill="none" stroke="#4f46e5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/></svg></div>',
-                            iconSize: [10, 10], iconAnchor: [5, 5]
-                          }),
-                          interactive: false
-                        }).addTo(map);
-                        nextArrowAt += arrowInterval;
-                      }
-                      accumulated += segDist;
+                    // Add one direction arrow between each pair of consecutive active stops
+                    for (let ai = 0; ai < pts.length - 1; ai++) {
+                      const from = pts[ai], to = pts[ai + 1];
+                      // Position arrow at 40% along the segment (closer to start = clearer direction)
+                      const aLat = from[0] + 0.4 * (to[0] - from[0]);
+                      const aLng = from[1] + 0.4 * (to[1] - from[1]);
+                      // Bearing: atan2(dlng, dlat) gives 0=north, 90=east — matches CSS rotate
+                      const bearing = Math.atan2(to[1] - from[1], to[0] - from[0]) * 180 / Math.PI;
+                      L.marker([aLat, aLng], {
+                        icon: L.divIcon({
+                          className: '',
+                          html: '<div style="width:16px;height:16px;display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 14 14" style="transform:rotate(' + bearing + 'deg);filter:drop-shadow(0 0 2px white) drop-shadow(0 0 2px white);"><polygon points="7,1 12,11 7,8 2,11" fill="#4f46e5" opacity="0.75"/></svg></div>',
+                          iconSize: [16, 16], iconAnchor: [8, 8]
+                        }),
+                        interactive: false
+                      }).addTo(map);
                     }
                     
                     // Show distance + time info
