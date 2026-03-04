@@ -629,7 +629,7 @@
             const color = areaColors[area.id] || '#6b7280';
             const circle = L.circle([c.lat, c.lng], {
               radius: c.radius, color: color, fillColor: color,
-              fillOpacity: 0.15, weight: 2
+              fillOpacity: window.BKK.mapConfig.area.fillOpacity, weight: window.BKK.mapConfig.area.weight
             }).addTo(map).bindPopup(
               '<div style="text-align:center;direction:rtl;font-size:13px;">' +
               '<b>' + tLabel(area) + '</b><br/>' +
@@ -667,13 +667,13 @@
           
           // Radius circle FIRST (so marker is on top)
           const radiusCircle = L.circle([lat, lng], {
-            radius: formData.radiusMeters, color: '#e11d48', fillColor: '#e11d48',
-            fillOpacity: 0.12, weight: 3, dashArray: '8,6'
+            radius: formData.radiusMeters, color: window.BKK.mapConfig.radiusSearch.color, fillColor: window.BKK.mapConfig.radiusSearch.color,
+            fillOpacity: window.BKK.mapConfig.radiusSearch.fillOpacity, weight: window.BKK.mapConfig.radiusSearch.weight, dashArray: window.BKK.mapConfig.radiusSearch.dash
           }).addTo(map);
           
           // Center marker (red, prominent)
           L.circleMarker([lat, lng], {
-            radius: 8, color: '#e11d48', fillColor: '#e11d48',
+            radius: window.BKK.mapConfig.radiusSearch.centerRadius, color: window.BKK.mapConfig.radiusSearch.color, fillColor: window.BKK.mapConfig.radiusSearch.color,
             fillOpacity: 1, weight: 2
           }).addTo(map).bindPopup(
             '<div style="text-align:center;direction:rtl;">' +
@@ -689,13 +689,13 @@
             const c = coords[area.id];
             if (!c) return;
             L.circle([c.lat, c.lng], {
-              radius: c.radius, color: '#94a3b8', fillColor: '#94a3b8',
-              fillOpacity: 0.04, weight: 1
+              radius: c.radius, color: window.BKK.mapConfig.area.ghostColor, fillColor: window.BKK.mapConfig.area.ghostColor,
+              fillOpacity: window.BKK.mapConfig.area.ghostFillOpacity, weight: window.BKK.mapConfig.area.ghostWeight
             }).addTo(map);
             L.marker([c.lat, c.lng], {
               icon: L.divIcon({
                 className: '',
-                html: '<div style="font-size:8px;color:#94a3b8;text-align:center;white-space:nowrap;">' + tLabel(area) + '</div>',
+                html: '<div style="font-size:8px;color:' + window.BKK.mapConfig.area.ghostColor + ';text-align:center;white-space:nowrap;">' + tLabel(area) + '</div>',
                 iconSize: [50, 15], iconAnchor: [25, 7]
               })
             }).addTo(map);
@@ -725,7 +725,7 @@
             startMarkerRef = L.marker([lat, lng], {
               icon: L.divIcon({
                 className: '',
-                html: '<div style="font-size:14px;text-align:center;width:28px;height:28px;line-height:28px;border-radius:50%;background:#22c55e;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);color:white;font-weight:bold;">▶</div>',
+                html: '<div style="font-size:' + window.BKK.mapConfig.marker.startIconFontSize + ';text-align:center;width:' + window.BKK.mapConfig.marker.startIconSize + 'px;height:' + window.BKK.mapConfig.marker.startIconSize + 'px;line-height:' + window.BKK.mapConfig.marker.startIconSize + 'px;border-radius:50%;background:' + window.BKK.mapConfig.marker.startRingColor + ';border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);color:white;font-weight:bold;">▶</div>',
                 iconSize: [28, 28], iconAnchor: [14, 14]
               })
             }).addTo(map);
@@ -751,7 +751,7 @@
             if (action === 'disable') {
               setDisabledStops(prev => [...prev, nameKey]);
               if (markerRefs[nameKey]) {
-                markerRefs[nameKey].circle.setStyle({ fillOpacity: 0.2, opacity: 0.3 });
+                markerRefs[nameKey].circle.setStyle({ fillOpacity: window.BKK.mapConfig.marker.disabledFillOpacity, opacity: window.BKK.mapConfig.marker.disabledOpacity });
                 markerRefs[nameKey].label.setOpacity(0.3);
               }
               map.closePopup();
@@ -773,7 +773,7 @@
             } else if (action === 'enable') {
               setDisabledStops(prev => prev.filter(n => n !== nameKey));
               if (markerRefs[nameKey]) {
-                markerRefs[nameKey].circle.setStyle({ fillOpacity: 0.85, opacity: 1 });
+                markerRefs[nameKey].circle.setStyle({ fillOpacity: window.BKK.mapConfig.marker.fillOpacity, opacity: 1 });
                 markerRefs[nameKey].label.setOpacity(1);
               }
               map.closePopup();
@@ -814,28 +814,30 @@
             const stopLetter = mapLetterMap[i] || '';
             const isStart = startPointCoordsRef_local.current && Math.abs(stop.lat - startPointCoordsRef_local.current.lat) < 0.0001 && Math.abs(stop.lng - startPointCoordsRef_local.current.lng) < 0.0001;
             
+            const mc = window.BKK.mapConfig.marker;
+            
             // Green outer ring for start point
             if (isStart && !isDisabled) {
               L.circleMarker([stop.lat, stop.lng], {
-                radius: 18, color: '#22c55e', fillColor: 'transparent',
-                fillOpacity: 0, weight: 3, opacity: 1,
-                dashArray: '6,4'
+                radius: mc.startRingRadius, color: mc.startRingColor, fillColor: 'transparent',
+                fillOpacity: 0, weight: mc.startRingWeight, opacity: 1,
+                dashArray: mc.startRingDash
               }).addTo(map);
             }
             
             const circle = L.circleMarker([stop.lat, stop.lng], {
-              radius: 12, color: color, fillColor: color,
-              fillOpacity: isDisabled ? 0.2 : 0.85, weight: 2,
-              opacity: isDisabled ? 0.3 : 1
+              radius: mc.radius, color: color, fillColor: color,
+              fillOpacity: isDisabled ? mc.disabledFillOpacity : mc.fillOpacity, weight: mc.weight,
+              opacity: isDisabled ? mc.disabledOpacity : 1
             }).addTo(map);
             
             const label = L.marker([stop.lat, stop.lng], {
               icon: L.divIcon({
                 className: '',
-                html: '<div style="font-size:10px;font-weight:bold;text-align:center;color:white;width:22px;height:22px;line-height:22px;border-radius:50%;background:' + color + ';border:2px solid ' + (isStart ? '#22c55e' : 'white') + ';box-shadow:0 1px 4px rgba(0,0,0,0.3);opacity:' + (isDisabled ? '0.3' : '1') + ';">' + (isStart ? '▶' : stopLetter) + '</div>',
-                iconSize: [22, 22], iconAnchor: [11, 11]
+                html: '<div style="font-size:' + mc.labelFontSize + ';font-weight:bold;text-align:center;color:white;width:' + mc.labelSize + 'px;height:' + mc.labelSize + 'px;line-height:' + mc.labelSize + 'px;border-radius:50%;background:' + color + ';border:2px solid ' + (isStart ? mc.startRingColor : 'white') + ';box-shadow:0 1px 4px rgba(0,0,0,0.3);opacity:' + (isDisabled ? mc.disabledOpacity : '1') + ';">' + (isStart ? '▶' : stopLetter) + '</div>',
+                iconSize: [mc.labelSize, mc.labelSize], iconAnchor: [mc.labelSize/2, mc.labelSize/2]
               }),
-              opacity: isDisabled ? 0.3 : 1
+              opacity: isDisabled ? mc.disabledOpacity : 1
             }).addTo(map);
             
             markerRefs[nameKey] = { circle, label };
@@ -849,7 +851,7 @@
               const curIsDisabled = curDisabled.includes(nameKey);
               const toggleAction = curIsDisabled ? 'enable' : 'disable';
               const toggleLabel = curIsDisabled ? '▶️ ' + t('route.returnPlace') : '⏸️ ' + t('route.skipPlace');
-              const toggleColor = curIsDisabled ? '#22c55e' : '#9ca3af';
+              const toggleColor = curIsDisabled ? window.BKK.mapConfig.marker.startRingColor : '#9ca3af';
               return '<div style="text-align:center;direction:' + (isRTL ? 'rtl' : 'ltr') + ';font-size:13px;min-width:160px;padding:4px 0;">' +
                 '<div style="font-weight:bold;font-size:14px;margin-bottom:6px;">' + (stopLetter ? stopLetter + '. ' : '') + (stop.name || '') + '</div>' +
                 (stop.rating ? '<div style="color:#f59e0b;margin-bottom:6px;">⭐ ' + stop.rating + (stop.ratingCount ? ' (' + stop.ratingCount + ')' : '') + '</div>' : '') +
@@ -857,7 +859,7 @@
                   '<a href="' + googleUrl + '" target="_blank" style="flex:1;display:inline-block;padding:6px 10px;border-radius:8px;background:#3b82f6;color:white;text-decoration:none;font-size:12px;font-weight:bold;">Google Maps ↗</a>' +
                   '<button onclick="window._mapStopAction(\'' + toggleAction + '\',\'' + escapedName + '\')" style="flex:1;padding:6px 10px;border-radius:8px;background:' + toggleColor + ';color:white;border:none;font-size:12px;font-weight:bold;cursor:pointer;">' + toggleLabel + '</button>' +
                 '</div>' +
-                '<button onclick="window._mapStopAction(\'setstart\',\'' + escapedName + '\',' + stop.lat + ',' + stop.lng + ')" style="width:100%;padding:5px 8px;border-radius:8px;background:#22c55e;color:white;border:none;font-size:11px;font-weight:bold;cursor:pointer;">▶ ' + t('form.setStartPoint') + '</button>' +
+                '<button onclick="window._mapStopAction(\'setstart\',\'' + escapedName + '\',' + stop.lat + ',' + stop.lng + ')" style="width:100%;padding:5px 8px;border-radius:8px;background:' + window.BKK.mapConfig.marker.startRingColor + ';color:white;border:none;font-size:11px;font-weight:bold;cursor:pointer;">▶ ' + t('form.setStartPoint') + '</button>' +
               '</div>';
             };
             
@@ -875,7 +877,8 @@
           if (!document.getElementById('route-flow-css')) {
             const style = document.createElement('style');
             style.id = 'route-flow-css';
-            style.textContent = '@keyframes routeFlow{to{stroke-dashoffset:-20}}';
+            const rc = window.BKK.mapConfig.route;
+            style.textContent = '@keyframes routeFlow{to{stroke-dashoffset:' + rc.flowOffset + '}}';
             document.head.appendChild(style);
           }
           
@@ -904,19 +907,16 @@
               // Draw route with animated flow
               const drawRoute = (pathCoords) => {
                 if (routeLayerGroup) { map.removeLayer(routeLayerGroup); routeLayerGroup = null; }
+                const rc = window.BKK.mapConfig.route;
                 
-                // Layer 1: Glow/shadow (wider, subtle)
-                const glow = L.polyline(pathCoords, { color: '#818cf8', weight: 6, opacity: 0.15, lineCap: 'round', lineJoin: 'round' });
-                // Layer 2: Base line (solid, clean)
-                const base = L.polyline(pathCoords, { color: '#6366f1', weight: 2.5, opacity: 0.5, lineCap: 'round', lineJoin: 'round' });
-                // Layer 3: Animated flow dashes (shows direction)
-                const flow = L.polyline(pathCoords, { color: 'white', weight: 2, opacity: 0.7, dashArray: '4,12', lineCap: 'round' });
+                const glow = L.polyline(pathCoords, { color: rc.glowColor, weight: rc.glowWeight, opacity: rc.glowOpacity, lineCap: 'round', lineJoin: 'round' });
+                const base = L.polyline(pathCoords, { color: rc.baseColor, weight: rc.baseWeight, opacity: rc.baseOpacity, lineCap: 'round', lineJoin: 'round' });
+                const flow = L.polyline(pathCoords, { color: rc.flowColor, weight: rc.flowWeight, opacity: rc.flowOpacity, dashArray: rc.flowDash, lineCap: 'round' });
                 
                 routeLayerGroup = L.layerGroup([glow, base, flow]).addTo(map);
                 
-                // Apply CSS animation to flow layer — dashes move along path
                 if (flow._path) {
-                  flow._path.style.animation = 'routeFlow 0.8s linear infinite';
+                  flow._path.style.animation = 'routeFlow ' + rc.flowSpeed + ' linear infinite';
                 }
               };
               
@@ -930,24 +930,7 @@
                 .then(data => {
                   if (data.code === 'Ok' && data.routes && data.routes[0]) {
                     const osrmRoute = data.routes[0];
-                    let gc = osrmRoute.geometry.coordinates.map(c => [c[1], c[0]]);
-                    
-                    // Ensure route connects to actual stop coordinates
-                    // (OSRM snaps to nearest road, which may be offset from marker)
-                    if (gc.length > 2) {
-                      gc[0] = pts[0]; // Start at first stop
-                      gc[gc.length - 1] = pts[pts.length - 1]; // End at last stop
-                      // Insert actual waypoints near their closest point on route
-                      for (let wi = 1; wi < pts.length - 1; wi++) {
-                        const wp = pts[wi];
-                        let bestDist = Infinity, bestIdx = 0;
-                        for (let gi = 1; gi < gc.length - 1; gi++) {
-                          const d = Math.pow(gc[gi][0] - wp[0], 2) + Math.pow(gc[gi][1] - wp[1], 2);
-                          if (d < bestDist) { bestDist = d; bestIdx = gi; }
-                        }
-                        gc[bestIdx] = wp; // Snap closest route point to actual stop
-                      }
-                    }
+                    const gc = osrmRoute.geometry.coordinates.map(c => [c[1], c[0]]);
                     
                     drawRoute(gc);
                     
@@ -963,7 +946,7 @@
                       options: { position: 'bottomleft' },
                       onAdd: function() {
                         const div = L.DomUtil.create('div', '');
-                        div.innerHTML = '<div style="background:white;border-radius:10px;padding:6px 12px;box-shadow:0 2px 8px rgba(0,0,0,0.2);font-size:12px;font-weight:bold;color:#4f46e5;display:flex;gap:8px;align-items:center;">' +
+                        div.innerHTML = '<div style="background:white;border-radius:10px;padding:6px 12px;box-shadow:0 2px 8px rgba(0,0,0,0.2);font-size:12px;font-weight:bold;color:' + window.BKK.mapConfig.route.infoColor + ';display:flex;gap:8px;align-items:center;">' +
                           '<span>🚶 ' + distKm + ' km</span>' +
                           '<span style="color:#d1d5db;">|</span>' +
                           '<span>⏱️ ' + timeStr + '</span>' +
@@ -1007,7 +990,7 @@
                     myLocMarker.bindPopup(
                       '<div style="text-align:center;font-size:12px;padding:4px 0;">' +
                       '<div style="font-weight:bold;margin-bottom:6px;">📍 ' + t('wizard.myLocation') + '</div>' +
-                      '<button onclick="window._mapStopAction(\'setstart\',\'' + t('wizard.myLocation').replace(/'/g, "\\'") + '\',' + lat + ',' + lng + ')" style="width:100%;padding:5px 8px;border-radius:8px;background:#22c55e;color:white;border:none;font-size:11px;font-weight:bold;cursor:pointer;">▶ ' + t('form.setStartPoint') + '</button>' +
+                      '<button onclick="window._mapStopAction(\'setstart\',\'' + t('wizard.myLocation').replace(/'/g, "\\'") + '\',' + lat + ',' + lng + ')" style="width:100%;padding:5px 8px;border-radius:8px;background:' + window.BKK.mapConfig.marker.startRingColor + ';color:white;border:none;font-size:11px;font-weight:bold;cursor:pointer;">▶ ' + t('form.setStartPoint') + '</button>' +
                       '</div>'
                     ).openPopup();
                     map.setView([lat, lng], map.getZoom());
@@ -1087,9 +1070,9 @@
           
           // Custom panes for z-order
           map.createPane('areaLabelsPane');
-          map.getPane('areaLabelsPane').style.zIndex = 450;
+          map.getPane('areaLabelsPane').style.zIndex = window.BKK.mapConfig.area.labelsPaneZ;
           map.createPane('placeMarkersPane');
-          map.getPane('placeMarkersPane').style.zIndex = 650;
+          map.getPane('placeMarkersPane').style.zIndex = window.BKK.mapConfig.area.markersPaneZ;
           
           // Area circles — always show all, highlight selected with bold ring
           const areasOnly = locs.length === 0 && !mapFavRadius;
@@ -1133,7 +1116,7 @@
               color: '#2563eb', fillColor: '#2563eb', fillOpacity: 0.08, weight: 3
             }).addTo(map);
             L.circleMarker([mapFavRadius.lat, mapFavRadius.lng], {
-              radius: 7, color: '#2563eb', fillColor: '#3b82f6', fillOpacity: 1, weight: 2
+              radius: window.BKK.mapConfig.gps.radius, color: '#2563eb', fillColor: window.BKK.mapConfig.gps.color, fillOpacity: 1, weight: window.BKK.mapConfig.gps.weight
             }).addTo(map);
           }
           
@@ -1187,7 +1170,7 @@
           // User location blue dot
           if (mapUserLocation && mapUserLocation.lat) {
             L.circleMarker([mapUserLocation.lat, mapUserLocation.lng], {
-              radius: 7, color: '#2563eb', fillColor: '#3b82f6', fillOpacity: 1, weight: 2
+              radius: window.BKK.mapConfig.gps.radius, color: '#2563eb', fillColor: window.BKK.mapConfig.gps.color, fillOpacity: 1, weight: window.BKK.mapConfig.gps.weight
             }).addTo(map).bindPopup('\ud83d\udccd');
             L.circle([mapUserLocation.lat, mapUserLocation.lng], {
               radius: mapUserLocation.accuracy || 30, color: '#3b82f6',
@@ -2300,6 +2283,17 @@
             if (s.systemParams.defaultRadius != null) window.BKK._defaultRadius = s.systemParams.defaultRadius;
             if (Object.keys(updates).length > 0) setFormData(prev => ({...prev, ...updates}));
           }
+          
+          // Map visual config overrides
+          if (s.mapConfig) {
+            const mc = window.BKK.mapConfig;
+            Object.keys(s.mapConfig).forEach(group => {
+              if (mc[group] && typeof s.mapConfig[group] === 'object') {
+                Object.assign(mc[group], s.mapConfig[group]);
+              }
+            });
+          }
+          if (s.stopColorPalette) window.BKK.stopColorPalette = s.stopColorPalette;
           
           console.log('[REFRESH] All settings loaded (single read)');
         } catch (e) {

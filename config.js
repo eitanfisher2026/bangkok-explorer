@@ -6,6 +6,41 @@
 window.BKK = window.BKK || {};
 window.BKK.stopColorPalette = ['#3b82f6', '#f59e0b', '#ef4444', '#10b981', '#ec4899', '#6366f1', '#8b5cf6', '#06b6d4', '#f97316', '#a855f7', '#14b8a6', '#e11d48', '#84cc16', '#0ea5e9', '#d946ef', '#f43f5e'];
 
+// Map visual configuration — all defaults, overridable via Firebase settings.mapConfig
+window.BKK.mapConfig = {
+  // Route line styles (3-layer system: glow + base + animated flow)
+  route: {
+    glowColor: '#818cf8', glowWeight: 6, glowOpacity: 0.15,
+    baseColor: '#6366f1', baseWeight: 2.5, baseOpacity: 0.5,
+    flowColor: 'white', flowWeight: 2, flowOpacity: 0.7,
+    flowDash: '4,12', flowSpeed: '0.8s', flowOffset: -20,
+    infoColor: '#4f46e5'
+  },
+  // Stop markers on route map
+  marker: {
+    radius: 12, weight: 2, fillOpacity: 0.85, disabledFillOpacity: 0.2, disabledOpacity: 0.3,
+    labelSize: 22, labelFontSize: '10px',
+    startRingRadius: 18, startRingWeight: 3, startRingColor: '#22c55e', startRingDash: '6,4',
+    startIconSize: 28, startIconFontSize: '14px'
+  },
+  // Area labels / circles on favorites map
+  area: {
+    fillOpacity: 0.15, weight: 2,
+    labelFontSize: '10px', labelBg: 'rgba(255,255,255,0.88)',
+    ghostFillOpacity: 0.04, ghostWeight: 1, ghostColor: '#94a3b8',
+    labelsPaneZ: 450, markersPaneZ: 650
+  },
+  // Radius search display
+  radiusSearch: {
+    color: '#e11d48', fillOpacity: 0.12, weight: 3, dash: '8,6',
+    centerRadius: 8
+  },
+  // GPS / location marker
+  gps: {
+    color: '#3b82f6', radius: 7, weight: 2
+  }
+};
+
 // Generate or restore persistent visitor ID
 (function() {
   let vid = null;
@@ -22,7 +57,7 @@ window.BKK.stopColorPalette = ['#3b82f6', '#f59e0b', '#ef4444', '#10b981', '#ec4
 })();
 
 // App Version
-window.BKK.VERSION = '3.7.47';
+window.BKK.VERSION = '3.7.49';
 // Convert stop index (0-based) to letter label: 0→A, 1→B, ..., 25→Z, 26→AA
 window.BKK.stopLabel = function(i) {
   if (i < 26) return String.fromCharCode(65 + i);
