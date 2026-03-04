@@ -867,16 +867,40 @@
             markers.push(circle);
           });
           
-          // Route line through active stops (+ start point if set)
-          let routeLine = null;
-          let walkingRouteLine = null;
+          // Route line through active stops — unified drawing with integrated arrows
+          let routeLayerGroup = null;
           let routeInfoControl = null;
           
+          // Inject SVG arrowhead marker definition into Leaflet's SVG pane
+          const ensureArrowDef = () => {
+            const svg = map.getPane('overlayPane').querySelector('svg');
+            if (svg && !svg.querySelector('#routeArrow')) {
+              const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+              defs.innerHTML = '<marker id="routeArrow" viewBox="0 0 12 12" refX="6" refY="6" markerWidth="6" markerHeight="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M1,1 L11,6 L1,11 z" fill="#6366f1" fill-opacity="0.6"/></marker>';
+              svg.insertBefore(defs, svg.firstChild);
+            }
+          };
+          
+          // Apply SVG marker-mid to a polyline's path element
+          const applyArrows = (polyline) => {
+            ensureArrowDef();
+            if (polyline._path) {
+              polyline._path.setAttribute('marker-mid', 'url(#routeArrow)');
+            }
+          };
+          
+          // Subsample coordinates for arrow placement (every Nth point)
+          const sparseCoords = (coords, maxArrows) => {
+            if (coords.length <= maxArrows + 2) return coords;
+            const step = Math.max(1, Math.floor(coords.length / maxArrows));
+            const result = [coords[0]];
+            for (let i = step; i < coords.length - 1; i += step) result.push(coords[i]);
+            result.push(coords[coords.length - 1]);
+            return result;
+          };
+          
           const redrawRouteLine = () => {
-            if (routeLine) map.removeLayer(routeLine);
-            if (walkingRouteLine) map.removeLayer(walkingRouteLine);
-            routeLine = null;
-            walkingRouteLine = null;
+            if (routeLayerGroup) { map.removeLayer(routeLayerGroup); routeLayerGroup = null; }
             const curDisabled = disabledStopsRef.current || [];
             const skippedNames = new Set();
             mapSkippedStops.forEach(idx => {
@@ -896,45 +920,42 @@
               if (routeTypeRef.current === 'circular' && sp?.lat) {
                 pts.push([sp.lat, sp.lng]);
               }
-              // Layer 1: straight dashed line (immediate)
-              routeLine = L.polyline(pts, { color: '#6366f1', weight: 2, opacity: 0.3, dashArray: '6,8' }).addTo(map);
               
-              // Layer 2: OSRM walking route (async)
+              // Phase 1: Immediate straight dashed line with integrated arrows
+              // (few points = arrows at each stop vertex via marker-mid)
+              const dashedLine = L.polyline(pts, { color: '#6366f1', weight: 2, opacity: 0.3, dashArray: '6,8' });
+              routeLayerGroup = L.layerGroup([dashedLine]).addTo(map);
+              applyArrows(dashedLine);
+              
+              // Phase 2: OSRM walking route (replaces phase 1 atomically)
               const coords = pts.map(p => p[1] + ',' + p[0]).join(';');
               fetch('https://router.project-osrm.org/route/v1/foot/' + coords + '?overview=full&geometries=geojson&steps=false')
                 .then(r => r.json())
                 .then(data => {
                   if (data.code === 'Ok' && data.routes && data.routes[0]) {
-                    const route = data.routes[0];
-                    const geojsonCoords = route.geometry.coordinates.map(c => [c[1], c[0]]);
-                    if (walkingRouteLine) map.removeLayer(walkingRouteLine);
-                    walkingRouteLine = L.polyline(geojsonCoords, { 
-                      color: '#6366f1', weight: 2, opacity: 0.45 
-                    }).addTo(map);
-                    // Fade out the straight dashed line
-                    if (routeLine) routeLine.setStyle({ opacity: 0 });
+                    const osrmRoute = data.routes[0];
+                    const gc = osrmRoute.geometry.coordinates.map(c => [c[1], c[0]]);
                     
-                    // Add one direction arrow between each pair of consecutive active stops
-                    for (let ai = 0; ai < pts.length - 1; ai++) {
-                      const from = pts[ai], to = pts[ai + 1];
-                      // Position arrow at 40% along the segment (closer to start = clearer direction)
-                      const aLat = from[0] + 0.4 * (to[0] - from[0]);
-                      const aLng = from[1] + 0.4 * (to[1] - from[1]);
-                      // Bearing: atan2(dlng, dlat) gives 0=north, 90=east — matches CSS rotate
-                      const bearing = Math.atan2(to[1] - from[1], to[0] - from[0]) * 180 / Math.PI;
-                      L.marker([aLat, aLng], {
-                        icon: L.divIcon({
-                          className: '',
-                          html: '<div style="width:16px;height:16px;display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 14 14" style="transform:rotate(' + bearing + 'deg);filter:drop-shadow(0 0 2px white) drop-shadow(0 0 2px white);"><polygon points="7,1 12,11 7,8 2,11" fill="#4f46e5" opacity="0.75"/></svg></div>',
-                          iconSize: [16, 16], iconAnchor: [8, 8]
-                        }),
-                        interactive: false
-                      }).addTo(map);
+                    // Atomic replacement: remove old, create new group
+                    if (routeLayerGroup) { map.removeLayer(routeLayerGroup); routeLayerGroup = null; }
+                    
+                    // Full route line (smooth, all OSRM points)
+                    const routeLine = L.polyline(gc, { color: '#6366f1', weight: 2.5, opacity: 0.45 });
+                    // Sparse arrow line (~15 arrows, invisible stroke, SVG marker-mid)
+                    const arrowCoords = sparseCoords(gc, 15);
+                    const arrowLine = L.polyline(arrowCoords, { color: '#6366f1', weight: 0.5, opacity: 0.01 });
+                    
+                    routeLayerGroup = L.layerGroup([routeLine, arrowLine]).addTo(map);
+                    
+                    // Arrows are SVG markers on the path — part of the line element itself
+                    if (arrowLine._path) {
+                      arrowLine._path.style.strokeOpacity = '0';
+                      arrowLine._path.setAttribute('marker-mid', 'url(#routeArrow)');
                     }
                     
-                    // Show distance + time info
-                    const distKm = (route.distance / 1000).toFixed(1);
-                    const walkMin = Math.round(route.duration / 60);
+                    // Distance + time info
+                    const distKm = (osrmRoute.distance / 1000).toFixed(1);
+                    const walkMin = Math.round(osrmRoute.duration / 60);
                     const walkHrs = Math.floor(walkMin / 60);
                     const walkMins = walkMin % 60;
                     const timeStr = walkHrs > 0 ? walkHrs + 'h ' + walkMins + 'm' : walkMin + 'm';
