@@ -22,7 +22,7 @@ window.BKK.stopColorPalette = ['#3b82f6', '#f59e0b', '#ef4444', '#10b981', '#ec4
 })();
 
 // App Version
-window.BKK.VERSION = '3.7.46';
+window.BKK.VERSION = '3.7.47';
 // Convert stop index (0-based) to letter label: 0→A, 1→B, ..., 25→Z, 26→AA
 window.BKK.stopLabel = function(i) {
   if (i < 26) return String.fromCharCode(65 + i);

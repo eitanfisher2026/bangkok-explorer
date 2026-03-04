@@ -867,37 +867,17 @@
             markers.push(circle);
           });
           
-          // Route line through active stops — unified drawing with integrated arrows
+          // Route line — modern animated flow showing direction
           let routeLayerGroup = null;
           let routeInfoControl = null;
           
-          // Inject SVG arrowhead marker definition into Leaflet's SVG pane
-          const ensureArrowDef = () => {
-            const svg = map.getPane('overlayPane').querySelector('svg');
-            if (svg && !svg.querySelector('#routeArrow')) {
-              const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-              defs.innerHTML = '<marker id="routeArrow" viewBox="0 0 12 12" refX="6" refY="6" markerWidth="6" markerHeight="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M1,1 L11,6 L1,11 z" fill="#6366f1" fill-opacity="0.6"/></marker>';
-              svg.insertBefore(defs, svg.firstChild);
-            }
-          };
-          
-          // Apply SVG marker-mid to a polyline's path element
-          const applyArrows = (polyline) => {
-            ensureArrowDef();
-            if (polyline._path) {
-              polyline._path.setAttribute('marker-mid', 'url(#routeArrow)');
-            }
-          };
-          
-          // Subsample coordinates for arrow placement (every Nth point)
-          const sparseCoords = (coords, maxArrows) => {
-            if (coords.length <= maxArrows + 2) return coords;
-            const step = Math.max(1, Math.floor(coords.length / maxArrows));
-            const result = [coords[0]];
-            for (let i = step; i < coords.length - 1; i += step) result.push(coords[i]);
-            result.push(coords[coords.length - 1]);
-            return result;
-          };
+          // Inject CSS animation for flowing dashes (direction indicator)
+          if (!document.getElementById('route-flow-css')) {
+            const style = document.createElement('style');
+            style.id = 'route-flow-css';
+            style.textContent = '@keyframes routeFlow{to{stroke-dashoffset:-20}}';
+            document.head.appendChild(style);
+          }
           
           const redrawRouteLine = () => {
             if (routeLayerGroup) { map.removeLayer(routeLayerGroup); routeLayerGroup = null; }
@@ -921,37 +901,55 @@
                 pts.push([sp.lat, sp.lng]);
               }
               
-              // Phase 1: Immediate straight dashed line with integrated arrows
-              // (few points = arrows at each stop vertex via marker-mid)
-              const dashedLine = L.polyline(pts, { color: '#6366f1', weight: 2, opacity: 0.3, dashArray: '6,8' });
-              routeLayerGroup = L.layerGroup([dashedLine]).addTo(map);
-              applyArrows(dashedLine);
+              // Draw route with animated flow
+              const drawRoute = (pathCoords) => {
+                if (routeLayerGroup) { map.removeLayer(routeLayerGroup); routeLayerGroup = null; }
+                
+                // Layer 1: Glow/shadow (wider, subtle)
+                const glow = L.polyline(pathCoords, { color: '#818cf8', weight: 6, opacity: 0.15, lineCap: 'round', lineJoin: 'round' });
+                // Layer 2: Base line (solid, clean)
+                const base = L.polyline(pathCoords, { color: '#6366f1', weight: 2.5, opacity: 0.5, lineCap: 'round', lineJoin: 'round' });
+                // Layer 3: Animated flow dashes (shows direction)
+                const flow = L.polyline(pathCoords, { color: 'white', weight: 2, opacity: 0.7, dashArray: '4,12', lineCap: 'round' });
+                
+                routeLayerGroup = L.layerGroup([glow, base, flow]).addTo(map);
+                
+                // Apply CSS animation to flow layer — dashes move along path
+                if (flow._path) {
+                  flow._path.style.animation = 'routeFlow 0.8s linear infinite';
+                }
+              };
               
-              // Phase 2: OSRM walking route (replaces phase 1 atomically)
+              // Immediate: draw straight lines connecting stops
+              drawRoute(pts);
+              
+              // Async: OSRM walking route (atomic replacement)
               const coords = pts.map(p => p[1] + ',' + p[0]).join(';');
-              fetch('https://router.project-osrm.org/route/v1/foot/' + coords + '?overview=full&geometries=geojson&steps=false')
+              fetch('https://router.project-osrm.org/route/v1/foot/' + coords + '?overview=full&geometries=geojson&steps=true')
                 .then(r => r.json())
                 .then(data => {
                   if (data.code === 'Ok' && data.routes && data.routes[0]) {
                     const osrmRoute = data.routes[0];
-                    const gc = osrmRoute.geometry.coordinates.map(c => [c[1], c[0]]);
+                    let gc = osrmRoute.geometry.coordinates.map(c => [c[1], c[0]]);
                     
-                    // Atomic replacement: remove old, create new group
-                    if (routeLayerGroup) { map.removeLayer(routeLayerGroup); routeLayerGroup = null; }
-                    
-                    // Full route line (smooth, all OSRM points)
-                    const routeLine = L.polyline(gc, { color: '#6366f1', weight: 2.5, opacity: 0.45 });
-                    // Sparse arrow line (~15 arrows, invisible stroke, SVG marker-mid)
-                    const arrowCoords = sparseCoords(gc, 15);
-                    const arrowLine = L.polyline(arrowCoords, { color: '#6366f1', weight: 0.5, opacity: 0.01 });
-                    
-                    routeLayerGroup = L.layerGroup([routeLine, arrowLine]).addTo(map);
-                    
-                    // Arrows are SVG markers on the path — part of the line element itself
-                    if (arrowLine._path) {
-                      arrowLine._path.style.strokeOpacity = '0';
-                      arrowLine._path.setAttribute('marker-mid', 'url(#routeArrow)');
+                    // Ensure route connects to actual stop coordinates
+                    // (OSRM snaps to nearest road, which may be offset from marker)
+                    if (gc.length > 2) {
+                      gc[0] = pts[0]; // Start at first stop
+                      gc[gc.length - 1] = pts[pts.length - 1]; // End at last stop
+                      // Insert actual waypoints near their closest point on route
+                      for (let wi = 1; wi < pts.length - 1; wi++) {
+                        const wp = pts[wi];
+                        let bestDist = Infinity, bestIdx = 0;
+                        for (let gi = 1; gi < gc.length - 1; gi++) {
+                          const d = Math.pow(gc[gi][0] - wp[0], 2) + Math.pow(gc[gi][1] - wp[1], 2);
+                          if (d < bestDist) { bestDist = d; bestIdx = gi; }
+                        }
+                        gc[bestIdx] = wp; // Snap closest route point to actual stop
+                      }
                     }
+                    
+                    drawRoute(gc);
                     
                     // Distance + time info
                     const distKm = (osrmRoute.distance / 1000).toFixed(1);
