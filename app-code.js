@@ -1038,6 +1038,7 @@ const FouFouApp = () => {
     return () => { if (leafletMapRef.current) { leafletMapRef.current.remove(); leafletMapRef.current = null; } delete window._mapStopAction; delete window._mapRedrawLine; delete window._mapStopsOrderRef; delete window._favMapSheet; delete window._favMapAreaClick; setMapBottomSheet(null); };
   }, [showMapModal, mapMode, mapStops, mapUserLocation, mapSkippedStops, mapFavFilter, mapFavArea, mapFavRadius, mapFocusPlace, customLocations, formData.currentLat, formData.currentLng, formData.radiusMeters, mapVersion]);
   const [modalImage, setModalImage] = useState(null);
+  const [modalImageCtx, setModalImageCtx] = useState(null); // { description, location } for image modal
   const [toastMessage, setToastMessage] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [placeSearchQuery, setPlaceSearchQuery] = useState(() => {
@@ -6387,7 +6388,16 @@ const FouFouApp = () => {
                       <span
                         onClick={() => {
                           if (isSkipped) return;
-                          if (isFavorite) { handleEditLocation(isFavorite); }
+                          if (isFavorite) {
+                            if (isFavorite.uploadedImage) {
+                              showToast(t('places.favoriteNotOnGoogle') || '📍 מקום מועדף', 'info');
+                              setModalImage(isFavorite.uploadedImage);
+                              setModalImageCtx({ description: isFavorite.description, location: isFavorite });
+                              setShowImageModal(true);
+                            } else {
+                              handleEditLocation(isFavorite);
+                            }
+                          }
                           else if (stop.lat && stop.lng) {
                             const url = window.BKK.getGoogleMapsUrl(stop);
                             if (url && url !== '#') window.open(url, '_blank');
@@ -6404,7 +6414,7 @@ const FouFouApp = () => {
                       {/* Photo icon for favorites with image */}
                       {!isSkipped && isFavorite && isFavorite.uploadedImage && (
                         <button
-                          onClick={() => { setModalImage(isFavorite.uploadedImage); setShowImageModal(true); }}
+                          onClick={() => { setModalImage(isFavorite.uploadedImage); setModalImageCtx({ description: isFavorite.description, location: isFavorite }); setShowImageModal(true); }}
                           style={{ background: '#eff6ff', border: 'none', borderRadius: '4px', cursor: 'pointer', padding: '0 2px', fontSize: '12px', flexShrink: 0 }}
                           title={t('general.clickForImage')}
                         >🖼️</button>
@@ -7244,7 +7254,16 @@ const FouFouApp = () => {
                                       if (isCustom && !stop.mapsUrl && !stop.address && !stop.googlePlaceId && !stop.placeId) {
                                         e.preventDefault();
                                         const cl = customLocations.find(loc => loc.name === stop.name);
-                                        if (cl) handleEditLocation(cl);
+                                        if (cl) {
+                                          showToast(t('places.favoriteNotOnGoogle') || '📍 מקום מועדף — לא קיים בגוגל', 'info');
+                                          if (cl.uploadedImage) {
+                                            setModalImage(cl.uploadedImage);
+                                            setModalImageCtx({ description: cl.description, location: cl });
+                                            setShowImageModal(true);
+                                          } else {
+                                            handleEditLocation(cl);
+                                          }
+                                        }
                                       }
                                     }}
                                   >
@@ -7296,6 +7315,7 @@ const FouFouApp = () => {
                                             e.preventDefault();
                                             e.stopPropagation();
                                             setModalImage(stop.uploadedImage);
+                                            setModalImageCtx({ description: stop.description, location: stop });
                                             setShowImageModal(true);
                                           }}
                                           className="hover:scale-110 transition bg-blue-100 hover:bg-blue-200 rounded px-0.5"
@@ -7650,6 +7670,7 @@ const FouFouApp = () => {
                         className="w-full max-h-32 object-contain rounded-lg mt-2 cursor-pointer border-2 border-green-300"
                         onClick={() => {
                           setModalImage(loc.uploadedImage);
+                          setModalImageCtx({ description: loc.description, location: loc });
                           setShowImageModal(true);
                         }}
                       />
@@ -8076,7 +8097,7 @@ const FouFouApp = () => {
                                   >{ra ? `⭐${ra.avg.toFixed(1)}` : '☆'}</button>
                                 ); })()}
                                 {(loc.uploadedImage || (loc.imageUrls && loc.imageUrls.length > 0)) && (
-                                  <button onClick={() => { setModalImage(loc.uploadedImage || loc.imageUrls[0]); setShowImageModal(true); }}
+                                  <button onClick={() => { setModalImage(loc.uploadedImage || loc.imageUrls[0]); setModalImageCtx({ description: loc.description, location: loc }); setShowImageModal(true); }}
                                     style={{ fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', flexShrink: 0, opacity: 0.6 }}
                                     title={t("general.viewImage") || "תמונה"}>🖼️</button>
                                 )}
@@ -8129,7 +8150,7 @@ const FouFouApp = () => {
                                 >{ra ? `⭐${ra.avg.toFixed(1)}` : '☆'}</button>
                               ); })()}
                               {(loc.uploadedImage || (loc.imageUrls && loc.imageUrls.length > 0)) && (
-                                <button onClick={() => { setModalImage(loc.uploadedImage || loc.imageUrls[0]); setShowImageModal(true); }}
+                                <button onClick={() => { setModalImage(loc.uploadedImage || loc.imageUrls[0]); setModalImageCtx({ description: loc.description, location: loc }); setShowImageModal(true); }}
                                   style={{ fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', flexShrink: 0, opacity: 0.6 }}
                                   title={t("general.viewImage") || "תמונה"}>🖼️</button>
                               )}
@@ -10033,7 +10054,7 @@ const FouFouApp = () => {
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
                       {hasImg && (
                         <img src={imgSrc} alt=""
-                          onClick={() => { setModalImage(imgSrc); setShowImageModal(true); }}
+                          onClick={() => { setModalImage(imgSrc); setModalImageCtx({ description: loc.description, location: loc }); setShowImageModal(true); }}
                           style={{ width: '64px', height: '64px', borderRadius: '10px', objectFit: 'cover', cursor: 'pointer', flexShrink: 0, border: '2px solid #e5e7eb' }} />
                       )}
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -10649,6 +10670,7 @@ const FouFouApp = () => {
                         className="w-full h-48 object-cover rounded-lg border-2 border-purple-300 cursor-pointer hover:opacity-90"
                         onClick={() => {
                           setModalImage(newLocation.uploadedImage);
+                          setModalImageCtx({ description: newLocation.description });
                           setShowImageModal(true);
                         }}
                       />
@@ -12218,13 +12240,31 @@ const FouFouApp = () => {
       {showImageModal && modalImage && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-80 z-[100] flex items-center justify-center p-4"
-          onClick={() => { setShowImageModal(false); setModalImage(null); }}
+          onClick={() => { setShowImageModal(false); setModalImage(null); setModalImageCtx(null); }}
         >
           <button
-            onClick={() => { setShowImageModal(false); setModalImage(null); }}
+            onClick={() => { setShowImageModal(false); setModalImage(null); setModalImageCtx(null); }}
             className="absolute top-4 right-4 bg-white bg-opacity-90 text-black rounded-full w-9 h-9 flex items-center justify-center text-xl font-bold shadow-lg hover:bg-opacity-100 z-10"
           >✕</button>
-          <img src={modalImage} alt="enlarged" className="max-w-full max-h-full rounded-lg shadow-2xl" />
+          <div onClick={e => e.stopPropagation()} className="flex flex-col items-center max-w-full max-h-full">
+            <img src={modalImage} alt="enlarged" className="max-w-full max-h-[70vh] rounded-lg shadow-2xl" />
+            {modalImageCtx && (
+              <div className="bg-white bg-opacity-95 rounded-lg mt-2 p-3 max-w-md w-full shadow-lg" style={{direction: isRTL ? 'rtl' : 'ltr'}}>
+                {modalImageCtx.description && (
+                  <p className="text-gray-700 text-sm mb-2" style={{whiteSpace: 'pre-line'}}>{modalImageCtx.description}</p>
+                )}
+                {modalImageCtx.location && (
+                  <button
+                    onClick={() => {
+                      setShowImageModal(false); setModalImage(null); setModalImageCtx(null);
+                      handleEditLocation(modalImageCtx.location);
+                    }}
+                    className="w-full bg-blue-500 text-white py-2 rounded-lg text-sm font-bold hover:bg-blue-600 flex items-center justify-center gap-1"
+                  >📍 {t('places.editPlace')}</button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

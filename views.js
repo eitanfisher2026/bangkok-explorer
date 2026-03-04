@@ -433,7 +433,16 @@
                       <span
                         onClick={() => {
                           if (isSkipped) return;
-                          if (isFavorite) { handleEditLocation(isFavorite); }
+                          if (isFavorite) {
+                            if (isFavorite.uploadedImage) {
+                              showToast(t('places.favoriteNotOnGoogle') || '📍 מקום מועדף', 'info');
+                              setModalImage(isFavorite.uploadedImage);
+                              setModalImageCtx({ description: isFavorite.description, location: isFavorite });
+                              setShowImageModal(true);
+                            } else {
+                              handleEditLocation(isFavorite);
+                            }
+                          }
                           else if (stop.lat && stop.lng) {
                             const url = window.BKK.getGoogleMapsUrl(stop);
                             if (url && url !== '#') window.open(url, '_blank');
@@ -450,7 +459,7 @@
                       {/* Photo icon for favorites with image */}
                       {!isSkipped && isFavorite && isFavorite.uploadedImage && (
                         <button
-                          onClick={() => { setModalImage(isFavorite.uploadedImage); setShowImageModal(true); }}
+                          onClick={() => { setModalImage(isFavorite.uploadedImage); setModalImageCtx({ description: isFavorite.description, location: isFavorite }); setShowImageModal(true); }}
                           style={{ background: '#eff6ff', border: 'none', borderRadius: '4px', cursor: 'pointer', padding: '0 2px', fontSize: '12px', flexShrink: 0 }}
                           title={t('general.clickForImage')}
                         >🖼️</button>
@@ -1300,11 +1309,20 @@
                                         showToast(t('places.editNoCoordsHint'), 'warning');
                                         return;
                                       }
-                                      // Custom place with only coordinates → open edit dialog
+                                      // Custom place with only coordinates → show favorite card
                                       if (isCustom && !stop.mapsUrl && !stop.address && !stop.googlePlaceId && !stop.placeId) {
                                         e.preventDefault();
                                         const cl = customLocations.find(loc => loc.name === stop.name);
-                                        if (cl) handleEditLocation(cl);
+                                        if (cl) {
+                                          showToast(t('places.favoriteNotOnGoogle') || '📍 מקום מועדף — לא קיים בגוגל', 'info');
+                                          if (cl.uploadedImage) {
+                                            setModalImage(cl.uploadedImage);
+                                            setModalImageCtx({ description: cl.description, location: cl });
+                                            setShowImageModal(true);
+                                          } else {
+                                            handleEditLocation(cl);
+                                          }
+                                        }
                                       }
                                     }}
                                   >
@@ -1356,6 +1374,7 @@
                                             e.preventDefault();
                                             e.stopPropagation();
                                             setModalImage(stop.uploadedImage);
+                                            setModalImageCtx({ description: stop.description, location: stop });
                                             setShowImageModal(true);
                                           }}
                                           className="hover:scale-110 transition bg-blue-100 hover:bg-blue-200 rounded px-0.5"
@@ -1712,6 +1731,7 @@
                         className="w-full max-h-32 object-contain rounded-lg mt-2 cursor-pointer border-2 border-green-300"
                         onClick={() => {
                           setModalImage(loc.uploadedImage);
+                          setModalImageCtx({ description: loc.description, location: loc });
                           setShowImageModal(true);
                         }}
                       />
@@ -2139,7 +2159,7 @@
                                   >{ra ? `⭐${ra.avg.toFixed(1)}` : '☆'}</button>
                                 ); })()}
                                 {(loc.uploadedImage || (loc.imageUrls && loc.imageUrls.length > 0)) && (
-                                  <button onClick={() => { setModalImage(loc.uploadedImage || loc.imageUrls[0]); setShowImageModal(true); }}
+                                  <button onClick={() => { setModalImage(loc.uploadedImage || loc.imageUrls[0]); setModalImageCtx({ description: loc.description, location: loc }); setShowImageModal(true); }}
                                     style={{ fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', flexShrink: 0, opacity: 0.6 }}
                                     title={t("general.viewImage") || "תמונה"}>🖼️</button>
                                 )}
@@ -2192,7 +2212,7 @@
                                 >{ra ? `⭐${ra.avg.toFixed(1)}` : '☆'}</button>
                               ); })()}
                               {(loc.uploadedImage || (loc.imageUrls && loc.imageUrls.length > 0)) && (
-                                <button onClick={() => { setModalImage(loc.uploadedImage || loc.imageUrls[0]); setShowImageModal(true); }}
+                                <button onClick={() => { setModalImage(loc.uploadedImage || loc.imageUrls[0]); setModalImageCtx({ description: loc.description, location: loc }); setShowImageModal(true); }}
                                   style={{ fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', flexShrink: 0, opacity: 0.6 }}
                                   title={t("general.viewImage") || "תמונה"}>🖼️</button>
                               )}
@@ -4122,7 +4142,7 @@
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
                       {hasImg && (
                         <img src={imgSrc} alt=""
-                          onClick={() => { setModalImage(imgSrc); setShowImageModal(true); }}
+                          onClick={() => { setModalImage(imgSrc); setModalImageCtx({ description: loc.description, location: loc }); setShowImageModal(true); }}
                           style={{ width: '64px', height: '64px', borderRadius: '10px', objectFit: 'cover', cursor: 'pointer', flexShrink: 0, border: '2px solid #e5e7eb' }} />
                       )}
                       <div style={{ flex: 1, minWidth: 0 }}>

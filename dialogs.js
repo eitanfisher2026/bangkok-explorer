@@ -343,6 +343,7 @@
                         className="w-full h-48 object-cover rounded-lg border-2 border-purple-300 cursor-pointer hover:opacity-90"
                         onClick={() => {
                           setModalImage(newLocation.uploadedImage);
+                          setModalImageCtx({ description: newLocation.description });
                           setShowImageModal(true);
                         }}
                       />
@@ -1936,13 +1937,31 @@
       {showImageModal && modalImage && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-80 z-[100] flex items-center justify-center p-4"
-          onClick={() => { setShowImageModal(false); setModalImage(null); }}
+          onClick={() => { setShowImageModal(false); setModalImage(null); setModalImageCtx(null); }}
         >
           <button
-            onClick={() => { setShowImageModal(false); setModalImage(null); }}
+            onClick={() => { setShowImageModal(false); setModalImage(null); setModalImageCtx(null); }}
             className="absolute top-4 right-4 bg-white bg-opacity-90 text-black rounded-full w-9 h-9 flex items-center justify-center text-xl font-bold shadow-lg hover:bg-opacity-100 z-10"
           >✕</button>
-          <img src={modalImage} alt="enlarged" className="max-w-full max-h-full rounded-lg shadow-2xl" />
+          <div onClick={e => e.stopPropagation()} className="flex flex-col items-center max-w-full max-h-full">
+            <img src={modalImage} alt="enlarged" className="max-w-full max-h-[70vh] rounded-lg shadow-2xl" />
+            {modalImageCtx && (
+              <div className="bg-white bg-opacity-95 rounded-lg mt-2 p-3 max-w-md w-full shadow-lg" style={{direction: isRTL ? 'rtl' : 'ltr'}}>
+                {modalImageCtx.description && (
+                  <p className="text-gray-700 text-sm mb-2" style={{whiteSpace: 'pre-line'}}>{modalImageCtx.description}</p>
+                )}
+                {modalImageCtx.location && (
+                  <button
+                    onClick={() => {
+                      setShowImageModal(false); setModalImage(null); setModalImageCtx(null);
+                      handleEditLocation(modalImageCtx.location);
+                    }}
+                    className="w-full bg-blue-500 text-white py-2 rounded-lg text-sm font-bold hover:bg-blue-600 flex items-center justify-center gap-1"
+                  >📍 {t('places.editPlace')}</button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
