@@ -2990,7 +2990,9 @@ const FouFouApp = () => {
         l.name === loc.name ? { ...l, googleRating: newRating, googleRatingCount: newCount, googleRatingUpdated: Date.now() } : l
       ));
       
+      console.info(`[RATING-BG] Updated ${loc.name}: ⭐${newRating} (${newCount})`);
     } catch (e) {
+      console.info('[RATING-BG] Error:', e.message);
     }
   };
 
@@ -3000,85 +3002,158 @@ const FouFouApp = () => {
       return;
     }
     
-    const candidates = customLocations.filter(loc => 
-      loc.cityId === selectedCityId && (loc.googlePlaceId || loc.googlePlace || loc.fromGoogle || loc.address) && loc.lat && loc.lng
+    const allPlaces = customLocations.filter(loc => 
+      (loc.cityId || 'bangkok') === selectedCityId && loc.status !== 'blacklist' && loc.lat && loc.lng && loc.name
     );
     
+    const REFRESH_INTERVAL = 7 * 24 * 3600 * 1000;
+    const candidates = allPlaces.filter(loc => !loc.googleRatingUpdated || (Date.now() - loc.googleRatingUpdated) > REFRESH_INTERVAL);
+    const skippedRecent = allPlaces.length - candidates.length;
+    
     if (candidates.length === 0) {
-      showToast(t('settings.noPlacesToRefresh') || 'אין מקומות לרענון', 'info');
+      showToast(`${t('settings.noPlacesToRefresh') || 'אין מקומות לרענון'} (${skippedRecent} ${t('settings.recentlyUpdated') || 'עודכנו לאחרונה'})`, 'info');
       return;
     }
     
+    const stats = { total: candidates.length, skippedRecent, apiCalls: 0, detailsCalls: 0, textSearchCalls: 0, updated: 0, unchanged: 0, noRating: 0, errors: 0, noFirebaseId: 0, saved: 0, newPlaceIds: 0 };
+    const startTime = Date.now();
+    
     setRatingsRefreshProgress({ current: 0, total: candidates.length, updated: 0 });
-    let updated = 0;
+    console.info(`[RATING-REFRESH] 🚀 Starting: ${candidates.length} places to check (${skippedRecent} skipped — updated within 7 days)`);
     
     for (let i = 0; i < candidates.length; i++) {
       const loc = candidates[i];
-      setRatingsRefreshProgress({ current: i + 1, total: candidates.length, updated });
+      setRatingsRefreshProgress({ current: i + 1, total: candidates.length, updated: stats.updated });
       
       try {
-        const searchQuery = loc.name + ' ' + (window.BKK.cityNameForSearch || 'Bangkok');
-        const resp = await fetch(GOOGLE_PLACES_TEXT_SEARCH_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
-            'X-Goog-FieldMask': 'places.rating,places.userRatingCount,places.displayName,places.location'
-          },
-          body: JSON.stringify({
-            textQuery: searchQuery,
-            maxResultCount: 3,
-            locationBias: { circle: { center: { latitude: loc.lat, longitude: loc.lng }, radius: 500.0 } }
-          })
-        });
+        let newRating = null, newCount = 0, foundPlaceId = null;
         
-        if (!resp.ok) continue;
-        const data = await resp.json();
-        if (!data.places?.length) continue;
-        
-        let best = data.places[0];
-        if (data.places.length > 1) {
-          best = data.places.reduce((a, b) => {
-            const da = a.location ? Math.abs(a.location.latitude - loc.lat) + Math.abs(a.location.longitude - loc.lng) : 999;
-            const db = b.location ? Math.abs(b.location.latitude - loc.lat) + Math.abs(b.location.longitude - loc.lng) : 999;
-            return da < db ? a : b;
+        if (loc.googlePlaceId) {
+          const detailResp = await fetch(`https://places.googleapis.com/v1/places/${loc.googlePlaceId}`, {
+            method: 'GET',
+            headers: {
+              'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
+              'X-Goog-FieldMask': 'rating,userRatingCount'
+            }
           });
+          stats.apiCalls++;
+          stats.detailsCalls++;
+          if (detailResp.ok) {
+            const detail = await detailResp.json();
+            newRating = detail.rating || null;
+            newCount = detail.userRatingCount || 0;
+          }
         }
         
-        if (!best.rating) { console.log(`[RATING-REFRESH] ${i+1}. ${loc.name} — no rating from Google`); continue; }
-        const newRating = best.rating;
-        const newCount = best.userRatingCount || 0;
+        if (newRating === null) {
+          const searchQuery = loc.name + ' ' + (window.BKK.cityNameForSearch || 'Bangkok');
+          const resp = await fetch(GOOGLE_PLACES_TEXT_SEARCH_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
+              'X-Goog-FieldMask': 'places.id,places.rating,places.userRatingCount,places.location'
+            },
+            body: JSON.stringify({
+              textQuery: searchQuery,
+              maxResultCount: 3,
+              locationBias: { circle: { center: { latitude: loc.lat, longitude: loc.lng }, radius: 500.0 } }
+            })
+          });
+          stats.apiCalls++;
+          stats.textSearchCalls++;
+          
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data.places?.length) {
+              let best = data.places[0];
+              if (data.places.length > 1) {
+                best = data.places.reduce((a, b) => {
+                  const da = a.location ? Math.abs(a.location.latitude - loc.lat) + Math.abs(a.location.longitude - loc.lng) : 999;
+                  const db = b.location ? Math.abs(b.location.latitude - loc.lat) + Math.abs(b.location.longitude - loc.lng) : 999;
+                  return da < db ? a : b;
+                });
+              }
+              newRating = best.rating || null;
+              newCount = best.userRatingCount || 0;
+              if (best.id && !loc.googlePlaceId) { foundPlaceId = best.id; stats.newPlaceIds++; }
+            }
+          }
+        }
         
-        if (loc.googleRating === newRating && loc.googleRatingCount === newCount) {
+        if (!newRating) {
+          console.info(`[RATING-REFRESH] ${i+1}/${candidates.length} ${loc.name} — no rating found`);
+          stats.noRating++;
           continue;
         }
+        
+        if (loc.googleRating === newRating && loc.googleRatingCount === newCount) {
+          console.info(`[RATING-REFRESH] ${i+1}/${candidates.length} ${loc.name} — unchanged ⭐${newRating} (${newCount})`);
+          stats.unchanged++;
+          if (loc.firebaseId) {
+            const tsUpdate = { googleRatingUpdated: Date.now() };
+            if (foundPlaceId) tsUpdate.googlePlaceId = foundPlaceId;
+            database.ref(`cities/${selectedCityId}/locations/${loc.firebaseId}`).update(tsUpdate);
+          }
+          continue;
+        }
+        
+        console.info(`[RATING-REFRESH] ${i+1}/${candidates.length} ${loc.name} — ⭐${loc.googleRating || 'none'}→${newRating} (${loc.googleRatingCount || 0}→${newCount})`);
         
         if (loc.firebaseId) {
           try {
             await database.ref(`cities/${selectedCityId}/locations/${loc.firebaseId}`).update({
               googleRating: newRating,
               googleRatingCount: newCount,
-              googleRatingUpdated: Date.now()
+              googleRatingUpdated: Date.now(),
+              ...(foundPlaceId ? { googlePlaceId: foundPlaceId } : {})
             });
+            stats.saved++;
           } catch (fbErr) {
-            console.error(`[RATING-REFRESH] ❌ Firebase save failed for ${loc.name}:`, fbErr.message);
+            console.error(`[RATING-REFRESH] ❌ Firebase error ${loc.name}:`, fbErr.message);
+            stats.errors++;
           }
         } else {
+          stats.noFirebaseId++;
         }
         
         setCustomLocations(prev => prev.map(l => 
-          l.name === loc.name ? { ...l, googleRating: newRating, googleRatingCount: newCount, googleRatingUpdated: Date.now() } : l
+          l.name === loc.name ? { ...l, googleRating: newRating, googleRatingCount: newCount, googleRatingUpdated: Date.now(), ...(foundPlaceId ? { googlePlaceId: foundPlaceId } : {}) } : l
         ));
         
-        updated++;
-        setRatingsRefreshProgress({ current: i + 1, total: candidates.length, updated });
+        stats.updated++;
+        setRatingsRefreshProgress({ current: i + 1, total: candidates.length, updated: stats.updated });
       } catch (e) {
+        console.info(`[RATING-REFRESH] ❌ ${loc.name}: ${e.message}`);
+        stats.errors++;
       }
       
       if (i < candidates.length - 1) await new Promise(r => setTimeout(r, 200));
     }
     
-    showToast(`⭐ ${t('settings.ratingsRefreshed') || 'דירוגי גוגל עודכנו'}: ${updated}/${candidates.length}`, 'success');
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    const estCost = (stats.detailsCalls * 0.005 + stats.textSearchCalls * 0.032).toFixed(3);
+    
+    console.info(`[RATING-REFRESH] ════════════════════════════════`);
+    console.info(`[RATING-REFRESH] 📊 Summary:`);
+    console.info(`[RATING-REFRESH]   Total favorites: ${allPlaces.length}`);
+    console.info(`[RATING-REFRESH]   Skipped (updated <7d): ${stats.skippedRecent}`);
+    console.info(`[RATING-REFRESH]   Scanned: ${stats.total}`);
+    console.info(`[RATING-REFRESH]   ✅ Updated: ${stats.updated} (saved to Firebase: ${stats.saved})`);
+    console.info(`[RATING-REFRESH]   ⏭️ Unchanged: ${stats.unchanged}`);
+    console.info(`[RATING-REFRESH]   ❌ No rating: ${stats.noRating}`);
+    console.info(`[RATING-REFRESH]   ⚠️ Errors: ${stats.errors}`);
+    console.info(`[RATING-REFRESH]   API calls: ${stats.apiCalls} (Details: ${stats.detailsCalls} × $0.005, TextSearch: ${stats.textSearchCalls} × $0.032)`);
+    console.info(`[RATING-REFRESH]   🔑 New placeIds saved: ${stats.newPlaceIds} (cheaper next time)`);
+    const nextCost = ((stats.detailsCalls + stats.newPlaceIds) * 0.005 + Math.max(0, stats.textSearchCalls - stats.newPlaceIds) * 0.032).toFixed(3);
+    console.info(`[RATING-REFRESH]   💰 Est. cost: $${estCost} (next run: ~$${nextCost})`);
+    console.info(`[RATING-REFRESH]   ⏱️ Time: ${elapsed}s`);
+    console.info(`[RATING-REFRESH] ════════════════════════════════`);
+    
+    showToast(
+      `⭐ ${stats.updated} ${t('settings.updated') || 'עודכנו'} / ${stats.total} ${t('settings.scanned') || 'נסרקו'} (${stats.unchanged} ${t('settings.unchangedRating') || 'ללא שינוי'}) · $${estCost}`,
+      stats.updated > 0 ? 'success' : 'info'
+    );
     setRatingsRefreshProgress(null);
   };
 
