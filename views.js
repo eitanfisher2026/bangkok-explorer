@@ -1313,11 +1313,15 @@
                                       textDecoration: isDisabled ? 'line-through' : 'none',
                                       flexWrap: 'wrap'
                                     }}>
-                                      {route?.optimized && !isDisabled && hasValidCoords && activeLetterMap[stop.originalIndex] && (
-                                        <span className="bg-purple-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[8px] font-bold flex-shrink-0">
-                                          {activeLetterMap[stop.originalIndex]}
-                                        </span>
-                                      )}
+                                      {route?.optimized && !isDisabled && hasValidCoords && activeLetterMap[stop.originalIndex] && (() => {
+                                        const palette = window.BKK?.stopColorPalette || ['#6366f1'];
+                                        const stopColor = palette[stop.originalIndex % palette.length];
+                                        return (
+                                          <span style={{ background: stopColor, color: 'white', borderRadius: '50%', width: '16px', height: '16px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 'bold', flexShrink: 0 }}>
+                                            {activeLetterMap[stop.originalIndex]}
+                                          </span>
+                                        );
+                                      })()}
                                       {!hasValidCoords && (
                                         <span title={t("places.noCoordinates")} style={{ fontSize: '11px' }}>
                                           ❗

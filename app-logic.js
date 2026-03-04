@@ -611,6 +611,7 @@
         
         // Generate area colors dynamically from palette
         const colorPalette = ['#3b82f6', '#f59e0b', '#ef4444', '#10b981', '#ec4899', '#6366f1', '#8b5cf6', '#06b6d4', '#f97316', '#a855f7', '#14b8a6', '#e11d48', '#84cc16', '#0ea5e9', '#d946ef', '#f43f5e'];
+        window.BKK.stopColorPalette = colorPalette;
         const areaColors = {};
         areas.forEach((area, i) => { areaColors[area.id] = colorPalette[i % colorPalette.length]; });
         
@@ -897,7 +898,7 @@
                 pts.push([sp.lat, sp.lng]);
               }
               // Layer 1: straight dashed line (immediate)
-              routeLine = L.polyline(pts, { color: '#6366f1', weight: 2.5, opacity: 0.4, dashArray: '6,8' }).addTo(map);
+              routeLine = L.polyline(pts, { color: '#6366f1', weight: 1.5, opacity: 0.35, dashArray: '4,6' }).addTo(map);
               
               // Layer 2: OSRM walking route (async)
               const coords = pts.map(p => p[1] + ',' + p[0]).join(';');
@@ -909,10 +910,26 @@
                     const geojsonCoords = route.geometry.coordinates.map(c => [c[1], c[0]]);
                     if (walkingRouteLine) map.removeLayer(walkingRouteLine);
                     walkingRouteLine = L.polyline(geojsonCoords, { 
-                      color: '#4f46e5', weight: 4, opacity: 0.75 
+                      color: '#4f46e5', weight: 2.5, opacity: 0.6 
                     }).addTo(map);
                     // Fade out the straight dashed line
-                    if (routeLine) routeLine.setStyle({ opacity: 0.15 });
+                    if (routeLine) routeLine.setStyle({ opacity: 0.1 });
+                    
+                    // Add direction arrows between consecutive stops
+                    for (let ai = 0; ai < pts.length - 1; ai++) {
+                      const from = pts[ai], to = pts[ai + 1];
+                      const midLat = (from[0] + to[0]) / 2;
+                      const midLng = (from[1] + to[1]) / 2;
+                      const angle = Math.atan2(to[1] - from[1], to[0] - from[0]) * 180 / Math.PI;
+                      L.marker([midLat, midLng], {
+                        icon: L.divIcon({
+                          className: '',
+                          html: '<div style="font-size:12px;color:#4f46e5;opacity:0.7;transform:rotate(' + (90 - angle) + 'deg);text-shadow:0 0 3px white,0 0 3px white;">▸</div>',
+                          iconSize: [12, 12], iconAnchor: [6, 6]
+                        }),
+                        interactive: false
+                      }).addTo(map);
+                    }
                     
                     // Show distance + time info
                     const distKm = (route.distance / 1000).toFixed(1);

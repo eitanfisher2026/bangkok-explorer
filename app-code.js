@@ -588,6 +588,7 @@ const FouFouApp = () => {
         const areas = window.BKK.areaOptions || [];
         
         const colorPalette = ['#3b82f6', '#f59e0b', '#ef4444', '#10b981', '#ec4899', '#6366f1', '#8b5cf6', '#06b6d4', '#f97316', '#a855f7', '#14b8a6', '#e11d48', '#84cc16', '#0ea5e9', '#d946ef', '#f43f5e'];
+        window.BKK.stopColorPalette = colorPalette;
         const areaColors = {};
         areas.forEach((area, i) => { areaColors[area.id] = colorPalette[i % colorPalette.length]; });
         
@@ -854,7 +855,7 @@ const FouFouApp = () => {
               if (routeTypeRef.current === 'circular' && sp?.lat) {
                 pts.push([sp.lat, sp.lng]);
               }
-              routeLine = L.polyline(pts, { color: '#6366f1', weight: 2.5, opacity: 0.4, dashArray: '6,8' }).addTo(map);
+              routeLine = L.polyline(pts, { color: '#6366f1', weight: 1.5, opacity: 0.35, dashArray: '4,6' }).addTo(map);
               
               const coords = pts.map(p => p[1] + ',' + p[0]).join(';');
               fetch('https://router.project-osrm.org/route/v1/foot/' + coords + '?overview=full&geometries=geojson&steps=false')
@@ -865,9 +866,24 @@ const FouFouApp = () => {
                     const geojsonCoords = route.geometry.coordinates.map(c => [c[1], c[0]]);
                     if (walkingRouteLine) map.removeLayer(walkingRouteLine);
                     walkingRouteLine = L.polyline(geojsonCoords, { 
-                      color: '#4f46e5', weight: 4, opacity: 0.75 
+                      color: '#4f46e5', weight: 2.5, opacity: 0.6 
                     }).addTo(map);
-                    if (routeLine) routeLine.setStyle({ opacity: 0.15 });
+                    if (routeLine) routeLine.setStyle({ opacity: 0.1 });
+                    
+                    for (let ai = 0; ai < pts.length - 1; ai++) {
+                      const from = pts[ai], to = pts[ai + 1];
+                      const midLat = (from[0] + to[0]) / 2;
+                      const midLng = (from[1] + to[1]) / 2;
+                      const angle = Math.atan2(to[1] - from[1], to[0] - from[0]) * 180 / Math.PI;
+                      L.marker([midLat, midLng], {
+                        icon: L.divIcon({
+                          className: '',
+                          html: '<div style="font-size:12px;color:#4f46e5;opacity:0.7;transform:rotate(' + (90 - angle) + 'deg);text-shadow:0 0 3px white,0 0 3px white;">▸</div>',
+                          iconSize: [12, 12], iconAnchor: [6, 6]
+                        }),
+                        interactive: false
+                      }).addTo(map);
+                    }
                     
                     const distKm = (route.distance / 1000).toFixed(1);
                     const walkMin = Math.round(route.duration / 60);
@@ -7307,11 +7323,15 @@ const FouFouApp = () => {
                                       textDecoration: isDisabled ? 'line-through' : 'none',
                                       flexWrap: 'wrap'
                                     }}>
-                                      {route?.optimized && !isDisabled && hasValidCoords && activeLetterMap[stop.originalIndex] && (
-                                        <span className="bg-purple-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[8px] font-bold flex-shrink-0">
-                                          {activeLetterMap[stop.originalIndex]}
-                                        </span>
-                                      )}
+                                      {route?.optimized && !isDisabled && hasValidCoords && activeLetterMap[stop.originalIndex] && (() => {
+                                        const palette = window.BKK?.stopColorPalette || ['#6366f1'];
+                                        const stopColor = palette[stop.originalIndex % palette.length];
+                                        return (
+                                          <span style={{ background: stopColor, color: 'white', borderRadius: '50%', width: '16px', height: '16px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 'bold', flexShrink: 0 }}>
+                                            {activeLetterMap[stop.originalIndex]}
+                                          </span>
+                                        );
+                                      })()}
                                       {!hasValidCoords && (
                                         <span title={t("places.noCoordinates")} style={{ fontSize: '11px' }}>
                                           ❗
