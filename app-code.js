@@ -4807,7 +4807,7 @@ const FouFouApp = () => {
   const openReviewDialog = async (place) => {
     const cityId = window.BKK.selectedCityId || 'bangkok';
     const placeKey = (place.name || '').replace(/[.#$/\[\]]/g, '_');
-    const visitorId = window.BKK.visitorId || 'anonymous';
+    const visitorId = authUser?.uid || window.BKK.visitorId || 'anonymous';
     
     let reviews = [];
     try {
@@ -4843,14 +4843,19 @@ const FouFouApp = () => {
   
   const saveReview = async () => {
     if (!reviewDialog) return;
+    if (!authUser?.uid) {
+      showToast(t('reviews.loginRequired') || 'יש להתחבר כדי לדרג', 'warning');
+      setReviewDialog(null);
+      return;
+    }
     const cityId = window.BKK.selectedCityId || 'bangkok';
-    const visitorId = window.BKK.visitorId || 'anonymous';
-    const userName = window.BKK.visitorName || visitorId.slice(0, 8);
+    const uid = authUser.uid;
+    const userName = authUser.displayName || window.BKK.visitorName || uid.slice(0, 8);
     
     try {
       const db = (typeof window.firebase !== 'undefined' && window.firebase.apps?.length) ? window.firebase.database() : null;
       if (db && (reviewDialog.myRating > 0 || reviewDialog.myText.trim())) {
-        const path = `cities/${cityId}/reviews/${reviewDialog.placeKey}/${visitorId}`;
+        const path = `cities/${cityId}/reviews/${reviewDialog.placeKey}/${uid}`;
         await db.ref(path).set({
           rating: reviewDialog.myRating,
           text: reviewDialog.myText.trim(),
@@ -4871,13 +4876,14 @@ const FouFouApp = () => {
   
   const deleteMyReview = async () => {
     if (!reviewDialog) return;
+    if (!authUser?.uid) return;
     const cityId = window.BKK.selectedCityId || 'bangkok';
-    const visitorId = window.BKK.visitorId || 'anonymous';
+    const uid = authUser.uid;
     
     try {
       const db = (typeof window.firebase !== 'undefined' && window.firebase.apps?.length) ? window.firebase.database() : null;
       if (db) {
-        await db.ref(`cities/${cityId}/reviews/${reviewDialog.placeKey}/${visitorId}`).remove();
+        await db.ref(`cities/${cityId}/reviews/${reviewDialog.placeKey}/${uid}`).remove();
         showToast(t('reviews.deleted'), 'success');
       }
     } catch (e) {

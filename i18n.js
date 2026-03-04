@@ -948,6 +948,7 @@ help: {
     unsavedChanges: 'יש שינויים שלא נשמרו. לשמור?',
     allReviews: 'כל הביקורות',
     rate: 'דרג',
+    loginRequired: 'יש להתחבר כדי לדרג',
   },
   sysParams: {
     tabTitle: 'פרמטרים',
@@ -1890,6 +1891,7 @@ help: {
     unsavedChanges: 'You have unsaved changes. Save?',
     allReviews: 'All Reviews',
     rate: 'Rate',
+    loginRequired: 'Login required to rate',
   },
   sysParams: {
     tabTitle: 'Parameters',

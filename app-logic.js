@@ -5406,7 +5406,7 @@
   const openReviewDialog = async (place) => {
     const cityId = window.BKK.selectedCityId || 'bangkok';
     const placeKey = (place.name || '').replace(/[.#$/\[\]]/g, '_');
-    const visitorId = window.BKK.visitorId || 'anonymous';
+    const visitorId = authUser?.uid || window.BKK.visitorId || 'anonymous';
     
     // Load existing reviews from Firebase
     let reviews = [];
@@ -5444,17 +5444,22 @@
   
   const saveReview = async () => {
     if (!reviewDialog) return;
+    if (!authUser?.uid) {
+      showToast(t('reviews.loginRequired') || 'יש להתחבר כדי לדרג', 'warning');
+      setReviewDialog(null);
+      return;
+    }
     const cityId = window.BKK.selectedCityId || 'bangkok';
-    const visitorId = window.BKK.visitorId || 'anonymous';
-    const userName = window.BKK.visitorName || visitorId.slice(0, 8);
+    const uid = authUser.uid;
+    const userName = authUser.displayName || window.BKK.visitorName || uid.slice(0, 8);
     
-    console.log('[REVIEWS] Saving:', { cityId, placeKey: reviewDialog.placeKey, visitorId, rating: reviewDialog.myRating, text: reviewDialog.myText });
+    console.log('[REVIEWS] Saving:', { cityId, placeKey: reviewDialog.placeKey, uid, rating: reviewDialog.myRating, text: reviewDialog.myText });
     
     try {
       const db = (typeof window.firebase !== 'undefined' && window.firebase.apps?.length) ? window.firebase.database() : null;
       console.log('[REVIEWS] Save attempt:', { database: !!db, rating: reviewDialog.myRating, text: reviewDialog.myText });
       if (db && (reviewDialog.myRating > 0 || reviewDialog.myText.trim())) {
-        const path = `cities/${cityId}/reviews/${reviewDialog.placeKey}/${visitorId}`;
+        const path = `cities/${cityId}/reviews/${reviewDialog.placeKey}/${uid}`;
         console.log('[REVIEWS] Saving to:', path);
         await db.ref(path).set({
           rating: reviewDialog.myRating,
@@ -5479,13 +5484,14 @@
   
   const deleteMyReview = async () => {
     if (!reviewDialog) return;
+    if (!authUser?.uid) return;
     const cityId = window.BKK.selectedCityId || 'bangkok';
-    const visitorId = window.BKK.visitorId || 'anonymous';
+    const uid = authUser.uid;
     
     try {
       const db = (typeof window.firebase !== 'undefined' && window.firebase.apps?.length) ? window.firebase.database() : null;
       if (db) {
-        await db.ref(`cities/${cityId}/reviews/${reviewDialog.placeKey}/${visitorId}`).remove();
+        await db.ref(`cities/${cityId}/reviews/${reviewDialog.placeKey}/${uid}`).remove();
         showToast(t('reviews.deleted'), 'success');
       }
     } catch (e) {
