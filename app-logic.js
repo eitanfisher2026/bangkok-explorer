@@ -3438,7 +3438,15 @@
               googleRatingUpdated: Date.now(),
               ...(foundPlaceId ? { googlePlaceId: foundPlaceId } : {})
             });
-            stats.saved++;
+            // Verify write succeeded
+            const verify = await database.ref(`cities/${selectedCityId}/locations/${loc.firebaseId}/googleRating`).once('value');
+            if (verify.val() === newRating) {
+              console.info(`[RATING-REFRESH] ✅ ${loc.name} saved & verified ⭐${newRating}`);
+              stats.saved++;
+            } else {
+              console.info(`[RATING-REFRESH] ⚠️ ${loc.name} write mismatch: expected ${newRating}, got ${verify.val()}`);
+              stats.errors++;
+            }
           } catch (fbErr) {
             console.error(`[RATING-REFRESH] ❌ Firebase error ${loc.name}:`, fbErr.message);
             stats.errors++;

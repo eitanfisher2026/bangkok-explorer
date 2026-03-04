@@ -3108,7 +3108,14 @@ const FouFouApp = () => {
               googleRatingUpdated: Date.now(),
               ...(foundPlaceId ? { googlePlaceId: foundPlaceId } : {})
             });
-            stats.saved++;
+            const verify = await database.ref(`cities/${selectedCityId}/locations/${loc.firebaseId}/googleRating`).once('value');
+            if (verify.val() === newRating) {
+              console.info(`[RATING-REFRESH] ✅ ${loc.name} saved & verified ⭐${newRating}`);
+              stats.saved++;
+            } else {
+              console.info(`[RATING-REFRESH] ⚠️ ${loc.name} write mismatch: expected ${newRating}, got ${verify.val()}`);
+              stats.errors++;
+            }
           } catch (fbErr) {
             console.error(`[RATING-REFRESH] ❌ Firebase error ${loc.name}:`, fbErr.message);
             stats.errors++;
@@ -10361,22 +10368,37 @@ const FouFouApp = () => {
                           style={{ width: '64px', height: '64px', borderRadius: '10px', objectFit: 'cover', cursor: 'pointer', flexShrink: 0, border: '2px solid #e5e7eb' }} />
                       )}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '3px' }}>{loc.name}</div>
+                        <div style={{ fontWeight: 'bold', fontSize: '15px', marginBottom: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          {loc.name}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setModalImage(loc.uploadedImage || '__placeholder__');
+                              setModalImageCtx({ description: loc.description, location: loc });
+                              setShowImageModal(true);
+                            }}
+                            style={{ background: loc.uploadedImage ? '#fef3c7' : '#f3f4f6', border: 'none', borderRadius: '4px', cursor: 'pointer', padding: '1px 3px', display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}
+                            title={t('general.placeInfo') || 'מידע על המקום'}
+                          ><img src="icon-32x32.png" alt="FouFou" style={{ width: '14px', height: '14px' }} /></button>
+                        </div>
                         <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>📍 {areaLabels}</div>
                         {intLabels && <div style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '2px' }}>{intLabels}</div>}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                           {loc.locked && <span style={{ fontSize: '9px', background: '#dcfce7', color: '#166534', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>✅ {t('places.ready') || 'מוכן'}</span>}
                           {addedByName && <span style={{ fontSize: '9px', color: '#9ca3af' }}>👤 {addedByName}</span>}
+                          {loc.googleRating && (
+                            <span style={{ fontSize: '10px', color: '#b45309' }}>⭐ {loc.googleRating} ({loc.googleRatingCount || 0})</span>
+                          )}
                           {ra && (
                             <button onClick={() => openReviewDialog(loc)}
-                              style={{ fontSize: '10px', color: '#f59e0b', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', padding: '0 4px', cursor: 'pointer', fontWeight: 'bold' }}>
-                              ⭐ {ra.avg.toFixed(1)} ({ra.count})
+                              style={{ fontSize: '10px', color: '#8b5cf6', background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: '4px', padding: '0 4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                              🌟 {ra.avg.toFixed(1)} ({ra.count})
                             </button>
                           )}
                           {!ra && (
                             <button onClick={() => openReviewDialog(loc)}
                               style={{ fontSize: '9px', color: '#9ca3af', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '4px', padding: '0 4px', cursor: 'pointer' }}>
-                              ⭐ {t('reviews.rate') || 'דרג'}
+                              ☆ {t('reviews.rate') || 'דרג'}
                             </button>
                           )}
                         </div>
