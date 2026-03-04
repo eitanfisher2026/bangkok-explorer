@@ -831,118 +831,7 @@ const FouFouApp = () => {
             markers.push(circle);
           });
           
-          let routeLayerGroup = null;
-          let routeInfoControl = null;
-          
-          if (!document.getElementById('route-flow-css')) {
-            const style = document.createElement('style');
-            style.id = 'route-flow-css';
-            const rc = window.BKK.mapConfig.route;
-            style.textContent = '@keyframes routeFlow{to{stroke-dashoffset:' + rc.flowOffset + '}}';
-            document.head.appendChild(style);
-          }
-          
-          const redrawRouteLine = () => {
-            if (routeLayerGroup) { map.removeLayer(routeLayerGroup); routeLayerGroup = null; }
-            const curDisabled = disabledStopsRef.current || [];
-            const skippedNames = new Set();
-            mapSkippedStops.forEach(idx => {
-              const s = stops[idx];
-              if (s) skippedNames.add((s.name || '').toLowerCase().trim());
-            });
-            const curStops = stopsOrderRef.current || [];
-            const activeStops = curStops.filter(s => {
-              const nk = (s.name || '').toLowerCase().trim();
-              return !curDisabled.includes(nk) && !skippedNames.has(nk);
-            });
-            if (activeStops.length > 1) {
-              const pts = [];
-              const sp = startPointCoordsRef_local.current;
-              if (sp?.lat) pts.push([sp.lat, sp.lng]);
-              pts.push(...activeStops.map(s => [s.lat, s.lng]));
-              if (routeTypeRef.current === 'circular' && sp?.lat) {
-                pts.push([sp.lat, sp.lng]);
-              }
-              
-              const drawRoute = (pathCoords) => {
-                if (routeLayerGroup) { map.removeLayer(routeLayerGroup); routeLayerGroup = null; }
-                const rc = window.BKK.mapConfig.route;
-                
-                const glow = L.polyline(pathCoords, { color: rc.glowColor, weight: rc.glowWeight, opacity: rc.glowOpacity, lineCap: 'round', lineJoin: 'round' });
-                const base = L.polyline(pathCoords, { color: rc.baseColor, weight: rc.baseWeight, opacity: rc.baseOpacity, lineCap: 'round', lineJoin: 'round' });
-                const flow = L.polyline(pathCoords, { color: rc.flowColor, weight: rc.flowWeight, opacity: rc.flowOpacity, dashArray: rc.flowDash, lineCap: 'round' });
-                
-                routeLayerGroup = L.layerGroup([glow, base, flow]).addTo(map);
-                
-                if (flow._path) {
-                  flow._path.style.animation = 'routeFlow ' + rc.flowSpeed + ' linear infinite';
-                }
-              };
-              
-              if (routeLayerGroup) { map.removeLayer(routeLayerGroup); routeLayerGroup = null; }
-              const rc = window.BKK.mapConfig.route;
-              const placeholder = L.polyline(pts, { color: rc.baseColor, weight: 1.5, opacity: 0.2, dashArray: '6,10', lineCap: 'round' });
-              routeLayerGroup = L.layerGroup([placeholder]).addTo(map);
-              
-              const legPromises = [];
-              for (let li = 0; li < pts.length - 1; li++) {
-                const from = pts[li], to = pts[li + 1];
-                const url = 'https://router.project-osrm.org/route/v1/foot/' + 
-                  from[1] + ',' + from[0] + ';' + to[1] + ',' + to[0] + 
-                  '?overview=full&geometries=geojson';
-                legPromises.push(fetch(url).then(r => r.json()).catch(() => null));
-              }
-              Promise.all(legPromises)
-                .then(legs => {
-                  let allCoords = [];
-                  let totalDistance = 0, totalDuration = 0;
-                  let allOk = true;
-                  legs.forEach((data, idx) => {
-                    if (data && data.code === 'Ok' && data.routes && data.routes[0]) {
-                      const leg = data.routes[0];
-                      const legCoords = leg.geometry.coordinates.map(c => [c[1], c[0]]);
-                      if (allCoords.length > 0 && legCoords.length > 0) legCoords.shift();
-                      allCoords.push(...legCoords);
-                      totalDistance += leg.distance || 0;
-                      totalDuration += leg.duration || 0;
-                    } else {
-                      if (allCoords.length === 0) allCoords.push(pts[idx]);
-                      allCoords.push(pts[idx + 1]);
-                      allOk = false;
-                    }
-                  });
-                  
-                  if (allCoords.length > 1) {
-                    drawRoute(allCoords);
-                    
-                    const distKm = (totalDistance / 1000).toFixed(1);
-                    const walkMin = Math.round(totalDuration / 60);
-                    const walkHrs = Math.floor(walkMin / 60);
-                    const walkMins = walkMin % 60;
-                    const timeStr = walkHrs > 0 ? walkHrs + 'h ' + walkMins + 'm' : walkMin + 'm';
-                    
-                    if (routeInfoControl) map.removeControl(routeInfoControl);
-                    const InfoControl = L.Control.extend({
-                      options: { position: 'bottomleft' },
-                      onAdd: function() {
-                        const div = L.DomUtil.create('div', '');
-                        div.innerHTML = '<div style="background:white;border-radius:10px;padding:6px 12px;box-shadow:0 2px 8px rgba(0,0,0,0.2);font-size:12px;font-weight:bold;color:' + window.BKK.mapConfig.route.infoColor + ';display:flex;gap:8px;align-items:center;">' +
-                          '<span>🚶 ' + distKm + ' km</span>' +
-                          '<span style="color:#d1d5db;">|</span>' +
-                          '<span>⏱️ ' + timeStr + '</span>' +
-                          '</div>';
-                        L.DomEvent.disableClickPropagation(div);
-                        return div;
-                      }
-                    });
-                    routeInfoControl = new InfoControl();
-                    routeInfoControl.addTo(map);
-                  }
-                })
-                .catch(() => { drawRoute(pts); /* OSRM failed — use straight lines as fallback */ });
-            }
-          };
-          redrawRouteLine();
+          const redrawRouteLine = () => {}; // no-op (called from toggle handlers)
           
           if (markers.length > 0) {
             const group = L.featureGroup(markers);
@@ -7368,7 +7257,7 @@ const FouFouApp = () => {
                                         const palette = window.BKK.stopColorPalette;
                                         const stopColor = palette[stop.originalIndex % palette.length];
                                         return (
-                                          <span style={{ background: stopColor, color: 'white', borderRadius: '50%', width: '16px', height: '16px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 'bold', flexShrink: 0, border: '1px solid white', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }}>
+                                          <span style={{ background: stopColor, color: 'white', borderRadius: '50%', width: '22px', height: '22px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 'bold', flexShrink: 0, border: '2px solid white', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
                                             {activeLetterMap[stop.originalIndex]}
                                           </span>
                                         );

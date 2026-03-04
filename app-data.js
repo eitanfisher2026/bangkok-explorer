@@ -1,4 +1,4 @@
-// FouFou app-data.js v3.7.52
+// FouFou app-data.js v3.7.53
 // ============================================================================
 // FouFou — City Trail Generator - Internationalization (i18n)
 // Copyright © 2026 Eitan Fisher. All Rights Reserved.
@@ -3013,7 +3013,7 @@ window.BKK.cityData.singapore = {
 // ============================================================================
 
 window.BKK = window.BKK || {};
-window.BKK.stopColorPalette = ['#3b82f6', '#f59e0b', '#ef4444', '#10b981', '#ec4899', '#6366f1', '#8b5cf6', '#06b6d4', '#f97316', '#a855f7', '#14b8a6', '#e11d48', '#84cc16', '#0ea5e9', '#d946ef', '#f43f5e'];
+window.BKK.stopColorPalette = ['#4a90d9', '#e8a838', '#d95555', '#3bba7e', '#d97eb5', '#7c7ce0', '#9b7ed9', '#2eb8c9', '#e08540', '#b36dd9', '#38b3a0', '#c93d5a', '#7fb832', '#2e9ed9', '#c25ee0', '#d95070'];
 
 window.BKK.mapConfig = {
   route: {
@@ -3024,9 +3024,9 @@ window.BKK.mapConfig = {
     infoColor: '#4f46e5'
   },
   marker: {
-    radius: 12, weight: 2, fillOpacity: 0.85, disabledFillOpacity: 0.2, disabledOpacity: 0.3,
-    labelSize: 22, labelFontSize: '10px',
-    startRingRadius: 18, startRingWeight: 3, startRingColor: '#22c55e', startRingDash: '6,4',
+    radius: 15, weight: 2.5, fillOpacity: 0.8, disabledFillOpacity: 0.2, disabledOpacity: 0.3,
+    labelSize: 28, labelFontSize: '13px',
+    startRingRadius: 20, startRingWeight: 3, startRingColor: '#22c55e', startRingDash: '6,4',
     startIconSize: 28, startIconFontSize: '14px'
   },
   area: {
@@ -3057,7 +3057,7 @@ window.BKK.mapConfig = {
   window.BKK.visitorName = vname || vid.slice(0, 10);
 })();
 
-window.BKK.VERSION = '3.7.52';
+window.BKK.VERSION = '3.7.53';
 window.BKK.stopLabel = function(i) {
   if (i < 26) return String.fromCharCode(65 + i);
   return String.fromCharCode(65 + Math.floor(i / 26) - 1) + String.fromCharCode(65 + (i % 26));

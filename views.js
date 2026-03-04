@@ -1317,7 +1317,7 @@
                                         const palette = window.BKK.stopColorPalette;
                                         const stopColor = palette[stop.originalIndex % palette.length];
                                         return (
-                                          <span style={{ background: stopColor, color: 'white', borderRadius: '50%', width: '16px', height: '16px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 'bold', flexShrink: 0, border: '1px solid white', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }}>
+                                          <span style={{ background: stopColor, color: 'white', borderRadius: '50%', width: '22px', height: '22px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 'bold', flexShrink: 0, border: '2px solid white', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
                                             {activeLetterMap[stop.originalIndex]}
                                           </span>
                                         );
