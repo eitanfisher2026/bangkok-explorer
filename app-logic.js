@@ -929,20 +929,46 @@
               const placeholder = L.polyline(pts, { color: rc.baseColor, weight: 1.5, opacity: 0.2, dashArray: '6,10', lineCap: 'round' });
               routeLayerGroup = L.layerGroup([placeholder]).addTo(map);
               
-              // Phase 2: OSRM walking route (replaces placeholder with animated route)
-              const coords = pts.map(p => p[1] + ',' + p[0]).join(';');
-              fetch('https://router.project-osrm.org/route/v1/foot/' + coords + '?overview=full&geometries=geojson&steps=true')
-                .then(r => r.json())
-                .then(data => {
-                  if (data.code === 'Ok' && data.routes && data.routes[0]) {
-                    const osrmRoute = data.routes[0];
-                    const gc = osrmRoute.geometry.coordinates.map(c => [c[1], c[0]]);
-                    
-                    drawRoute(gc);
+              // Phase 2: OSRM walking route — one call PER LEG for guaranteed shortest path
+              const legPromises = [];
+              for (let li = 0; li < pts.length - 1; li++) {
+                const from = pts[li], to = pts[li + 1];
+                const url = 'https://router.project-osrm.org/route/v1/foot/' + 
+                  from[1] + ',' + from[0] + ';' + to[1] + ',' + to[0] + 
+                  '?overview=full&geometries=geojson';
+                legPromises.push(fetch(url).then(r => r.json()).catch(() => null));
+              }
+              console.log('[ROUTE] Fetching ' + legPromises.length + ' leg(s) from OSRM...');
+              Promise.all(legPromises)
+                .then(legs => {
+                  let allCoords = [];
+                  let totalDistance = 0, totalDuration = 0;
+                  let allOk = true;
+                  legs.forEach((data, idx) => {
+                    if (data && data.code === 'Ok' && data.routes && data.routes[0]) {
+                      const leg = data.routes[0];
+                      const legCoords = leg.geometry.coordinates.map(c => [c[1], c[0]]);
+                      console.log('[ROUTE] Leg ' + idx + ': ' + Math.round(leg.distance) + 'm, ' + legCoords.length + ' points');
+                      // Skip first point of subsequent legs (it's the same as last point of previous leg)
+                      if (allCoords.length > 0 && legCoords.length > 0) legCoords.shift();
+                      allCoords.push(...legCoords);
+                      totalDistance += leg.distance || 0;
+                      totalDuration += leg.duration || 0;
+                    } else {
+                      // Fallback: straight line for this leg
+                      if (allCoords.length === 0) allCoords.push(pts[idx]);
+                      allCoords.push(pts[idx + 1]);
+                      allOk = false;
+                    }
+                  });
+                  
+                  if (allCoords.length > 1) {
+                    console.log('[ROUTE] Total: ' + Math.round(totalDistance) + 'm, ' + allCoords.length + ' points, ' + (allOk ? 'all legs OK' : 'some legs failed'));
+                    drawRoute(allCoords);
                     
                     // Distance + time info
-                    const distKm = (osrmRoute.distance / 1000).toFixed(1);
-                    const walkMin = Math.round(osrmRoute.duration / 60);
+                    const distKm = (totalDistance / 1000).toFixed(1);
+                    const walkMin = Math.round(totalDuration / 60);
                     const walkHrs = Math.floor(walkMin / 60);
                     const walkMins = walkMin % 60;
                     const timeStr = walkHrs > 0 ? walkHrs + 'h ' + walkMins + 'm' : walkMin + 'm';
