@@ -434,14 +434,12 @@
                         onClick={() => {
                           if (isSkipped) return;
                           if (isFavorite) {
-                            if (isFavorite.uploadedImage) {
+                            if (!isFavorite.mapsUrl && !isFavorite.googlePlaceId && !isFavorite.placeId && !isFavorite.address) {
                               showToast(t('places.favoriteNotOnGoogle') || '📍 מקום מועדף', 'info');
-                              setModalImage(isFavorite.uploadedImage);
-                              setModalImageCtx({ description: isFavorite.description, location: isFavorite });
-                              setShowImageModal(true);
-                            } else {
-                              handleEditLocation(isFavorite);
                             }
+                            setModalImage(isFavorite.uploadedImage || '__placeholder__');
+                            setModalImageCtx({ description: isFavorite.description, location: isFavorite });
+                            setShowImageModal(true);
                           }
                           else if (stop.lat && stop.lng) {
                             const url = window.BKK.getGoogleMapsUrl(stop);
@@ -456,13 +454,17 @@
                         }}>
                         {stop.name}
                       </span>
-                      {/* Photo icon for favorites with image */}
-                      {!isSkipped && isFavorite && isFavorite.uploadedImage && (
+                      {/* FouFou info for favorites */}
+                      {!isSkipped && isFavorite && (
                         <button
-                          onClick={() => { setModalImage(isFavorite.uploadedImage); setModalImageCtx({ description: isFavorite.description, location: isFavorite }); setShowImageModal(true); }}
-                          style={{ background: '#eff6ff', border: 'none', borderRadius: '4px', cursor: 'pointer', padding: '0 2px', fontSize: '12px', flexShrink: 0 }}
-                          title={t('general.clickForImage')}
-                        >🖼️</button>
+                          onClick={() => {
+                            setModalImage(isFavorite.uploadedImage || '__placeholder__');
+                            setModalImageCtx({ description: isFavorite.description, location: isFavorite });
+                            setShowImageModal(true);
+                          }}
+                          style={{ background: isFavorite.uploadedImage ? '#fef3c7' : '#f3f4f6', border: 'none', borderRadius: '4px', cursor: 'pointer', padding: '1px 3px', flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}
+                          title={t('general.placeInfo') || 'מידע על המקום'}
+                        ><img src="icon-32x32.png" alt="FouFou" style={{ width: '13px', height: '13px' }} /></button>
                       )}
                       {/* Star + rating */}
                       {!isSkipped && (
@@ -1315,13 +1317,9 @@
                                         const cl = customLocations.find(loc => loc.name === stop.name);
                                         if (cl) {
                                           showToast(t('places.favoriteNotOnGoogle') || '📍 מקום מועדף — לא קיים בגוגל', 'info');
-                                          if (cl.uploadedImage) {
-                                            setModalImage(cl.uploadedImage);
-                                            setModalImageCtx({ description: cl.description, location: cl });
-                                            setShowImageModal(true);
-                                          } else {
-                                            handleEditLocation(cl);
-                                          }
+                                          setModalImage(cl.uploadedImage || '__placeholder__');
+                                          setModalImageCtx({ description: cl.description, location: cl });
+                                          setShowImageModal(true);
                                         }
                                       }
                                     }}
@@ -1367,23 +1365,30 @@
                                       {isAddedLater && routeChoiceMade === 'manual' && (
                                         <span className="text-blue-500 font-bold" title={t("general.addedViaMore")} style={{ fontSize: '9px' }}>{`+${t('general.more')}`}</span>
                                       )}
-                                      {/* Camera icon for custom locations with image */}
-                                      {isCustom && stop.uploadedImage && (
+                                      {/* FouFou info button for custom/favorite places */}
+                                      {isCustom && (() => {
+                                        const cl = customLocations.find(loc => loc.name === stop.name);
+                                        return (
                                         <button
                                           onClick={(e) => {
                                             e.preventDefault();
                                             e.stopPropagation();
-                                            setModalImage(stop.uploadedImage);
-                                            setModalImageCtx({ description: stop.description, location: stop });
+                                            if (stop.uploadedImage || cl?.uploadedImage) {
+                                              setModalImage(stop.uploadedImage || cl.uploadedImage);
+                                            } else {
+                                              setModalImage('__placeholder__');
+                                            }
+                                            setModalImageCtx({ description: stop.description || cl?.description, location: cl || stop });
                                             setShowImageModal(true);
                                           }}
-                                          className="hover:scale-110 transition bg-blue-100 hover:bg-blue-200 rounded px-0.5"
-                                          title={t("general.clickForImage")}
-                                          style={{ fontSize: '11px', cursor: 'pointer' }}
+                                          className="hover:scale-110 transition rounded px-0.5"
+                                          style={{ fontSize: '11px', cursor: 'pointer', background: (stop.uploadedImage || cl?.uploadedImage) ? '#fef3c7' : '#f3f4f6', display: 'inline-flex', alignItems: 'center', padding: '1px 2px' }}
+                                          title={t("general.placeInfo") || "מידע על המקום"}
                                         >
-                                          🖼️
+                                          <img src="icon-32x32.png" alt="FouFou" style={{ width: '14px', height: '14px' }} />
                                         </button>
-                                      )}
+                                        );
+                                      })()}
                                       {/* Disable/Enable toggle — end of row (left side in RTL) */}
                                       <span
                                         onClick={(e) => {
@@ -1410,22 +1415,32 @@
                                         🕐 {stop.openNow ? t('general.openStatus') : t('general.closedStatus')} · {stop.todayHours}
                                       </div>
                                     )}
-                                    {/* FouFou rating — custom places only, clickable if has reviews */}
+                                    {/* Ratings — Google + FouFou */}
                                     {isCustom && (() => {
                                       const pk = (stop.name || '').replace(/[.#$/\\[\]]/g, '_');
                                       const ra = reviewAverages[pk];
                                       const cl = customLocations.find(loc => loc.name === stop.name);
+                                      const gR = cl?.googleRating || stop.googleRating;
+                                      const gC = cl?.googleRatingCount || stop.googleRatingCount || 0;
                                       return (
-                                        <div
-                                          onClick={ra ? (e) => { e.preventDefault(); e.stopPropagation(); openReviewDialog(cl || stop); } : undefined}
-                                          style={{ fontSize: '10px', color: ra ? '#f59e0b' : '#9ca3af', marginTop: '2px', cursor: ra ? 'pointer' : 'default' }}
-                                        >
-                                          ⭐ {ra ? `${ra.avg.toFixed(1)} (${ra.count})` : t('reviews.notYetRated')}
+                                        <div style={{ fontSize: '10px', marginTop: '2px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                          {gR && <span style={{ color: '#f59e0b' }}>⭐{gR.toFixed?.(1) || gR} ({gC})</span>}
+                                          <span
+                                            onClick={ra ? (e) => { e.preventDefault(); e.stopPropagation(); openReviewDialog(cl || stop); } : undefined}
+                                            style={{ color: ra ? '#8b5cf6' : '#9ca3af', cursor: ra ? 'pointer' : 'default' }}
+                                          >
+                                            🌟 {ra ? `${ra.avg.toFixed(1)} (${ra.count})` : t('reviews.notYetRated')}
+                                          </span>
                                         </div>
                                       );
                                     })()}
                                   </a>
-                                  {/* Debug info popup — admin + debug mode only */}
+                                  {/* Google rating for non-custom stops */}
+                                  {!isCustom && stop.rating && (
+                                    <div style={{ fontSize: '10px', color: '#f59e0b', padding: '0 8px' }}>
+                                      ⭐{stop.rating} {stop.ratingCount ? `(${stop.ratingCount})` : ''}
+                                    </div>
+                                  )}
                                   {/* Add to favorites row — Google places only */}
                                   {!isCustom && !isDisabled && (() => {
                                     const existingLoc = customLocations.find(loc => loc.name.toLowerCase().trim() === stop.name.toLowerCase().trim());

@@ -1,4 +1,4 @@
-// FouFou app-data.js v3.7.59
+// FouFou app-data.js v3.7.61
 // ============================================================================
 // FouFou — City Trail Generator - Internationalization (i18n)
 // Copyright © 2026 Eitan Fisher. All Rights Reserved.
@@ -176,6 +176,7 @@ general: {
   outsideBoundary: 'מחוץ לגבולות',
   clickForDetails: 'לחץ לפרטים מלאים',
   clickForImage: 'לחץ לצפייה בתמונה',
+  placeInfo: 'מידע על המקום',
   fromGoogle: 'מגוגל',
   fromGoogleApi: 'מ-Google API',
   addedFromSearch: 'נוסף מחיפוש',
@@ -501,6 +502,8 @@ places: {
   editPlace: 'ערוך מקום',
   favoriteNotOnGoogle: '📍 מקום מועדף — לא קיים בגוגל',
   openFavorite: 'פתח מקום מועדף',
+  addPhoto: 'צלם או צרף תמונה',
+  photoAdded: 'תמונה נוספה!',
   placeName: 'שם המקום',
   enterPlaceName: 'אנא הזן שם למקום',
   nameExists: 'שם זה כבר קיים',
@@ -1114,6 +1117,7 @@ general: {
   outsideBoundary: 'Outside boundary',
   clickForDetails: 'Click for full details',
   clickForImage: 'Click to view image',
+  placeInfo: 'Place info',
   fromGoogle: 'From Google',
   fromGoogleApi: 'From Google API',
   addedFromSearch: 'Added from search',
@@ -1442,6 +1446,8 @@ places: {
   editPlace: 'Edit place',
   favoriteNotOnGoogle: '📍 Favorite place — not on Google',
   openFavorite: 'Open favorite place',
+  addPhoto: 'Take or attach photo',
+  photoAdded: 'Photo added!',
   placeName: 'Place name',
   enterPlaceName: 'Please enter a place name',
   nameExists: 'This name already exists',
@@ -3061,7 +3067,7 @@ window.BKK.mapConfig = {
   window.BKK.visitorName = vname || vid.slice(0, 10);
 })();
 
-window.BKK.VERSION = '3.7.59';
+window.BKK.VERSION = '3.7.61';
 window.BKK.stopLabel = function(i) {
   if (i < 26) return String.fromCharCode(65 + i);
   return String.fromCharCode(65 + Math.floor(i / 26) - 1) + String.fromCharCode(65 + (i % 26));

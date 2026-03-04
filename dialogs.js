@@ -472,6 +472,32 @@
                       )}
                     </div>
                   </div>
+                  {/* Ratings row — Google + FouFou */}
+                  {(() => {
+                    const pk = (newLocation.name || '').replace(/[.#$/\\[\]]/g, '_');
+                    const ra = reviewAverages[pk];
+                    const gR = newLocation.googleRating;
+                    // Always show — at minimum shows "rate" link
+                    return (
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', padding: '4px 0', flexWrap: 'wrap' }}>
+                        {gR && (
+                          <span style={{ fontSize: '12px', color: '#f59e0b' }}>⭐ Google {gR.toFixed?.(1) || gR} ({newLocation.googleRatingCount || 0})</span>
+                        )}
+                        {ra && (
+                          <span
+                            onClick={() => { const cl = customLocations.find(l => l.name === newLocation.name); if (cl) openReviewDialog(cl); }}
+                            style={{ fontSize: '12px', color: '#8b5cf6', cursor: 'pointer' }}
+                          >🌟 FouFou {ra.avg.toFixed(1)} ({ra.count})</span>
+                        )}
+                        {!ra && (
+                          <span
+                            onClick={() => { const cl = customLocations.find(l => l.name === newLocation.name); if (cl) openReviewDialog(cl); }}
+                            style={{ fontSize: '11px', color: '#9ca3af', cursor: 'pointer', textDecoration: 'underline' }}
+                          >☆ {t('reviews.rate') || 'דרג'}</span>
+                        )}
+                      </div>
+                    );
+                  })()}
                   <div>
                     <label className="block text-xs font-bold mb-1">{`💭 ${t("places.notes")}`}</label>
                     <textarea
@@ -1946,21 +1972,78 @@
             className="absolute top-4 right-4 bg-white bg-opacity-90 text-black rounded-full w-9 h-9 flex items-center justify-center text-xl font-bold shadow-lg hover:bg-opacity-100 z-10"
           >✕</button>
           <div onClick={e => e.stopPropagation()} className="flex flex-col items-center max-w-full max-h-full">
-            <img src={modalImage} alt="enlarged" className="max-w-full max-h-[70vh] rounded-lg shadow-2xl" />
+            {modalImage !== '__placeholder__' ? (
+              <img src={modalImage} alt="enlarged" className="max-w-full max-h-[70vh] rounded-lg shadow-2xl" />
+            ) : (
+              <div style={{ width: '300px', maxWidth: '90vw', height: '200px', background: '#f9fafb', borderRadius: '12px', border: '2px dashed #d1d5db', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                <img src="icon-192x192.png" alt="FouFou" style={{ width: '48px', height: '48px', opacity: 0.5 }} />
+                {modalImageCtx?.location && !modalImageCtx.location.locked && (
+                  <label style={{ cursor: 'pointer', background: '#8b5cf6', color: 'white', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold' }}>
+                    📷 {t('places.addPhoto') || 'צלם או צרף תמונה'}
+                    <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        const img = new Image();
+                        img.onload = () => {
+                          const maxW = 1200, maxH = 1200;
+                          let w = img.width, h = img.height;
+                          if (w > maxW || h > maxH) { const r = Math.min(maxW/w, maxH/h); w *= r; h *= r; }
+                          const c = document.createElement('canvas'); c.width = w; c.height = h;
+                          c.getContext('2d').drawImage(img, 0, 0, w, h);
+                          const dataUrl = c.toDataURL('image/jpeg', 0.8);
+                          const loc = modalImageCtx.location;
+                          setNewLocation(prev => ({...prev, uploadedImage: dataUrl}));
+                          // Save to location
+                          if (loc.firebaseId && isFirebaseAvailable && database) {
+                            database.ref(`cities/${selectedCityId}/locations/${loc.firebaseId}/uploadedImage`).set(dataUrl);
+                          }
+                          setCustomLocations(prev => prev.map(l => l.name === loc.name ? {...l, uploadedImage: dataUrl} : l));
+                          setModalImage(dataUrl);
+                          showToast('📷 ' + (t('places.photoAdded') || 'תמונה נוספה!'), 'success');
+                        };
+                        img.src = ev.target.result;
+                      };
+                      reader.readAsDataURL(file);
+                    }} />
+                  </label>
+                )}
+                {modalImageCtx?.location?.locked && (
+                  <span style={{ fontSize: '11px', color: '#9ca3af' }}>🔒 {t('general.readOnly')}</span>
+                )}
+              </div>
+            )}
             {modalImageCtx && (
               <div className="bg-white bg-opacity-95 rounded-lg mt-2 p-3 max-w-md w-full shadow-lg" style={{direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr'}}>
                 {modalImageCtx.description && (
                   <p className="text-gray-700 text-sm mb-2" style={{whiteSpace: 'pre-line'}}>{modalImageCtx.description}</p>
                 )}
-                {modalImageCtx.location && (
-                  <button
-                    onClick={() => {
-                      setShowImageModal(false); setModalImage(null); setModalImageCtx(null);
-                      handleEditLocation(modalImageCtx.location);
-                    }}
-                    className="bg-blue-500 text-white py-1.5 px-4 rounded-lg text-xs font-bold hover:bg-blue-600 flex items-center justify-center gap-1"
-                  >📍 {t('places.openFavorite') || 'פתח מקום מועדף'}</button>
-                )}
+                {modalImageCtx.location && (() => {
+                  const loc = modalImageCtx.location;
+                  const pk = (loc.name || '').replace(/[.#$/\\[\]]/g, '_');
+                  const ra = reviewAverages[pk];
+                  const gR = loc.googleRating;
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <button
+                        onClick={() => {
+                          setShowImageModal(false); setModalImage(null); setModalImageCtx(null);
+                          handleEditLocation(loc);
+                        }}
+                        className="bg-blue-500 text-white py-1.5 px-4 rounded-lg text-xs font-bold hover:bg-blue-600 flex items-center justify-center gap-1"
+                      >📍 {t('places.openFavorite') || 'פתח מקום מועדף'}</button>
+                      {gR && <span style={{ fontSize: '11px', color: '#f59e0b' }}>⭐{gR.toFixed?.(1) || gR} ({loc.googleRatingCount || 0})</span>}
+                      {ra && <span style={{ fontSize: '11px', color: '#8b5cf6' }}>🌟{ra.avg.toFixed(1)} ({ra.count})</span>}
+                      {!ra && (
+                        <span
+                          onClick={() => { setShowImageModal(false); setModalImage(null); setModalImageCtx(null); openReviewDialog(loc); }}
+                          style={{ fontSize: '11px', color: '#9ca3af', cursor: 'pointer', textDecoration: 'underline' }}
+                        >☆ {t('reviews.rate') || 'דרג'}</span>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>

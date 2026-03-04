@@ -3219,14 +3219,15 @@
       
       setGooglePlaceInfo(placeInfo);
       
-      // Auto-apply googlePlaceId to the location being edited
+      // Auto-apply googlePlaceId and rating to the location being edited
       if (placeInfo.googlePlaceId) {
         setNewLocation(prev => {
           const updated = {
             ...prev,
             googlePlaceId: placeInfo.googlePlaceId,
             googlePlace: true,
-            ...(placeInfo.address && !prev.address ? { address: placeInfo.address } : {})
+            ...(placeInfo.address && !prev.address ? { address: placeInfo.address } : {}),
+            ...(placeInfo.rating ? { googleRating: placeInfo.rating, googleRatingCount: placeInfo.ratingCount || 0 } : {})
           };
           // Build proper mapsUrl from Place ID
           updated.mapsUrl = window.BKK.getGoogleMapsUrl(updated);
@@ -5573,8 +5574,10 @@
       status: 'active',
       addedAt: new Date().toISOString(),
       addedBy: authUser?.uid || null,
-      fromGoogle: true, // Mark as added from Google
-      cityId: selectedCityId // Associate with current city
+      fromGoogle: true,
+      googleRating: place.rating || null,
+      googleRatingCount: place.ratingCount || place.user_ratings_total || 0,
+      cityId: selectedCityId
     };
     locationToAdd.mapsUrl = window.BKK.getGoogleMapsUrl(locationToAdd);
     
@@ -6241,6 +6244,8 @@
       dedupOk: locData.dedupOk || false,
       googlePlaceId: locData.googlePlaceId || '',
       googlePlace: !!locData.googlePlace,
+      googleRating: locData.googleRating || null,
+      googleRatingCount: locData.googleRatingCount || 0,
       addedAt: new Date().toISOString(),
       addedBy: authUser?.uid || null,
       cityId: selectedCityId

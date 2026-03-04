@@ -2916,7 +2916,8 @@ const FouFouApp = () => {
             ...prev,
             googlePlaceId: placeInfo.googlePlaceId,
             googlePlace: true,
-            ...(placeInfo.address && !prev.address ? { address: placeInfo.address } : {})
+            ...(placeInfo.address && !prev.address ? { address: placeInfo.address } : {}),
+            ...(placeInfo.rating ? { googleRating: placeInfo.rating, googleRatingCount: placeInfo.ratingCount || 0 } : {})
           };
           updated.mapsUrl = window.BKK.getGoogleMapsUrl(updated);
           return updated;
@@ -4961,8 +4962,10 @@ const FouFouApp = () => {
       status: 'active',
       addedAt: new Date().toISOString(),
       addedBy: authUser?.uid || null,
-      fromGoogle: true, // Mark as added from Google
-      cityId: selectedCityId // Associate with current city
+      fromGoogle: true,
+      googleRating: place.rating || null,
+      googleRatingCount: place.ratingCount || place.user_ratings_total || 0,
+      cityId: selectedCityId
     };
     locationToAdd.mapsUrl = window.BKK.getGoogleMapsUrl(locationToAdd);
     
@@ -5582,6 +5585,8 @@ const FouFouApp = () => {
       dedupOk: locData.dedupOk || false,
       googlePlaceId: locData.googlePlaceId || '',
       googlePlace: !!locData.googlePlace,
+      googleRating: locData.googleRating || null,
+      googleRatingCount: locData.googleRatingCount || 0,
       addedAt: new Date().toISOString(),
       addedBy: authUser?.uid || null,
       cityId: selectedCityId
@@ -6398,14 +6403,12 @@ const FouFouApp = () => {
                         onClick={() => {
                           if (isSkipped) return;
                           if (isFavorite) {
-                            if (isFavorite.uploadedImage) {
+                            if (!isFavorite.mapsUrl && !isFavorite.googlePlaceId && !isFavorite.placeId && !isFavorite.address) {
                               showToast(t('places.favoriteNotOnGoogle') || '📍 מקום מועדף', 'info');
-                              setModalImage(isFavorite.uploadedImage);
-                              setModalImageCtx({ description: isFavorite.description, location: isFavorite });
-                              setShowImageModal(true);
-                            } else {
-                              handleEditLocation(isFavorite);
                             }
+                            setModalImage(isFavorite.uploadedImage || '__placeholder__');
+                            setModalImageCtx({ description: isFavorite.description, location: isFavorite });
+                            setShowImageModal(true);
                           }
                           else if (stop.lat && stop.lng) {
                             const url = window.BKK.getGoogleMapsUrl(stop);
@@ -6420,13 +6423,17 @@ const FouFouApp = () => {
                         }}>
                         {stop.name}
                       </span>
-                      {/* Photo icon for favorites with image */}
-                      {!isSkipped && isFavorite && isFavorite.uploadedImage && (
+                      {/* FouFou info for favorites */}
+                      {!isSkipped && isFavorite && (
                         <button
-                          onClick={() => { setModalImage(isFavorite.uploadedImage); setModalImageCtx({ description: isFavorite.description, location: isFavorite }); setShowImageModal(true); }}
-                          style={{ background: '#eff6ff', border: 'none', borderRadius: '4px', cursor: 'pointer', padding: '0 2px', fontSize: '12px', flexShrink: 0 }}
-                          title={t('general.clickForImage')}
-                        >🖼️</button>
+                          onClick={() => {
+                            setModalImage(isFavorite.uploadedImage || '__placeholder__');
+                            setModalImageCtx({ description: isFavorite.description, location: isFavorite });
+                            setShowImageModal(true);
+                          }}
+                          style={{ background: isFavorite.uploadedImage ? '#fef3c7' : '#f3f4f6', border: 'none', borderRadius: '4px', cursor: 'pointer', padding: '1px 3px', flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}
+                          title={t('general.placeInfo') || 'מידע על המקום'}
+                        ><img src="icon-32x32.png" alt="FouFou" style={{ width: '13px', height: '13px' }} /></button>
                       )}
                       {/* Star + rating */}
                       {!isSkipped && (
@@ -7265,13 +7272,9 @@ const FouFouApp = () => {
                                         const cl = customLocations.find(loc => loc.name === stop.name);
                                         if (cl) {
                                           showToast(t('places.favoriteNotOnGoogle') || '📍 מקום מועדף — לא קיים בגוגל', 'info');
-                                          if (cl.uploadedImage) {
-                                            setModalImage(cl.uploadedImage);
-                                            setModalImageCtx({ description: cl.description, location: cl });
-                                            setShowImageModal(true);
-                                          } else {
-                                            handleEditLocation(cl);
-                                          }
+                                          setModalImage(cl.uploadedImage || '__placeholder__');
+                                          setModalImageCtx({ description: cl.description, location: cl });
+                                          setShowImageModal(true);
                                         }
                                       }
                                     }}
@@ -7317,23 +7320,30 @@ const FouFouApp = () => {
                                       {isAddedLater && routeChoiceMade === 'manual' && (
                                         <span className="text-blue-500 font-bold" title={t("general.addedViaMore")} style={{ fontSize: '9px' }}>{`+${t('general.more')}`}</span>
                                       )}
-                                      {/* Camera icon for custom locations with image */}
-                                      {isCustom && stop.uploadedImage && (
+                                      {/* FouFou info button for custom/favorite places */}
+                                      {isCustom && (() => {
+                                        const cl = customLocations.find(loc => loc.name === stop.name);
+                                        return (
                                         <button
                                           onClick={(e) => {
                                             e.preventDefault();
                                             e.stopPropagation();
-                                            setModalImage(stop.uploadedImage);
-                                            setModalImageCtx({ description: stop.description, location: stop });
+                                            if (stop.uploadedImage || cl?.uploadedImage) {
+                                              setModalImage(stop.uploadedImage || cl.uploadedImage);
+                                            } else {
+                                              setModalImage('__placeholder__');
+                                            }
+                                            setModalImageCtx({ description: stop.description || cl?.description, location: cl || stop });
                                             setShowImageModal(true);
                                           }}
-                                          className="hover:scale-110 transition bg-blue-100 hover:bg-blue-200 rounded px-0.5"
-                                          title={t("general.clickForImage")}
-                                          style={{ fontSize: '11px', cursor: 'pointer' }}
+                                          className="hover:scale-110 transition rounded px-0.5"
+                                          style={{ fontSize: '11px', cursor: 'pointer', background: (stop.uploadedImage || cl?.uploadedImage) ? '#fef3c7' : '#f3f4f6', display: 'inline-flex', alignItems: 'center', padding: '1px 2px' }}
+                                          title={t("general.placeInfo") || "מידע על המקום"}
                                         >
-                                          🖼️
+                                          <img src="icon-32x32.png" alt="FouFou" style={{ width: '14px', height: '14px' }} />
                                         </button>
-                                      )}
+                                        );
+                                      })()}
                                       {/* Disable/Enable toggle — end of row (left side in RTL) */}
                                       <span
                                         onClick={(e) => {
@@ -7360,22 +7370,32 @@ const FouFouApp = () => {
                                         🕐 {stop.openNow ? t('general.openStatus') : t('general.closedStatus')} · {stop.todayHours}
                                       </div>
                                     )}
-                                    {/* FouFou rating — custom places only, clickable if has reviews */}
+                                    {/* Ratings — Google + FouFou */}
                                     {isCustom && (() => {
                                       const pk = (stop.name || '').replace(/[.#$/\\[\]]/g, '_');
                                       const ra = reviewAverages[pk];
                                       const cl = customLocations.find(loc => loc.name === stop.name);
+                                      const gR = cl?.googleRating || stop.googleRating;
+                                      const gC = cl?.googleRatingCount || stop.googleRatingCount || 0;
                                       return (
-                                        <div
-                                          onClick={ra ? (e) => { e.preventDefault(); e.stopPropagation(); openReviewDialog(cl || stop); } : undefined}
-                                          style={{ fontSize: '10px', color: ra ? '#f59e0b' : '#9ca3af', marginTop: '2px', cursor: ra ? 'pointer' : 'default' }}
-                                        >
-                                          ⭐ {ra ? `${ra.avg.toFixed(1)} (${ra.count})` : t('reviews.notYetRated')}
+                                        <div style={{ fontSize: '10px', marginTop: '2px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                          {gR && <span style={{ color: '#f59e0b' }}>⭐{gR.toFixed?.(1) || gR} ({gC})</span>}
+                                          <span
+                                            onClick={ra ? (e) => { e.preventDefault(); e.stopPropagation(); openReviewDialog(cl || stop); } : undefined}
+                                            style={{ color: ra ? '#8b5cf6' : '#9ca3af', cursor: ra ? 'pointer' : 'default' }}
+                                          >
+                                            🌟 {ra ? `${ra.avg.toFixed(1)} (${ra.count})` : t('reviews.notYetRated')}
+                                          </span>
                                         </div>
                                       );
                                     })()}
                                   </a>
-                                  {/* Debug info popup — admin + debug mode only */}
+                                  {/* Google rating for non-custom stops */}
+                                  {!isCustom && stop.rating && (
+                                    <div style={{ fontSize: '10px', color: '#f59e0b', padding: '0 8px' }}>
+                                      ⭐{stop.rating} {stop.ratingCount ? `(${stop.ratingCount})` : ''}
+                                    </div>
+                                  )}
                                   {/* Add to favorites row — Google places only */}
                                   {!isCustom && !isDisabled && (() => {
                                     const existingLoc = customLocations.find(loc => loc.name.toLowerCase().trim() === stop.name.toLowerCase().trim());
@@ -10823,6 +10843,31 @@ const FouFouApp = () => {
                       )}
                     </div>
                   </div>
+                  {/* Ratings row — Google + FouFou */}
+                  {(() => {
+                    const pk = (newLocation.name || '').replace(/[.#$/\\[\]]/g, '_');
+                    const ra = reviewAverages[pk];
+                    const gR = newLocation.googleRating;
+                    return (
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', padding: '4px 0', flexWrap: 'wrap' }}>
+                        {gR && (
+                          <span style={{ fontSize: '12px', color: '#f59e0b' }}>⭐ Google {gR.toFixed?.(1) || gR} ({newLocation.googleRatingCount || 0})</span>
+                        )}
+                        {ra && (
+                          <span
+                            onClick={() => { const cl = customLocations.find(l => l.name === newLocation.name); if (cl) openReviewDialog(cl); }}
+                            style={{ fontSize: '12px', color: '#8b5cf6', cursor: 'pointer' }}
+                          >🌟 FouFou {ra.avg.toFixed(1)} ({ra.count})</span>
+                        )}
+                        {!ra && (
+                          <span
+                            onClick={() => { const cl = customLocations.find(l => l.name === newLocation.name); if (cl) openReviewDialog(cl); }}
+                            style={{ fontSize: '11px', color: '#9ca3af', cursor: 'pointer', textDecoration: 'underline' }}
+                          >☆ {t('reviews.rate') || 'דרג'}</span>
+                        )}
+                      </div>
+                    );
+                  })()}
                   <div>
                     <label className="block text-xs font-bold mb-1">{`💭 ${t("places.notes")}`}</label>
                     <textarea
@@ -12273,21 +12318,77 @@ const FouFouApp = () => {
             className="absolute top-4 right-4 bg-white bg-opacity-90 text-black rounded-full w-9 h-9 flex items-center justify-center text-xl font-bold shadow-lg hover:bg-opacity-100 z-10"
           >✕</button>
           <div onClick={e => e.stopPropagation()} className="flex flex-col items-center max-w-full max-h-full">
-            <img src={modalImage} alt="enlarged" className="max-w-full max-h-[70vh] rounded-lg shadow-2xl" />
+            {modalImage !== '__placeholder__' ? (
+              <img src={modalImage} alt="enlarged" className="max-w-full max-h-[70vh] rounded-lg shadow-2xl" />
+            ) : (
+              <div style={{ width: '300px', maxWidth: '90vw', height: '200px', background: '#f9fafb', borderRadius: '12px', border: '2px dashed #d1d5db', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                <img src="icon-192x192.png" alt="FouFou" style={{ width: '48px', height: '48px', opacity: 0.5 }} />
+                {modalImageCtx?.location && !modalImageCtx.location.locked && (
+                  <label style={{ cursor: 'pointer', background: '#8b5cf6', color: 'white', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold' }}>
+                    📷 {t('places.addPhoto') || 'צלם או צרף תמונה'}
+                    <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        const img = new Image();
+                        img.onload = () => {
+                          const maxW = 1200, maxH = 1200;
+                          let w = img.width, h = img.height;
+                          if (w > maxW || h > maxH) { const r = Math.min(maxW/w, maxH/h); w *= r; h *= r; }
+                          const c = document.createElement('canvas'); c.width = w; c.height = h;
+                          c.getContext('2d').drawImage(img, 0, 0, w, h);
+                          const dataUrl = c.toDataURL('image/jpeg', 0.8);
+                          const loc = modalImageCtx.location;
+                          setNewLocation(prev => ({...prev, uploadedImage: dataUrl}));
+                          if (loc.firebaseId && isFirebaseAvailable && database) {
+                            database.ref(`cities/${selectedCityId}/locations/${loc.firebaseId}/uploadedImage`).set(dataUrl);
+                          }
+                          setCustomLocations(prev => prev.map(l => l.name === loc.name ? {...l, uploadedImage: dataUrl} : l));
+                          setModalImage(dataUrl);
+                          showToast('📷 ' + (t('places.photoAdded') || 'תמונה נוספה!'), 'success');
+                        };
+                        img.src = ev.target.result;
+                      };
+                      reader.readAsDataURL(file);
+                    }} />
+                  </label>
+                )}
+                {modalImageCtx?.location?.locked && (
+                  <span style={{ fontSize: '11px', color: '#9ca3af' }}>🔒 {t('general.readOnly')}</span>
+                )}
+              </div>
+            )}
             {modalImageCtx && (
               <div className="bg-white bg-opacity-95 rounded-lg mt-2 p-3 max-w-md w-full shadow-lg" style={{direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr'}}>
                 {modalImageCtx.description && (
                   <p className="text-gray-700 text-sm mb-2" style={{whiteSpace: 'pre-line'}}>{modalImageCtx.description}</p>
                 )}
-                {modalImageCtx.location && (
-                  <button
-                    onClick={() => {
-                      setShowImageModal(false); setModalImage(null); setModalImageCtx(null);
-                      handleEditLocation(modalImageCtx.location);
-                    }}
-                    className="bg-blue-500 text-white py-1.5 px-4 rounded-lg text-xs font-bold hover:bg-blue-600 flex items-center justify-center gap-1"
-                  >📍 {t('places.openFavorite') || 'פתח מקום מועדף'}</button>
-                )}
+                {modalImageCtx.location && (() => {
+                  const loc = modalImageCtx.location;
+                  const pk = (loc.name || '').replace(/[.#$/\\[\]]/g, '_');
+                  const ra = reviewAverages[pk];
+                  const gR = loc.googleRating;
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <button
+                        onClick={() => {
+                          setShowImageModal(false); setModalImage(null); setModalImageCtx(null);
+                          handleEditLocation(loc);
+                        }}
+                        className="bg-blue-500 text-white py-1.5 px-4 rounded-lg text-xs font-bold hover:bg-blue-600 flex items-center justify-center gap-1"
+                      >📍 {t('places.openFavorite') || 'פתח מקום מועדף'}</button>
+                      {gR && <span style={{ fontSize: '11px', color: '#f59e0b' }}>⭐{gR.toFixed?.(1) || gR} ({loc.googleRatingCount || 0})</span>}
+                      {ra && <span style={{ fontSize: '11px', color: '#8b5cf6' }}>🌟{ra.avg.toFixed(1)} ({ra.count})</span>}
+                      {!ra && (
+                        <span
+                          onClick={() => { setShowImageModal(false); setModalImage(null); setModalImageCtx(null); openReviewDialog(loc); }}
+                          style={{ fontSize: '11px', color: '#9ca3af', cursor: 'pointer', textDecoration: 'underline' }}
+                        >☆ {t('reviews.rate') || 'דרג'}</span>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
