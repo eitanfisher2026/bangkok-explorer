@@ -4910,7 +4910,9 @@ const FouFouApp = () => {
       locked: !!loc.locked,
       dedupOk: !!loc.dedupOk,
       googlePlaceId: loc.googlePlaceId || '',
-      googlePlace: !!loc.googlePlace
+      googlePlace: !!loc.googlePlace,
+      googleRating: loc.googleRating || null,
+      googleRatingCount: loc.googleRatingCount || 0
     };
     
     setNewLocation(editFormData);
@@ -5709,6 +5711,7 @@ const FouFouApp = () => {
       if (!!n.dedupOk !== !!e.dedupOk) return true;
       if (nn(n.uploadedImage) !== nn(e.uploadedImage)) return true;
       if (s(n.googlePlaceId) !== s(e.googlePlaceId)) return true;
+      if (nn(n.googleRating) !== nn(e.googleRating)) return true;
       return false;
     })();
     
