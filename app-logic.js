@@ -3334,6 +3334,7 @@
     }
     
     setRatingsRefreshProgress({ current: 0, total: candidates.length, updated: 0 });
+    console.log(`[RATING-REFRESH] Starting refresh for ${candidates.length} places:`, candidates.map(c => `${c.name} (fbId=${c.firebaseId || 'MISSING'}, curRating=${c.googleRating || 'none'})`));
     let updated = 0;
     
     for (let i = 0; i < candidates.length; i++) {
@@ -3370,20 +3371,32 @@
           });
         }
         
-        if (!best.rating) continue;
+        if (!best.rating) { console.log(`[RATING-REFRESH] ${i+1}. ${loc.name} — no rating from Google`); continue; }
         const newRating = best.rating;
         const newCount = best.userRatingCount || 0;
         
         // Skip if unchanged
-        if (loc.googleRating === newRating && loc.googleRatingCount === newCount) continue;
+        if (loc.googleRating === newRating && loc.googleRatingCount === newCount) {
+          console.log(`[RATING-REFRESH] ${i+1}. ${loc.name} — unchanged ⭐${newRating} (${newCount})`);
+          continue;
+        }
+        
+        console.log(`[RATING-REFRESH] ${i+1}. ${loc.name} — ${loc.googleRating || 'null'}→${newRating} (${loc.googleRatingCount || 0}→${newCount}) firebaseId=${loc.firebaseId || 'MISSING'}`);
         
         // Save to Firebase
         if (loc.firebaseId) {
-          await database.ref(`cities/${selectedCityId}/locations/${loc.firebaseId}`).update({
-            googleRating: newRating,
-            googleRatingCount: newCount,
-            googleRatingUpdated: Date.now()
-          });
+          try {
+            await database.ref(`cities/${selectedCityId}/locations/${loc.firebaseId}`).update({
+              googleRating: newRating,
+              googleRatingCount: newCount,
+              googleRatingUpdated: Date.now()
+            });
+            console.log(`[RATING-REFRESH] ✅ Saved ${loc.name} to Firebase`);
+          } catch (fbErr) {
+            console.error(`[RATING-REFRESH] ❌ Firebase save failed for ${loc.name}:`, fbErr.message);
+          }
+        } else {
+          console.warn(`[RATING-REFRESH] ⚠️ ${loc.name} has no firebaseId — cannot save to Firebase`);
         }
         
         // Update local

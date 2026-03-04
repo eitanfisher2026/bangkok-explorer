@@ -3045,18 +3045,25 @@ const FouFouApp = () => {
           });
         }
         
-        if (!best.rating) continue;
+        if (!best.rating) { console.log(`[RATING-REFRESH] ${i+1}. ${loc.name} — no rating from Google`); continue; }
         const newRating = best.rating;
         const newCount = best.userRatingCount || 0;
         
-        if (loc.googleRating === newRating && loc.googleRatingCount === newCount) continue;
+        if (loc.googleRating === newRating && loc.googleRatingCount === newCount) {
+          continue;
+        }
         
         if (loc.firebaseId) {
-          await database.ref(`cities/${selectedCityId}/locations/${loc.firebaseId}`).update({
-            googleRating: newRating,
-            googleRatingCount: newCount,
-            googleRatingUpdated: Date.now()
-          });
+          try {
+            await database.ref(`cities/${selectedCityId}/locations/${loc.firebaseId}`).update({
+              googleRating: newRating,
+              googleRatingCount: newCount,
+              googleRatingUpdated: Date.now()
+            });
+          } catch (fbErr) {
+            console.error(`[RATING-REFRESH] ❌ Firebase save failed for ${loc.name}:`, fbErr.message);
+          }
+        } else {
         }
         
         setCustomLocations(prev => prev.map(l => 
