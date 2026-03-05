@@ -2115,7 +2115,10 @@
                     {t("places.noPlacesInCity", {cityName: tLabel(window.BKK.selectedCity) || t('places.thisCity')})}
                   </p>
                 </div>
-              ) : (
+              ) : (() => {
+                // Build flat navigation list from all visible groups
+                const flatNavList = [...groupedPlaces.sortedKeys.flatMap(k => groupedPlaces.groups[k] || []), ...groupedPlaces.ungrouped];
+                return (
                 <div className="max-h-[55vh] overflow-y-auto" style={{ contain: 'content' }}>
                   {groupedPlaces.sortedKeys.map(key => {
                     const locs = groupedPlaces.groups[key];
@@ -2147,13 +2150,13 @@
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-1 flex-wrap">
                                     {mapUrl ? (
-                                      <><span onClick={() => handleEditLocation(loc)}
+                                      <><span onClick={() => handleEditLocation(loc, flatNavList)}
                                         className="font-medium text-sm text-blue-600 truncate cursor-pointer hover:underline"
                                       >{loc.name}</span>
                                       <a href={mapUrl} target="city_explorer_map" rel="noopener noreferrer"
                                         style={{ fontSize: '10px', opacity: 0.5, flexShrink: 0 }} title={t("general.openInGoogle")}>🔗</a></>
                                     ) : (
-                                      <span onClick={() => handleEditLocation(loc)} className="font-medium text-sm truncate cursor-pointer hover:underline">{loc.name}</span>
+                                      <span onClick={() => handleEditLocation(loc, flatNavList)} className="font-medium text-sm truncate cursor-pointer hover:underline">{loc.name}</span>
                                     )}
                                     
                                     {loc.outsideArea && <span className="text-orange-500 text-xs" title={t("general.outsideBoundary")}>🔺</span>}
@@ -2168,20 +2171,20 @@
                                     ))}
                                   </div>
                                 </div>
-                                {loc.status !== 'blacklist' && (() => { const pk = (loc.name || '').replace(/[.#$/\\[\]]/g, '_'); const ra = reviewAverages[pk]; return (
-                                  <button onClick={() => openReviewDialog(loc)}
-                                    style={{ fontSize: '11px', padding: '2px 6px', borderRadius: '6px', cursor: 'pointer', flexShrink: 0, fontWeight: 'bold',
-                                      ...(ra ? { color: '#7c3aed', background: '#ede9fe', border: '1px solid #c4b5fd' } : { color: '#7c3aed', background: '#f5f3ff', border: '1px solid #ddd6fe' })
-                                    }}
-                                    title={ra ? `🌟 ${ra.avg.toFixed(1)} (${ra.count})` : (t('reviews.rate') || 'דרג')}
-                                  >{ra ? `🌟${ra.avg.toFixed(1)}` : `🌟 ${t('reviews.rate') || 'דרג'}`}</button>
-                                ); })()}
                                 {loc.status !== 'blacklist' && loc.uploadedImage && (
                                   <button onClick={() => { setModalImage(loc.uploadedImage); setModalImageCtx(null); setShowImageModal(true); }}
                                     style={{ fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', flexShrink: 0, opacity: 0.6 }}
                                     title={t("general.viewImage") || "תמונה"}>🖼️</button>
                                 )}
-                                <button onClick={() => handleEditLocation(loc)}
+                                {loc.status !== 'blacklist' && (() => { const pk = (loc.name || '').replace(/[.#$/\\[\]]/g, '_'); const ra = reviewAverages[pk]; return (
+                                  <button onClick={() => openReviewDialog(loc)}
+                                    style={{ fontSize: '11px', padding: '2px 6px', borderRadius: '6px', cursor: 'pointer', flexShrink: 0, fontWeight: 'bold', minWidth: '48px', textAlign: 'center',
+                                      ...(ra ? { color: '#7c3aed', background: '#ede9fe', border: '1px solid #c4b5fd' } : { color: '#7c3aed', background: '#f5f3ff', border: '1px solid #ddd6fe' })
+                                    }}
+                                    title={ra ? `🌟 ${ra.avg.toFixed(1)} (${ra.count})` : (t('reviews.rate') || 'דרג')}
+                                  >{ra ? `🌟${ra.avg.toFixed(1)}` : `🌟 ${t('reviews.rate') || 'דרג'}`}</button>
+                                ); })()}
+                                <button onClick={() => handleEditLocation(loc, flatNavList)}
                                   className="text-xs px-1 py-0.5 rounded"
                                   title={canEdit ? t("places.detailsEdit") : t("general.viewOnly")}>{canEdit ? "✏️" : "👁️"}</button>
                               </div>
@@ -2209,32 +2212,32 @@
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1 flex-wrap">
                                   {mapUrl ? (
-                                    <><span onClick={() => handleEditLocation(loc)}
+                                    <><span onClick={() => handleEditLocation(loc, flatNavList)}
                                       className="font-medium text-sm text-blue-600 truncate cursor-pointer hover:underline"
                                     >{loc.name}</span>
                                     <a href={mapUrl} target="city_explorer_map" rel="noopener noreferrer"
                                       style={{ fontSize: '10px', opacity: 0.5, flexShrink: 0 }} title={t("general.openInGoogle")}>🔗</a></>
                                   ) : (
-                                    <span onClick={() => handleEditLocation(loc)} className="font-medium text-sm truncate cursor-pointer hover:underline">{loc.name}</span>
+                                    <span onClick={() => handleEditLocation(loc, flatNavList)} className="font-medium text-sm truncate cursor-pointer hover:underline">{loc.name}</span>
                                   )}
                                   
                                   {!isLocationValid(loc) && <span className="text-red-500 text-[9px]" title={t("places.missingDetails")}>❌</span>}
                                 </div>
                               </div>
-                              {loc.status !== 'blacklist' && (() => { const pk = (loc.name || '').replace(/[.#$/\\[\]]/g, '_'); const ra = reviewAverages[pk]; return (
-                                <button onClick={() => openReviewDialog(loc)}
-                                  style={{ fontSize: '11px', padding: '2px 6px', borderRadius: '6px', cursor: 'pointer', flexShrink: 0, fontWeight: 'bold',
-                                    ...(ra ? { color: '#7c3aed', background: '#ede9fe', border: '1px solid #c4b5fd' } : { color: '#7c3aed', background: '#f5f3ff', border: '1px solid #ddd6fe' })
-                                  }}
-                                  title={ra ? `🌟 ${ra.avg.toFixed(1)} (${ra.count})` : (t('reviews.rate') || 'דרג')}
-                                >{ra ? `🌟${ra.avg.toFixed(1)}` : `🌟 ${t('reviews.rate') || 'דרג'}`}</button>
-                              ); })()}
                               {loc.status !== 'blacklist' && loc.uploadedImage && (
                                 <button onClick={() => { setModalImage(loc.uploadedImage); setModalImageCtx(null); setShowImageModal(true); }}
                                   style={{ fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', flexShrink: 0, opacity: 0.6 }}
                                   title={t("general.viewImage") || "תמונה"}>🖼️</button>
                               )}
-                              <button onClick={() => handleEditLocation(loc)}
+                              {loc.status !== 'blacklist' && (() => { const pk = (loc.name || '').replace(/[.#$/\\[\]]/g, '_'); const ra = reviewAverages[pk]; return (
+                                <button onClick={() => openReviewDialog(loc)}
+                                  style={{ fontSize: '11px', padding: '2px 6px', borderRadius: '6px', cursor: 'pointer', flexShrink: 0, fontWeight: 'bold', minWidth: '48px', textAlign: 'center',
+                                    ...(ra ? { color: '#7c3aed', background: '#ede9fe', border: '1px solid #c4b5fd' } : { color: '#7c3aed', background: '#f5f3ff', border: '1px solid #ddd6fe' })
+                                  }}
+                                  title={ra ? `🌟 ${ra.avg.toFixed(1)} (${ra.count})` : (t('reviews.rate') || 'דרג')}
+                                >{ra ? `🌟${ra.avg.toFixed(1)}` : `🌟 ${t('reviews.rate') || 'דרג'}`}</button>
+                              ); })()}
+                              <button onClick={() => handleEditLocation(loc, flatNavList)}
                                 className="text-xs px-1 py-0.5 rounded"
                                 title={canEdit ? t("places.detailsEdit") : t("general.viewOnly")}>{canEdit ? "✏️" : "👁️"}</button>
                             </div>
@@ -2244,7 +2247,7 @@
                     </div>
                   )}
                 </div>
-              )}
+              ); })()
             </div>
 
           </div>

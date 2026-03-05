@@ -539,6 +539,7 @@ const FouFouApp = () => {
   const [iconPickerConfig, setIconPickerConfig] = useState(null); // { description: '', callback: fn, suggestions: [], loading: false }
   const [showEditLocationDialog, setShowEditLocationDialog] = useState(false);
   const [editingLocation, setEditingLocation] = useState(null);
+  const [editNavList, setEditNavList] = useState(null); // Array of locations for prev/next navigation
   const [reviewDialog, setReviewDialog] = useState(null); // { place, reviews: [], myRating, myText }
   const [reviewAverages, setReviewAverages] = useState({}); // { placeKey: { avg: 4.2, count: 3 } }
   const [userNamesMap, setUserNamesMap] = useState({}); // { uid: displayName }
@@ -5122,8 +5123,9 @@ const FouFouApp = () => {
     setReviewDialog(null);
   };
 
-  const handleEditLocation = (loc) => {
+  const handleEditLocation = (loc, navList) => {
     setEditingLocation(loc);
+    if (navList !== undefined) setEditNavList(navList);
     const editFormData = {
       name: loc.name || '',
       description: loc.description || '',
@@ -8305,7 +8307,9 @@ const FouFouApp = () => {
                     {t("places.noPlacesInCity", {cityName: tLabel(window.BKK.selectedCity) || t('places.thisCity')})}
                   </p>
                 </div>
-              ) : (
+              ) : (() => {
+                const flatNavList = [...groupedPlaces.sortedKeys.flatMap(k => groupedPlaces.groups[k] || []), ...groupedPlaces.ungrouped];
+                return (
                 <div className="max-h-[55vh] overflow-y-auto" style={{ contain: 'content' }}>
                   {groupedPlaces.sortedKeys.map(key => {
                     const locs = groupedPlaces.groups[key];
@@ -8337,13 +8341,13 @@ const FouFouApp = () => {
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-1 flex-wrap">
                                     {mapUrl ? (
-                                      <><span onClick={() => handleEditLocation(loc)}
+                                      <><span onClick={() => handleEditLocation(loc, flatNavList)}
                                         className="font-medium text-sm text-blue-600 truncate cursor-pointer hover:underline"
                                       >{loc.name}</span>
                                       <a href={mapUrl} target="city_explorer_map" rel="noopener noreferrer"
                                         style={{ fontSize: '10px', opacity: 0.5, flexShrink: 0 }} title={t("general.openInGoogle")}>🔗</a></>
                                     ) : (
-                                      <span onClick={() => handleEditLocation(loc)} className="font-medium text-sm truncate cursor-pointer hover:underline">{loc.name}</span>
+                                      <span onClick={() => handleEditLocation(loc, flatNavList)} className="font-medium text-sm truncate cursor-pointer hover:underline">{loc.name}</span>
                                     )}
                                     
                                     {loc.outsideArea && <span className="text-orange-500 text-xs" title={t("general.outsideBoundary")}>🔺</span>}
@@ -8358,20 +8362,20 @@ const FouFouApp = () => {
                                     ))}
                                   </div>
                                 </div>
-                                {loc.status !== 'blacklist' && (() => { const pk = (loc.name || '').replace(/[.#$/\\[\]]/g, '_'); const ra = reviewAverages[pk]; return (
-                                  <button onClick={() => openReviewDialog(loc)}
-                                    style={{ fontSize: '11px', padding: '2px 6px', borderRadius: '6px', cursor: 'pointer', flexShrink: 0, fontWeight: 'bold',
-                                      ...(ra ? { color: '#7c3aed', background: '#ede9fe', border: '1px solid #c4b5fd' } : { color: '#7c3aed', background: '#f5f3ff', border: '1px solid #ddd6fe' })
-                                    }}
-                                    title={ra ? `🌟 ${ra.avg.toFixed(1)} (${ra.count})` : (t('reviews.rate') || 'דרג')}
-                                  >{ra ? `🌟${ra.avg.toFixed(1)}` : `🌟 ${t('reviews.rate') || 'דרג'}`}</button>
-                                ); })()}
                                 {loc.status !== 'blacklist' && loc.uploadedImage && (
                                   <button onClick={() => { setModalImage(loc.uploadedImage); setModalImageCtx(null); setShowImageModal(true); }}
                                     style={{ fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', flexShrink: 0, opacity: 0.6 }}
                                     title={t("general.viewImage") || "תמונה"}>🖼️</button>
                                 )}
-                                <button onClick={() => handleEditLocation(loc)}
+                                {loc.status !== 'blacklist' && (() => { const pk = (loc.name || '').replace(/[.#$/\\[\]]/g, '_'); const ra = reviewAverages[pk]; return (
+                                  <button onClick={() => openReviewDialog(loc)}
+                                    style={{ fontSize: '11px', padding: '2px 6px', borderRadius: '6px', cursor: 'pointer', flexShrink: 0, fontWeight: 'bold', minWidth: '48px', textAlign: 'center',
+                                      ...(ra ? { color: '#7c3aed', background: '#ede9fe', border: '1px solid #c4b5fd' } : { color: '#7c3aed', background: '#f5f3ff', border: '1px solid #ddd6fe' })
+                                    }}
+                                    title={ra ? `🌟 ${ra.avg.toFixed(1)} (${ra.count})` : (t('reviews.rate') || 'דרג')}
+                                  >{ra ? `🌟${ra.avg.toFixed(1)}` : `🌟 ${t('reviews.rate') || 'דרג'}`}</button>
+                                ); })()}
+                                <button onClick={() => handleEditLocation(loc, flatNavList)}
                                   className="text-xs px-1 py-0.5 rounded"
                                   title={canEdit ? t("places.detailsEdit") : t("general.viewOnly")}>{canEdit ? "✏️" : "👁️"}</button>
                               </div>
@@ -8399,32 +8403,32 @@ const FouFouApp = () => {
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1 flex-wrap">
                                   {mapUrl ? (
-                                    <><span onClick={() => handleEditLocation(loc)}
+                                    <><span onClick={() => handleEditLocation(loc, flatNavList)}
                                       className="font-medium text-sm text-blue-600 truncate cursor-pointer hover:underline"
                                     >{loc.name}</span>
                                     <a href={mapUrl} target="city_explorer_map" rel="noopener noreferrer"
                                       style={{ fontSize: '10px', opacity: 0.5, flexShrink: 0 }} title={t("general.openInGoogle")}>🔗</a></>
                                   ) : (
-                                    <span onClick={() => handleEditLocation(loc)} className="font-medium text-sm truncate cursor-pointer hover:underline">{loc.name}</span>
+                                    <span onClick={() => handleEditLocation(loc, flatNavList)} className="font-medium text-sm truncate cursor-pointer hover:underline">{loc.name}</span>
                                   )}
                                   
                                   {!isLocationValid(loc) && <span className="text-red-500 text-[9px]" title={t("places.missingDetails")}>❌</span>}
                                 </div>
                               </div>
-                              {loc.status !== 'blacklist' && (() => { const pk = (loc.name || '').replace(/[.#$/\\[\]]/g, '_'); const ra = reviewAverages[pk]; return (
-                                <button onClick={() => openReviewDialog(loc)}
-                                  style={{ fontSize: '11px', padding: '2px 6px', borderRadius: '6px', cursor: 'pointer', flexShrink: 0, fontWeight: 'bold',
-                                    ...(ra ? { color: '#7c3aed', background: '#ede9fe', border: '1px solid #c4b5fd' } : { color: '#7c3aed', background: '#f5f3ff', border: '1px solid #ddd6fe' })
-                                  }}
-                                  title={ra ? `🌟 ${ra.avg.toFixed(1)} (${ra.count})` : (t('reviews.rate') || 'דרג')}
-                                >{ra ? `🌟${ra.avg.toFixed(1)}` : `🌟 ${t('reviews.rate') || 'דרג'}`}</button>
-                              ); })()}
                               {loc.status !== 'blacklist' && loc.uploadedImage && (
                                 <button onClick={() => { setModalImage(loc.uploadedImage); setModalImageCtx(null); setShowImageModal(true); }}
                                   style={{ fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', flexShrink: 0, opacity: 0.6 }}
                                   title={t("general.viewImage") || "תמונה"}>🖼️</button>
                               )}
-                              <button onClick={() => handleEditLocation(loc)}
+                              {loc.status !== 'blacklist' && (() => { const pk = (loc.name || '').replace(/[.#$/\\[\]]/g, '_'); const ra = reviewAverages[pk]; return (
+                                <button onClick={() => openReviewDialog(loc)}
+                                  style={{ fontSize: '11px', padding: '2px 6px', borderRadius: '6px', cursor: 'pointer', flexShrink: 0, fontWeight: 'bold', minWidth: '48px', textAlign: 'center',
+                                    ...(ra ? { color: '#7c3aed', background: '#ede9fe', border: '1px solid #c4b5fd' } : { color: '#7c3aed', background: '#f5f3ff', border: '1px solid #ddd6fe' })
+                                  }}
+                                  title={ra ? `🌟 ${ra.avg.toFixed(1)} (${ra.count})` : (t('reviews.rate') || 'דרג')}
+                                >{ra ? `🌟${ra.avg.toFixed(1)}` : `🌟 ${t('reviews.rate') || 'דרג'}`}</button>
+                              ); })()}
+                              <button onClick={() => handleEditLocation(loc, flatNavList)}
                                 className="text-xs px-1 py-0.5 rounded"
                                 title={canEdit ? t("places.detailsEdit") : t("general.viewOnly")}>{canEdit ? "✏️" : "👁️"}</button>
                             </div>
@@ -8434,7 +8438,7 @@ const FouFouApp = () => {
                     </div>
                   )}
                 </div>
-              )}
+              ); })()
             </div>
 
           </div>
@@ -10772,6 +10776,24 @@ const FouFouApp = () => {
               {/* Header - Compact */}
               <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2.5 rounded-t-xl flex items-center justify-between">
                 <div className="flex items-center gap-2">
+                  {showEditLocationDialog && editNavList && editNavList.length > 1 && (() => {
+                    const idx = editNavList.findIndex(l => l.name === editingLocation?.name);
+                    return (
+                      <>
+                        <button
+                          onClick={() => { const prev = editNavList[(idx - 1 + editNavList.length) % editNavList.length]; handleEditLocation(prev, editNavList); }}
+                          style={{ background: 'rgba(255,255,255,0.25)', border: 'none', color: 'white', width: '26px', height: '26px', borderRadius: '50%', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          title={t('general.previous') || 'הקודם'}
+                        >◀</button>
+                        <span style={{ fontSize: '10px', opacity: 0.7 }}>{idx >= 0 ? idx + 1 : '?'}/{editNavList.length}</span>
+                        <button
+                          onClick={() => { const next = editNavList[(idx + 1) % editNavList.length]; handleEditLocation(next, editNavList); }}
+                          style={{ background: 'rgba(255,255,255,0.25)', border: 'none', color: 'white', width: '26px', height: '26px', borderRadius: '50%', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          title={t('general.next') || 'הבא'}
+                        >▶</button>
+                      </>
+                    );
+                  })()}
                   <h3 className="text-base font-bold">
                     {showEditLocationDialog ? t('places.editPlace') : t('places.addPlace')}
                   </h3>
@@ -10788,6 +10810,7 @@ const FouFouApp = () => {
                     setShowAddLocationDialog(false);
                     setShowEditLocationDialog(false);
                     setEditingLocation(null);
+                    setEditNavList(null);
                     setNewLocation({ 
                       name: '', description: '', notes: '', area: formData.area, interests: [], 
                       lat: null, lng: null, mapsUrl: '', address: '', uploadedImage: null, imageUrls: []
@@ -11159,6 +11182,47 @@ const FouFouApp = () => {
                           title={isRecording ? t('speech.stopRecording') : t('speech.startRecording')}
                         >
                           {isRecording ? '⏹️' : '🎤'}
+                        </button>
+                      )}
+                      {(isAdmin || isEditor) && (
+                        <button
+                          onClick={async () => {
+                            const apiKey = window.BKK.ANTHROPIC_API_KEY;
+                            if (!apiKey) { showToast('הגדר ANTHROPIC_API_KEY ב-config.js', 'error'); return; }
+                            showToast('✨ כותב תיאור...', 'info');
+                            try {
+                              const context = [
+                                `Place: ${newLocation.name}`,
+                                newLocation.address ? `Address: ${newLocation.address}` : '',
+                                newLocation.interests?.length ? `Categories: ${newLocation.interests.join(', ')}` : '',
+                                newLocation.notes ? `Notes: ${newLocation.notes}` : '',
+                                newLocation.googleRating ? `Google: ${newLocation.googleRating} (${newLocation.googleRatingCount} reviews)` : '',
+                                `City: ${window.BKK.cityNameForSearch || 'Bangkok'}`
+                              ].filter(Boolean).join('\n');
+                              const resp = await fetch('https://api.anthropic.com/v1/messages', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+                                body: JSON.stringify({
+                                  model: 'claude-sonnet-4-20250514', max_tokens: 200,
+                                  messages: [{ role: 'user', content: `כתוב תיאור קצר בעברית (2-3 משפטים) למקום הזה. תמציתי ואינפורמטיבי. סגנון חברי. בלי אימוג'י.\n\n${context}${newLocation.description ? `\n\nתיאור קיים לשפר: ${newLocation.description}` : ''}` }]
+                                })
+                              });
+                              const data = await resp.json();
+                              const text = data.content?.[0]?.text || '';
+                              if (text) {
+                                setNewLocation(prev => ({...prev, description: text}));
+                                showToast('✨ תיאור נוצר!', 'success');
+                              }
+                            } catch (err) { showToast('AI: ' + err.message, 'error'); }
+                          }}
+                          style={{
+                            width: '32px', height: '32px', borderRadius: '50%', border: 'none', cursor: 'pointer',
+                            background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)', color: 'white',
+                            fontSize: '14px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                          }}
+                          title="✨ AI — כתוב תיאור אוטומטי"
+                        >
+                          ✨
                         </button>
                       )}
                     </div>

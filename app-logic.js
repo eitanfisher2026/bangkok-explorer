@@ -556,6 +556,7 @@
   const [iconPickerConfig, setIconPickerConfig] = useState(null); // { description: '', callback: fn, suggestions: [], loading: false }
   const [showEditLocationDialog, setShowEditLocationDialog] = useState(false);
   const [editingLocation, setEditingLocation] = useState(null);
+  const [editNavList, setEditNavList] = useState(null); // Array of locations for prev/next navigation
   const [reviewDialog, setReviewDialog] = useState(null); // { place, reviews: [], myRating, myText }
   const [reviewAverages, setReviewAverages] = useState({}); // { placeKey: { avg: 4.2, count: 3 } }
   const [userNamesMap, setUserNamesMap] = useState({}); // { uid: displayName }
@@ -5753,8 +5754,9 @@
     setReviewDialog(null);
   };
 
-  const handleEditLocation = (loc) => {
+  const handleEditLocation = (loc, navList) => {
     setEditingLocation(loc);
+    if (navList !== undefined) setEditNavList(navList);
     const editFormData = {
       name: loc.name || '',
       description: loc.description || '',
