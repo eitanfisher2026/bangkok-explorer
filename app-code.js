@@ -7118,7 +7118,7 @@ const FouFouApp = () => {
                     onClick={() => {
                       setMapMode('favorites');
                       setMapFavArea(formData.searchMode === 'area' && formData.area ? formData.area : null);
-                      setMapFavRadius(formData.searchMode === 'radius' && formData.currentLat ? { lat: formData.currentLat, lng: formData.currentLng, meters: formData.radiusMeters } : null);
+                      setMapFavRadius(formData.searchMode === 'radius' && formData.currentLat && formData.radiusMeters ? { lat: formData.currentLat, lng: formData.currentLng, meters: formData.radiusMeters } : null);
                       setMapFocusPlace(null);
                       setMapFavFilter(formData.interests.length > 0 ? new Set(formData.interests) : new Set());
                       setMapBottomSheet(null);
@@ -10267,7 +10267,7 @@ const FouFouApp = () => {
                     return true;
                   }).length;
                   const areaLabel = mapFavArea ? tLabel((window.BKK.areaOptions || []).find(a => a.id === mapFavArea)) : '';
-                  const radiusLabel = mapFavRadius?.meters ? `📍 ${mapFavRadius.meters}m` : '';
+                  const radiusLabel = (mapFavRadius && mapFavRadius.meters) ? `📍 ${mapFavRadius.meters}m` : '';
                   return (
                     <span style={{ fontSize: '10px', color: '#9ca3af', fontWeight: 'normal', whiteSpace: 'nowrap' }}>
                       {activeCount} {t('nav.favorites')}{areaLabel ? ` · ${areaLabel}` : ''}{radiusLabel ? ` · ${radiusLabel}` : ''}{mapFavFilter.size > 0 ? ` · ${mapFavFilter.size} ${t('general.interests') || 'תחומים'}` : ''}
