@@ -2080,8 +2080,15 @@
                 <button
                   onClick={() => speakHelp(content)}
                   className="hover:bg-white hover:bg-opacity-20 rounded-full w-7 h-7 flex items-center justify-center text-sm"
-                  title={t('general.listen') || 'הקשב'}
-                >🔊</button>
+                  title={isSpeaking ? (isPaused ? (t('general.resume') || 'המשך') : (t('general.pause') || 'עצור')) : (t('general.listen') || 'הקשב')}
+                >{isSpeaking ? (isPaused ? '▶️' : '⏸️') : '🔊'}</button>
+                {isSpeaking && (
+                  <button
+                    onClick={stopSpeaking}
+                    className="hover:bg-white hover:bg-opacity-20 rounded-full w-7 h-7 flex items-center justify-center text-sm"
+                    title={t('general.stop') || 'עצור'}
+                  >⏹️</button>
+                )}
                 {isAdmin && (
                   <button
                     onClick={() => {
@@ -2137,8 +2144,13 @@
                     className="flex-1 py-2 rounded-lg bg-green-500 text-white font-bold hover:bg-green-600 text-sm"
                   >💾 {t('general.save') || 'שמור'}</button>
                   <button
+                    onClick={() => { saveHelpContent(helpContext, helpEditText); translateHelpToEnglish(helpContext, helpEditText); setHelpEditing(false); }}
+                    className="py-2 px-3 rounded-lg bg-indigo-500 text-white font-bold hover:bg-indigo-600 text-sm"
+                    title={t('settings.saveAndTranslate') || 'שמור ותרגם לאנגלית'}
+                  >💾🌐 EN</button>
+                  <button
                     onClick={() => setHelpEditing(false)}
-                    className="py-2 px-4 rounded-lg bg-gray-300 text-gray-700 font-bold hover:bg-gray-400 text-sm"
+                    className="py-2 px-3 rounded-lg bg-gray-300 text-gray-700 font-bold hover:bg-gray-400 text-sm"
                   >{t('general.cancel') || 'ביטול'}</button>
                 </>
               ) : (
@@ -2178,6 +2190,31 @@
           </div>
         </div>
       )}
+
+      {/* Floating Context Help Button */}
+      {!showHelp && !showMapModal && !showAddLocationDialog && !showEditLocationDialog && !showAddInterestDialog && (() => {
+        const ctxSection = getContextHelpSection();
+        const section = getHelpSection(ctxSection);
+        const hasContent = section?.content && section.content.trim().length > 0;
+        // Show for admin always (to add content), for others only if content exists
+        if (!hasContent && !isAdmin) return null;
+        return (
+          <button
+            onClick={() => showHelpFor(ctxSection)}
+            style={{
+              position: 'fixed', bottom: '70px', left: '16px', zIndex: 90,
+              width: '40px', height: '40px', borderRadius: '50%',
+              background: hasContent ? 'linear-gradient(135deg, #3b82f6, #6366f1)' : 'linear-gradient(135deg, #9ca3af, #6b7280)',
+              color: 'white', border: 'none', cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '18px', transition: 'transform 0.2s',
+              opacity: hasContent ? 0.9 : 0.5
+            }}
+            title={section?.title || t('general.help')}
+          >?</button>
+        );
+      })()}
 
       {/* Toast Notification - Subtle */}
       {/* Feedback Dialog */}

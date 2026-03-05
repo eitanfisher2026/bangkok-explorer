@@ -1313,14 +1313,81 @@ const FouFouApp = () => {
     showToast('💾 ' + (t('general.saved') || 'נשמר'), 'success');
   };
 
+  const translateHelpToEnglish = async (sectionId, hebrewText) => {
+    if (!isFirebaseAvailable || !database) return;
+    showToast('🌐 ' + (t('settings.translating') || 'מתרגם לאנגלית...'), 'info');
+    try {
+      const resp = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=he&tl=en&dt=t&q=${encodeURIComponent(hebrewText)}`);
+      const data = await resp.json();
+      const translated = data[0].map(s => s[0]).join('');
+      database.ref(`helpContent/${sectionId}/en`).set(translated);
+      setHelpOverrides(prev => ({ ...prev, [sectionId]: { ...prev[sectionId], en: translated } }));
+      showToast('🌐 ' + (t('settings.translated') || 'תורגם ונשמר באנגלית!'), 'success');
+    } catch (err) {
+      showToast('Translation error: ' + err.message, 'error');
+    }
+  };
+
+  const getContextHelpSection = () => {
+    if (showMapModal) return 'favoritesMap';
+    if (activeTrail) return 'activeTrail';
+    if (currentView === 'myPlaces') return 'myPlaces';
+    if (currentView === 'myInterests') return 'myInterests';
+    if (currentView === 'saved') return 'saved';
+    if (currentView === 'settings') return 'settings';
+    if (route && routeChoiceMade === 'manual') return 'manualMode';
+    if (route && !routeChoiceMade) return 'route';
+    if (route) return 'placesListing';
+    return 'main';
+  };
+
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [ttsVoices, setTtsVoices] = useState([]);
+  const [selectedVoice, setSelectedVoice] = useState(localStorage.getItem('foufou_tts_voice') || '');
+
+  React.useEffect(() => {
+    const loadVoices = () => {
+      const voices = window.speechSynthesis?.getVoices() || [];
+      setTtsVoices(voices);
+    };
+    loadVoices();
+    window.speechSynthesis?.addEventListener?.('voiceschanged', loadVoices);
+    return () => window.speechSynthesis?.removeEventListener?.('voiceschanged', loadVoices);
+  }, []);
+
   const speakHelp = (text) => {
     if (!window.speechSynthesis) { showToast('TTS not supported', 'error'); return; }
+    if (isSpeaking && !isPaused) {
+      window.speechSynthesis.pause();
+      setIsPaused(true);
+      return;
+    }
+    if (isPaused) {
+      window.speechSynthesis.resume();
+      setIsPaused(false);
+      return;
+    }
     window.speechSynthesis.cancel();
     const clean = text.replace(/\*\*/g, '').replace(/[•#]/g, '').replace(/\n+/g, '. ');
     const utterance = new SpeechSynthesisUtterance(clean);
-    utterance.lang = window.BKK.i18n.currentLang === 'en' ? 'en-US' : 'he-IL';
+    const lang = window.BKK.i18n.currentLang === 'en' ? 'en' : 'he';
+    utterance.lang = lang === 'en' ? 'en-US' : 'he-IL';
     utterance.rate = 0.9;
+    if (selectedVoice) {
+      const voice = ttsVoices.find(v => v.name === selectedVoice);
+      if (voice) utterance.voice = voice;
+    }
+    utterance.onstart = () => { setIsSpeaking(true); setIsPaused(false); };
+    utterance.onend = () => { setIsSpeaking(false); setIsPaused(false); };
+    utterance.onerror = () => { setIsSpeaking(false); setIsPaused(false); };
     window.speechSynthesis.speak(utterance);
+  };
+
+  const stopSpeaking = () => {
+    window.speechSynthesis?.cancel();
+    setIsSpeaking(false);
+    setIsPaused(false);
   };
 
   const showHelpFor = (context) => {
@@ -6469,9 +6536,9 @@ const FouFouApp = () => {
             boxShadow: '0 4px 20px rgba(0,0,0,0.25)', zIndex: 50, minWidth: '150px'
           }}>
             {[
-              { icon: '🗺️', label: t('nav.route'), view: 'form' },
-              { icon: '💾', label: t('nav.saved'), view: 'saved', count: citySavedRoutes.length },
-              { icon: '⭐', label: t('nav.favorites'), view: 'myPlaces', count: cityCustomLocations.filter(l => l.status !== 'blacklist').length },
+              { icon: '🗺️', label: t('nav.route'), view: 'form', help: 'main' },
+              { icon: '💾', label: t('nav.saved'), view: 'saved', count: citySavedRoutes.length, help: 'saved' },
+              { icon: '⭐', label: t('nav.favorites'), view: 'myPlaces', count: cityCustomLocations.filter(l => l.status !== 'blacklist').length, help: 'myPlaces' },
               { icon: '🏷️', label: t('nav.myInterests'), view: 'myInterests', count: allInterestOptions.filter(o => {
                 const aStatus = o.adminStatus || 'active';
                 if (aStatus === 'hidden') return false;
@@ -6481,8 +6548,8 @@ const FouFouApp = () => {
                 const status = interestStatus[o.id];
                 if (o.uncovered) return status === true;
                 return status !== false;
-              }).length },
-              { icon: '⚙️', label: t('settings.title'), view: 'settings' },
+              }).length, help: 'myInterests' },
+              { icon: '⚙️', label: t('settings.title'), view: 'settings', help: 'settings' },
             ].map(item => (
               <button
                 key={item.view}
@@ -6506,7 +6573,16 @@ const FouFouApp = () => {
                 }}
               >
                 <span style={{ fontSize: '15px' }}>{renderIcon(item.icon, '16px')}</span>
-                <span>{item.label}{item.count > 0 ? ` (${item.count})` : ''}</span>
+                <span style={{ flex: 1 }}>{item.label}{item.count > 0 ? ` (${item.count})` : ''}</span>
+                {item.help && (() => { const s = getHelpSection(item.help); return (s?.content && s.content.trim()) ? (
+                  <span onClick={(e) => { e.stopPropagation(); showHelpFor(item.help); setShowHeaderMenu(false); }}
+                    style={{ fontSize: '11px', width: '18px', height: '18px', borderRadius: '50%', background: '#eff6ff', color: '#3b82f6', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', flexShrink: 0 }}
+                    title={s.title}>?</span>
+                ) : isAdmin ? (
+                  <span onClick={(e) => { e.stopPropagation(); showHelpFor(item.help); setShowHeaderMenu(false); }}
+                    style={{ fontSize: '11px', width: '18px', height: '18px', borderRadius: '50%', background: '#f3f4f6', color: '#9ca3af', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', flexShrink: 0, opacity: 0.5 }}
+                    title="Add help">?</span>
+                ) : null; })()}
               </button>
             ))}
             {/* Divider + Auth button */}
@@ -9425,6 +9501,44 @@ const FouFouApp = () => {
               </div>
             </div>
 
+            {/* Voice selector for TTS */}
+            {ttsVoices.length > 0 && (
+            <div className="mb-3">
+              <div className="bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-200 rounded-lg p-2">
+                <h3 className="text-sm font-bold text-gray-800 mb-2">🔊 {t('settings.voiceSelect') || 'קול השמעה'}</h3>
+                <select
+                  value={selectedVoice}
+                  onChange={(e) => {
+                    setSelectedVoice(e.target.value);
+                    localStorage.setItem('foufou_tts_voice', e.target.value);
+                    window.speechSynthesis?.cancel();
+                    const u = new SpeechSynthesisUtterance(window.BKK.i18n.currentLang === 'en' ? 'Hello, this is FouFou' : 'שלום, זה פופו');
+                    const voice = ttsVoices.find(v => v.name === e.target.value);
+                    if (voice) u.voice = voice;
+                    u.lang = window.BKK.i18n.currentLang === 'en' ? 'en-US' : 'he-IL';
+                    u.rate = 0.9;
+                    window.speechSynthesis?.speak(u);
+                  }}
+                  style={{ width: '100%', padding: '6px 8px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '12px', direction: 'ltr' }}
+                >
+                  <option value="">{t('settings.defaultVoice') || 'ברירת מחדל'}</option>
+                  {ttsVoices
+                    .filter(v => {
+                      const lang = window.BKK.i18n.currentLang === 'en' ? 'en' : 'he';
+                      return v.lang.startsWith(lang);
+                    })
+                    .map(v => (
+                      <option key={v.name} value={v.name}>
+                        {v.name} {v.localService ? '' : '☁️'}
+                      </option>
+                    ))
+                  }
+                </select>
+                <p className="text-[10px] text-gray-400 mt-1">{t('settings.voiceHint') || 'בחר קול ושמע דוגמה. ☁️ = קול ענן (איכות גבוהה יותר)'}</p>
+              </div>
+            </div>
+            )}
+            
             {/* Refresh Data Button */}
             <div className="mb-3">
               <div className="bg-gradient-to-r from-cyan-50 to-teal-50 border-2 border-cyan-400 rounded-xl p-3">
@@ -12795,8 +12909,15 @@ const FouFouApp = () => {
                 <button
                   onClick={() => speakHelp(content)}
                   className="hover:bg-white hover:bg-opacity-20 rounded-full w-7 h-7 flex items-center justify-center text-sm"
-                  title={t('general.listen') || 'הקשב'}
-                >🔊</button>
+                  title={isSpeaking ? (isPaused ? (t('general.resume') || 'המשך') : (t('general.pause') || 'עצור')) : (t('general.listen') || 'הקשב')}
+                >{isSpeaking ? (isPaused ? '▶️' : '⏸️') : '🔊'}</button>
+                {isSpeaking && (
+                  <button
+                    onClick={stopSpeaking}
+                    className="hover:bg-white hover:bg-opacity-20 rounded-full w-7 h-7 flex items-center justify-center text-sm"
+                    title={t('general.stop') || 'עצור'}
+                  >⏹️</button>
+                )}
                 {isAdmin && (
                   <button
                     onClick={() => {
@@ -12852,8 +12973,13 @@ const FouFouApp = () => {
                     className="flex-1 py-2 rounded-lg bg-green-500 text-white font-bold hover:bg-green-600 text-sm"
                   >💾 {t('general.save') || 'שמור'}</button>
                   <button
+                    onClick={() => { saveHelpContent(helpContext, helpEditText); translateHelpToEnglish(helpContext, helpEditText); setHelpEditing(false); }}
+                    className="py-2 px-3 rounded-lg bg-indigo-500 text-white font-bold hover:bg-indigo-600 text-sm"
+                    title={t('settings.saveAndTranslate') || 'שמור ותרגם לאנגלית'}
+                  >💾🌐 EN</button>
+                  <button
                     onClick={() => setHelpEditing(false)}
-                    className="py-2 px-4 rounded-lg bg-gray-300 text-gray-700 font-bold hover:bg-gray-400 text-sm"
+                    className="py-2 px-3 rounded-lg bg-gray-300 text-gray-700 font-bold hover:bg-gray-400 text-sm"
                   >{t('general.cancel') || 'ביטול'}</button>
                 </>
               ) : (
@@ -12893,6 +13019,30 @@ const FouFouApp = () => {
           </div>
         </div>
       )}
+
+      {/* Floating Context Help Button */}
+      {!showHelp && !showMapModal && !showAddLocationDialog && !showEditLocationDialog && !showAddInterestDialog && (() => {
+        const ctxSection = getContextHelpSection();
+        const section = getHelpSection(ctxSection);
+        const hasContent = section?.content && section.content.trim().length > 0;
+        if (!hasContent && !isAdmin) return null;
+        return (
+          <button
+            onClick={() => showHelpFor(ctxSection)}
+            style={{
+              position: 'fixed', bottom: '70px', left: '16px', zIndex: 90,
+              width: '40px', height: '40px', borderRadius: '50%',
+              background: hasContent ? 'linear-gradient(135deg, #3b82f6, #6366f1)' : 'linear-gradient(135deg, #9ca3af, #6b7280)',
+              color: 'white', border: 'none', cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '18px', transition: 'transform 0.2s',
+              opacity: hasContent ? 0.9 : 0.5
+            }}
+            title={section?.title || t('general.help')}
+          >?</button>
+        );
+      })()}
 
       {/* Toast Notification - Subtle */}
       {/* Feedback Dialog */}

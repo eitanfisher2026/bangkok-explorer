@@ -220,9 +220,9 @@
             boxShadow: '0 4px 20px rgba(0,0,0,0.25)', zIndex: 50, minWidth: '150px'
           }}>
             {[
-              { icon: '🗺️', label: t('nav.route'), view: 'form' },
-              { icon: '💾', label: t('nav.saved'), view: 'saved', count: citySavedRoutes.length },
-              { icon: '⭐', label: t('nav.favorites'), view: 'myPlaces', count: cityCustomLocations.filter(l => l.status !== 'blacklist').length },
+              { icon: '🗺️', label: t('nav.route'), view: 'form', help: 'main' },
+              { icon: '💾', label: t('nav.saved'), view: 'saved', count: citySavedRoutes.length, help: 'saved' },
+              { icon: '⭐', label: t('nav.favorites'), view: 'myPlaces', count: cityCustomLocations.filter(l => l.status !== 'blacklist').length, help: 'myPlaces' },
               { icon: '🏷️', label: t('nav.myInterests'), view: 'myInterests', count: allInterestOptions.filter(o => {
                 const aStatus = o.adminStatus || 'active';
                 if (aStatus === 'hidden') return false;
@@ -232,8 +232,8 @@
                 const status = interestStatus[o.id];
                 if (o.uncovered) return status === true;
                 return status !== false;
-              }).length },
-              { icon: '⚙️', label: t('settings.title'), view: 'settings' },
+              }).length, help: 'myInterests' },
+              { icon: '⚙️', label: t('settings.title'), view: 'settings', help: 'settings' },
             ].map(item => (
               <button
                 key={item.view}
@@ -258,7 +258,16 @@
                 }}
               >
                 <span style={{ fontSize: '15px' }}>{renderIcon(item.icon, '16px')}</span>
-                <span>{item.label}{item.count > 0 ? ` (${item.count})` : ''}</span>
+                <span style={{ flex: 1 }}>{item.label}{item.count > 0 ? ` (${item.count})` : ''}</span>
+                {item.help && (() => { const s = getHelpSection(item.help); return (s?.content && s.content.trim()) ? (
+                  <span onClick={(e) => { e.stopPropagation(); showHelpFor(item.help); setShowHeaderMenu(false); }}
+                    style={{ fontSize: '11px', width: '18px', height: '18px', borderRadius: '50%', background: '#eff6ff', color: '#3b82f6', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', flexShrink: 0 }}
+                    title={s.title}>?</span>
+                ) : isAdmin ? (
+                  <span onClick={(e) => { e.stopPropagation(); showHelpFor(item.help); setShowHeaderMenu(false); }}
+                    style={{ fontSize: '11px', width: '18px', height: '18px', borderRadius: '50%', background: '#f3f4f6', color: '#9ca3af', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', flexShrink: 0, opacity: 0.5 }}
+                    title="Add help">?</span>
+                ) : null; })()}
               </button>
             ))}
             {/* Divider + Auth button */}
@@ -3208,6 +3217,44 @@
               </div>
             </div>
 
+            {/* Voice selector for TTS */}
+            {ttsVoices.length > 0 && (
+            <div className="mb-3">
+              <div className="bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-200 rounded-lg p-2">
+                <h3 className="text-sm font-bold text-gray-800 mb-2">🔊 {t('settings.voiceSelect') || 'קול השמעה'}</h3>
+                <select
+                  value={selectedVoice}
+                  onChange={(e) => {
+                    setSelectedVoice(e.target.value);
+                    localStorage.setItem('foufou_tts_voice', e.target.value);
+                    // Preview
+                    window.speechSynthesis?.cancel();
+                    const u = new SpeechSynthesisUtterance(window.BKK.i18n.currentLang === 'en' ? 'Hello, this is FouFou' : 'שלום, זה פופו');
+                    const voice = ttsVoices.find(v => v.name === e.target.value);
+                    if (voice) u.voice = voice;
+                    u.lang = window.BKK.i18n.currentLang === 'en' ? 'en-US' : 'he-IL';
+                    u.rate = 0.9;
+                    window.speechSynthesis?.speak(u);
+                  }}
+                  style={{ width: '100%', padding: '6px 8px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '12px', direction: 'ltr' }}
+                >
+                  <option value="">{t('settings.defaultVoice') || 'ברירת מחדל'}</option>
+                  {ttsVoices
+                    .filter(v => {
+                      const lang = window.BKK.i18n.currentLang === 'en' ? 'en' : 'he';
+                      return v.lang.startsWith(lang);
+                    })
+                    .map(v => (
+                      <option key={v.name} value={v.name}>
+                        {v.name} {v.localService ? '' : '☁️'}
+                      </option>
+                    ))
+                  }
+                </select>
+                <p className="text-[10px] text-gray-400 mt-1">{t('settings.voiceHint') || 'בחר קול ושמע דוגמה. ☁️ = קול ענן (איכות גבוהה יותר)'}</p>
+              </div>
+            </div>
+            )}
             
             {/* Refresh Data Button */}
             <div className="mb-3">

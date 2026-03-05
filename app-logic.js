@@ -1400,15 +1400,88 @@
     showToast('💾 ' + (t('general.saved') || 'נשמר'), 'success');
   };
 
-  // Text-to-speech for help content
+  // Translate help content Hebrew → English using Google Translate
+  const translateHelpToEnglish = async (sectionId, hebrewText) => {
+    if (!isFirebaseAvailable || !database) return;
+    showToast('🌐 ' + (t('settings.translating') || 'מתרגם לאנגלית...'), 'info');
+    try {
+      const resp = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=he&tl=en&dt=t&q=${encodeURIComponent(hebrewText)}`);
+      const data = await resp.json();
+      const translated = data[0].map(s => s[0]).join('');
+      // Save English version to Firebase
+      database.ref(`helpContent/${sectionId}/en`).set(translated);
+      setHelpOverrides(prev => ({ ...prev, [sectionId]: { ...prev[sectionId], en: translated } }));
+      showToast('🌐 ' + (t('settings.translated') || 'תורגם ונשמר באנגלית!'), 'success');
+    } catch (err) {
+      showToast('Translation error: ' + err.message, 'error');
+    }
+  };
+
+  // Context-sensitive help mapping: currentView/state → help section
+  const getContextHelpSection = () => {
+    if (showMapModal) return 'favoritesMap';
+    if (activeTrail) return 'activeTrail';
+    if (currentView === 'myPlaces') return 'myPlaces';
+    if (currentView === 'myInterests') return 'myInterests';
+    if (currentView === 'saved') return 'saved';
+    if (currentView === 'settings') return 'settings';
+    if (route && routeChoiceMade === 'manual') return 'manualMode';
+    if (route && !routeChoiceMade) return 'route';
+    if (route) return 'placesListing';
+    return 'main';
+  };
+
+  // Text-to-speech
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [ttsVoices, setTtsVoices] = useState([]);
+  const [selectedVoice, setSelectedVoice] = useState(localStorage.getItem('foufou_tts_voice') || '');
+
+  // Load available voices
+  React.useEffect(() => {
+    const loadVoices = () => {
+      const voices = window.speechSynthesis?.getVoices() || [];
+      setTtsVoices(voices);
+    };
+    loadVoices();
+    window.speechSynthesis?.addEventListener?.('voiceschanged', loadVoices);
+    return () => window.speechSynthesis?.removeEventListener?.('voiceschanged', loadVoices);
+  }, []);
+
   const speakHelp = (text) => {
     if (!window.speechSynthesis) { showToast('TTS not supported', 'error'); return; }
+    // If speaking, toggle pause/resume
+    if (isSpeaking && !isPaused) {
+      window.speechSynthesis.pause();
+      setIsPaused(true);
+      return;
+    }
+    if (isPaused) {
+      window.speechSynthesis.resume();
+      setIsPaused(false);
+      return;
+    }
     window.speechSynthesis.cancel();
     const clean = text.replace(/\*\*/g, '').replace(/[•#]/g, '').replace(/\n+/g, '. ');
     const utterance = new SpeechSynthesisUtterance(clean);
-    utterance.lang = window.BKK.i18n.currentLang === 'en' ? 'en-US' : 'he-IL';
+    const lang = window.BKK.i18n.currentLang === 'en' ? 'en' : 'he';
+    utterance.lang = lang === 'en' ? 'en-US' : 'he-IL';
     utterance.rate = 0.9;
+    // Apply selected voice
+    if (selectedVoice) {
+      const voice = ttsVoices.find(v => v.name === selectedVoice);
+      if (voice) utterance.voice = voice;
+    }
+    utterance.onstart = () => { setIsSpeaking(true); setIsPaused(false); };
+    utterance.onend = () => { setIsSpeaking(false); setIsPaused(false); };
+    utterance.onerror = () => { setIsSpeaking(false); setIsPaused(false); };
     window.speechSynthesis.speak(utterance);
+  };
+
+  const stopSpeaking = () => {
+    window.speechSynthesis?.cancel();
+    setIsSpeaking(false);
+    setIsPaused(false);
   };
 
   const showHelpFor = (context) => {
