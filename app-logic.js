@@ -476,7 +476,7 @@
   const [locationsLoading, setLocationsLoading] = useState(true);
   const [firebaseConnected, setFirebaseConnected] = useState(false);
   const [showAddLocationDialog, setShowAddLocationDialog] = useState(false);
-  const [placesTab, setPlacesTab] = useState('drafts'); // 'drafts' | 'ready' | 'skipped'
+  const [placesTab, setPlacesTab] = useState('all'); // 'all' | 'drafts' | 'ready' | 'skipped'
   const [lastImportBatch, setLastImportBatch] = useState(null); // batch ID of last import
   const [filterImportBatch, setFilterImportBatch] = useState(false); // filter to show only last import
   const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -536,7 +536,7 @@
       slotPenaltyMultiplier: 3,
       slotEndPenaltyMultiplier: 4,
       gapPenaltyMultiplier: 2,
-      showDraftsOnMap: true,
+      includeDrafts: true,
       // FouFou rating boost (multiplier for user ratings in bucket sort)
       foufouRatingBoost: 2,
       // Speech recording
@@ -945,7 +945,7 @@
           // Supports: city overview, area focus, single place highlight
           // ═══════════════════════════════════════════════════════════════
           const allInts = window.BKK.interestOptions || [];
-          const showDrafts = window.BKK.systemParams?.showDraftsOnMap !== false;
+          const showDrafts = window.BKK.systemParams?.includeDrafts !== false;
           
           // Filter locations
           const locs = customLocations.filter(loc => {
@@ -3659,7 +3659,7 @@
       const blacklistedLocations = cityCustomLocations.filter(loc => loc.status === 'blacklist');
       
       // Choose which locations to group based on placesTab
-      const tabLocations = placesTab === 'drafts' ? draftsLocations : placesTab === 'ready' ? readyLocations : blacklistedLocations;
+      const tabLocations = placesTab === 'all' ? [...draftsLocations, ...readyLocations] : placesTab === 'drafts' ? draftsLocations : placesTab === 'ready' ? readyLocations : blacklistedLocations;
       
       // Apply search filter
       const filteredTabLocations = searchQuery?.trim() 
@@ -3804,6 +3804,9 @@
       
       // CRITICAL: Skip blacklisted locations!
       if (loc.status === 'blacklist') return false;
+      
+      // Skip drafts if includeDrafts is off
+      if (!window.BKK.systemParams?.includeDrafts && !loc.locked) return false;
       
       // Skip invalid locations (missing required data)
       if (!isLocationValid(loc)) return false;

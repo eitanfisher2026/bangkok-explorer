@@ -96,12 +96,6 @@
               {/* Content - Scrollable - COMPACT */}
               <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5">
                 <div style={{ position: 'relative' }}>
-                {showEditLocationDialog && editingLocation?.locked && !isUnlocked && (
-                  <div style={{ position: 'absolute', inset: 0, zIndex: 10, backgroundColor: 'rgba(255,255,255,0.3)', pointerEvents: 'all' }} 
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); document.activeElement?.blur(); }}
-                    onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); document.activeElement?.blur(); }}
-                  />
-                )}
                 
                 {/* Row 1: Name + Area */}
                 <div className="space-y-2">
@@ -114,8 +108,8 @@
                     <input
                       type="text"
                       value={newLocation.name}
-                      readOnly={showEditLocationDialog && editingLocation?.locked && !isUnlocked}
-                      onFocus={(e) => { if (showEditLocationDialog && editingLocation?.locked && !isUnlocked) e.target.blur(); }}
+                      
+                      
                       onChange={(e) => {
                         setNewLocation({...newLocation, name: e.target.value});
                         setLocationSearchResults(null);
@@ -347,14 +341,12 @@
                           setShowImageModal(true);
                         }}
                       />
-                      {!(showEditLocationDialog && editingLocation?.locked && !isUnlocked) && (
                       <button
                         onClick={() => setNewLocation({...newLocation, uploadedImage: null})}
                         className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 text-xs font-bold hover:bg-red-600"
                       >
                         ✕
                       </button>
-                      )}
                     </div>
                   ) : (
                     <div className="flex gap-2">
@@ -617,12 +609,13 @@
                     >
                       🔍 {loadingGoogleInfo ? '...' : t('places.googleInfo')}
                     </button>
-                    {isUnlocked && (
+                    {(isAdmin || isEditor) && (
                       <button type="button"
                         onClick={() => setNewLocation({...newLocation, locked: !newLocation.locked})}
-                        className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${newLocation.locked ? 'border-gray-600 bg-gray-600 text-white' : 'border-gray-300 bg-white text-gray-400'}`}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${newLocation.locked ? 'border-green-600 bg-green-600 text-white' : 'border-amber-300 bg-amber-50 text-amber-600'}`}
+                        title={newLocation.locked ? t('places.approved') || 'מאושר' : t('places.draft') || 'טיוטה'}
                       >
-                        {newLocation.locked ? '🔒' : '🔓'}
+                        {newLocation.locked ? '✅' : '✏️'}
                       </button>
                     )}
                   </div>
@@ -668,8 +661,8 @@
                     </div>
                   )}
 
-                  {/* Row 2: Skip + Delete (edit mode only) — compact inline */}
-                  {showEditLocationDialog && editingLocation && !(editingLocation.locked && !isUnlocked) && (
+                  {/* Row 2: Skip + Delete (edit mode only) — editor/admin only */}
+                  {showEditLocationDialog && editingLocation && (isAdmin || isEditor) && (
                     <div className="flex gap-1.5 pt-1 border-t border-gray-200">
                       {editingLocation.status === 'blacklist' ? (
                         <button
@@ -694,7 +687,6 @@
                           🚫 {t('route.skipPermanently')}
                         </button>
                       )}
-                      {(isAdmin || (isEditor && !editingLocation.locked) || (editingLocation.addedBy && editingLocation.addedBy === authUser?.uid && !editingLocation.locked)) && (
                       <button
                         onClick={() => {
                           showConfirm(`${t("general.deletePlace")} "${editingLocation.name}"?`, () => {
@@ -707,7 +699,6 @@
                       >
                         🗑️ {t("general.deletePlace")}
                       </button>
-                      )}
                     </div>
                   )}
                 </div>
@@ -718,9 +709,8 @@
               
               {/* Footer */}
               {(() => {
-                const isLockedPlace = showEditLocationDialog && editingLocation?.locked && !isUnlocked;
                 const isOwnPlace = !editingLocation?.addedBy || editingLocation.addedBy === authUser?.uid;
-                const canEdit = isUnlocked || (isOwnPlace && !editingLocation?.locked);
+                const canEdit = isAdmin || isEditor || isOwnPlace;
                 return (
               <div className="px-4 py-2.5 border-t border-gray-200 flex gap-2" style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
                 {!canEdit ? (
@@ -813,9 +803,6 @@
               {/* Content */}
               <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
                 <div style={{ position: 'relative' }}>
-                {editingCustomInterest?.locked && !isUnlocked && (
-                  <div style={{ position: 'absolute', inset: 0, zIndex: 10, backgroundColor: 'rgba(255,255,255,0.3)' }} />
-                )}
                 {/* Name + Icon row */}
                 <div className="grid grid-cols-4 gap-2">
                   <div className="col-span-3">
@@ -1283,19 +1270,8 @@
                 )}
 
                 {/* Status toggle - locked (admin only) */}
-                {isUnlocked && (
-                <div className="flex gap-3 px-4 py-2 bg-gray-50 border-t border-gray-100">
-                  <button type="button"
-                    onClick={() => setNewInterest({...newInterest, locked: !newInterest.locked})}
-                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${newInterest.locked ? 'border-gray-600 bg-gray-600 text-white' : 'border-gray-300 bg-white text-gray-400'}`}
-                  >
-                    {newInterest.locked ? '🔒' : '🔓'}
-                  </button>
-                </div>
-                )}
-
-                {/* Actions: Enable/Disable + Delete (edit mode only) - hidden for locked non-admin */}
-                {editingCustomInterest && !(editingCustomInterest.locked && !isUnlocked) && (
+                {/* Actions: Enable/Disable + Delete (edit mode only) */}
+                {editingCustomInterest && isUnlocked && (
                   <div className="border-t border-red-200 bg-red-50 px-4 py-2">
                     <div className="flex gap-2">
                       <button
@@ -1353,12 +1329,7 @@
               {/* Footer */}
               <div className="px-4 py-2.5 border-t border-gray-200 flex gap-2" style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
                 {(() => {
-                  const isLockedInterest = editingCustomInterest?.locked && !isUnlocked;
-                  return isLockedInterest ? (
-                    <div className="flex-shrink-0 py-2.5 px-3 bg-yellow-100 text-yellow-800 rounded-lg text-[11px] font-bold text-center flex items-center">
-                      🔒 View only
-                    </div>
-                  ) : (
+                  return (
                     <button
                       onClick={async () => {
                         if (!newInterest.label.trim()) return;
@@ -1980,7 +1951,7 @@
                 {modalImageCtx?.location && !modalImageCtx.location.locked && (
                   <label style={{ cursor: 'pointer', background: '#8b5cf6', color: 'white', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold' }}>
                     📷 {t('places.addPhoto') || 'צלם או צרף תמונה'}
-                    <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={(e) => {
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
                       const reader = new FileReader();
@@ -2016,8 +1987,72 @@
             )}
             {modalImageCtx && (
               <div className="bg-white bg-opacity-95 rounded-lg mt-2 p-3 max-w-md w-full shadow-lg" style={{direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr'}}>
-                {modalImageCtx.description && (
-                  <p className="text-gray-700 text-sm mb-2" style={{whiteSpace: 'pre-line'}}>{modalImageCtx.description}</p>
+                {/* Editable description for admin/editor, read-only for others */}
+                {modalImageCtx.location && (isAdmin || isEditor || authUser?.uid === modalImageCtx.location.addedBy) ? (
+                  <div style={{ marginBottom: '8px' }}>
+                    <textarea
+                      value={modalImageCtx.description || ''}
+                      onChange={(e) => setModalImageCtx(prev => ({...prev, description: e.target.value}))}
+                      placeholder={t('places.descriptionPlaceholder') || 'תיאור קצר של המקום...'}
+                      style={{ width: '100%', minHeight: '50px', padding: '6px 8px', fontSize: '13px', border: '1px solid #d1d5db', borderRadius: '8px', resize: 'vertical', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}
+                    />
+                    <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                      <button
+                        onClick={() => {
+                          const loc = modalImageCtx.location;
+                          const desc = modalImageCtx.description || '';
+                          if (loc.firebaseId && isFirebaseAvailable && database) {
+                            database.ref(`cities/${selectedCityId}/locations/${loc.firebaseId}/description`).set(desc);
+                            setCustomLocations(prev => prev.map(l => l.name === loc.name ? {...l, description: desc} : l));
+                            showToast('💾 ' + (t('general.saved') || 'נשמר'), 'success');
+                          }
+                        }}
+                        style={{ padding: '3px 10px', fontSize: '11px', fontWeight: 'bold', background: '#22c55e', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                      >💾 {t('general.save') || 'שמור'}</button>
+                      <button
+                        onClick={async () => {
+                          const loc = modalImageCtx.location;
+                          const apiKey = window.BKK.ANTHROPIC_API_KEY;
+                          if (!apiKey) { showToast('הגדר ANTHROPIC_API_KEY ב-config.js', 'error'); return; }
+                          showToast('✨ ' + (t('places.aiGenerating') || 'כותב תיאור...'), 'info');
+                          try {
+                            const context = [
+                              `Place: ${loc.name}`,
+                              loc.address ? `Address: ${loc.address}` : '',
+                              loc.interests?.length ? `Categories: ${loc.interests.join(', ')}` : '',
+                              loc.notes ? `Notes: ${loc.notes}` : '',
+                              loc.googleRating ? `Google: ${loc.googleRating} (${loc.googleRatingCount} reviews)` : '',
+                              `City: ${window.BKK.cityNameForSearch || 'Bangkok'}`
+                            ].filter(Boolean).join('\n');
+                            const resp = await fetch('https://api.anthropic.com/v1/messages', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+                              body: JSON.stringify({
+                                model: 'claude-sonnet-4-20250514',
+                                max_tokens: 200,
+                                messages: [{ role: 'user', content: `כתוב תיאור קצר בעברית (2-3 משפטים) למקום הזה. תמציתי ואינפורמטיבי. סגנון חברי. בלי אימוג'י.\n\n${context}${modalImageCtx.description ? `\n\nתיאור קיים לשפר: ${modalImageCtx.description}` : ''}` }]
+                              })
+                            });
+                            const data = await resp.json();
+                            const text = data.content?.[0]?.text || '';
+                            if (text) {
+                              setModalImageCtx(prev => ({...prev, description: text}));
+                              showToast('✨ ' + (t('places.aiDone') || 'תיאור נוצר!'), 'success');
+                            } else {
+                              showToast('AI: no response', 'error');
+                            }
+                          } catch (err) {
+                            showToast('AI: ' + err.message, 'error');
+                          }
+                        }}
+                        style={{ padding: '3px 10px', fontSize: '11px', fontWeight: 'bold', background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                      >✨ AI</button>
+                    </div>
+                  </div>
+                ) : (
+                  modalImageCtx.description && (
+                    <p className="text-gray-700 text-sm mb-2" style={{whiteSpace: 'pre-line'}}>{modalImageCtx.description}</p>
+                  )
                 )}
                 {modalImageCtx.location && (() => {
                   const loc = modalImageCtx.location;

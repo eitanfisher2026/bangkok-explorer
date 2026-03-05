@@ -468,7 +468,7 @@ const FouFouApp = () => {
   const [locationsLoading, setLocationsLoading] = useState(true);
   const [firebaseConnected, setFirebaseConnected] = useState(false);
   const [showAddLocationDialog, setShowAddLocationDialog] = useState(false);
-  const [placesTab, setPlacesTab] = useState('drafts'); // 'drafts' | 'ready' | 'skipped'
+  const [placesTab, setPlacesTab] = useState('all'); // 'all' | 'drafts' | 'ready' | 'skipped'
   const [lastImportBatch, setLastImportBatch] = useState(null); // batch ID of last import
   const [filterImportBatch, setFilterImportBatch] = useState(false); // filter to show only last import
   const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -521,7 +521,7 @@ const FouFouApp = () => {
       slotPenaltyMultiplier: 3,
       slotEndPenaltyMultiplier: 4,
       gapPenaltyMultiplier: 2,
-      showDraftsOnMap: true,
+      includeDrafts: true,
       foufouRatingBoost: 2,
       speechMaxSeconds: 15,
     };
@@ -895,7 +895,7 @@ const FouFouApp = () => {
           leafletMapRef.current = map;
         } else if (mapMode === 'favorites') {
           const allInts = window.BKK.interestOptions || [];
-          const showDrafts = window.BKK.systemParams?.showDraftsOnMap !== false;
+          const showDrafts = window.BKK.systemParams?.includeDrafts !== false;
           
           const locs = customLocations.filter(loc => {
             if (loc.status === 'blacklist') return false;
@@ -3308,7 +3308,7 @@ const FouFouApp = () => {
       const readyLocations = cityCustomLocations.filter(loc => loc.status !== 'blacklist' && loc.locked);
       const blacklistedLocations = cityCustomLocations.filter(loc => loc.status === 'blacklist');
       
-      const tabLocations = placesTab === 'drafts' ? draftsLocations : placesTab === 'ready' ? readyLocations : blacklistedLocations;
+      const tabLocations = placesTab === 'all' ? [...draftsLocations, ...readyLocations] : placesTab === 'drafts' ? draftsLocations : placesTab === 'ready' ? readyLocations : blacklistedLocations;
       
       const filteredTabLocations = searchQuery?.trim() 
         ? tabLocations.filter(loc => {
@@ -3438,6 +3438,8 @@ const FouFouApp = () => {
       if ((loc.cityId || 'bangkok') !== selectedCityId) return false;
       
       if (loc.status === 'blacklist') return false;
+      
+      if (!window.BKK.systemParams?.includeDrafts && !loc.locked) return false;
       
       if (!isLocationValid(loc)) return false;
       
@@ -8231,36 +8233,27 @@ const FouFouApp = () => {
                 </button>
               </div>
 
-              {/* 3 Tabs: Drafts / Ready / Skipped */}
-              <div className="flex mb-2 border-b border-gray-200">
-                <button
-                  onClick={() => setPlacesTab('drafts')}
-                  className={`flex-1 py-2 text-sm font-bold text-center border-b-2 transition-all ${
-                    placesTab === 'drafts' ? 'border-amber-500 text-amber-700 bg-amber-50' : 'border-transparent text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  {`✏️ ${t("places.drafts")} (${groupedPlaces.draftsCount})`}
-                </button>
-                <button
-                  onClick={() => setPlacesTab('ready')}
-                  className={`flex-1 py-2 text-sm font-bold text-center border-b-2 transition-all ${
-                    placesTab === 'ready' ? 'border-green-500 text-green-700 bg-green-50' : 'border-transparent text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  {`🔒 ${t("places.ready")} (${groupedPlaces.readyCount})`}
-                </button>
-                <button
-                  onClick={() => setPlacesTab('skipped')}
-                  className={`flex-1 py-2 text-sm font-bold text-center border-b-2 transition-all ${
-                    placesTab === 'skipped' ? 'border-red-500 text-red-700 bg-red-50' : 'border-transparent text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  {`🚫 ${t("places.skipped")} (${groupedPlaces.blacklistCount})`}
-                </button>
+              {/* Filter button for editor/admin */}
+              {isUnlocked && (
+              <div className="flex mb-2 gap-1 items-center justify-end">
+                <span className="text-xs text-gray-400 mr-auto">{groupedPlaces.draftsCount + groupedPlaces.readyCount} {t('nav.favorites')} {groupedPlaces.blacklistCount > 0 ? `· ${groupedPlaces.blacklistCount} 🚫` : ''}</span>
+                {['all', 'drafts', 'ready', 'skipped'].map(tab => (
+                  <button key={tab}
+                    onClick={() => setPlacesTab(tab)}
+                    className={`px-2 py-1 rounded text-xs font-bold transition-all ${
+                      placesTab === tab
+                        ? tab === 'skipped' ? 'bg-red-100 text-red-700' : tab === 'ready' ? 'bg-green-100 text-green-700' : tab === 'drafts' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    {tab === 'all' ? t('general.all') || 'הכל' : tab === 'drafts' ? `✏️ ${groupedPlaces.draftsCount}` : tab === 'ready' ? `✅ ${groupedPlaces.readyCount}` : `🚫 ${groupedPlaces.blacklistCount}`}
+                  </button>
+                ))}
               </div>
+              )}
               
               {/* Pending locations waiting for sync */}
-              {lastImportBatch && placesTab === 'drafts' && (() => {
+              {lastImportBatch && (placesTab === 'all' || placesTab === 'drafts') && (() => {
                 const batchCount = cityCustomLocations.filter(l => l.importBatch === lastImportBatch && l.status !== 'blacklist' && !l.locked).length;
                 if (batchCount === 0) return null;
                 return (
@@ -8307,11 +8300,9 @@ const FouFouApp = () => {
                 </div>
               ) : (groupedPlaces.sortedKeys.length === 0 && groupedPlaces.ungrouped.length === 0) ? (
                 <div className="text-center py-6 bg-gray-50 rounded-lg">
-                  <div className="text-3xl mb-2">{placesTab === 'drafts' ? '✏️' : placesTab === 'ready' ? '🔒' : '🚫'}</div>
+                  <div className="text-3xl mb-2">{placesTab === 'skipped' ? '🚫' : '📍'}</div>
                   <p className="text-gray-600 text-sm">
-                    {placesTab === 'drafts' ? t("places.noPlacesInCity", {cityName: tLabel(window.BKK.selectedCity) || t('places.thisCity')})
-                     : placesTab === 'ready' ? t("places.noPlacesInCity", {cityName: tLabel(window.BKK.selectedCity) || t('places.thisCity')})
-                     : t("places.noPlacesInCity", {cityName: tLabel(window.BKK.selectedCity) || t('places.thisCity')})}
+                    {t("places.noPlacesInCity", {cityName: tLabel(window.BKK.selectedCity) || t('places.thisCity')})}
                   </p>
                 </div>
               ) : (
@@ -8323,7 +8314,7 @@ const FouFouApp = () => {
                       : areaMap[key];
                     const groupLabel = obj ? tLabel(obj) : key;
                     const groupIcon = placesGroupBy === 'interest' ? (obj?.icon || '🏷️') : '📍';
-                    const canEdit = placesTab === 'drafts' || isUnlocked;
+                    const canEdit = true; // permissions handled in edit dialog
                     return (
                       <div key={key} className="border border-gray-200 rounded-lg overflow-hidden mb-1.5">
                         <div className="bg-gray-100 px-2 py-1 flex items-center gap-1 text-xs font-bold text-gray-700">
@@ -8338,7 +8329,7 @@ const FouFouApp = () => {
                             return (
                               <div key={loc.id}
                                 className={`flex items-center justify-between gap-2 border-2 rounded p-1.5 mb-0.5 ${
-                                  placesTab === 'skipped' ? 'border-red-200 bg-red-50' :
+                                  loc.status === 'blacklist' ? 'border-red-200 bg-red-50' :
                                   isLocationValid(loc) ? "border-gray-200 bg-white" : "border-red-400 bg-red-50"
                                 }`}
                                 style={{ contain: 'layout style', ...(isNewImport ? { borderLeftWidth: '4px', borderLeftColor: '#22c55e' } : {}) }}
@@ -8354,7 +8345,7 @@ const FouFouApp = () => {
                                     ) : (
                                       <span onClick={() => handleEditLocation(loc)} className="font-medium text-sm truncate cursor-pointer hover:underline">{loc.name}</span>
                                     )}
-                                    {loc.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '12px' }}>🔒</span>}
+                                    {isUnlocked && <span title={loc.locked ? (t('places.approved') || 'מאושר') : (t('places.draft') || 'טיוטה')} style={{ fontSize: '10px' }}>{loc.locked ? '✅' : '✏️'}</span>}
                                     {loc.outsideArea && <span className="text-orange-500 text-xs" title={t("general.outsideBoundary")}>🔺</span>}
                                     {loc.missingCoordinates && <span className="text-red-500 text-xs" title={t("general.noLocation")}>⚠️</span>}
                                     {!isLocationValid(loc) && <span className="text-red-500 text-[9px]" title={t("places.missingDetailsLong")}>❌</span>}
@@ -8398,7 +8389,7 @@ const FouFouApp = () => {
                       <div className="p-1">
                         {groupedPlaces.ungrouped.filter(loc => !filterImportBatch || !lastImportBatch || loc.importBatch === lastImportBatch).map(loc => {
                           const mapUrl = (() => { const u = window.BKK.getGoogleMapsUrl(loc); return u === '#' ? null : u; })();
-                          const canEdit = placesTab === 'drafts' || isUnlocked;
+                          const canEdit = true; // permissions handled in edit dialog
                           const isNewImport = lastImportBatch && loc.importBatch === lastImportBatch;
                           return (
                             <div key={loc.id}
@@ -8416,7 +8407,7 @@ const FouFouApp = () => {
                                   ) : (
                                     <span onClick={() => handleEditLocation(loc)} className="font-medium text-sm truncate cursor-pointer hover:underline">{loc.name}</span>
                                   )}
-                                  {loc.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '12px' }}>🔒</span>}
+                                  {isUnlocked && <span title={loc.locked ? (t('places.approved') || 'מאושר') : (t('places.draft') || 'טיוטה')} style={{ fontSize: '10px' }}>{loc.locked ? '✅' : '✏️'}</span>}
                                   {!isLocationValid(loc) && <span className="text-red-500 text-[9px]" title={t("places.missingDetails")}>❌</span>}
                                 </div>
                               </div>
@@ -8544,7 +8535,6 @@ const FouFouApp = () => {
                       <span className={`font-medium text-sm truncate ${isHidden ? 'text-red-400 line-through' : isDraft ? 'text-amber-700' : !effectiveActive ? 'text-gray-500' : ''}`}>{tLabel(interest)}</span>
                       {favCount > 0 && <span style={{ fontSize: '10px', color: '#9ca3af', flexShrink: 0 }}>({favCount})</span>}
                       {!isValid && <span className="text-red-500 text-xs flex-shrink-0" title={t("interests.missingSearchConfig")}>⚠️</span>}
-                      {interest.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '11px' }} className="flex-shrink-0">🔒</span>}
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
                       {/* Map button — show favorites filtered to this interest */}
@@ -8604,8 +8594,8 @@ const FouFouApp = () => {
                       <button
                         onClick={() => openInterestDialog(interest)}
                         className="text-xs px-1 py-0.5 rounded flex-shrink-0"
-                        title={interest.locked && !isUnlocked ? t("general.viewOnly") : t("places.detailsEdit")}
-                      >{interest.locked && !isUnlocked ? '👁️' : '✏️'}</button>
+                        title={t("places.detailsEdit")}
+                      >{'✏️'}</button>
                       )}
                     </div>
                   </div>
@@ -9454,6 +9444,69 @@ const FouFouApp = () => {
               </div>
             </div>
             
+            {/* Bulk Approve Drafts */}
+            {isUnlocked && (
+            <div className="mb-3">
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-400 rounded-xl p-3">
+                <h3 className="text-base font-bold text-gray-800 mb-1">{`✅ ${t("settings.bulkApprove") || 'אשר טיוטות'}`}</h3>
+                <p className="text-xs text-gray-600 mb-2">
+                  {t("settings.bulkApproveDesc") || 'הפוך מקומות טיוטה למאושרים בעיר הנוכחית'}
+                </p>
+                {(() => {
+                  const cityLocs = customLocations.filter(l => (l.cityId || 'bangkok') === selectedCityId && l.status !== 'blacklist' && !l.locked);
+                  const myDrafts = cityLocs.filter(l => l.addedBy === authUser?.uid);
+                  const otherDrafts = cityLocs.length - myDrafts.length;
+                  return (
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      onClick={() => {
+                        if (myDrafts.length === 0) { showToast(t('settings.noDrafts') || 'אין טיוטות לאישור', 'info'); return; }
+                        showConfirm(`${t('settings.approveMyConfirm') || 'לאשר'} ${myDrafts.length} ${t('settings.myDrafts') || 'טיוטות שלי'}?`, () => {
+                          let count = 0;
+                          myDrafts.forEach(loc => {
+                            if (loc.firebaseId && isFirebaseAvailable && database) {
+                              database.ref(`cities/${selectedCityId}/locations/${loc.firebaseId}/locked`).set(true);
+                              count++;
+                            }
+                          });
+                          setCustomLocations(prev => prev.map(l => myDrafts.find(d => d.name === l.name) ? {...l, locked: true} : l));
+                          showToast(`✅ ${count} ${t('settings.approved') || 'אושרו'}`, 'success');
+                        });
+                      }}
+                      disabled={myDrafts.length === 0}
+                      className={`flex-1 py-2 px-3 rounded-lg font-bold text-sm transition ${myDrafts.length > 0 ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+                    >
+                      {`👤 ${t('settings.myDraftsBtn') || 'שלי'} (${myDrafts.length})`}
+                    </button>
+                    {isAdmin && (
+                    <button
+                      onClick={() => {
+                        if (cityLocs.length === 0) { showToast(t('settings.noDrafts') || 'אין טיוטות לאישור', 'info'); return; }
+                        showConfirm(`${t('settings.approveAllConfirm') || 'לאשר'} ${cityLocs.length} ${t('settings.allDrafts') || 'טיוטות'}? (${myDrafts.length} ${t('settings.mine') || 'שלי'} + ${otherDrafts} ${t('settings.others') || 'אחרים'})`, () => {
+                          let count = 0;
+                          cityLocs.forEach(loc => {
+                            if (loc.firebaseId && isFirebaseAvailable && database) {
+                              database.ref(`cities/${selectedCityId}/locations/${loc.firebaseId}/locked`).set(true);
+                              count++;
+                            }
+                          });
+                          setCustomLocations(prev => prev.map(l => cityLocs.find(d => d.name === l.name) ? {...l, locked: true} : l));
+                          showToast(`✅ ${count} ${t('settings.approved') || 'אושרו'}`, 'success');
+                        });
+                      }}
+                      disabled={cityLocs.length === 0}
+                      className={`flex-1 py-2 px-3 rounded-lg font-bold text-sm transition ${cityLocs.length > 0 ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+                    >
+                      {`👑 ${t('settings.allDraftsBtn') || 'הכל'} (${cityLocs.length})`}
+                    </button>
+                    )}
+                  </div>
+                  );
+                })()}
+              </div>
+            </div>
+            )}
+            
             {/* Debug Mode Toggle */}
             <div className="mb-4">
               <div className="bg-gradient-to-r from-gray-50 to-slate-50 border-2 border-gray-400 rounded-xl p-3">
@@ -9861,6 +9914,7 @@ const FouFouApp = () => {
                   { key: 'fetchMoreCount', label: t('sysParams.fetchMore'), desc: t('sysParams.fetchMoreDesc'), min: 1, max: 10, step: 1, type: 'int' },
                   { key: 'googleMaxWaypoints', label: t('sysParams.maxWaypoints'), desc: t('sysParams.maxWaypointsDesc'), min: 5, max: 25, step: 1, type: 'int' },
                   { key: 'defaultRadius', label: t('sysParams.defaultRadius'), desc: t('sysParams.defaultRadiusDesc'), min: 100, max: 5000, step: 100, type: 'int' },
+                  { key: 'includeDrafts', label: t('sysParams.includeDrafts') || '✏️ כלול טיוטות', desc: t('sysParams.includeDraftsDesc') || 'הצג מקומות טיוטה במסלולים, מפות ורשימות', type: 'bool' },
                 ]},
                 { title: t('sysParams.sectionDedup'), icon: '🔍', color: '#8b5cf6', params: [
                   { key: 'dedupRadiusMeters', label: t('sysParams.dedupRadius'), desc: t('sysParams.dedupRadiusDesc'), min: 10, max: 200, step: 10, type: 'int' },
@@ -9885,8 +9939,8 @@ const FouFouApp = () => {
                 ]},
               ];
               const updateParam = (key, val, type) => {
-                const parsed = type === 'float' ? parseFloat(val) : parseInt(val);
-                if (isNaN(parsed)) return;
+                const parsed = type === 'bool' ? !!val : type === 'float' ? parseFloat(val) : parseInt(val);
+                if (type !== 'bool' && isNaN(parsed)) return;
                 const updated = { ...systemParams, [key]: parsed };
                 window.BKK.systemParams = updated;
                 setSystemParams(updated);
@@ -9921,7 +9975,13 @@ const FouFouApp = () => {
                     <div style={{ fontSize: '10px', color: '#9ca3af' }}>{p.desc}</div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    {isToggle ? (
+                    {p.type === 'bool' ? (
+                      <button onClick={() => updateParam(p.key, !systemParams[p.key], 'bool')}
+                        style={{ padding: '4px 12px', fontSize: '12px', fontWeight: 'bold', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                          background: systemParams[p.key] ? '#22c55e' : '#ef4444', color: 'white' }}>
+                        {systemParams[p.key] ? '✓ ON' : '✗ OFF'}
+                      </button>
+                    ) : isToggle ? (
                       <button onClick={() => updateParam(p.key, systemParams[p.key] ? 0 : 1, 'int')}
                         style={{ padding: '4px 12px', fontSize: '12px', fontWeight: 'bold', borderRadius: '8px', border: 'none', cursor: 'pointer',
                           background: systemParams[p.key] ? '#22c55e' : '#ef4444', color: 'white' }}>
@@ -10066,7 +10126,7 @@ const FouFouApp = () => {
                 {mapMode === 'favorites' && (() => {
                   const activeCount = customLocations.filter(loc => {
                     if (loc.status === 'blacklist' || !loc.lat || !loc.lng) return false;
-                    if (window.BKK.systemParams?.showDraftsOnMap === false && !loc.locked) return false;
+                    if (window.BKK.systemParams?.includeDrafts === false && !loc.locked) return false;
                     if (mapFavArea) { const la = loc.areas || (loc.area ? [loc.area] : []); if (!la.includes(mapFavArea)) return false; }
                     if (mapFavFilter.size > 0) { if (!(loc.interests || []).some(i => mapFavFilter.has(i))) return false; }
                     return true;
@@ -10204,23 +10264,11 @@ const FouFouApp = () => {
                             })}
                           </div>
                         </div>
-                        {/* Status filter */}
-                        <div style={{ marginBottom: '14px' }}>
-                          <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', color: '#374151' }}>📋 {t('general.status') || 'סטטוס'}</div>
-                          <div style={{ display: 'flex', gap: '6px' }}>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', cursor: 'pointer' }}>
-                              <input type="checkbox" checked={window.BKK.systemParams?.showDraftsOnMap !== false}
-                                onChange={e => { window.BKK.systemParams.showDraftsOnMap = e.target.checked; setMapFavFilter(new Set(mapFavFilter)); }}
-                                style={{ accentColor: '#7c3aed' }} />
-                              {t('places.showDrafts') || 'הצג טיוטות'}
-                            </label>
-                          </div>
-                        </div>
                         {/* Place search/focus */}
                         <div style={{ marginBottom: '14px' }}>
                           <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', color: '#374151' }}>🔎 {t('places.searchPlace') || 'חפש מקום'}</div>
                           {(() => {
-                            const sd = window.BKK.systemParams?.showDraftsOnMap !== false;
+                            const sd = window.BKK.systemParams?.includeDrafts !== false;
                             const searchable = customLocations.filter(l => l.lat && l.lng && l.status !== 'blacklist' && (sd || l.locked));
                             return (
                               <div>
@@ -10384,7 +10432,7 @@ const FouFouApp = () => {
                         <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>📍 {areaLabels}</div>
                         {intLabels && <div style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '2px' }}>{intLabels}</div>}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          {loc.locked && <span style={{ fontSize: '9px', background: '#dcfce7', color: '#166534', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>✅ {t('places.ready') || 'מוכן'}</span>}
+                          {loc.locked && <span style={{ fontSize: '9px', background: '#dcfce7', color: '#166534', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>✅ {t('places.approved') || 'מאושר'}</span>}
                           {addedByName && <span style={{ fontSize: '9px', color: '#9ca3af' }}>👤 {addedByName}</span>}
                           {loc.googleRating && (
                             <span style={{ fontSize: '10px', color: '#b45309' }}>⭐ {loc.googleRating} ({loc.googleRatingCount || 0})</span>
@@ -10754,12 +10802,6 @@ const FouFouApp = () => {
               {/* Content - Scrollable - COMPACT */}
               <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5">
                 <div style={{ position: 'relative' }}>
-                {showEditLocationDialog && editingLocation?.locked && !isUnlocked && (
-                  <div style={{ position: 'absolute', inset: 0, zIndex: 10, backgroundColor: 'rgba(255,255,255,0.3)', pointerEvents: 'all' }} 
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); document.activeElement?.blur(); }}
-                    onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); document.activeElement?.blur(); }}
-                  />
-                )}
                 
                 {/* Row 1: Name + Area */}
                 <div className="space-y-2">
@@ -10772,8 +10814,7 @@ const FouFouApp = () => {
                     <input
                       type="text"
                       value={newLocation.name}
-                      readOnly={showEditLocationDialog && editingLocation?.locked && !isUnlocked}
-                      onFocus={(e) => { if (showEditLocationDialog && editingLocation?.locked && !isUnlocked) e.target.blur(); }}
+                      
                       onChange={(e) => {
                         setNewLocation({...newLocation, name: e.target.value});
                         setLocationSearchResults(null);
@@ -10999,14 +11040,12 @@ const FouFouApp = () => {
                           setShowImageModal(true);
                         }}
                       />
-                      {!(showEditLocationDialog && editingLocation?.locked && !isUnlocked) && (
                       <button
                         onClick={() => setNewLocation({...newLocation, uploadedImage: null})}
                         className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 text-xs font-bold hover:bg-red-600"
                       >
                         ✕
                       </button>
-                      )}
                     </div>
                   ) : (
                     <div className="flex gap-2">
@@ -11268,12 +11307,13 @@ const FouFouApp = () => {
                     >
                       🔍 {loadingGoogleInfo ? '...' : t('places.googleInfo')}
                     </button>
-                    {isUnlocked && (
+                    {(isAdmin || isEditor) && (
                       <button type="button"
                         onClick={() => setNewLocation({...newLocation, locked: !newLocation.locked})}
-                        className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${newLocation.locked ? 'border-gray-600 bg-gray-600 text-white' : 'border-gray-300 bg-white text-gray-400'}`}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${newLocation.locked ? 'border-green-600 bg-green-600 text-white' : 'border-amber-300 bg-amber-50 text-amber-600'}`}
+                        title={newLocation.locked ? t('places.approved') || 'מאושר' : t('places.draft') || 'טיוטה'}
                       >
-                        {newLocation.locked ? '🔒' : '🔓'}
+                        {newLocation.locked ? '✅' : '✏️'}
                       </button>
                     )}
                   </div>
@@ -11319,8 +11359,8 @@ const FouFouApp = () => {
                     </div>
                   )}
 
-                  {/* Row 2: Skip + Delete (edit mode only) — compact inline */}
-                  {showEditLocationDialog && editingLocation && !(editingLocation.locked && !isUnlocked) && (
+                  {/* Row 2: Skip + Delete (edit mode only) — editor/admin only */}
+                  {showEditLocationDialog && editingLocation && (isAdmin || isEditor) && (
                     <div className="flex gap-1.5 pt-1 border-t border-gray-200">
                       {editingLocation.status === 'blacklist' ? (
                         <button
@@ -11345,7 +11385,6 @@ const FouFouApp = () => {
                           🚫 {t('route.skipPermanently')}
                         </button>
                       )}
-                      {(isAdmin || (isEditor && !editingLocation.locked) || (editingLocation.addedBy && editingLocation.addedBy === authUser?.uid && !editingLocation.locked)) && (
                       <button
                         onClick={() => {
                           showConfirm(`${t("general.deletePlace")} "${editingLocation.name}"?`, () => {
@@ -11358,7 +11397,6 @@ const FouFouApp = () => {
                       >
                         🗑️ {t("general.deletePlace")}
                       </button>
-                      )}
                     </div>
                   )}
                 </div>
@@ -11369,9 +11407,8 @@ const FouFouApp = () => {
               
               {/* Footer */}
               {(() => {
-                const isLockedPlace = showEditLocationDialog && editingLocation?.locked && !isUnlocked;
                 const isOwnPlace = !editingLocation?.addedBy || editingLocation.addedBy === authUser?.uid;
-                const canEdit = isUnlocked || (isOwnPlace && !editingLocation?.locked);
+                const canEdit = isAdmin || isEditor || isOwnPlace;
                 return (
               <div className="px-4 py-2.5 border-t border-gray-200 flex gap-2" style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
                 {!canEdit ? (
@@ -11464,9 +11501,6 @@ const FouFouApp = () => {
               {/* Content */}
               <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
                 <div style={{ position: 'relative' }}>
-                {editingCustomInterest?.locked && !isUnlocked && (
-                  <div style={{ position: 'absolute', inset: 0, zIndex: 10, backgroundColor: 'rgba(255,255,255,0.3)' }} />
-                )}
                 {/* Name + Icon row */}
                 <div className="grid grid-cols-4 gap-2">
                   <div className="col-span-3">
@@ -11932,19 +11966,8 @@ const FouFouApp = () => {
                 )}
 
                 {/* Status toggle - locked (admin only) */}
-                {isUnlocked && (
-                <div className="flex gap-3 px-4 py-2 bg-gray-50 border-t border-gray-100">
-                  <button type="button"
-                    onClick={() => setNewInterest({...newInterest, locked: !newInterest.locked})}
-                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${newInterest.locked ? 'border-gray-600 bg-gray-600 text-white' : 'border-gray-300 bg-white text-gray-400'}`}
-                  >
-                    {newInterest.locked ? '🔒' : '🔓'}
-                  </button>
-                </div>
-                )}
-
-                {/* Actions: Enable/Disable + Delete (edit mode only) - hidden for locked non-admin */}
-                {editingCustomInterest && !(editingCustomInterest.locked && !isUnlocked) && (
+                {/* Actions: Enable/Disable + Delete (edit mode only) */}
+                {editingCustomInterest && isUnlocked && (
                   <div className="border-t border-red-200 bg-red-50 px-4 py-2">
                     <div className="flex gap-2">
                       <button
@@ -12002,12 +12025,7 @@ const FouFouApp = () => {
               {/* Footer */}
               <div className="px-4 py-2.5 border-t border-gray-200 flex gap-2" style={{ direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}>
                 {(() => {
-                  const isLockedInterest = editingCustomInterest?.locked && !isUnlocked;
-                  return isLockedInterest ? (
-                    <div className="flex-shrink-0 py-2.5 px-3 bg-yellow-100 text-yellow-800 rounded-lg text-[11px] font-bold text-center flex items-center">
-                      🔒 View only
-                    </div>
-                  ) : (
+                  return (
                     <button
                       onClick={async () => {
                         if (!newInterest.label.trim()) return;
@@ -12607,7 +12625,7 @@ const FouFouApp = () => {
                 {modalImageCtx?.location && !modalImageCtx.location.locked && (
                   <label style={{ cursor: 'pointer', background: '#8b5cf6', color: 'white', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold' }}>
                     📷 {t('places.addPhoto') || 'צלם או צרף תמונה'}
-                    <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={(e) => {
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
                       const reader = new FileReader();
@@ -12642,8 +12660,72 @@ const FouFouApp = () => {
             )}
             {modalImageCtx && (
               <div className="bg-white bg-opacity-95 rounded-lg mt-2 p-3 max-w-md w-full shadow-lg" style={{direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr'}}>
-                {modalImageCtx.description && (
-                  <p className="text-gray-700 text-sm mb-2" style={{whiteSpace: 'pre-line'}}>{modalImageCtx.description}</p>
+                {/* Editable description for admin/editor, read-only for others */}
+                {modalImageCtx.location && (isAdmin || isEditor || authUser?.uid === modalImageCtx.location.addedBy) ? (
+                  <div style={{ marginBottom: '8px' }}>
+                    <textarea
+                      value={modalImageCtx.description || ''}
+                      onChange={(e) => setModalImageCtx(prev => ({...prev, description: e.target.value}))}
+                      placeholder={t('places.descriptionPlaceholder') || 'תיאור קצר של המקום...'}
+                      style={{ width: '100%', minHeight: '50px', padding: '6px 8px', fontSize: '13px', border: '1px solid #d1d5db', borderRadius: '8px', resize: 'vertical', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }}
+                    />
+                    <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                      <button
+                        onClick={() => {
+                          const loc = modalImageCtx.location;
+                          const desc = modalImageCtx.description || '';
+                          if (loc.firebaseId && isFirebaseAvailable && database) {
+                            database.ref(`cities/${selectedCityId}/locations/${loc.firebaseId}/description`).set(desc);
+                            setCustomLocations(prev => prev.map(l => l.name === loc.name ? {...l, description: desc} : l));
+                            showToast('💾 ' + (t('general.saved') || 'נשמר'), 'success');
+                          }
+                        }}
+                        style={{ padding: '3px 10px', fontSize: '11px', fontWeight: 'bold', background: '#22c55e', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                      >💾 {t('general.save') || 'שמור'}</button>
+                      <button
+                        onClick={async () => {
+                          const loc = modalImageCtx.location;
+                          const apiKey = window.BKK.ANTHROPIC_API_KEY;
+                          if (!apiKey) { showToast('הגדר ANTHROPIC_API_KEY ב-config.js', 'error'); return; }
+                          showToast('✨ ' + (t('places.aiGenerating') || 'כותב תיאור...'), 'info');
+                          try {
+                            const context = [
+                              `Place: ${loc.name}`,
+                              loc.address ? `Address: ${loc.address}` : '',
+                              loc.interests?.length ? `Categories: ${loc.interests.join(', ')}` : '',
+                              loc.notes ? `Notes: ${loc.notes}` : '',
+                              loc.googleRating ? `Google: ${loc.googleRating} (${loc.googleRatingCount} reviews)` : '',
+                              `City: ${window.BKK.cityNameForSearch || 'Bangkok'}`
+                            ].filter(Boolean).join('\n');
+                            const resp = await fetch('https://api.anthropic.com/v1/messages', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+                              body: JSON.stringify({
+                                model: 'claude-sonnet-4-20250514',
+                                max_tokens: 200,
+                                messages: [{ role: 'user', content: `כתוב תיאור קצר בעברית (2-3 משפטים) למקום הזה. תמציתי ואינפורמטיבי. סגנון חברי. בלי אימוג'י.\n\n${context}${modalImageCtx.description ? `\n\nתיאור קיים לשפר: ${modalImageCtx.description}` : ''}` }]
+                              })
+                            });
+                            const data = await resp.json();
+                            const text = data.content?.[0]?.text || '';
+                            if (text) {
+                              setModalImageCtx(prev => ({...prev, description: text}));
+                              showToast('✨ ' + (t('places.aiDone') || 'תיאור נוצר!'), 'success');
+                            } else {
+                              showToast('AI: no response', 'error');
+                            }
+                          } catch (err) {
+                            showToast('AI: ' + err.message, 'error');
+                          }
+                        }}
+                        style={{ padding: '3px 10px', fontSize: '11px', fontWeight: 'bold', background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                      >✨ AI</button>
+                    </div>
+                  </div>
+                ) : (
+                  modalImageCtx.description && (
+                    <p className="text-gray-700 text-sm mb-2" style={{whiteSpace: 'pre-line'}}>{modalImageCtx.description}</p>
+                  )
                 )}
                 {modalImageCtx.location && (() => {
                   const loc = modalImageCtx.location;

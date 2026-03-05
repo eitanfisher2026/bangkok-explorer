@@ -1,4 +1,4 @@
-// FouFou app-data.js v3.7.71
+// FouFou app-data.js v3.7.75
 // ============================================================================
 // FouFou — City Trail Generator - Internationalization (i18n)
 // Copyright © 2026 Eitan Fisher. All Rights Reserved.
@@ -130,6 +130,7 @@ general: {
   clear: 'נקה',
   clearSelection: 'נקה בחירה',
   help: 'עזרה',
+  all: 'הכל',
   loading: '⏳ טוען...',
   searching: 'מחפש...',
   refreshing: 'מרענן...',
@@ -503,6 +504,9 @@ places: {
   favoriteNotOnGoogle: '📍 מקום מועדף — לא קיים בגוגל',
   openFavorite: 'פתח מקום מועדף',
   addPhoto: 'צלם או צרף תמונה',
+  descriptionPlaceholder: 'תיאור קצר של המקום...',
+  aiGenerating: 'כותב תיאור...',
+  aiDone: 'תיאור נוצר!',
   photoAdded: 'תמונה נוספה!',
   placeName: 'שם המקום',
   enterPlaceName: 'אנא הזן שם למקום',
@@ -577,6 +581,8 @@ places: {
   skippedPlaces: 'מקומות מדולגים',
   drafts: 'טיוטות',
   ready: 'מוכנים',
+  approved: 'מאושר',
+  draft: 'טיוטה',
   skipped: 'דלג',
   noInterest: 'ללא תחום',
   autoName: 'שם אוטומטי',
@@ -810,6 +816,18 @@ settings: {
   refreshRatings: 'רענן דירוגי גוגל',
   refreshRatingsDesc: 'עדכון דירוגי גוגל לכל המקומות המועדפים בעיר הנוכחית',
   ratingsRefreshed: 'דירוגי גוגל עודכנו',
+  bulkApprove: 'אשר טיוטות',
+  bulkApproveDesc: 'הפוך מקומות טיוטה למאושרים בעיר הנוכחית',
+  noDrafts: 'אין טיוטות לאישור',
+  approveMyConfirm: 'לאשר',
+  approveAllConfirm: 'לאשר',
+  myDrafts: 'טיוטות שלי',
+  allDrafts: 'טיוטות',
+  myDraftsBtn: 'שלי',
+  allDraftsBtn: 'הכל',
+  mine: 'שלי',
+  others: 'אחרים',
+  approved: 'אושרו',
   noPlacesToRefresh: 'אין מקומות עם נוכחות בגוגל לרענון',
   updated: 'עודכנו',
   scanned: 'נסרקו',
@@ -1082,6 +1100,7 @@ general: {
   clear: 'Clear',
   clearSelection: 'Clear selection',
   help: 'Help',
+  all: 'All',
   loading: '⏳ Loading...',
   searching: 'Searching...',
   refreshing: 'Refreshing...',
@@ -1456,6 +1475,9 @@ places: {
   favoriteNotOnGoogle: '📍 Favorite place — not on Google',
   openFavorite: 'Open favorite place',
   addPhoto: 'Take or attach photo',
+  descriptionPlaceholder: 'Short place description...',
+  aiGenerating: 'Writing description...',
+  aiDone: 'Description generated!',
   photoAdded: 'Photo added!',
   placeName: 'Place name',
   enterPlaceName: 'Please enter a place name',
@@ -1530,6 +1552,8 @@ places: {
   skippedPlaces: 'Skipped places',
   drafts: 'Drafts',
   ready: 'Ready',
+  approved: 'Approved',
+  draft: 'Draft',
   skipped: 'Skipped',
   noInterest: 'No interest assigned',
   autoName: 'Auto name',
@@ -1762,6 +1786,18 @@ settings: {
   refreshRatings: 'Refresh Google ratings',
   refreshRatingsDesc: 'Update Google ratings for all favorite places in current city',
   ratingsRefreshed: 'Google ratings updated',
+  bulkApprove: 'Approve drafts',
+  bulkApproveDesc: 'Convert draft places to approved in current city',
+  noDrafts: 'No drafts to approve',
+  approveMyConfirm: 'Approve',
+  approveAllConfirm: 'Approve',
+  myDrafts: 'my drafts',
+  allDrafts: 'drafts',
+  myDraftsBtn: 'Mine',
+  allDraftsBtn: 'All',
+  mine: 'mine',
+  others: 'others',
+  approved: 'approved',
   noPlacesToRefresh: 'No places with Google presence to refresh',
   updated: 'updated',
   scanned: 'scanned',
@@ -3085,7 +3121,7 @@ window.BKK.mapConfig = {
   window.BKK.visitorName = vname || vid.slice(0, 10);
 })();
 
-window.BKK.VERSION = '3.7.71';
+window.BKK.VERSION = '3.7.75';
 window.BKK.stopLabel = function(i) {
   if (i < 26) return String.fromCharCode(65 + i);
   return String.fromCharCode(65 + Math.floor(i / 26) - 1) + String.fromCharCode(65 + (i % 26));
@@ -3109,6 +3145,7 @@ window.BKK.firebaseConfig = {
 };
 
 window.BKK.GOOGLE_PLACES_API_KEY = 'AIzaSyD0F0TYKuWXVqibhj-sH-DaElDtLL8hMwM';
+window.BKK.ANTHROPIC_API_KEY = ''; // Set your Anthropic API key for AI descriptions
 window.BKK.GOOGLE_PLACES_API_URL = 'https://places.googleapis.com/v1/places:searchNearby';
 window.BKK.GOOGLE_PLACES_TEXT_SEARCH_URL = 'https://places.googleapis.com/v1/places:searchText';
 

@@ -2043,36 +2043,27 @@
                 </button>
               </div>
 
-              {/* 3 Tabs: Drafts / Ready / Skipped */}
-              <div className="flex mb-2 border-b border-gray-200">
-                <button
-                  onClick={() => setPlacesTab('drafts')}
-                  className={`flex-1 py-2 text-sm font-bold text-center border-b-2 transition-all ${
-                    placesTab === 'drafts' ? 'border-amber-500 text-amber-700 bg-amber-50' : 'border-transparent text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  {`✏️ ${t("places.drafts")} (${groupedPlaces.draftsCount})`}
-                </button>
-                <button
-                  onClick={() => setPlacesTab('ready')}
-                  className={`flex-1 py-2 text-sm font-bold text-center border-b-2 transition-all ${
-                    placesTab === 'ready' ? 'border-green-500 text-green-700 bg-green-50' : 'border-transparent text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  {`🔒 ${t("places.ready")} (${groupedPlaces.readyCount})`}
-                </button>
-                <button
-                  onClick={() => setPlacesTab('skipped')}
-                  className={`flex-1 py-2 text-sm font-bold text-center border-b-2 transition-all ${
-                    placesTab === 'skipped' ? 'border-red-500 text-red-700 bg-red-50' : 'border-transparent text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  {`🚫 ${t("places.skipped")} (${groupedPlaces.blacklistCount})`}
-                </button>
+              {/* Filter button for editor/admin */}
+              {isUnlocked && (
+              <div className="flex mb-2 gap-1 items-center justify-end">
+                <span className="text-xs text-gray-400 mr-auto">{groupedPlaces.draftsCount + groupedPlaces.readyCount} {t('nav.favorites')} {groupedPlaces.blacklistCount > 0 ? `· ${groupedPlaces.blacklistCount} 🚫` : ''}</span>
+                {['all', 'drafts', 'ready', 'skipped'].map(tab => (
+                  <button key={tab}
+                    onClick={() => setPlacesTab(tab)}
+                    className={`px-2 py-1 rounded text-xs font-bold transition-all ${
+                      placesTab === tab
+                        ? tab === 'skipped' ? 'bg-red-100 text-red-700' : tab === 'ready' ? 'bg-green-100 text-green-700' : tab === 'drafts' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    {tab === 'all' ? t('general.all') || 'הכל' : tab === 'drafts' ? `✏️ ${groupedPlaces.draftsCount}` : tab === 'ready' ? `✅ ${groupedPlaces.readyCount}` : `🚫 ${groupedPlaces.blacklistCount}`}
+                  </button>
+                ))}
               </div>
+              )}
               
               {/* Pending locations waiting for sync */}
-              {lastImportBatch && placesTab === 'drafts' && (() => {
+              {lastImportBatch && (placesTab === 'all' || placesTab === 'drafts') && (() => {
                 const batchCount = cityCustomLocations.filter(l => l.importBatch === lastImportBatch && l.status !== 'blacklist' && !l.locked).length;
                 if (batchCount === 0) return null;
                 return (
@@ -2119,11 +2110,9 @@
                 </div>
               ) : (groupedPlaces.sortedKeys.length === 0 && groupedPlaces.ungrouped.length === 0) ? (
                 <div className="text-center py-6 bg-gray-50 rounded-lg">
-                  <div className="text-3xl mb-2">{placesTab === 'drafts' ? '✏️' : placesTab === 'ready' ? '🔒' : '🚫'}</div>
+                  <div className="text-3xl mb-2">{placesTab === 'skipped' ? '🚫' : '📍'}</div>
                   <p className="text-gray-600 text-sm">
-                    {placesTab === 'drafts' ? t("places.noPlacesInCity", {cityName: tLabel(window.BKK.selectedCity) || t('places.thisCity')})
-                     : placesTab === 'ready' ? t("places.noPlacesInCity", {cityName: tLabel(window.BKK.selectedCity) || t('places.thisCity')})
-                     : t("places.noPlacesInCity", {cityName: tLabel(window.BKK.selectedCity) || t('places.thisCity')})}
+                    {t("places.noPlacesInCity", {cityName: tLabel(window.BKK.selectedCity) || t('places.thisCity')})}
                   </p>
                 </div>
               ) : (
@@ -2135,7 +2124,7 @@
                       : areaMap[key];
                     const groupLabel = obj ? tLabel(obj) : key;
                     const groupIcon = placesGroupBy === 'interest' ? (obj?.icon || '🏷️') : '📍';
-                    const canEdit = placesTab === 'drafts' || isUnlocked;
+                    const canEdit = true; // permissions handled in edit dialog
                     return (
                       <div key={key} className="border border-gray-200 rounded-lg overflow-hidden mb-1.5">
                         <div className="bg-gray-100 px-2 py-1 flex items-center gap-1 text-xs font-bold text-gray-700">
@@ -2150,7 +2139,7 @@
                             return (
                               <div key={loc.id}
                                 className={`flex items-center justify-between gap-2 border-2 rounded p-1.5 mb-0.5 ${
-                                  placesTab === 'skipped' ? 'border-red-200 bg-red-50' :
+                                  loc.status === 'blacklist' ? 'border-red-200 bg-red-50' :
                                   isLocationValid(loc) ? "border-gray-200 bg-white" : "border-red-400 bg-red-50"
                                 }`}
                                 style={{ contain: 'layout style', ...(isNewImport ? { borderLeftWidth: '4px', borderLeftColor: '#22c55e' } : {}) }}
@@ -2166,7 +2155,7 @@
                                     ) : (
                                       <span onClick={() => handleEditLocation(loc)} className="font-medium text-sm truncate cursor-pointer hover:underline">{loc.name}</span>
                                     )}
-                                    {loc.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '12px' }}>🔒</span>}
+                                    {isUnlocked && <span title={loc.locked ? (t('places.approved') || 'מאושר') : (t('places.draft') || 'טיוטה')} style={{ fontSize: '10px' }}>{loc.locked ? '✅' : '✏️'}</span>}
                                     {loc.outsideArea && <span className="text-orange-500 text-xs" title={t("general.outsideBoundary")}>🔺</span>}
                                     {loc.missingCoordinates && <span className="text-red-500 text-xs" title={t("general.noLocation")}>⚠️</span>}
                                     {!isLocationValid(loc) && <span className="text-red-500 text-[9px]" title={t("places.missingDetailsLong")}>❌</span>}
@@ -2210,7 +2199,7 @@
                       <div className="p-1">
                         {groupedPlaces.ungrouped.filter(loc => !filterImportBatch || !lastImportBatch || loc.importBatch === lastImportBatch).map(loc => {
                           const mapUrl = (() => { const u = window.BKK.getGoogleMapsUrl(loc); return u === '#' ? null : u; })();
-                          const canEdit = placesTab === 'drafts' || isUnlocked;
+                          const canEdit = true; // permissions handled in edit dialog
                           const isNewImport = lastImportBatch && loc.importBatch === lastImportBatch;
                           return (
                             <div key={loc.id}
@@ -2228,7 +2217,7 @@
                                   ) : (
                                     <span onClick={() => handleEditLocation(loc)} className="font-medium text-sm truncate cursor-pointer hover:underline">{loc.name}</span>
                                   )}
-                                  {loc.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '12px' }}>🔒</span>}
+                                  {isUnlocked && <span title={loc.locked ? (t('places.approved') || 'מאושר') : (t('places.draft') || 'טיוטה')} style={{ fontSize: '10px' }}>{loc.locked ? '✅' : '✏️'}</span>}
                                   {!isLocationValid(loc) && <span className="text-red-500 text-[9px]" title={t("places.missingDetails")}>❌</span>}
                                 </div>
                               </div>
@@ -2359,7 +2348,6 @@
                       <span className={`font-medium text-sm truncate ${isHidden ? 'text-red-400 line-through' : isDraft ? 'text-amber-700' : !effectiveActive ? 'text-gray-500' : ''}`}>{tLabel(interest)}</span>
                       {favCount > 0 && <span style={{ fontSize: '10px', color: '#9ca3af', flexShrink: 0 }}>({favCount})</span>}
                       {!isValid && <span className="text-red-500 text-xs flex-shrink-0" title={t("interests.missingSearchConfig")}>⚠️</span>}
-                      {interest.locked && isUnlocked && <span title={t("general.locked")} style={{ fontSize: '11px' }} className="flex-shrink-0">🔒</span>}
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
                       {/* Map button — show favorites filtered to this interest */}
@@ -2419,8 +2407,8 @@
                       <button
                         onClick={() => openInterestDialog(interest)}
                         className="text-xs px-1 py-0.5 rounded flex-shrink-0"
-                        title={interest.locked && !isUnlocked ? t("general.viewOnly") : t("places.detailsEdit")}
-                      >{interest.locked && !isUnlocked ? '👁️' : '✏️'}</button>
+                        title={t("places.detailsEdit")}
+                      >{'✏️'}</button>
                       )}
                     </div>
                   </div>
@@ -3278,6 +3266,69 @@
               </div>
             </div>
             
+            {/* Bulk Approve Drafts */}
+            {isUnlocked && (
+            <div className="mb-3">
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-400 rounded-xl p-3">
+                <h3 className="text-base font-bold text-gray-800 mb-1">{`✅ ${t("settings.bulkApprove") || 'אשר טיוטות'}`}</h3>
+                <p className="text-xs text-gray-600 mb-2">
+                  {t("settings.bulkApproveDesc") || 'הפוך מקומות טיוטה למאושרים בעיר הנוכחית'}
+                </p>
+                {(() => {
+                  const cityLocs = customLocations.filter(l => (l.cityId || 'bangkok') === selectedCityId && l.status !== 'blacklist' && !l.locked);
+                  const myDrafts = cityLocs.filter(l => l.addedBy === authUser?.uid);
+                  const otherDrafts = cityLocs.length - myDrafts.length;
+                  return (
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      onClick={() => {
+                        if (myDrafts.length === 0) { showToast(t('settings.noDrafts') || 'אין טיוטות לאישור', 'info'); return; }
+                        showConfirm(`${t('settings.approveMyConfirm') || 'לאשר'} ${myDrafts.length} ${t('settings.myDrafts') || 'טיוטות שלי'}?`, () => {
+                          let count = 0;
+                          myDrafts.forEach(loc => {
+                            if (loc.firebaseId && isFirebaseAvailable && database) {
+                              database.ref(`cities/${selectedCityId}/locations/${loc.firebaseId}/locked`).set(true);
+                              count++;
+                            }
+                          });
+                          setCustomLocations(prev => prev.map(l => myDrafts.find(d => d.name === l.name) ? {...l, locked: true} : l));
+                          showToast(`✅ ${count} ${t('settings.approved') || 'אושרו'}`, 'success');
+                        });
+                      }}
+                      disabled={myDrafts.length === 0}
+                      className={`flex-1 py-2 px-3 rounded-lg font-bold text-sm transition ${myDrafts.length > 0 ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+                    >
+                      {`👤 ${t('settings.myDraftsBtn') || 'שלי'} (${myDrafts.length})`}
+                    </button>
+                    {isAdmin && (
+                    <button
+                      onClick={() => {
+                        if (cityLocs.length === 0) { showToast(t('settings.noDrafts') || 'אין טיוטות לאישור', 'info'); return; }
+                        showConfirm(`${t('settings.approveAllConfirm') || 'לאשר'} ${cityLocs.length} ${t('settings.allDrafts') || 'טיוטות'}? (${myDrafts.length} ${t('settings.mine') || 'שלי'} + ${otherDrafts} ${t('settings.others') || 'אחרים'})`, () => {
+                          let count = 0;
+                          cityLocs.forEach(loc => {
+                            if (loc.firebaseId && isFirebaseAvailable && database) {
+                              database.ref(`cities/${selectedCityId}/locations/${loc.firebaseId}/locked`).set(true);
+                              count++;
+                            }
+                          });
+                          setCustomLocations(prev => prev.map(l => cityLocs.find(d => d.name === l.name) ? {...l, locked: true} : l));
+                          showToast(`✅ ${count} ${t('settings.approved') || 'אושרו'}`, 'success');
+                        });
+                      }}
+                      disabled={cityLocs.length === 0}
+                      className={`flex-1 py-2 px-3 rounded-lg font-bold text-sm transition ${cityLocs.length > 0 ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+                    >
+                      {`👑 ${t('settings.allDraftsBtn') || 'הכל'} (${cityLocs.length})`}
+                    </button>
+                    )}
+                  </div>
+                  );
+                })()}
+              </div>
+            </div>
+            )}
+            
             {/* Debug Mode Toggle */}
             <div className="mb-4">
               <div className="bg-gradient-to-r from-gray-50 to-slate-50 border-2 border-gray-400 rounded-xl p-3">
@@ -3694,6 +3745,7 @@
                   { key: 'fetchMoreCount', label: t('sysParams.fetchMore'), desc: t('sysParams.fetchMoreDesc'), min: 1, max: 10, step: 1, type: 'int' },
                   { key: 'googleMaxWaypoints', label: t('sysParams.maxWaypoints'), desc: t('sysParams.maxWaypointsDesc'), min: 5, max: 25, step: 1, type: 'int' },
                   { key: 'defaultRadius', label: t('sysParams.defaultRadius'), desc: t('sysParams.defaultRadiusDesc'), min: 100, max: 5000, step: 100, type: 'int' },
+                  { key: 'includeDrafts', label: t('sysParams.includeDrafts') || '✏️ כלול טיוטות', desc: t('sysParams.includeDraftsDesc') || 'הצג מקומות טיוטה במסלולים, מפות ורשימות', type: 'bool' },
                 ]},
                 { title: t('sysParams.sectionDedup'), icon: '🔍', color: '#8b5cf6', params: [
                   { key: 'dedupRadiusMeters', label: t('sysParams.dedupRadius'), desc: t('sysParams.dedupRadiusDesc'), min: 10, max: 200, step: 10, type: 'int' },
@@ -3718,8 +3770,8 @@
                 ]},
               ];
               const updateParam = (key, val, type) => {
-                const parsed = type === 'float' ? parseFloat(val) : parseInt(val);
-                if (isNaN(parsed)) return;
+                const parsed = type === 'bool' ? !!val : type === 'float' ? parseFloat(val) : parseInt(val);
+                if (type !== 'bool' && isNaN(parsed)) return;
                 const updated = { ...systemParams, [key]: parsed };
                 window.BKK.systemParams = updated;
                 setSystemParams(updated);
@@ -3755,7 +3807,13 @@
                     <div style={{ fontSize: '10px', color: '#9ca3af' }}>{p.desc}</div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    {isToggle ? (
+                    {p.type === 'bool' ? (
+                      <button onClick={() => updateParam(p.key, !systemParams[p.key], 'bool')}
+                        style={{ padding: '4px 12px', fontSize: '12px', fontWeight: 'bold', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                          background: systemParams[p.key] ? '#22c55e' : '#ef4444', color: 'white' }}>
+                        {systemParams[p.key] ? '✓ ON' : '✗ OFF'}
+                      </button>
+                    ) : isToggle ? (
                       <button onClick={() => updateParam(p.key, systemParams[p.key] ? 0 : 1, 'int')}
                         style={{ padding: '4px 12px', fontSize: '12px', fontWeight: 'bold', borderRadius: '8px', border: 'none', cursor: 'pointer',
                           background: systemParams[p.key] ? '#22c55e' : '#ef4444', color: 'white' }}>
@@ -3901,7 +3959,7 @@
                 {mapMode === 'favorites' && (() => {
                   const activeCount = customLocations.filter(loc => {
                     if (loc.status === 'blacklist' || !loc.lat || !loc.lng) return false;
-                    if (window.BKK.systemParams?.showDraftsOnMap === false && !loc.locked) return false;
+                    if (window.BKK.systemParams?.includeDrafts === false && !loc.locked) return false;
                     if (mapFavArea) { const la = loc.areas || (loc.area ? [loc.area] : []); if (!la.includes(mapFavArea)) return false; }
                     if (mapFavFilter.size > 0) { if (!(loc.interests || []).some(i => mapFavFilter.has(i))) return false; }
                     return true;
@@ -4040,23 +4098,11 @@
                             })}
                           </div>
                         </div>
-                        {/* Status filter */}
-                        <div style={{ marginBottom: '14px' }}>
-                          <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', color: '#374151' }}>📋 {t('general.status') || 'סטטוס'}</div>
-                          <div style={{ display: 'flex', gap: '6px' }}>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', cursor: 'pointer' }}>
-                              <input type="checkbox" checked={window.BKK.systemParams?.showDraftsOnMap !== false}
-                                onChange={e => { window.BKK.systemParams.showDraftsOnMap = e.target.checked; setMapFavFilter(new Set(mapFavFilter)); }}
-                                style={{ accentColor: '#7c3aed' }} />
-                              {t('places.showDrafts') || 'הצג טיוטות'}
-                            </label>
-                          </div>
-                        </div>
                         {/* Place search/focus */}
                         <div style={{ marginBottom: '14px' }}>
                           <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '6px', color: '#374151' }}>🔎 {t('places.searchPlace') || 'חפש מקום'}</div>
                           {(() => {
-                            const sd = window.BKK.systemParams?.showDraftsOnMap !== false;
+                            const sd = window.BKK.systemParams?.includeDrafts !== false;
                             const searchable = customLocations.filter(l => l.lat && l.lng && l.status !== 'blacklist' && (sd || l.locked));
                             return (
                               <div>
@@ -4222,7 +4268,7 @@
                         <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>📍 {areaLabels}</div>
                         {intLabels && <div style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '2px' }}>{intLabels}</div>}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          {loc.locked && <span style={{ fontSize: '9px', background: '#dcfce7', color: '#166534', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>✅ {t('places.ready') || 'מוכן'}</span>}
+                          {loc.locked && <span style={{ fontSize: '9px', background: '#dcfce7', color: '#166534', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>✅ {t('places.approved') || 'מאושר'}</span>}
                           {addedByName && <span style={{ fontSize: '9px', color: '#9ca3af' }}>👤 {addedByName}</span>}
                           {loc.googleRating && (
                             <span style={{ fontSize: '10px', color: '#b45309' }}>⭐ {loc.googleRating} ({loc.googleRatingCount || 0})</span>
