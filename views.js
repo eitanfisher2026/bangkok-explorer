@@ -3296,38 +3296,7 @@
               </div>
             </div>
             
-            {/* URL & PlaceID Audit */}
-            {isAdmin && (
-            <div className="mb-3">
-              <div className="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-300 rounded-xl p-3">
-                <h3 className="text-base font-bold text-gray-800 mb-1">🔧 בדיקת URLs ו-PlaceIDs</h3>
-                <p className="text-xs text-gray-600 mb-2">
-                  סריקה ותיקון אוטומטי של URLs מזוהמים ו-googlePlaceId לא תקינים
-                </p>
-                <button
-                  onClick={auditAndFixUrls}
-                  className="w-full py-2 px-3 rounded-lg font-bold text-sm bg-red-500 text-white hover:bg-red-600"
-                >🔍 סרוק ותקן</button>
-                {urlAuditResult && (
-                  <div className="mt-2 p-2 bg-white rounded-lg border text-xs" style={{ direction: 'rtl', maxHeight: '200px', overflowY: 'auto' }}>
-                    <div className="font-bold mb-1">
-                      📊 {urlAuditResult.total} מקומות נסרקו · {urlAuditResult.fixCount} תוקנו · {urlAuditResult.issues.length - urlAuditResult.fixCount} אזהרות
-                    </div>
-                    {urlAuditResult.issues.length === 0 ? (
-                      <div className="text-green-600 font-bold">✅ הכל תקין!</div>
-                    ) : (
-                      urlAuditResult.issues.map((item, i) => (
-                        <div key={i} className="py-1 border-t border-gray-100">
-                          <span className="font-bold">{item.name}</span>
-                          {item.problems.map((p, j) => <div key={j} className="text-gray-500 mr-2">{p}</div>)}
-                          {item.fixed && <span className="text-green-600">✅ תוקן</span>}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
+
             )}
             {/* Bulk Approve Drafts */}
             {isUnlocked && (
@@ -3799,8 +3768,12 @@
                           <button
                             onClick={() => {
                               const isValidPid = (pid) => pid && /^(ChIJ|EiI|GhIJ)/.test(pid);
-                              // Firebase push keys look like: -abc123, or_abc123 — no spaces, alphanumeric+underscore
-                              const looksLikeFirebaseKey = (val) => val && val.length > 10 && /^[-_a-zA-Z0-9]+$/.test(val) && !isValidPid(val);
+                              // Firebase Realtime DB push keys always start with '-' (e.g. -Mxyz123abc)
+                              // Other corrupt patterns: or_xyz (seen in West Eden case)
+                              const looksLikeFirebaseKey = (val) => val && (
+                                /^-[a-zA-Z0-9_-]{10,}$/.test(val) ||   // standard push key: -Mxyz...
+                                /^or_[a-zA-Z0-9_-]{5,}$/.test(val)     // or_ prefix pattern
+                              );
                               const results = [];
                               customLocations.forEach(loc => {
                                 const url = loc.mapsUrl || '';

@@ -1664,32 +1664,109 @@
       </div>
     );
     
-    // Default: small ℹ️ icon right-aligned, minimal height
+    // Default: styled info button — visible, clickable, with speaker indicator
     return (<>
-      <div style={{ display: 'flex', justifyContent: isRTL ? 'flex-start' : 'flex-end', margin: '-4px 0 -2px 0', lineHeight: 1 }}>
-        <button onClick={() => setOpenHintPopup(openHintPopup === hintId ? null : hintId)}
-          style={{ ...btnStyle, color: '#93b4d4', fontSize: '13px', opacity: 0.7 }}>ℹ️</button>
+      <div style={{ display: 'flex', justifyContent: isRTL ? 'flex-start' : 'flex-end', alignItems: 'center', gap: '4px', margin: '2px 0', lineHeight: 1 }}>
         {isAdmin && <button onClick={() => { setHintEditId(hintId); setHintEditText(txt); }}
           style={{ ...btnStyle, color: '#d1d5db', fontSize: '10px' }}>✏️</button>}
+        <button
+          onClick={() => setOpenHintPopup(openHintPopup === hintId ? null : hintId)}
+          title={isRTL ? 'הסבר מורחב (כולל השמעה)' : 'More info (includes audio)'}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: '3px',
+            padding: '2px 7px', fontSize: '11px', fontWeight: '600',
+            background: openHintPopup === hintId ? '#dbeafe' : '#f0f9ff',
+            color: '#2563eb',
+            border: '1px solid #93c5fd',
+            borderRadius: '20px',
+            cursor: 'pointer',
+            boxShadow: '0 1px 3px rgba(37,99,235,0.08)',
+            transition: 'all 0.15s',
+            userSelect: 'none'
+          }}
+        >
+          <span style={{ fontSize: '12px' }}>ℹ</span>
+          {hasAudio && <span style={{ fontSize: '10px' }}>🔈</span>}
+        </button>
       </div>
-      {openHintPopup === hintId && (<>
-        <div onClick={closeHintPopup} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.2)', zIndex: 9998 }} />
-        <div style={{ position: 'fixed', zIndex: 9999, top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 'min(340px, 88vw)', padding: '14px 16px', background: '#eff6ff', borderRadius: '14px', border: '1px solid #93c5fd', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', fontSize: '13px', color: '#374151', direction: isRTL ? 'rtl' : 'ltr', animation: 'fadeIn 0.2s' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              {(() => { const dur = hintAudioDurations[hintId + '_' + lang]; return dur ? (
-                <span style={{ fontSize: '10px', color: '#9ca3af' }}>{dur}s</span>
-              ) : null; })()}
-              <button onClick={() => isSpeaking ? pauseResumeHint() : playHint(hintId, txt)}
-                style={{ ...btnStyle, color: '#3b82f6', fontSize: '16px' }}>{isSpeaking ? (isPaused ? '▶️' : '⏸️') : (hasAudio ? '🔊' : '🔈')}</button>
-              {isSpeaking && <button onClick={stopHintPlayback} style={{ ...btnStyle, color: '#ef4444', fontSize: '16px' }}>⏹️</button>}
+      {openHintPopup === hintId && (() => {
+        // Draggable hint popup
+        const dragRef = React.useRef(null);
+        const posRef = React.useRef({ x: 0, y: 0, startX: 0, startY: 0, dragging: false });
+        const [dragPos, setDragPos] = React.useState({ x: 0, y: 0 });
+
+        const onDragStart = (e) => {
+          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+          posRef.current = { ...posRef.current, startX: clientX - posRef.current.x, startY: clientY - posRef.current.y, dragging: true };
+          e.preventDefault();
+        };
+        const onDragMove = (e) => {
+          if (!posRef.current.dragging) return;
+          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+          const x = clientX - posRef.current.startX;
+          const y = clientY - posRef.current.startY;
+          posRef.current.x = x; posRef.current.y = y;
+          setDragPos({ x, y });
+        };
+        const onDragEnd = () => { posRef.current.dragging = false; };
+
+        return (<>
+          <div onClick={closeHintPopup} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />
+          <div
+            ref={dragRef}
+            onMouseDown={onDragStart} onMouseMove={onDragMove} onMouseUp={onDragEnd}
+            onTouchStart={onDragStart} onTouchMove={onDragMove} onTouchEnd={onDragEnd}
+            style={{
+              position: 'fixed', zIndex: 9999,
+              top: `calc(50% + ${dragPos.y}px)`, left: `calc(50% + ${dragPos.x}px)`,
+              transform: 'translate(-50%, -50%)',
+              width: 'min(340px, 88vw)',
+              background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+              borderRadius: '16px',
+              border: '1px solid #7dd3fc',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.15)',
+              fontSize: '13px', color: '#1e3a5f',
+              direction: isRTL ? 'rtl' : 'ltr',
+              animation: 'fadeIn 0.2s',
+              overflow: 'hidden',
+              cursor: 'default',
+              userSelect: 'none'
+            }}>
+            {/* Header / drag handle */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '10px 14px', gap: '8px',
+              background: 'linear-gradient(90deg, #0ea5e9, #6366f1)',
+              cursor: 'grab'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '15px' }}>💡</span>
+                <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'white' }}>
+                  {t('hint.audioTitle') || (isRTL ? 'הסבר מורחב' : 'More info')}
+                </span>
+                {(() => { const dur = hintAudioDurations[hintId + '_' + lang]; return dur ? (
+                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>{dur}s</span>
+                ) : null; })()}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <button onClick={() => isSpeaking ? pauseResumeHint() : playHint(hintId, txt)}
+                  style={{ ...btnStyle, color: 'white', fontSize: '18px', opacity: 0.9 }}>
+                  {isSpeaking ? (isPaused ? '▶️' : '⏸️') : (hasAudio ? '🔊' : '🔈')}
+                </button>
+                {isSpeaking && <button onClick={stopHintPlayback} style={{ ...btnStyle, color: 'white', fontSize: '16px' }}>⏹️</button>}
+                <button onClick={closeHintPopup}
+                  style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '26px', height: '26px', cursor: 'pointer', fontSize: '14px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontWeight: 'bold' }}>✕</button>
+              </div>
             </div>
-            <button onClick={closeHintPopup}
-              style={{ background: '#ef4444', border: 'none', borderRadius: '50%', width: '26px', height: '26px', cursor: 'pointer', fontSize: '14px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>✕</button>
+            {/* Content */}
+            <div style={{ padding: '12px 16px', lineHeight: '1.7', maxHeight: '50vh', overflowY: 'auto', userSelect: 'text', cursor: 'text' }}>
+              {txt}
+            </div>
           </div>
-          <div style={{ lineHeight: '1.6', maxHeight: '50vh', overflowY: 'auto' }}>{txt}</div>
-        </div>
-      </>)}
+        </>);
+      })()}
     </>);
   };
 
