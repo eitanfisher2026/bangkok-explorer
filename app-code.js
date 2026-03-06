@@ -1071,6 +1071,9 @@ const FouFouApp = () => {
   const [helpEditing, setHelpEditing] = useState(false);
   const [helpEditText, setHelpEditText] = useState('');
   const [helpOverrides, setHelpOverrides] = useState({});
+  const [hintEditId, setHintEditId] = useState(null);
+  const [hintEditText, setHintEditText] = useState('');
+  const [hintCollapsed, setHintCollapsed] = useState(new Set());
   const [helpContext, setHelpContext] = useState('main');
   
   const [debugMode, setDebugMode] = useState(() => {
@@ -1353,6 +1356,75 @@ const FouFouApp = () => {
     window.speechSynthesis.speak(u);
   };
   const stopSpeaking = () => { if (window.speechSynthesis) window.speechSynthesis.cancel(); setIsSpeaking(false); setIsPaused(false); };
+
+  const getHintVisits = (id) => parseInt(localStorage.getItem('foufou_hint_' + id) || '0');
+  const trackHintVisit = (id) => {
+    if (!window._hintTracked) window._hintTracked = {};
+    if (!window._hintTracked[id]) {
+      window._hintTracked[id] = true;
+      localStorage.setItem('foufou_hint_' + id, String(getHintVisits(id) + 1));
+    }
+  };
+  const saveHint = (id, text) => {
+    saveHelpContent(id, text);
+    setHintEditId(null);
+  };
+
+  const renderContextHint = (hintId) => {
+    const s = getHelpSection(hintId);
+    const txt = (s && s.content && s.content.trim()) || '';
+    const visits = getHintVisits(hintId);
+    trackHintVisit(hintId);
+    const isNew = visits < 3;
+    const isOpen = hintCollapsed.has(hintId + '_open');
+    
+    if (!txt && !isAdmin) return null;
+    
+    if (hintEditId === hintId) return (
+      <div style={{ margin: '4px 0', padding: '8px', background: '#eff6ff', borderRadius: '8px', border: '1px solid #93c5fd' }}>
+        <textarea value={hintEditText} onChange={(e) => setHintEditText(e.target.value)}
+          style={{ width: '100%', minHeight: '60px', padding: '6px', fontSize: '12px', border: '1px solid #93c5fd', borderRadius: '6px', resize: 'vertical', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }} />
+        <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+          <button onClick={() => saveHint(hintId, hintEditText)}
+            style={{ padding: '3px 10px', fontSize: '11px', fontWeight: 'bold', background: '#22c55e', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>💾</button>
+          <button onClick={() => { saveHint(hintId, hintEditText); translateHelpToEnglish(hintId, hintEditText); }}
+            style={{ padding: '3px 10px', fontSize: '11px', fontWeight: 'bold', background: '#6366f1', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>💾🌐</button>
+          <button onClick={() => setHintEditId(null)}
+            style={{ padding: '3px 10px', fontSize: '11px', fontWeight: 'bold', background: '#d1d5db', color: '#374151', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>✕</button>
+        </div>
+      </div>
+    );
+    
+    if (!isNew && !isOpen && txt) return (
+      <div style={{ textAlign: window.BKK.i18n.isRTL() ? 'right' : 'left', padding: '2px 0' }}>
+        <button onClick={() => setHintCollapsed(prev => { const n = new Set(prev); n.add(hintId + '_open'); return n; })}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: '#9ca3af', padding: '0' }}
+          title={txt.substring(0, 60)}>ℹ️</button>
+        {isAdmin && <button onClick={() => { setHintEditId(hintId); setHintEditText(txt); }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: '#d1d5db', padding: '0 2px' }}>✏️</button>}
+      </div>
+    );
+    
+    if (!txt && isAdmin) return (
+      <div style={{ textAlign: 'center', padding: '2px' }}>
+        <button onClick={() => { setHintEditId(hintId); setHintEditText(''); }}
+          style={{ background: 'none', border: '1px dashed #d1d5db', cursor: 'pointer', fontSize: '10px', color: '#9ca3af', padding: '2px 8px', borderRadius: '4px' }}>+ הוסף הסבר</button>
+      </div>
+    );
+    
+    return (
+      <div style={{ margin: '4px 0', padding: '6px 10px', background: isNew ? '#eff6ff' : '#f9fafb', borderRadius: '8px', border: isNew ? '1px solid #bfdbfe' : '1px solid #e5e7eb', fontSize: '12px', color: '#374151', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', display: 'flex', alignItems: 'flex-start', gap: '6px', animation: isNew ? 'fadeIn 0.5s' : 'none' }}>
+        <span style={{ flexShrink: 0 }}>💡</span>
+        <span style={{ flex: 1 }}>{txt}</span>
+        <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+          {isAdmin && <button onClick={() => { setHintEditId(hintId); setHintEditText(txt); }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: '#9ca3af', padding: '0' }}>✏️</button>}
+          {!isNew && <button onClick={() => setHintCollapsed(prev => { const n = new Set(prev); n.delete(hintId + '_open'); return n; })}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: '#9ca3af', padding: '0' }}>✕</button>}
+        </div>
+      </div>
+    );
+  };
 
   const showHelpFor = (context) => {
     setHelpContext(context);
@@ -6959,6 +7031,7 @@ const FouFouApp = () => {
                   <span style={{ color: '#d1d5db' }}>|</span>
                   <span style={{ fontWeight: 'bold', color: '#374151' }}>{`📍 ${t("wizard.step1Title")}`}</span>
                 </div>
+                {renderContextHint('hint_area')}
                 
                 {/* Mode selector tabs */}
                 <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
@@ -7141,6 +7214,7 @@ const FouFouApp = () => {
                     {t("general.howItWorks")}
                   </button>
                 </p>
+                {renderContextHint('hint_interests')}
                 
                 {/* Interest Grid — grouped by category */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '12px' }}>
@@ -7449,6 +7523,8 @@ const FouFouApp = () => {
               </div>
             )}
 
+            {route && routeChoiceMade === 'manual' && renderContextHint('hint_manual')}
+
             {/* Show stops list ONLY after route is calculated */}
             {route && (
               <div id="route-results" className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3 mt-4" dir={window.BKK.i18n.isRTL() ? "rtl" : "ltr"}>
@@ -7459,6 +7535,7 @@ const FouFouApp = () => {
                     style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline' }}
                   >{t("general.help")}</button>
                 </div>
+                {renderContextHint('hint_route')}
                 {/* Normal stop list grouped by interest */}
                 <div className="max-h-96 overflow-y-auto" style={{ contain: 'content' }}>
                   {(() => {
@@ -8105,6 +8182,7 @@ const FouFouApp = () => {
                 </div>
               </div>
             </div>
+            {renderContextHint('hint_saved')}
             
             {citySavedRoutes.length === 0 ? (
               <div className="text-center py-8">
@@ -8215,6 +8293,7 @@ const FouFouApp = () => {
                 </div>
               )}
             </div>
+            {renderContextHint('hint_favorites')}
             
             {/* Custom Locations Section - Tabbed */}
             <div className="mb-4">
@@ -8547,6 +8626,7 @@ const FouFouApp = () => {
                 )}
               </div>
             </div>
+            {renderContextHint('hint_interests_list')}
             
             {/* Unified Interest List */}
             {(() => {
@@ -8784,6 +8864,7 @@ const FouFouApp = () => {
                 {t("general.help")}
               </button>
             </div>
+            {renderContextHint('hint_settings')}
             
             {/* Settings Sub-Tabs */}
             <div className="flex gap-2 mb-3">
@@ -9481,7 +9562,7 @@ const FouFouApp = () => {
                   style={{ width: '100%', padding: '6px 8px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '12px', direction: 'ltr', marginBottom: '8px' }}
                 >
                   <option value="">{t('settings.defaultVoice') || 'ברירת מחדל'}</option>
-                  {ttsVoices.filter(v => v.lang.startsWith('he') || v.lang.startsWith('en')).map(v => (
+                  {ttsVoices.filter(v => v.lang === 'he-IL' || v.lang === 'en-US' || v.lang === 'en-GB').map(v => (
                     <option key={v.name} value={v.name}>{v.name} {v.localService ? '' : '☁️'}</option>
                   ))}
                 </select>

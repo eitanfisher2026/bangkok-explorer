@@ -679,6 +679,7 @@
                   <span style={{ color: '#d1d5db' }}>|</span>
                   <span style={{ fontWeight: 'bold', color: '#374151' }}>{`📍 ${t("wizard.step1Title")}`}</span>
                 </div>
+                {renderContextHint('hint_area')}
                 
                 {/* Mode selector tabs */}
                 <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
@@ -863,6 +864,7 @@
                     {t("general.howItWorks")}
                   </button>
                 </p>
+                {renderContextHint('hint_interests')}
                 
                 {/* Interest Grid — grouped by category */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '12px' }}>
@@ -1175,6 +1177,8 @@
               </div>
             )}
 
+            {route && routeChoiceMade === 'manual' && renderContextHint('hint_manual')}
+
             {/* Show stops list ONLY after route is calculated */}
             {route && (
               <div id="route-results" className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3 mt-4" dir={window.BKK.i18n.isRTL() ? "rtl" : "ltr"}>
@@ -1185,6 +1189,7 @@
                     style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline' }}
                   >{t("general.help")}</button>
                 </div>
+                {renderContextHint('hint_route')}
                 {/* Normal stop list grouped by interest */}
                 <div className="max-h-96 overflow-y-auto" style={{ contain: 'content' }}>
                   {(() => {
@@ -1840,6 +1845,7 @@
                 </div>
               </div>
             </div>
+            {renderContextHint('hint_saved')}
             
             {citySavedRoutes.length === 0 ? (
               <div className="text-center py-8">
@@ -1951,6 +1957,7 @@
                 </div>
               )}
             </div>
+            {renderContextHint('hint_favorites')}
             
             {/* Custom Locations Section - Tabbed */}
             <div className="mb-4">
@@ -2283,6 +2290,7 @@
                 )}
               </div>
             </div>
+            {renderContextHint('hint_interests_list')}
             
             {/* Unified Interest List */}
             {(() => {
@@ -2525,6 +2533,7 @@
                 {t("general.help")}
               </button>
             </div>
+            {renderContextHint('hint_settings')}
             
             {/* Settings Sub-Tabs */}
             <div className="flex gap-2 mb-3">
@@ -3228,7 +3237,7 @@
                   style={{ width: '100%', padding: '6px 8px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '12px', direction: 'ltr', marginBottom: '8px' }}
                 >
                   <option value="">{t('settings.defaultVoice') || 'ברירת מחדל'}</option>
-                  {ttsVoices.filter(v => v.lang.startsWith('he') || v.lang.startsWith('en')).map(v => (
+                  {ttsVoices.filter(v => v.lang === 'he-IL' || v.lang === 'en-US' || v.lang === 'en-GB').map(v => (
                     <option key={v.name} value={v.name}>{v.name} {v.localService ? '' : '☁️'}</option>
                   ))}
                 </select>

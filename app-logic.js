@@ -1137,6 +1137,9 @@
   const [helpEditing, setHelpEditing] = useState(false);
   const [helpEditText, setHelpEditText] = useState('');
   const [helpOverrides, setHelpOverrides] = useState({});
+  const [hintEditId, setHintEditId] = useState(null);
+  const [hintEditText, setHintEditText] = useState('');
+  const [hintCollapsed, setHintCollapsed] = useState(new Set());
   const [helpContext, setHelpContext] = useState('main');
   
   // Debug Mode System
@@ -1439,6 +1442,81 @@
     window.speechSynthesis.speak(u);
   };
   const stopSpeaking = () => { if (window.speechSynthesis) window.speechSynthesis.cancel(); setIsSpeaking(false); setIsPaused(false); };
+
+  // Hint visit tracking
+  const getHintVisits = (id) => parseInt(localStorage.getItem('foufou_hint_' + id) || '0');
+  const trackHintVisit = (id) => {
+    if (!window._hintTracked) window._hintTracked = {};
+    if (!window._hintTracked[id]) {
+      window._hintTracked[id] = true;
+      localStorage.setItem('foufou_hint_' + id, String(getHintVisits(id) + 1));
+    }
+  };
+  const saveHint = (id, text) => {
+    saveHelpContent(id, text);
+    setHintEditId(null);
+  };
+
+  // Render a context-sensitive hint bar
+  const renderContextHint = (hintId) => {
+    const s = getHelpSection(hintId);
+    const txt = (s && s.content && s.content.trim()) || '';
+    const visits = getHintVisits(hintId);
+    trackHintVisit(hintId);
+    const isNew = visits < 3;
+    const isOpen = hintCollapsed.has(hintId + '_open');
+    
+    if (!txt && !isAdmin) return null;
+    
+    // Admin editing mode
+    if (hintEditId === hintId) return (
+      <div style={{ margin: '4px 0', padding: '8px', background: '#eff6ff', borderRadius: '8px', border: '1px solid #93c5fd' }}>
+        <textarea value={hintEditText} onChange={(e) => setHintEditText(e.target.value)}
+          style={{ width: '100%', minHeight: '60px', padding: '6px', fontSize: '12px', border: '1px solid #93c5fd', borderRadius: '6px', resize: 'vertical', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr' }} />
+        <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+          <button onClick={() => saveHint(hintId, hintEditText)}
+            style={{ padding: '3px 10px', fontSize: '11px', fontWeight: 'bold', background: '#22c55e', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>💾</button>
+          <button onClick={() => { saveHint(hintId, hintEditText); translateHelpToEnglish(hintId, hintEditText); }}
+            style={{ padding: '3px 10px', fontSize: '11px', fontWeight: 'bold', background: '#6366f1', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>💾🌐</button>
+          <button onClick={() => setHintEditId(null)}
+            style={{ padding: '3px 10px', fontSize: '11px', fontWeight: 'bold', background: '#d1d5db', color: '#374151', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>✕</button>
+        </div>
+      </div>
+    );
+    
+    // Collapsed state (veteran user, not expanded)
+    if (!isNew && !isOpen && txt) return (
+      <div style={{ textAlign: window.BKK.i18n.isRTL() ? 'right' : 'left', padding: '2px 0' }}>
+        <button onClick={() => setHintCollapsed(prev => { const n = new Set(prev); n.add(hintId + '_open'); return n; })}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: '#9ca3af', padding: '0' }}
+          title={txt.substring(0, 60)}>ℹ️</button>
+        {isAdmin && <button onClick={() => { setHintEditId(hintId); setHintEditText(txt); }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: '#d1d5db', padding: '0 2px' }}>✏️</button>}
+      </div>
+    );
+    
+    // Empty (admin only)
+    if (!txt && isAdmin) return (
+      <div style={{ textAlign: 'center', padding: '2px' }}>
+        <button onClick={() => { setHintEditId(hintId); setHintEditText(''); }}
+          style={{ background: 'none', border: '1px dashed #d1d5db', cursor: 'pointer', fontSize: '10px', color: '#9ca3af', padding: '2px 8px', borderRadius: '4px' }}>+ הוסף הסבר</button>
+      </div>
+    );
+    
+    // Full display (new user or expanded)
+    return (
+      <div style={{ margin: '4px 0', padding: '6px 10px', background: isNew ? '#eff6ff' : '#f9fafb', borderRadius: '8px', border: isNew ? '1px solid #bfdbfe' : '1px solid #e5e7eb', fontSize: '12px', color: '#374151', direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', display: 'flex', alignItems: 'flex-start', gap: '6px', animation: isNew ? 'fadeIn 0.5s' : 'none' }}>
+        <span style={{ flexShrink: 0 }}>💡</span>
+        <span style={{ flex: 1 }}>{txt}</span>
+        <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+          {isAdmin && <button onClick={() => { setHintEditId(hintId); setHintEditText(txt); }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: '#9ca3af', padding: '0' }}>✏️</button>}
+          {!isNew && <button onClick={() => setHintCollapsed(prev => { const n = new Set(prev); n.delete(hintId + '_open'); return n; })}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: '#9ca3af', padding: '0' }}>✕</button>}
+        </div>
+      </div>
+    );
+  };
 
   const showHelpFor = (context) => {
     setHelpContext(context);
