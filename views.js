@@ -331,7 +331,7 @@
               </button>
               <div style={{ textAlign: 'center' }}>
                 <span style={{ fontSize: '14px', fontWeight: 'bold' }}>🐾 {t('trail.activeTitle')}</span>
-                <button onClick={() => showHelpFor('activeTrail')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', marginInlineStart: '4px', textDecoration: 'underline' }}>{t('general.help')}</button>
+                
               </div>
               <span style={{ fontSize: '10px', color: '#9ca3af' }}>
                 ⏱️ {(() => { const mins = Math.round((Date.now() - activeTrail.startedAt) / 60000); return mins < 60 ? `${mins} ${t('general.min')}` : `${Math.floor(mins/60)}h ${mins%60}m`; })()}
@@ -859,10 +859,9 @@
                 <h2 style={{ textAlign: 'center', fontSize: '17px', fontWeight: 'bold', marginBottom: '2px' }}>{`⭐ ${t("wizard.step2Title")}`}</h2>
                 <p style={{ textAlign: 'center', fontSize: '11px', color: '#6b7280', marginBottom: '10px' }}>
                   {t("wizard.step2Subtitle")}
-                  {' '}
-                  <button onClick={() => showHelpFor('main')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', textDecoration: 'underline', padding: 0 }}>
-                    {t("general.howItWorks")}
-                  </button>
+                  
+                  
+
                 </p>
                 {renderContextHint('hint_interests')}
                 
@@ -1116,6 +1115,7 @@
             <div style={{ textAlign: 'center', marginBottom: '14px' }}>
               <span style={{ fontSize: '15px', fontWeight: 'bold' }}>{`🐾 ${route.stops.length} ${t('wizard.placesFound')}`}</span>
             </div>
+            {renderContextHint('hint_choice')}
 
             {/* Option 1: Yalla - quick go */}
             <button
@@ -1172,7 +1172,7 @@
             {/* Manual mode header — shown in wizard manual mode */}
             {routeChoiceMade === 'manual' && route && (
               <div className="text-center pb-2">
-                <h3 className="text-sm font-bold text-purple-700">🛠️ {t('wizard.manualMode')}  <button onClick={() => showHelpFor('manualMode')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', textDecoration: 'underline' }}>{t('general.help')}</button></h3>
+                <h3 className="text-sm font-bold text-purple-700">🛠️ {t('wizard.manualMode')}</h3>
                 <p className="text-[10px] text-gray-500">{t('wizard.manualDesc')}</p>
               </div>
             )}
@@ -1184,10 +1184,6 @@
               <div id="route-results" className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3 mt-4" dir={window.BKK.i18n.isRTL() ? "rtl" : "ltr"}>
                 <div className="flex items-center gap-2 mb-2">
                   <h3 className="font-bold text-blue-900 text-sm">{`${t("route.places")} - ${route.areaName}`} ({route.stops.length}):</h3>
-                  <button
-                    onClick={() => showHelpFor('placesListing')}
-                    style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline' }}
-                  >{t("general.help")}</button>
                 </div>
                 {renderContextHint('hint_route')}
                 {/* Normal stop list grouped by interest */}
@@ -1825,11 +1821,6 @@
                 <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
                   {citySavedRoutes.length}
                 </span>
-                <button
-                  onClick={() => showHelpFor('saved')}
-                  className="text-gray-400 hover:text-blue-500 text-sm"
-                  title={t("general.help")}
-                style={{ background: "none", border: "none", color: "#3b82f6", fontSize: "11px", cursor: "pointer", textDecoration: "underline" }}>{t("general.help")}</button>
               </div>
               <div className="flex items-center gap-2">
                 {/* Sort toggle */}
@@ -1926,13 +1917,6 @@
           <div className="view-fade-in bg-white rounded-xl shadow-lg p-3">
             <div className="flex items-center gap-2 mb-3">
               <h2 className="text-lg font-bold">{`⭐ ${t("nav.favorites")}`}</h2>
-              <button
-                onClick={() => showHelpFor('myPlaces')}
-                className="text-gray-400 hover:text-blue-500 text-sm"
-                title={t("general.help")}
-              >
-                {t("general.help")}
-              </button>
               {isUnlocked && customLocations.length > 1 && (
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
                   <button
@@ -2263,7 +2247,6 @@
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold">🏷️ {t("nav.myInterests")}</h2>
-                <button onClick={() => showHelpFor('myInterests')} className="text-blue-400 hover:text-blue-600 text-sm" title={t("general.help")}style={{ background: "none", border: "none", color: "#3b82f6", fontSize: "11px", cursor: "pointer", textDecoration: "underline" }}>{t("general.help")}</button>
                 <span className="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full">
                   {(window.BKK.interestOptions || []).length + (window.BKK.uncoveredInterests || []).length + (cityCustomInterests || []).length} {t("general.total")}
                 </span>
@@ -2525,13 +2508,6 @@
           <div className="view-fade-in bg-white rounded-xl shadow-lg p-3">
             <div className="flex items-center gap-2 mb-3">
               <h2 className="text-lg font-bold">{t("settings.title")}</h2>
-              <button
-                onClick={() => showHelpFor('settings')}
-                className="text-gray-400 hover:text-blue-500 text-sm"
-                title={t("general.help")}
-              >
-                {t("general.help")}
-              </button>
             </div>
             {renderContextHint('hint_settings')}
             
@@ -4013,8 +3989,6 @@
                 <h3 className="font-bold text-sm" style={{ whiteSpace: 'nowrap' }}>
                   {mapMode === 'areas' ? t('wizard.allAreasMap') : mapMode === 'stops' ? `${t('route.showStopsOnMap')} (${mapStops.length})` : mapMode === 'favorites' ? `⭐ ${t('nav.favorites')}` : t('form.searchRadius')}
                 </h3>
-                {mapMode === 'stops' && (<button onClick={() => showHelpFor('mapPlanning')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', textDecoration: 'underline' }}>{t('general.help')}</button>)}
-                {mapMode === 'favorites' && (<button onClick={() => showHelpFor('favoritesMap')} style={{ background: 'none', border: 'none', fontSize: '11px', cursor: 'pointer', color: '#3b82f6', textDecoration: 'underline' }}>{t('general.help')}</button>)}
                 {mapMode === 'favorites' && (() => {
                   const activeCount = customLocations.filter(loc => {
                     if (loc.status === 'blacklist' || !loc.lat || !loc.lng) return false;
