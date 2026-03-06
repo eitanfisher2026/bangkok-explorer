@@ -2147,13 +2147,13 @@
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-1 flex-wrap">
                                     {mapUrl ? (
-                                      <><span onClick={() => handleEditLocation(loc)}
+                                      <><span onClick={() => handleEditLocation(loc, flatNavList)}
                                         className="font-medium text-sm text-blue-600 truncate cursor-pointer hover:underline"
                                       >{loc.name}</span>
                                       <a href={mapUrl} target="city_explorer_map" rel="noopener noreferrer"
                                         style={{ fontSize: '10px', opacity: 0.5, flexShrink: 0 }} title={t("general.openInGoogle")}>🔗</a></>
                                     ) : (
-                                      <span onClick={() => handleEditLocation(loc)} className="font-medium text-sm truncate cursor-pointer hover:underline">{loc.name}</span>
+                                      <span onClick={() => handleEditLocation(loc, flatNavList)} className="font-medium text-sm truncate cursor-pointer hover:underline">{loc.name}</span>
                                     )}
                                     {isUnlocked && <span title={loc.locked ? (t('places.approved') || 'מאושר') : (t('places.draft') || 'טיוטה')} style={{ fontSize: '10px' }}>{loc.locked ? '✅' : '✏️'}</span>}
                                     {loc.outsideArea && <span className="text-orange-500 text-xs" title={t("general.outsideBoundary")}>🔺</span>}
@@ -2168,20 +2168,20 @@
                                     ))}
                                   </div>
                                 </div>
-                                {(() => { const pk = (loc.name || '').replace(/[.#$/\\[\]]/g, '_'); const ra = reviewAverages[pk]; return (
-                                  <button onClick={() => openReviewDialog(loc)}
-                                    style={{ fontSize: '10px', padding: '0 3px', borderRadius: '4px', cursor: 'pointer', flexShrink: 0, fontWeight: 'bold',
-                                      ...(ra ? { color: '#f59e0b', background: '#fffbeb', border: '1px solid #fde68a' } : { color: '#d1d5db', background: 'none', border: '1px solid #e5e7eb' })
-                                    }}
-                                    title={ra ? `⭐ ${ra.avg.toFixed(1)} (${ra.count})` : (t('reviews.rate') || 'דרג')}
-                                  >{ra ? `⭐${ra.avg.toFixed(1)}` : '☆'}</button>
-                                ); })()}
                                 {(loc.uploadedImage || (loc.imageUrls && loc.imageUrls.length > 0)) && (
                                   <button onClick={() => { setModalImage(loc.uploadedImage || loc.imageUrls[0]); setModalImageCtx({ description: loc.description, location: loc }); setShowImageModal(true); }}
                                     style={{ fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', flexShrink: 0, opacity: 0.6 }}
                                     title={t("general.viewImage") || "תמונה"}>🖼️</button>
                                 )}
-                                <button onClick={() => handleEditLocation(loc)}
+                                {(() => { const pk = (loc.name || '').replace(/[.#$/\\[\]]/g, '_'); const ra = reviewAverages[pk]; return (
+                                  <button onClick={() => openReviewDialog(loc)}
+                                    style={{ fontSize: '10px', padding: '0 3px', borderRadius: '4px', cursor: 'pointer', flexShrink: 0, fontWeight: 'bold', minWidth: '28px', textAlign: 'center',
+                                      ...(ra ? { color: '#f59e0b', background: '#fffbeb', border: '1px solid #fde68a' } : { color: '#d1d5db', background: 'none', border: '1px solid #e5e7eb' })
+                                    }}
+                                    title={ra ? `⭐ ${ra.avg.toFixed(1)} (${ra.count})` : (t('reviews.rate') || 'דרג')}
+                                  >{ra ? `⭐${ra.avg.toFixed(1)}` : '☆'}</button>
+                                ); })()}
+                                <button onClick={() => handleEditLocation(loc, flatNavList)}
                                   className="text-xs px-1 py-0.5 rounded"
                                   title={canEdit ? t("places.detailsEdit") : t("general.viewOnly")}>{canEdit ? "✏️" : "👁️"}</button>
                               </div>
@@ -2209,32 +2209,32 @@
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1 flex-wrap">
                                   {mapUrl ? (
-                                    <><span onClick={() => handleEditLocation(loc)}
+                                    <><span onClick={() => handleEditLocation(loc, flatNavList)}
                                       className="font-medium text-sm text-blue-600 truncate cursor-pointer hover:underline"
                                     >{loc.name}</span>
                                     <a href={mapUrl} target="city_explorer_map" rel="noopener noreferrer"
                                       style={{ fontSize: '10px', opacity: 0.5, flexShrink: 0 }} title={t("general.openInGoogle")}>🔗</a></>
                                   ) : (
-                                    <span onClick={() => handleEditLocation(loc)} className="font-medium text-sm truncate cursor-pointer hover:underline">{loc.name}</span>
+                                    <span onClick={() => handleEditLocation(loc, flatNavList)} className="font-medium text-sm truncate cursor-pointer hover:underline">{loc.name}</span>
                                   )}
                                   {isUnlocked && <span title={loc.locked ? (t('places.approved') || 'מאושר') : (t('places.draft') || 'טיוטה')} style={{ fontSize: '10px' }}>{loc.locked ? '✅' : '✏️'}</span>}
                                   {!isLocationValid(loc) && <span className="text-red-500 text-[9px]" title={t("places.missingDetails")}>❌</span>}
                                 </div>
                               </div>
-                              {(() => { const pk = (loc.name || '').replace(/[.#$/\\[\]]/g, '_'); const ra = reviewAverages[pk]; return (
-                                <button onClick={() => openReviewDialog(loc)}
-                                  style={{ fontSize: '10px', padding: '0 3px', borderRadius: '4px', cursor: 'pointer', flexShrink: 0, fontWeight: 'bold',
-                                    ...(ra ? { color: '#f59e0b', background: '#fffbeb', border: '1px solid #fde68a' } : { color: '#d1d5db', background: 'none', border: '1px solid #e5e7eb' })
-                                  }}
-                                  title={ra ? `⭐ ${ra.avg.toFixed(1)} (${ra.count})` : (t('reviews.rate') || 'דרג')}
-                                >{ra ? `⭐${ra.avg.toFixed(1)}` : '☆'}</button>
-                              ); })()}
                               {(loc.uploadedImage || (loc.imageUrls && loc.imageUrls.length > 0)) && (
                                 <button onClick={() => { setModalImage(loc.uploadedImage || loc.imageUrls[0]); setModalImageCtx({ description: loc.description, location: loc }); setShowImageModal(true); }}
                                   style={{ fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', flexShrink: 0, opacity: 0.6 }}
                                   title={t("general.viewImage") || "תמונה"}>🖼️</button>
                               )}
-                              <button onClick={() => handleEditLocation(loc)}
+                              {(() => { const pk = (loc.name || '').replace(/[.#$/\\[\]]/g, '_'); const ra = reviewAverages[pk]; return (
+                                <button onClick={() => openReviewDialog(loc)}
+                                  style={{ fontSize: '10px', padding: '0 3px', borderRadius: '4px', cursor: 'pointer', flexShrink: 0, fontWeight: 'bold', minWidth: '28px', textAlign: 'center',
+                                    ...(ra ? { color: '#f59e0b', background: '#fffbeb', border: '1px solid #fde68a' } : { color: '#d1d5db', background: 'none', border: '1px solid #e5e7eb' })
+                                  }}
+                                  title={ra ? `⭐ ${ra.avg.toFixed(1)} (${ra.count})` : (t('reviews.rate') || 'דרג')}
+                                >{ra ? `⭐${ra.avg.toFixed(1)}` : '☆'}</button>
+                              ); })()}
+                              <button onClick={() => handleEditLocation(loc, flatNavList)}
                                 className="text-xs px-1 py-0.5 rounded"
                                 title={canEdit ? t("places.detailsEdit") : t("general.viewOnly")}>{canEdit ? "✏️" : "👁️"}</button>
                             </div>
@@ -3200,6 +3200,51 @@
                         transition: 'all 0.2s'
                       }}
                     >{langInfo.flag} {langInfo.name}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Voice & Speech Rate */}
+            <div className="mb-3">
+              <div className="bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-200 rounded-lg p-2">
+                <h3 className="text-sm font-bold text-gray-800 mb-2">{`🔊 ${t('settings.voiceSelect') || 'קול השמעה'}`}</h3>
+                {ttsVoices.length > 0 && (
+                <select
+                  value={selectedVoice}
+                  onChange={(e) => {
+                    setSelectedVoice(e.target.value);
+                    localStorage.setItem('foufou_tts_voice', e.target.value);
+                    if (window.speechSynthesis) {
+                      window.speechSynthesis.cancel();
+                      const u = new SpeechSynthesisUtterance(window.BKK.i18n.currentLang === 'en' ? 'Hello, this is FouFou' : 'שלום, זה פופו');
+                      const voice = ttsVoices.find(v => v.name === e.target.value);
+                      if (voice) u.voice = voice;
+                      u.lang = window.BKK.i18n.currentLang === 'en' ? 'en-US' : 'he-IL';
+                      u.rate = parseFloat(localStorage.getItem('foufou_tts_rate') || '1.0');
+                      window.speechSynthesis.speak(u);
+                    }
+                  }}
+                  style={{ width: '100%', padding: '6px 8px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '12px', direction: 'ltr', marginBottom: '8px' }}
+                >
+                  <option value="">{t('settings.defaultVoice') || 'ברירת מחדל'}</option>
+                  {ttsVoices.map(v => (
+                    <option key={v.name} value={v.name}>{v.name} ({v.lang}) {v.localService ? '' : '☁️'}</option>
+                  ))}
+                </select>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="text-xs font-bold text-gray-600">{`⏩ ${t('settings.speechRate') || 'קצב'}:`}</span>
+                  {[0.7, 0.85, 1.0, 1.2, 1.5].map(rate => (
+                    <button key={rate}
+                      onClick={() => localStorage.setItem('foufou_tts_rate', String(rate))}
+                      style={{
+                        padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer',
+                        border: parseFloat(localStorage.getItem('foufou_tts_rate') || '1.0') === rate ? '2px solid #7c3aed' : '1px solid #d1d5db',
+                        background: parseFloat(localStorage.getItem('foufou_tts_rate') || '1.0') === rate ? '#ede9fe' : 'white',
+                        color: parseFloat(localStorage.getItem('foufou_tts_rate') || '1.0') === rate ? '#7c3aed' : '#6b7280'
+                      }}
+                    >{rate}x</button>
                   ))}
                 </div>
               </div>

@@ -66,6 +66,20 @@
               {/* Header - Compact */}
               <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2.5 rounded-t-xl flex items-center justify-between">
                 <div className="flex items-center gap-2">
+                  {showEditLocationDialog && editNavList && editNavList.length > 1 && (() => {
+                    const idx = editNavList.findIndex(l => l.name === (editingLocation && editingLocation.name));
+                    return idx >= 0 ? (
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => handleEditLocation(editNavList[(idx - 1 + editNavList.length) % editNavList.length], editNavList)}
+                          style={{ background: 'rgba(255,255,255,0.25)', border: 'none', color: 'white', width: '24px', height: '24px', borderRadius: '50%', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >◀</button>
+                        <span style={{ fontSize: '9px', opacity: 0.7 }}>{idx + 1}/{editNavList.length}</span>
+                        <button onClick={() => handleEditLocation(editNavList[(idx + 1) % editNavList.length], editNavList)}
+                          style={{ background: 'rgba(255,255,255,0.25)', border: 'none', color: 'white', width: '24px', height: '24px', borderRadius: '50%', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >▶</button>
+                      </div>
+                    ) : null;
+                  })()}
                   <h3 className="text-base font-bold">
                     {showEditLocationDialog ? t('places.editPlace') : t('places.addPlace')}
                   </h3>

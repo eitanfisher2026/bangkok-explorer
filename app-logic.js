@@ -556,6 +556,7 @@
   const [iconPickerConfig, setIconPickerConfig] = useState(null); // { description: '', callback: fn, suggestions: [], loading: false }
   const [showEditLocationDialog, setShowEditLocationDialog] = useState(false);
   const [editingLocation, setEditingLocation] = useState(null);
+  const [editNavList, setEditNavList] = useState(null);
   const [reviewDialog, setReviewDialog] = useState(null); // { place, reviews: [], myRating, myText }
   const [reviewAverages, setReviewAverages] = useState({}); // { placeKey: { avg: 4.2, count: 3 } }
   const [userNamesMap, setUserNamesMap] = useState({}); // { uid: displayName }
@@ -3796,6 +3797,11 @@
     }
   }, [cityCustomLocations, placesGroupBy, placesTab, interestMap, areaMap, searchQuery]);
 
+  // Flat navigation list for prev/next in edit dialog
+  const flatNavList = useMemo(() => {
+    return [...groupedPlaces.sortedKeys.flatMap(k => groupedPlaces.groups[k] || []), ...groupedPlaces.ungrouped];
+  }, [groupedPlaces]);
+
   // Image handling - loaded from utils.js
   const uploadImage = window.BKK.uploadImage;
   
@@ -5821,7 +5827,8 @@
     setReviewDialog(null);
   };
 
-  const handleEditLocation = (loc) => {
+  const handleEditLocation = (loc, navList) => {
+    if (navList !== undefined) setEditNavList(navList);
     setEditingLocation(loc);
     const editFormData = {
       name: loc.name || '',
