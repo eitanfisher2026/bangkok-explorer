@@ -1563,17 +1563,22 @@
 
   // Play hint: audio recording > TTS
   const playHint = (hintId, text) => {
+    // Always cancel any ongoing TTS first
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    if (window._hintAudio) { window._hintAudio.pause(); window._hintAudio = null; }
+    
     const lang = window.BKK.i18n.currentLang || 'he';
     const audioUrl = hintAudioUrls[hintId + '_' + lang];
     if (audioUrl) {
-      if (window._hintAudio) { window._hintAudio.pause(); }
+      // Play recording — do NOT fall through to TTS
       const audio = new Audio(audioUrl);
       window._hintAudio = audio;
-      audio.onended = () => { setIsSpeaking(false); };
+      audio.onended = () => { setIsSpeaking(false); setIsPaused(false); window._hintAudio = null; };
       setIsSpeaking(true); setIsPaused(false);
       audio.play();
-      return;
+      return; // <-- critical: stop here, no TTS
     }
+    // No recording — use TTS
     speakHelp(text);
   };
   const pauseResumeHint = () => {
@@ -1582,7 +1587,16 @@
       else { window._hintAudio.pause(); setIsPaused(true); }
       return;
     }
-    speakHelp('');
+    // TTS pause/resume
+    if (window.speechSynthesis) {
+      if (isPaused) { window.speechSynthesis.resume(); setIsPaused(false); }
+      else { window.speechSynthesis.pause(); setIsPaused(true); }
+    }
+  };
+  const stopHintPlayback = () => {
+    if (window._hintAudio) { window._hintAudio.pause(); window._hintAudio = null; }
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    setIsSpeaking(false); setIsPaused(false);
   };
 
   // Render a context-sensitive hint bar
@@ -1654,7 +1668,7 @@
         <div style={{ display: 'flex', gap: '2px', flexShrink: 0, alignItems: 'center' }}>
           <button onClick={() => isSpeaking ? pauseResumeHint() : playHint(hintId, txt)}
             style={{ ...btnStyle, color: '#3b82f6' }}>{isSpeaking ? (isPaused ? '▶️' : '⏸️') : '🔊'}</button>
-          {isSpeaking && <button onClick={stopSpeaking} style={{ ...btnStyle, color: '#ef4444' }}>⏹️</button>}
+          {isSpeaking && <button onClick={stopHintPlayback} style={{ ...btnStyle, color: '#ef4444' }}>⏹️</button>}
           {isAdmin && <button onClick={() => { setHintEditId(hintId); setHintEditText(txt); }}
             style={{ ...btnStyle, color: '#9ca3af', fontSize: '10px' }}>✏️</button>}
           {!isNew && <button onClick={() => setHintCollapsed(prev => { const n = new Set(prev); n.delete(hintId + '_open'); return n; })}
