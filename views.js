@@ -2155,7 +2155,7 @@
                                     ) : (
                                       <span onClick={() => handleEditLocation(loc, flatNavList)} className="font-medium text-sm truncate cursor-pointer hover:underline">{loc.name}</span>
                                     )}
-                                    {isUnlocked && <span title={loc.locked ? (t('places.approved') || 'מאושר') : (t('places.draft') || 'טיוטה')} style={{ fontSize: '10px' }}>{loc.locked ? '✅' : '✏️'}</span>}
+                                    
                                     {loc.outsideArea && <span className="text-orange-500 text-xs" title={t("general.outsideBoundary")}>🔺</span>}
                                     {loc.missingCoordinates && <span className="text-red-500 text-xs" title={t("general.noLocation")}>⚠️</span>}
                                     {!isLocationValid(loc) && <span className="text-red-500 text-[9px]" title={t("places.missingDetailsLong")}>❌</span>}
@@ -2168,12 +2168,12 @@
                                     ))}
                                   </div>
                                 </div>
-                                {(loc.uploadedImage || (loc.imageUrls && loc.imageUrls.length > 0)) && (
+                                {loc.status !== 'blacklist' && (loc.uploadedImage || (loc.imageUrls && loc.imageUrls.length > 0)) && (
                                   <button onClick={() => { setModalImage(loc.uploadedImage || loc.imageUrls[0]); setModalImageCtx({ description: loc.description, location: loc }); setShowImageModal(true); }}
                                     style={{ fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', flexShrink: 0, opacity: 0.6 }}
                                     title={t("general.viewImage") || "תמונה"}>🖼️</button>
                                 )}
-                                {(() => { const pk = (loc.name || '').replace(/[.#$/\\[\]]/g, '_'); const ra = reviewAverages[pk]; return (
+                                {loc.status !== 'blacklist' && (() => { const pk = (loc.name || '').replace(/[.#$/\\[\]]/g, '_'); const ra = reviewAverages[pk]; return (
                                   <button onClick={() => openReviewDialog(loc)}
                                     style={{ fontSize: '10px', padding: '0 3px', borderRadius: '4px', cursor: 'pointer', flexShrink: 0, fontWeight: 'bold', minWidth: '28px', textAlign: 'center',
                                       ...(ra ? { color: '#f59e0b', background: '#fffbeb', border: '1px solid #fde68a' } : { color: '#d1d5db', background: 'none', border: '1px solid #e5e7eb' })
@@ -2217,16 +2217,16 @@
                                   ) : (
                                     <span onClick={() => handleEditLocation(loc, flatNavList)} className="font-medium text-sm truncate cursor-pointer hover:underline">{loc.name}</span>
                                   )}
-                                  {isUnlocked && <span title={loc.locked ? (t('places.approved') || 'מאושר') : (t('places.draft') || 'טיוטה')} style={{ fontSize: '10px' }}>{loc.locked ? '✅' : '✏️'}</span>}
+                                  
                                   {!isLocationValid(loc) && <span className="text-red-500 text-[9px]" title={t("places.missingDetails")}>❌</span>}
                                 </div>
                               </div>
-                              {(loc.uploadedImage || (loc.imageUrls && loc.imageUrls.length > 0)) && (
+                              {loc.status !== 'blacklist' && (loc.uploadedImage || (loc.imageUrls && loc.imageUrls.length > 0)) && (
                                 <button onClick={() => { setModalImage(loc.uploadedImage || loc.imageUrls[0]); setModalImageCtx({ description: loc.description, location: loc }); setShowImageModal(true); }}
                                   style={{ fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', flexShrink: 0, opacity: 0.6 }}
                                   title={t("general.viewImage") || "תמונה"}>🖼️</button>
                               )}
-                              {(() => { const pk = (loc.name || '').replace(/[.#$/\\[\]]/g, '_'); const ra = reviewAverages[pk]; return (
+                              {loc.status !== 'blacklist' && (() => { const pk = (loc.name || '').replace(/[.#$/\\[\]]/g, '_'); const ra = reviewAverages[pk]; return (
                                 <button onClick={() => openReviewDialog(loc)}
                                   style={{ fontSize: '10px', padding: '0 3px', borderRadius: '4px', cursor: 'pointer', flexShrink: 0, fontWeight: 'bold', minWidth: '28px', textAlign: 'center',
                                     ...(ra ? { color: '#f59e0b', background: '#fffbeb', border: '1px solid #fde68a' } : { color: '#d1d5db', background: 'none', border: '1px solid #e5e7eb' })
@@ -3221,28 +3221,33 @@
                       const voice = ttsVoices.find(v => v.name === e.target.value);
                       if (voice) u.voice = voice;
                       u.lang = window.BKK.i18n.currentLang === 'en' ? 'en-US' : 'he-IL';
-                      u.rate = parseFloat(localStorage.getItem('foufou_tts_rate') || '1.0');
+                      u.rate = systemParams.speechRate || 1.0;
                       window.speechSynthesis.speak(u);
                     }
                   }}
                   style={{ width: '100%', padding: '6px 8px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '12px', direction: 'ltr', marginBottom: '8px' }}
                 >
                   <option value="">{t('settings.defaultVoice') || 'ברירת מחדל'}</option>
-                  {ttsVoices.map(v => (
-                    <option key={v.name} value={v.name}>{v.name} ({v.lang}) {v.localService ? '' : '☁️'}</option>
+                  {ttsVoices.filter(v => v.lang.startsWith('he') || v.lang.startsWith('en')).map(v => (
+                    <option key={v.name} value={v.name}>{v.name} {v.localService ? '' : '☁️'}</option>
                   ))}
                 </select>
                 )}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                   <span className="text-xs font-bold text-gray-600">{`⏩ ${t('settings.speechRate') || 'קצב'}:`}</span>
                   {[0.7, 0.85, 1.0, 1.2, 1.5].map(rate => (
                     <button key={rate}
-                      onClick={() => localStorage.setItem('foufou_tts_rate', String(rate))}
+                      onClick={() => {
+                        const updated = { ...systemParams, speechRate: rate };
+                        window.BKK.systemParams = updated;
+                        setSystemParams(updated);
+                        if (isFirebaseAvailable && database) database.ref('settings/systemParams/speechRate').set(rate);
+                      }}
                       style={{
                         padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer',
-                        border: parseFloat(localStorage.getItem('foufou_tts_rate') || '1.0') === rate ? '2px solid #7c3aed' : '1px solid #d1d5db',
-                        background: parseFloat(localStorage.getItem('foufou_tts_rate') || '1.0') === rate ? '#ede9fe' : 'white',
-                        color: parseFloat(localStorage.getItem('foufou_tts_rate') || '1.0') === rate ? '#7c3aed' : '#6b7280'
+                        border: (systemParams.speechRate || 1.0) === rate ? '2px solid #7c3aed' : '1px solid #d1d5db',
+                        background: (systemParams.speechRate || 1.0) === rate ? '#ede9fe' : 'white',
+                        color: (systemParams.speechRate || 1.0) === rate ? '#7c3aed' : '#6b7280'
                       }}
                     >{rate}x</button>
                   ))}

@@ -541,6 +541,7 @@
       foufouRatingBoost: 2,
       // Speech recording
       speechMaxSeconds: 15,
+      speechRate: 1.0,
     };
     window.BKK.systemParams = { ...window.BKK._defaultSystemParams };
   }
@@ -1430,7 +1431,7 @@
     const clean = text.replace(/\*\*/g, '').replace(/[•#]/g, '').replace(/\n+/g, '. ');
     const u = new SpeechSynthesisUtterance(clean);
     u.lang = window.BKK.i18n.currentLang === 'en' ? 'en-US' : 'he-IL';
-    u.rate = parseFloat(localStorage.getItem('foufou_tts_rate') || '1.0');
+    u.rate = window.BKK.systemParams?.speechRate || 1.0;
     if (selectedVoice) { const v = ttsVoices.find(function(v) { return v.name === selectedVoice; }); if (v) u.voice = v; }
     u.onstart = () => { setIsSpeaking(true); setIsPaused(false); };
     u.onend = () => { setIsSpeaking(false); setIsPaused(false); };
