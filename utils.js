@@ -512,16 +512,15 @@ window.BKK.getGoogleMapsUrl = (place) => {
   if (!hasCoords && !addressStr) return '#';
   
   // Best: use Place ID → opens the actual Google Maps place page
+  // Using place_id: format — works on desktop, mobile browser, and Google Maps app
   const pid = place.googlePlaceId || place.placeId;
   if (pid && isValidGooglePlaceId(pid)) {
-    const query = encodeURIComponent(place.name || addressStr || `${place.lat},${place.lng}`);
-    return `https://www.google.com/maps/search/?api=1&query=${query}&query_place_id=${pid}`;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name || addressStr || `${place.lat},${place.lng}`)}&query_place_id=${pid}`;
   }
   
-  // Google-origin place without Place ID (saved before this feature):
-  // Search by name near coords — Google will likely match the real place
+  // Google-origin place without Place ID: search by name + coords as query (no center/zoom — invalid on mobile)
   if ((place.fromGoogle || place.googlePlace) && place.name && hasCoords) {
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&center=${place.lat},${place.lng}&zoom=17`;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name + ' ' + place.lat + ',' + place.lng)}`;
   }
   
   // Fallback: address
@@ -529,12 +528,12 @@ window.BKK.getGoogleMapsUrl = (place) => {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressStr)}`;
   }
   
-  // Custom place with name + coords + address/Google origin: search by name near location
-  if (place.name?.trim() && hasCoords && (place.fromGoogle || place.googlePlace || addressStr)) {
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name.trim())}&center=${place.lat},${place.lng}&zoom=17`;
+  // Custom place with name + coords: embed coords in query so mobile Maps app lands on the right spot
+  if (place.name?.trim() && hasCoords) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name.trim() + ' ' + place.lat + ',' + place.lng)}`;
   }
   
-  // Coordinate-only custom place: just pin on map (name search gives irrelevant global results)
+  // Coordinate-only custom place: just pin on map
   if (hasCoords) {
     return `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`;
   }

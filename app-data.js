@@ -1,4 +1,4 @@
-// FouFou app-data.js v3.8.02
+// FouFou app-data.js v3.8.03
 // ============================================================================
 // FouFou — City Trail Generator - Internationalization (i18n)
 // Copyright © 2026 Eitan Fisher. All Rights Reserved.
@@ -3139,7 +3139,7 @@ window.BKK.mapConfig = {
   window.BKK.visitorName = vname || vid.slice(0, 10);
 })();
 
-window.BKK.VERSION = '3.8.02';
+window.BKK.VERSION = '3.8.03';
 window.BKK.stopLabel = function(i) {
   if (i < 26) return String.fromCharCode(65 + i);
   return String.fromCharCode(65 + Math.floor(i / 26) - 1) + String.fromCharCode(65 + (i % 26));
@@ -3995,20 +3995,19 @@ window.BKK.getGoogleMapsUrl = (place) => {
   
   const pid = place.googlePlaceId || place.placeId;
   if (pid && isValidGooglePlaceId(pid)) {
-    const query = encodeURIComponent(place.name || addressStr || `${place.lat},${place.lng}`);
-    return `https://www.google.com/maps/search/?api=1&query=${query}&query_place_id=${pid}`;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name || addressStr || `${place.lat},${place.lng}`)}&query_place_id=${pid}`;
   }
   
   if ((place.fromGoogle || place.googlePlace) && place.name && hasCoords) {
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&center=${place.lat},${place.lng}&zoom=17`;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name + ' ' + place.lat + ',' + place.lng)}`;
   }
   
   if (addressStr) {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressStr)}`;
   }
   
-  if (place.name?.trim() && hasCoords && (place.fromGoogle || place.googlePlace || addressStr)) {
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name.trim())}&center=${place.lat},${place.lng}&zoom=17`;
+  if (place.name?.trim() && hasCoords) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name.trim() + ' ' + place.lat + ',' + place.lng)}`;
   }
   
   if (hasCoords) {

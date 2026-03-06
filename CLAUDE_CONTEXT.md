@@ -2,7 +2,7 @@
 
 **Tagline:** Local picks + Google spots. Choose your vibe, follow the trail 🍜🏛️🎭
 
-## Version: 3.8.00 (Mar 6, 2026)
+## Version: 3.8.03 (Mar 6, 2026)
 
 ## ⚠️ CRITICAL: Known Fragile Areas — READ BEFORE ANY CODE CHANGE
 
@@ -69,22 +69,18 @@ Other:
 
 ## Packaging & Deployment
 
-When the user asks to prepare zip files, always produce **two** zip files:
+When the user asks to prepare a zip file, produce **one zip only**, named with the version number.
 
-### github-upload.zip (26 files) — for GitHub Pages
+### How to get the version
 ```bash
-zip github-upload.zip \
-  index.html app-data.js app-code.js \
-  i18n.js config.js utils.js app-logic.js views.js dialogs.js \
-  city-bangkok.js city-gushdan.js city-singapore.js city-malaga.js \
-  _source-template.html _app-code-template.js build.py README.md .nojekyll \
-  manifest.json favicon.ico version.json \
-  icon-16x16.png icon-32x32.png icon-180x180.png icon-192x192.png icon-512x512.png
+python3 -c "import re; s=open('config.js').read(); print(re.search(r\"VERSION\s*=\s*'([^']+)'\", s).group(1))"
 ```
 
-### claude-dev.zip (27 files) — for next Claude chat session
+### Single zip — includes everything (27 files), named with version
 ```bash
-zip claude-dev.zip \
+# Example: github-upload-v3_8_02.zip (replace dots with underscores)
+VERSION=$(python3 -c "import re; s=open('config.js').read(); print(re.search(r\"VERSION\s*=\s*'([^']+)'\", s).group(1).replace('.','_'))")
+zip github-upload-v${VERSION}.zip \
   index.html app-data.js app-code.js \
   i18n.js config.js utils.js app-logic.js views.js dialogs.js \
   city-bangkok.js city-gushdan.js city-singapore.js city-malaga.js \
@@ -93,7 +89,7 @@ zip claude-dev.zip \
   icon-16x16.png icon-32x32.png icon-180x180.png icon-192x192.png icon-512x512.png
 ```
 
-⚠️ `CLAUDE_CONTEXT.md` must **never** be in `github-upload.zip` and must **always** be in `claude-dev.zip`.
+✅ `CLAUDE_CONTEXT.md` **is included** in the zip — it's needed for the next Claude session and is safe to upload to GitHub (it has no secrets).
 
 ### Build & Verify Workflow
 ```bash
@@ -108,13 +104,13 @@ print(f'app-code.js: () {p:+d}  {{}} {b:+d}  [] {k:+d}')
 # All should be 0
 "
 
-# 3. Package both zips (see commands above)
+# 3. Package zip (see command above)
 ```
 
 ### Version Bump Workflow
 1. Update `window.BKK.VERSION` in `config.js`
 2. Run `python3 build.py` (auto-generates `version.json` + all 3 output files)
-3. Package both zips
+3. Package zip with new version name
 4. User uploads all files to GitHub → auto-update banner appears for existing users
 
 ## Key Design Patterns
@@ -222,6 +218,17 @@ print(f'app-code.js: () {p:+d}  {{}} {b:+d}  [] {k:+d}')
 ```
 
 ## Changelog
+
+### v3.8.03 (Mar 6, 2026) — Mobile Google Maps URL Fix + Packaging Fix
+
+**Mobile Maps Bug Fixed (utils.js):**
+- URLs using `center=lat,lng&zoom=17` params are invalid for `maps/search/?api=1` — desktop ignored them but mobile Google Maps app fell through to generic Google Search ("Add a missing place to Google Maps")
+- Fixed: coords now embedded directly in `query` param (`query=NAME+lat,lng`) — works correctly on both desktop and mobile
+
+**CLAUDE_CONTEXT.md Packaging Instructions Fixed:**
+- Was: two zips (`github-upload.zip` + `claude-dev.zip`)
+- Now: one zip named with version number (`github-upload-vX_Y_ZZ.zip`) including `CLAUDE_CONTEXT.md`
+- Added: version auto-bump reminder — any session that changes code must bump `config.js` VERSION
 
 ### v3.0.0 — Multi-City Release
 - **Multi-city architecture**: App now supports multiple cities (Bangkok, Gush Dan, Singapore)
