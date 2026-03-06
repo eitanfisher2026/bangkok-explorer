@@ -1957,10 +1957,19 @@
       // Skip coordinate-only places — no Google identity to generate URL for
       if (isCoordOnly) return;
       
+      // Check if mapsUrl has a bad query_place_id (Firebase key instead of Google Place ID)
+      const hasBadPlaceIdInUrl = (() => {
+        const m = currentUrl.match(/query_place_id=([^&]+)/);
+        if (!m) return false;
+        const pid = decodeURIComponent(m[1]);
+        return !isValidGPID(pid);
+      })();
+      
       const needsFix = !currentUrl || 
         currentUrl === '#' || 
         coordsOnlyPattern.test(currentUrl) ||
-        (!currentUrl.includes('google.com/maps') && currentUrl.length > 0);
+        (!currentUrl.includes('google.com/maps') && currentUrl.length > 0) ||
+        hasBadPlaceIdInUrl;
       
       if (!needsFix) return;
       

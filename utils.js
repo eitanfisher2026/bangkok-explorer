@@ -505,7 +505,15 @@ window.BKK.getGoogleMapsUrl = (place) => {
   };
   
   // Top priority: user-set or API-provided mapsUrl (if it's a real Google URL, not just coords)
-  if (place.mapsUrl && place.mapsUrl.includes('google.com/maps') && !place.mapsUrl.match(/\?q=\d+\.\d+,\d+\.\d+$/)) {
+  // BUT: reject if query_place_id contains a Firebase key (not a real Google Place ID)
+  const hasInvalidPlaceIdInUrl = (url) => {
+    const m = url.match(/query_place_id=([^&]+)/);
+    if (!m) return false;
+    return !isValidGooglePlaceId(decodeURIComponent(m[1]));
+  };
+  if (place.mapsUrl && place.mapsUrl.includes('google.com/maps')
+      && !place.mapsUrl.match(/\?q=\d+\.\d+,\d+\.\d+$/)
+      && !hasInvalidPlaceIdInUrl(place.mapsUrl)) {
     return place.mapsUrl;
   }
   

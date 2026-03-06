@@ -2,7 +2,7 @@
 
 **Tagline:** Local picks + Google spots. Choose your vibe, follow the trail 🍜🏛️🎭
 
-## Version: 3.8.03 (Mar 6, 2026)
+## Version: 3.8.04 (Mar 6, 2026)
 
 ## ⚠️ CRITICAL: Known Fragile Areas — READ BEFORE ANY CODE CHANGE
 
@@ -218,6 +218,14 @@ print(f'app-code.js: () {p:+d}  {{}} {b:+d}  [] {k:+d}')
 ```
 
 ## Changelog
+
+### v3.8.04 (Mar 6, 2026) — Fix Firebase Key in mapsUrl (Mobile Maps Bug Part 2)
+
+**Root cause:** `mapsUrl` stored in Firebase already contained bad `query_place_id=or_BGf4jARSpbYZd2UIjM` (Firebase push key). Both `getGoogleMapsUrl` and the repair function treated it as a valid Google Maps URL and skipped it.
+
+**Two fixes:**
+1. `getGoogleMapsUrl` (utils.js): now rejects `mapsUrl` if `query_place_id` fails `isValidGooglePlaceId` — falls through to better logic
+2. Repair function (app-logic.js): `needsFix` now also triggers when `query_place_id` in existing `mapsUrl` is a Firebase key — repairs it on next load
 
 ### v3.8.03 (Mar 6, 2026) — Mobile Google Maps URL Fix + Packaging Fix
 
