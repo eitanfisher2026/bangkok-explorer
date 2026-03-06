@@ -5262,6 +5262,28 @@ const FouFouApp = () => {
     return loc;
   };
 
+  const locationHasChanges = () => {
+    if (!editingLocation) return false;
+    const e = editingLocation;
+    const n = newLocation;
+    const s = (v) => (v || '').toString().trim();
+    const nn = (v) => v ?? null;
+    if (s(n.name) !== s(e.name)) return true;
+    if (s(n.description) !== s(e.description)) return true;
+    if (s(n.notes) !== s(e.notes)) return true;
+    if (JSON.stringify(n.areas || []) !== JSON.stringify(e.areas || (e.area ? [e.area] : []))) return true;
+    if (JSON.stringify(n.interests || []) !== JSON.stringify(e.interests || [])) return true;
+    if (nn(n.lat) !== nn(e.lat) || nn(n.lng) !== nn(e.lng)) return true;
+    if (s(n.mapsUrl) !== s(e.mapsUrl)) return true;
+    if (s(n.address) !== s(e.address)) return true;
+    if (!!n.locked !== !!e.locked) return true;
+    if (!!n.dedupOk !== !!e.dedupOk) return true;
+    if (nn(n.uploadedImage) !== nn(e.uploadedImage)) return true;
+    if (s(n.googlePlaceId) !== s(e.googlePlaceId)) return true;
+    if (nn(n.googleRating) !== nn(e.googleRating)) return true;
+    return false;
+  };
+
   const isLocationValid = (loc) => {
     if (!loc) return false;
     if (!loc.name || !loc.name.trim()) return false;
@@ -6261,26 +6283,7 @@ const FouFouApp = () => {
       showToast(`⚠️ "${newLocation.name}" ${t("places.alreadyInList")}`, 'warning');
     }
     
-    const hasChanges = (() => {
-      const e = editingLocation;
-      const n = newLocation;
-      const s = (v) => (v || '').toString().trim(); // normalize strings
-      const nn = (v) => v ?? null; // normalize null/undefined
-      if (s(n.name) !== s(e.name)) return true;
-      if (s(n.description) !== s(e.description)) return true;
-      if (s(n.notes) !== s(e.notes)) return true;
-      if (JSON.stringify(n.areas || []) !== JSON.stringify(e.areas || (e.area ? [e.area] : []))) return true;
-      if (JSON.stringify(n.interests || []) !== JSON.stringify(e.interests || [])) return true;
-      if (nn(n.lat) !== nn(e.lat) || nn(n.lng) !== nn(e.lng)) return true;
-      if (s(n.mapsUrl) !== s(e.mapsUrl)) return true;
-      if (s(n.address) !== s(e.address)) return true;
-      if (!!n.locked !== !!e.locked) return true;
-      if (!!n.dedupOk !== !!e.dedupOk) return true;
-      if (nn(n.uploadedImage) !== nn(e.uploadedImage)) return true;
-      if (s(n.googlePlaceId) !== s(e.googlePlaceId)) return true;
-      if (nn(n.googleRating) !== nn(e.googleRating)) return true;
-      return false;
-    })();
+    const hasChanges = locationHasChanges();
     
     if (!hasChanges) {
       if (closeAfter) {
@@ -10302,15 +10305,24 @@ const FouFouApp = () => {
                           <button
                             onClick={() => {
                               const isValidPid = (pid) => pid && /^(ChIJ|EiI|GhIJ)/.test(pid);
+                              const looksLikeFirebaseKey = (val) => val && val.length > 10 && /^[-_a-zA-Z0-9]+$/.test(val) && !isValidPid(val);
                               const results = [];
                               customLocations.forEach(loc => {
                                 const url = loc.mapsUrl || '';
                                 if (!url) return; // No URL — not a problem, skip
-                                const m = url.match(/query_place_id=([^&]+)/);
-                                if (m) {
-                                  const pid = decodeURIComponent(m[1]);
+                                const mPid = url.match(/query_place_id=([^&]+)/);
+                                if (mPid) {
+                                  const pid = decodeURIComponent(mPid[1]);
                                   if (!isValidPid(pid)) {
-                                    results.push({ loc, reason: `bad query_place_id: ${pid.substring(0, 20)}` });
+                                    results.push({ loc, reason: `bad query_place_id: ${pid.substring(0, 25)}` });
+                                    return;
+                                  }
+                                }
+                                const mQuery = url.match(/[?&]query=([^&]+)/);
+                                if (mQuery) {
+                                  const q = decodeURIComponent(mQuery[1]);
+                                  if (looksLikeFirebaseKey(q)) {
+                                    results.push({ loc, reason: `query param is a Firebase key: ${q.substring(0, 25)}` });
                                     return;
                                   }
                                 }
@@ -11260,6 +11272,17 @@ const FouFouApp = () => {
                 </div>
                 <button
                   onClick={() => {
+                    if (showEditLocationDialog && locationHasChanges()) {
+                      showConfirm(
+                        t('places.unsavedChangesWarning') || 'יש שינויים שלא נשמרו. לצאת בלי לשמור?',
+                        () => {
+                          setShowEditLocationDialog(false);
+                          setEditingLocation(null);
+                          setNewLocation({ name: '', description: '', notes: '', area: formData.area, interests: [], lat: null, lng: null, mapsUrl: '', address: '', uploadedImage: null, imageUrls: [] });
+                        }
+                      );
+                      return;
+                    }
                     setShowAddLocationDialog(false);
                     setShowEditLocationDialog(false);
                     setEditingLocation(null);

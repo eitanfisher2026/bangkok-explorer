@@ -5894,6 +5894,29 @@
     return loc;
   };
 
+  // Check if edit dialog has unsaved changes vs original
+  const locationHasChanges = () => {
+    if (!editingLocation) return false;
+    const e = editingLocation;
+    const n = newLocation;
+    const s = (v) => (v || '').toString().trim();
+    const nn = (v) => v ?? null;
+    if (s(n.name) !== s(e.name)) return true;
+    if (s(n.description) !== s(e.description)) return true;
+    if (s(n.notes) !== s(e.notes)) return true;
+    if (JSON.stringify(n.areas || []) !== JSON.stringify(e.areas || (e.area ? [e.area] : []))) return true;
+    if (JSON.stringify(n.interests || []) !== JSON.stringify(e.interests || [])) return true;
+    if (nn(n.lat) !== nn(e.lat) || nn(n.lng) !== nn(e.lng)) return true;
+    if (s(n.mapsUrl) !== s(e.mapsUrl)) return true;
+    if (s(n.address) !== s(e.address)) return true;
+    if (!!n.locked !== !!e.locked) return true;
+    if (!!n.dedupOk !== !!e.dedupOk) return true;
+    if (nn(n.uploadedImage) !== nn(e.uploadedImage)) return true;
+    if (s(n.googlePlaceId) !== s(e.googlePlaceId)) return true;
+    if (nn(n.googleRating) !== nn(e.googleRating)) return true;
+    return false;
+  };
+
   // Check if location has all required data
   const isLocationValid = (loc) => {
     if (!loc) return false;
@@ -6981,26 +7004,7 @@
     }
     
     // Check if anything actually changed (normalize null/undefined)
-    const hasChanges = (() => {
-      const e = editingLocation;
-      const n = newLocation;
-      const s = (v) => (v || '').toString().trim(); // normalize strings
-      const nn = (v) => v ?? null; // normalize null/undefined
-      if (s(n.name) !== s(e.name)) return true;
-      if (s(n.description) !== s(e.description)) return true;
-      if (s(n.notes) !== s(e.notes)) return true;
-      if (JSON.stringify(n.areas || []) !== JSON.stringify(e.areas || (e.area ? [e.area] : []))) return true;
-      if (JSON.stringify(n.interests || []) !== JSON.stringify(e.interests || [])) return true;
-      if (nn(n.lat) !== nn(e.lat) || nn(n.lng) !== nn(e.lng)) return true;
-      if (s(n.mapsUrl) !== s(e.mapsUrl)) return true;
-      if (s(n.address) !== s(e.address)) return true;
-      if (!!n.locked !== !!e.locked) return true;
-      if (!!n.dedupOk !== !!e.dedupOk) return true;
-      if (nn(n.uploadedImage) !== nn(e.uploadedImage)) return true;
-      if (s(n.googlePlaceId) !== s(e.googlePlaceId)) return true;
-      if (nn(n.googleRating) !== nn(e.googleRating)) return true;
-      return false;
-    })();
+    const hasChanges = locationHasChanges();
     
     if (!hasChanges) {
       if (closeAfter) {

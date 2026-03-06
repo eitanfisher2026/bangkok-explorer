@@ -2,7 +2,7 @@
 
 **Tagline:** Local picks + Google spots. Choose your vibe, follow the trail 🍜🏛️🎭
 
-## Version: 3.8.08 (Mar 6, 2026)
+## Version: 3.8.09 (Mar 6, 2026)
 
 ## ⚠️ CRITICAL: Known Fragile Areas — READ BEFORE ANY CODE CHANGE
 

@@ -93,6 +93,18 @@
                 </div>
                 <button
                   onClick={() => {
+                    // Warn if edit dialog has unsaved changes
+                    if (showEditLocationDialog && locationHasChanges()) {
+                      showConfirm(
+                        t('places.unsavedChangesWarning') || 'יש שינויים שלא נשמרו. לצאת בלי לשמור?',
+                        () => {
+                          setShowEditLocationDialog(false);
+                          setEditingLocation(null);
+                          setNewLocation({ name: '', description: '', notes: '', area: formData.area, interests: [], lat: null, lng: null, mapsUrl: '', address: '', uploadedImage: null, imageUrls: [] });
+                        }
+                      );
+                      return;
+                    }
                     setShowAddLocationDialog(false);
                     setShowEditLocationDialog(false);
                     setEditingLocation(null);

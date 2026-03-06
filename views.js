@@ -3799,15 +3799,27 @@
                           <button
                             onClick={() => {
                               const isValidPid = (pid) => pid && /^(ChIJ|EiI|GhIJ)/.test(pid);
+                              // Firebase push keys look like: -abc123, or_abc123 — no spaces, alphanumeric+underscore
+                              const looksLikeFirebaseKey = (val) => val && val.length > 10 && /^[-_a-zA-Z0-9]+$/.test(val) && !isValidPid(val);
                               const results = [];
                               customLocations.forEach(loc => {
                                 const url = loc.mapsUrl || '';
                                 if (!url) return; // No URL — not a problem, skip
-                                const m = url.match(/query_place_id=([^&]+)/);
-                                if (m) {
-                                  const pid = decodeURIComponent(m[1]);
+                                // Check query_place_id param
+                                const mPid = url.match(/query_place_id=([^&]+)/);
+                                if (mPid) {
+                                  const pid = decodeURIComponent(mPid[1]);
                                   if (!isValidPid(pid)) {
-                                    results.push({ loc, reason: `bad query_place_id: ${pid.substring(0, 20)}` });
+                                    results.push({ loc, reason: `bad query_place_id: ${pid.substring(0, 25)}` });
+                                    return;
+                                  }
+                                }
+                                // Check query param — if it looks like a Firebase key, it's corrupt
+                                const mQuery = url.match(/[?&]query=([^&]+)/);
+                                if (mQuery) {
+                                  const q = decodeURIComponent(mQuery[1]);
+                                  if (looksLikeFirebaseKey(q)) {
+                                    results.push({ loc, reason: `query param is a Firebase key: ${q.substring(0, 25)}` });
                                     return;
                                   }
                                 }
