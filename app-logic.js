@@ -1924,10 +1924,28 @@
     mapsUrlRepairDone.current.add(selectedCityId);
     
     const coordsOnlyPattern = /\?q=\d+\.\d+,\d+\.\d+$|&query=\d+\.\d+,\d+\.\d+$/;
+    const isValidGPID = (pid) => pid && typeof pid === 'string' && /^(ChIJ|EiI|GhIJ)/.test(pid);
     const updates = [];
+    const placeIdFixes = {};
+    
+    // Clean up bad googlePlaceId values (Firebase keys mistakenly promoted)
+    customLocations.forEach(loc => {
+      if (loc.googlePlaceId && !isValidGPID(loc.googlePlaceId) && loc.firebaseId) {
+        placeIdFixes[`cities/${selectedCityId}/locations/${loc.firebaseId}/googlePlaceId`] = null;
+      }
+    });
+    if (Object.keys(placeIdFixes).length > 0 && isFirebaseAvailable && database) {
+      console.log(`[REPAIR] Clearing ${Object.keys(placeIdFixes).length} bad googlePlaceId values`);
+      database.ref().update(placeIdFixes).catch(e => console.error('[REPAIR] googlePlaceId cleanup failed:', e));
+      // Also fix in memory
+      setCustomLocations(prev => prev.map(loc => 
+        loc.googlePlaceId && !isValidGPID(loc.googlePlaceId) ? { ...loc, googlePlaceId: null } : loc
+      ));
+    }
     
     customLocations.forEach(loc => {
-      const isCoordOnly = !loc.googlePlaceId && !loc.placeId && !loc.address;
+      const hasValidPlaceId = isValidGPID(loc.googlePlaceId) || isValidGPID(loc.placeId);
+      const isCoordOnly = !hasValidPlaceId && !loc.address;
       const currentUrl = loc.mapsUrl || '';
       
       // Coordinate-only places: CLEAR bad search URLs (they show global results)
@@ -2085,8 +2103,8 @@
               if (loc.address.lat && !loc.lat) { loc.lat = loc.address.lat; loc.lng = loc.address.lng; }
               delete loc.address;
             }
-            // Sanitize: use placeId as googlePlaceId if available
-            if (loc.placeId && !loc.googlePlaceId) loc.googlePlaceId = loc.placeId;
+            // Sanitize: use placeId as googlePlaceId only if it looks like a real Google Place ID
+            if (loc.placeId && !loc.googlePlaceId && /^(ChIJ|EiI|GhIJ)/.test(loc.placeId)) loc.googlePlaceId = loc.placeId;
             // Only clear stale outsideArea if coords now match an area. Never set it here.
             if (loc.outsideArea && loc.lat && loc.lng && window.BKK.getAreasForCoordinates) {
               const detected = window.BKK.getAreasForCoordinates(loc.lat, loc.lng);
@@ -3568,74 +3586,6 @@
       return null;
     } finally {
       setLoadingGoogleInfo(false);
-    }
-  };
-
-  // Background Google rating refresh — called when user clicks link to Google Maps
-  const refreshGoogleRatingBg = async (loc) => {
-    if (!loc || !GOOGLE_PLACES_API_KEY) return;
-    // Skip if updated recently (7 days)
-    if (loc.googleRatingUpdated && Date.now() - loc.googleRatingUpdated < 7 * 24 * 3600 * 1000) return;
-    // Need googlePlaceId or name+coords
-    if (!loc.googlePlaceId && !loc.name) return;
-    
-    try {
-      const searchQuery = loc.name + ' ' + (window.BKK.cityNameForSearch || 'Bangkok');
-      const resp = await fetch(GOOGLE_PLACES_TEXT_SEARCH_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
-          'X-Goog-FieldMask': 'places.rating,places.userRatingCount,places.displayName,places.location'
-        },
-        body: JSON.stringify({
-          textQuery: searchQuery,
-          maxResultCount: 3,
-          locationBias: loc.lat && loc.lng ? { circle: { center: { latitude: loc.lat, longitude: loc.lng }, radius: 500.0 } } : undefined
-        })
-      });
-      if (!resp.ok) return;
-      const data = await resp.json();
-      if (!data.places?.length) return;
-      
-      // Find best match by proximity
-      let best = data.places[0];
-      if (loc.lat && loc.lng && data.places.length > 1) {
-        best = data.places.reduce((a, b) => {
-          const da = a.location ? Math.abs(a.location.latitude - loc.lat) + Math.abs(a.location.longitude - loc.lng) : 999;
-          const db = b.location ? Math.abs(b.location.latitude - loc.lat) + Math.abs(b.location.longitude - loc.lng) : 999;
-          return da < db ? a : b;
-        });
-      }
-      
-      if (!best.rating) return;
-      const newRating = best.rating;
-      const newCount = best.userRatingCount || 0;
-      
-      // Skip if unchanged
-      if (loc.googleRating === newRating && loc.googleRatingCount === newCount) {
-        // Still update timestamp
-        if (isFirebaseAvailable && database && loc.firebaseId) {
-          database.ref(`cities/${selectedCityId}/locations/${loc.firebaseId}/googleRatingUpdated`).set(Date.now());
-        }
-        return;
-      }
-      
-      // Save to Firebase
-      if (isFirebaseAvailable && database && loc.firebaseId) {
-        const updates = { googleRating: newRating, googleRatingCount: newCount, googleRatingUpdated: Date.now() };
-        await database.ref(`cities/${selectedCityId}/locations/${loc.firebaseId}`).update(updates);
-      }
-      
-      // Update local state
-      setCustomLocations(prev => prev.map(l => 
-        l.name === loc.name ? { ...l, googleRating: newRating, googleRatingCount: newCount, googleRatingUpdated: Date.now() } : l
-      ));
-      
-      console.info(`[RATING-BG] Updated ${loc.name}: ⭐${newRating} (${newCount})`);
-    } catch (e) {
-      // Silent — background operation
-      console.info('[RATING-BG] Error:', e.message);
     }
   };
 

@@ -494,6 +494,16 @@ window.BKK.getGoogleMapsUrl = (place) => {
   const hasCoords = place.lat && place.lng;
   const addressStr = (typeof place.address === 'string') ? place.address.trim() : '';
   
+  // Validate Google Place ID — must look like a real one (starts with ChIJ, EiI, etc.)
+  const isValidGooglePlaceId = (pid) => {
+    if (!pid || typeof pid !== 'string' || pid.length < 15) return false;
+    // Google Place IDs typically start with ChIJ, EiI, or GhIJ
+    if (/^(ChIJ|EiI|GhIJ)/.test(pid)) return true;
+    // New Places API IDs: long alphanumeric, no underscores at start
+    if (pid.length > 25 && /^[A-Za-z0-9_-]+$/.test(pid) && !pid.startsWith('-')) return true;
+    return false;
+  };
+  
   // Top priority: user-set or API-provided mapsUrl (if it's a real Google URL, not just coords)
   if (place.mapsUrl && place.mapsUrl.includes('google.com/maps') && !place.mapsUrl.match(/\?q=\d+\.\d+,\d+\.\d+$/)) {
     return place.mapsUrl;
@@ -502,8 +512,8 @@ window.BKK.getGoogleMapsUrl = (place) => {
   if (!hasCoords && !addressStr) return '#';
   
   // Best: use Place ID → opens the actual Google Maps place page
-  if (place.googlePlaceId || place.placeId) {
-    const pid = place.googlePlaceId || place.placeId;
+  const pid = place.googlePlaceId || place.placeId;
+  if (pid && isValidGooglePlaceId(pid)) {
     const query = encodeURIComponent(place.name || addressStr || `${place.lat},${place.lng}`);
     return `https://www.google.com/maps/search/?api=1&query=${query}&query_place_id=${pid}`;
   }

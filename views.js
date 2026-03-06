@@ -1323,11 +1323,6 @@
                                           setShowImageModal(true);
                                         }
                                       }
-                                      // Background refresh Google rating for favorites
-                                      if (isCustom) {
-                                        const cl = customLocations.find(loc => loc.name === stop.name);
-                                        if (cl) refreshGoogleRatingBg(cl);
-                                      }
                                     }}
                                   >
                                     <div className="font-bold text-[11px] flex items-center gap-1" style={{
