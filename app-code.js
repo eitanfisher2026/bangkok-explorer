@@ -1510,6 +1510,7 @@ const FouFouApp = () => {
   };
 
   const [openHintPopup, setOpenHintPopup] = useState(null);
+  const closeHintPopup = () => { setOpenHintPopup(null); stopHintPlayback(); };
   const renderContextHint = (hintId) => {
     const s = getHelpSection(hintId);
     const txt = (s && s.content && s.content.trim()) || '';
@@ -1554,23 +1555,21 @@ const FouFouApp = () => {
     );
     
     if (!txt && isAdmin) return (
-      <div style={{ height: 0, overflow: 'visible', position: 'relative', zIndex: 5 }}>
+      <div style={{ display: 'flex', justifyContent: isRTL ? 'flex-start' : 'flex-end', margin: '-4px 0 0 0', lineHeight: 1 }}>
         <button onClick={() => { setHintEditId(hintId); setHintEditText(''); }}
-          style={{ position: 'absolute', [isRTL ? 'left' : 'right']: 0, top: '-18px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: '#d1d5db', padding: '0 2px' }}>＋</button>
+          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: '#d1d5db', padding: '0 2px' }}>＋</button>
       </div>
     );
     
     return (<>
-      <div style={{ height: 0, overflow: 'visible', position: 'relative', zIndex: 5 }}>
-        <span style={{ position: 'absolute', [isRTL ? 'left' : 'right']: 0, top: '-18px', display: 'flex', alignItems: 'center', gap: '2px' }}>
-          <button onClick={() => setOpenHintPopup(openHintPopup === hintId ? null : hintId)}
-            style={{ ...btnStyle, color: '#93b4d4', verticalAlign: 'middle', fontSize: '13px', opacity: 0.7 }}>ℹ️</button>
-          {isAdmin && <button onClick={() => { setHintEditId(hintId); setHintEditText(txt); }}
-            style={{ ...btnStyle, color: '#d1d5db', fontSize: '10px', verticalAlign: 'middle' }}>✏️</button>}
-        </span>
+      <div style={{ display: 'flex', justifyContent: isRTL ? 'flex-start' : 'flex-end', margin: '-4px 0 -2px 0', lineHeight: 1 }}>
+        <button onClick={() => setOpenHintPopup(openHintPopup === hintId ? null : hintId)}
+          style={{ ...btnStyle, color: '#93b4d4', fontSize: '13px', opacity: 0.7 }}>ℹ️</button>
+        {isAdmin && <button onClick={() => { setHintEditId(hintId); setHintEditText(txt); }}
+          style={{ ...btnStyle, color: '#d1d5db', fontSize: '10px' }}>✏️</button>}
       </div>
       {openHintPopup === hintId && (<>
-        <div onClick={() => setOpenHintPopup(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.2)', zIndex: 9998 }} />
+        <div onClick={closeHintPopup} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.2)', zIndex: 9998 }} />
         <div style={{ position: 'fixed', zIndex: 9999, top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 'min(340px, 88vw)', padding: '14px 16px', background: '#eff6ff', borderRadius: '14px', border: '1px solid #93c5fd', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', fontSize: '13px', color: '#374151', direction: isRTL ? 'rtl' : 'ltr', animation: 'fadeIn 0.2s' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1581,7 +1580,7 @@ const FouFouApp = () => {
                 style={{ ...btnStyle, color: '#3b82f6', fontSize: '16px' }}>{isSpeaking ? (isPaused ? '▶️' : '⏸️') : (hasAudio ? '🔊' : '🔈')}</button>
               {isSpeaking && <button onClick={stopHintPlayback} style={{ ...btnStyle, color: '#ef4444', fontSize: '16px' }}>⏹️</button>}
             </div>
-            <button onClick={() => setOpenHintPopup(null)}
+            <button onClick={closeHintPopup}
               style={{ background: '#ef4444', border: 'none', borderRadius: '50%', width: '26px', height: '26px', cursor: 'pointer', fontSize: '14px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>✕</button>
           </div>
           <div style={{ lineHeight: '1.6', maxHeight: '50vh', overflowY: 'auto' }}>{txt}</div>
