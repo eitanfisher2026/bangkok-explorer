@@ -7315,6 +7315,7 @@ const FouFouApp = () => {
                   }).join(', ')}{formData.interests.length > 3 ? ` +${formData.interests.length - 3}` : ''}</span>
                 </div>
                 {renderStepHeader('📍', t('wizard.step1Title'), t('wizard.step1Subtitle'), 'hint_area')}
+                {renderContextHint('hint_area')}
                 
                 {/* Mode selector — radio pill toggle */}
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', padding: '4px', background: '#f1f5f9', borderRadius: '14px' }}>
@@ -7464,7 +7465,7 @@ const FouFouApp = () => {
                       color: canSearch ? '#15803d' : '#9ca3af', fontSize: '16px', fontWeight: 'bold',
                       boxShadow: '0 -2px 16px rgba(0,0,0,0.12)'
                     }}
-                  >{isDataLoaded ? `🔍 ${t('wizard.findPlaces')} (${formData.maxStops})` : `⏳ ${t('general.loading')}...`}</button>
+                  >{isDataLoaded ? `🔍 ${t('wizard.findPlaces')} (${formData.maxStops || 10})` : `⏳ ${t('general.loading')}...`}</button>
                 </div>
                 );
               })()}
@@ -7488,6 +7489,7 @@ const FouFouApp = () => {
                   </div>
                 )}
                 {renderStepHeader('⭐', t('wizard.step2Title'), t('wizard.step2Subtitle'), 'hint_interests')}
+                {renderContextHint('hint_interests')}
                 
                 {/* Interest Grid — grouped by category */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '12px' }}>
@@ -7734,6 +7736,7 @@ const FouFouApp = () => {
         {wizardStep === 3 && !isGenerating && route && route.stops?.length > 0 && !activeTrail && !route.optimized && routeChoiceMade === null && currentView === 'form' && (
           <div style={{ background: 'white', borderRadius: '16px', padding: '16px', marginBottom: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
             {renderStepHeader('🐾', (t('wizard.step3TitleResults') || '{count} מקומות נמצאו').replace('{count}', route.stops.length), t('wizard.step3Title'), 'hint_choice')}
+            {renderContextHint('hint_choice')}
 
             {/* Option 1: Yalla - quick go */}
             <button
