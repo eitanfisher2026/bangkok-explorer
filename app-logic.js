@@ -954,6 +954,19 @@
             if (loc.status === 'blacklist') return false;
             if (!loc.lat || !loc.lng) return false;
             if (!showDrafts && !loc.locked) return false;
+            // Only show places whose interests are visible to this user
+            const locInts = loc.interests || [];
+            if (locInts.length > 0) {
+              const hasVisibleInterest = locInts.some(id => {
+                const opt = allInterestOptions.find(o => o.id === id);
+                if (!opt) return false;
+                const aStatus = opt.adminStatus || 'active';
+                if (aStatus === 'hidden') return false;
+                if (aStatus === 'draft' && !isEditor) return false;
+                return interestStatus[id] !== false;
+              });
+              if (!hasVisibleInterest) return false;
+            }
             if (mapFavArea) {
               const la = loc.areas || (loc.area ? [loc.area] : []);
               if (!la.includes(mapFavArea)) return false;

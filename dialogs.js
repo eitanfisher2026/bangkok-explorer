@@ -1963,38 +1963,47 @@
             ) : (
               <div style={{ width: '300px', maxWidth: '90vw', height: '200px', background: '#f9fafb', borderRadius: '12px', border: '2px dashed #d1d5db', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                 <img src="icon-192x192.png" alt="FouFou" style={{ width: '48px', height: '48px', opacity: 0.5 }} />
-                {modalImageCtx?.location && !modalImageCtx.location.locked && (
-                  <label style={{ cursor: 'pointer', background: '#8b5cf6', color: 'white', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold' }}>
-                    📷 {t('places.addPhoto') || 'צלם או צרף תמונה'}
-                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const reader = new FileReader();
-                      reader.onload = (ev) => {
-                        const img = new Image();
-                        img.onload = () => {
-                          const maxW = 1200, maxH = 1200;
-                          let w = img.width, h = img.height;
-                          if (w > maxW || h > maxH) { const r = Math.min(maxW/w, maxH/h); w *= r; h *= r; }
-                          const c = document.createElement('canvas'); c.width = w; c.height = h;
-                          c.getContext('2d').drawImage(img, 0, 0, w, h);
-                          const dataUrl = c.toDataURL('image/jpeg', 0.8);
-                          const loc = modalImageCtx.location;
-                          setNewLocation(prev => ({...prev, uploadedImage: dataUrl}));
-                          // Save to location
-                          if (loc.firebaseId && isFirebaseAvailable && database) {
-                            database.ref(`cities/${selectedCityId}/locations/${loc.firebaseId}/uploadedImage`).set(dataUrl);
-                          }
-                          setCustomLocations(prev => prev.map(l => l.name === loc.name ? {...l, uploadedImage: dataUrl} : l));
-                          setModalImage(dataUrl);
-                          showToast('📷 ' + (t('places.photoAdded') || 'תמונה נוספה!'), 'success');
-                        };
-                        img.src = ev.target.result;
+                {modalImageCtx?.location && !modalImageCtx.location.locked && (() => {
+                  const handleImageFile = (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    e.target.value = '';
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                      const img = new Image();
+                      img.onload = () => {
+                        const maxW = 1200, maxH = 1200;
+                        let w = img.width, h = img.height;
+                        if (w > maxW || h > maxH) { const r = Math.min(maxW/w, maxH/h); w *= r; h *= r; }
+                        const c = document.createElement('canvas'); c.width = w; c.height = h;
+                        c.getContext('2d').drawImage(img, 0, 0, w, h);
+                        const dataUrl = c.toDataURL('image/jpeg', 0.8);
+                        const loc = modalImageCtx.location;
+                        setNewLocation(prev => ({...prev, uploadedImage: dataUrl}));
+                        if (loc.firebaseId && isFirebaseAvailable && database) {
+                          database.ref(`cities/${selectedCityId}/locations/${loc.firebaseId}/uploadedImage`).set(dataUrl);
+                        }
+                        setCustomLocations(prev => prev.map(l => l.name === loc.name ? {...l, uploadedImage: dataUrl} : l));
+                        setModalImage(dataUrl);
+                        showToast('📷 ' + (t('places.photoAdded') || 'תמונה נוספה!'), 'success');
                       };
-                      reader.readAsDataURL(file);
-                    }} />
-                  </label>
-                )}
+                      img.src = ev.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                  };
+                  return (
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <label style={{ cursor: 'pointer', background: '#8b5cf6', color: 'white', padding: '8px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        📷 {t('places.camera') || 'צלם'}
+                        <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleImageFile} />
+                      </label>
+                      <label style={{ cursor: 'pointer', background: '#6d28d9', color: 'white', padding: '8px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        🖼️ {t('places.gallery') || 'גלריה'}
+                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageFile} />
+                      </label>
+                    </div>
+                  );
+                })()}
                 {modalImageCtx?.location?.locked && (
                   <span style={{ fontSize: '11px', color: '#9ca3af' }}>🔒 {t('general.readOnly')}</span>
                 )}

@@ -4169,7 +4169,10 @@
                 const relevant = allInts.filter(i => {
                   const cfg = interestConfig[i.id] || {};
                   const aStatus = cfg.adminStatus || 'active';
-                  return aStatus !== 'hidden' && usedInterests.has(i.id);
+                  if (aStatus === 'hidden') return false;
+                  if (aStatus === 'draft' && !isUnlocked) return false;
+                  if (!usedInterests.has(i.id)) return false;
+                  return true;
                 });
                 const areas = window.BKK.areaOptions || [];
                 // Count per area
@@ -4307,10 +4310,12 @@
                                 </div>
                               );
                             })}
+                            {isUnlocked && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}>
                               <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#9ca3af', display: 'inline-block', opacity: 0.5 }}></span>
                               <span style={{ color: '#9ca3af' }}>{t('places.draft') || 'טיוטה'} ({t('general.transparent') || 'שקוף'})</span>
                             </div>
+                            )}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}>
                               <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#3b82f6', display: 'inline-block' }}></span>
                               <span style={{ color: '#9ca3af' }}>📍 {t('form.currentLocation')}</span>
