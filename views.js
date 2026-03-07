@@ -1576,7 +1576,9 @@
                           });
                           const hasStart = startPointCoords && startPointCoords.lat && startPointCoords.lng;
                           const origin = hasStart ? `${startPointCoords.lat},${startPointCoords.lng}` : activeStops.length > 0 ? `${activeStops[0].lat},${activeStops[0].lng}` : '';
-                          const stopsForUrl = hasStart ? activeStops : activeStops.slice(1);
+                          const stopsForUrl = hasStart
+                            ? activeStops.filter(s => !(Math.abs(s.lat - startPointCoords.lat) < 0.0001 && Math.abs(s.lng - startPointCoords.lng) < 0.0001))
+                            : activeStops.slice(1);
                           const isCirc = routeType === 'circular';
                           const urls = window.BKK.buildGoogleMapsUrls(stopsForUrl, origin, isCirc, googleMaxWaypoints);
                           const routeName = route.name || t('route.myRoute');
@@ -1622,7 +1624,13 @@
                     const origin = hasStartPoint
                       ? `${startPointCoords.lat},${startPointCoords.lng}`
                       : activeStops.length > 0 ? `${activeStops[0].lat},${activeStops[0].lng}` : '';
-                    const stopsForUrls = hasStartPoint ? activeStops : activeStops.slice(1);
+                    // Exclude any stop that overlaps with startPointCoords to avoid duplicates in URL
+                    const isOverlapStart = (s) => hasStartPoint
+                      && Math.abs(s.lat - startPointCoords.lat) < 0.0001
+                      && Math.abs(s.lng - startPointCoords.lng) < 0.0001;
+                    const stopsForUrls = hasStartPoint
+                      ? activeStops.filter(s => !isOverlapStart(s))
+                      : activeStops.slice(1);
                     const isCircular = routeType === 'circular';
                     const urls = route?.optimized && activeStops.length > 0
                       ? window.BKK.buildGoogleMapsUrls(stopsForUrls, origin, isCircular, googleMaxWaypoints)

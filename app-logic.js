@@ -301,10 +301,25 @@
         if (nearest) return { lat: nearest.lat, lng: nearest.lng, address: nearest.name };
       }
     }
-    if (isCircular && stops.length > 0) {
+    // No GPS — pick start based on area center (or city center as fallback)
+    // For circular: nearest stop to area center (natural anchor for a loop)
+    // For linear: nearest stop to area center (reasonable entry point, even if not a true endpoint)
+    const areaId = formData?.area;
+    const areaObj = (window.BKK.areaOptions || []).find(a => a.id === areaId);
+    const refLat = areaObj?.lat ?? window.BKK.activeCityData?.center?.lat ?? window.BKK.selectedCity?.center?.lat;
+    const refLng = areaObj?.lng ?? window.BKK.activeCityData?.center?.lng ?? window.BKK.selectedCity?.center?.lng;
+    if (refLat && refLng && stops.length > 0) {
+      let minDist = Infinity, nearest = null;
+      stops.forEach(s => {
+        const d = calcDistance(refLat, refLng, s.lat, s.lng);
+        if (d < minDist) { minDist = d; nearest = s; }
+      });
+      if (nearest) return { lat: nearest.lat, lng: nearest.lng, address: nearest.name };
+    }
+    if (stops.length > 0) {
       return { lat: stops[0].lat, lng: stops[0].lng, address: stops[0].name };
     }
-    return null; // Linear without GPS: optimizer picks best endpoint
+    return null;
   };
   
   // Full smart plan: select stops, find start, optimize, update state
