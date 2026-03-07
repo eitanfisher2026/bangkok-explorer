@@ -3359,7 +3359,13 @@
           return []; // No results from any type
         }
         
-        throw new Error(`Google API Error ${response.status}: ${errorText}`);
+        // For transient server errors (503, 500, 429), throw a user-friendly message
+        if (response.status === 503 || response.status === 500) {
+          throw new Error(t('toast.googleApiUnavailable') || 'Google API זמנית לא זמין — נסה שוב בעוד כמה שניות');
+        } else if (response.status === 429) {
+          throw new Error(t('toast.googleApiQuota') || 'Google API: חריגה ממכסה — נסה שוב מאוחר יותר');
+        }
+        throw new Error(`Google API ${response.status}`);
       }
 
       const data = await response.json();

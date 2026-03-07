@@ -3067,7 +3067,12 @@ const FouFouApp = () => {
           return []; // No results from any type
         }
         
-        throw new Error(`Google API Error ${response.status}: ${errorText}`);
+        if (response.status === 503 || response.status === 500) {
+          throw new Error(t('toast.googleApiUnavailable') || 'Google API זמנית לא זמין — נסה שוב בעוד כמה שניות');
+        } else if (response.status === 429) {
+          throw new Error(t('toast.googleApiQuota') || 'Google API: חריגה ממכסה — נסה שוב מאוחר יותר');
+        }
+        throw new Error(`Google API ${response.status}`);
       }
 
       const data = await response.json();
@@ -6628,21 +6633,50 @@ const FouFouApp = () => {
 
 
 
-  const renderStepHeader = (icon, title, subtitle) => (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: '10px',
-      padding: '8px 12px', marginBottom: '10px',
-      background: 'linear-gradient(135deg, #f8faff 0%, #f0f4ff 100%)',
-      borderRadius: '12px', border: '1px solid #e0e7ff',
-      direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr'
-    }}>
-      <span style={{ fontSize: '22px', flexShrink: 0 }}>{icon}</span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#1e293b', lineHeight: 1.2 }}>{title}</div>
-        {subtitle && <div style={{ fontSize: '11px', color: '#64748b', marginTop: '1px' }}>{subtitle}</div>}
+  const renderStepHeader = (icon, title, subtitle, hintId) => {
+    const isRTL = window.BKK.i18n.isRTL();
+    const lang = window.BKK.i18n.currentLang || 'he';
+    const hasAudio = hintId && !!hintAudioUrls[hintId + '_' + lang];
+    const s = hintId && getHelpSection(hintId);
+    const hintTxt = (s && s.content && s.content.trim()) || '';
+    const showHintBtn = hintId && (hintTxt || isAdmin);
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '10px',
+        padding: '8px 12px', marginBottom: '10px',
+        background: 'linear-gradient(135deg, #f8faff 0%, #f0f4ff 100%)',
+        borderRadius: '12px', border: '1px solid #e0e7ff',
+        direction: isRTL ? 'rtl' : 'ltr'
+      }}>
+        <span style={{ fontSize: '22px', flexShrink: 0 }}>{icon}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#1e293b', lineHeight: 1.2 }}>{title}</div>
+          {subtitle && <div style={{ fontSize: '11px', color: '#64748b', marginTop: '1px' }}>{subtitle}</div>}
+        </div>
+        {showHintBtn && (
+          <button
+            onClick={() => setOpenHintPopup(openHintPopup === hintId ? null : hintId)}
+            title={isRTL ? 'הסבר מורחב' : 'More info'}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '3px',
+              padding: '3px 8px', fontSize: '11px', fontWeight: '600',
+              background: openHintPopup === hintId ? '#dbeafe' : '#f0f9ff',
+              color: '#2563eb', border: '1px solid #93c5fd',
+              borderRadius: '20px', cursor: 'pointer', flexShrink: 0,
+              boxShadow: '0 1px 3px rgba(37,99,235,0.08)'
+            }}
+          >
+            <span style={{ fontSize: '12px' }}>ℹ</span>
+            {hasAudio && <span style={{ fontSize: '10px' }}>🔈</span>}
+          </button>
+        )}
+        {isAdmin && hintId && (
+          <button onClick={() => { const s2 = getHelpSection(hintId); setHintEditId(hintId); setHintEditText((s2 && s2.content) || ''); }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: '#d1d5db', flexShrink: 0, padding: '0 2px' }}>✏️</button>
+        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderIcon = (icon, size = '14px') => {
     if (!icon) return null;
@@ -7316,11 +7350,8 @@ const FouFouApp = () => {
                     const opt = allInterestOptions.find(o => o.id === id);
                     return opt ? tLabel(opt) : id;
                   }).join(', ')}{formData.interests.length > 3 ? ` +${formData.interests.length - 3}` : ''}</span>
-                  <span style={{ color: '#d1d5db' }}>|</span>
-                  <span style={{ fontWeight: 'bold', color: '#374151' }}>{`📍 ${t("wizard.step1Title")}`}</span>
                 </div>
-                {renderStepHeader('📍', t('wizard.step1Title'), t('wizard.step1Subtitle'))}
-                {renderContextHint('hint_area')}
+                {renderStepHeader('📍', t('wizard.step1Title'), t('wizard.step1Subtitle'), 'hint_area')}
                 
                 {/* Mode selector — radio pill toggle */}
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', padding: '4px', background: '#f1f5f9', borderRadius: '14px' }}>
@@ -7493,8 +7524,7 @@ const FouFouApp = () => {
                     </select>
                   </div>
                 )}
-                {renderStepHeader('⭐', t('wizard.step2Title'), t('wizard.step2Subtitle'))}
-                {renderContextHint('hint_interests')}
+                {renderStepHeader('⭐', t('wizard.step2Title'), t('wizard.step2Subtitle'), 'hint_interests')}
                 
                 {/* Interest Grid — grouped by category */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '12px' }}>
@@ -7739,8 +7769,7 @@ const FouFouApp = () => {
         {/* ROUTE CHOICE SCREEN — shown in wizard step 3 after route is loaded, before any action */}
         {wizardStep === 3 && !isGenerating && route && route.stops?.length > 0 && !activeTrail && !route.optimized && routeChoiceMade === null && currentView === 'form' && (
           <div style={{ background: 'white', borderRadius: '16px', padding: '16px', marginBottom: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
-            {renderStepHeader('🐾', (t('wizard.step3TitleResults') || '{count} מקומות נמצאו').replace('{count}', route.stops.length), t('wizard.step3Title'))}
-            {renderContextHint('hint_choice')}
+            {renderStepHeader('🐾', (t('wizard.step3TitleResults') || '{count} מקומות נמצאו').replace('{count}', route.stops.length), t('wizard.step3Title'), 'hint_choice')}
 
             {/* Option 1: Yalla - quick go */}
             <button
