@@ -1221,7 +1221,7 @@ const FouFouApp = () => {
           lines.push(`Limits: ${Object.entries(s.stats.interestLimits).map(([k,v])=>`${k}=${v}`).join(', ')}`);
         }
         if (s.stats.interestResults) {
-          lines.push(`Results: ${Object.entries(s.stats.interestResults).map(([k,v])=>`${k}: custom=${v.custom}, google=${v.fetched}, total=${v.total}`).join(' | ')}`);
+          lines.push(`Results: ${Object.entries(s.stats.interestResults).map(([k,v])=>`${k}: custom=${v.custom}, google=${v.google??v.fetched}, total=${v.total}, limit=${v.limit??'?'}`).join(' | ')}`);
         }
       }
       lines.push(`${'='.repeat(60)}`);
@@ -4445,6 +4445,28 @@ const FouFouApp = () => {
           if (remaining <= 0) break;
           if (interestLimits[interest] >= interestCfg[interest].maxStops) continue;
           interestLimits[interest] += 1;
+          allocated += 1;
+          remaining -= 1;
+        }
+      }
+      
+      remaining = maxStops - allocated;
+      if (remaining > 0 && totalWeight > 0) {
+        for (let pass = 0; pass < 3 && remaining > 0; pass++) {
+          for (const interest of searchInterests) {
+            if (remaining <= 0) break;
+            const share = Math.max(1, Math.round((interestCfg[interest].weight / totalWeight) * remaining));
+            const canAdd = Math.min(share, remaining);
+            interestLimits[interest] += canAdd;
+            allocated += canAdd;
+            remaining = maxStops - allocated;
+          }
+        }
+        remaining = maxStops - allocated;
+        const sortedOverflow = [...searchInterests].sort((a, b) => interestCfg[b].weight - interestCfg[a].weight);
+        for (const interest of sortedOverflow) {
+          if (remaining <= 0) break;
+          interestLimits[interest] += 1;
           remaining -= 1;
         }
       }
@@ -4714,16 +4736,19 @@ const FouFouApp = () => {
         startPointCoords: startPointCoords || null,
         stops: uniqueStops,
         preferences: { ...formData, interests: searchInterests },
-        stats: {
-          custom: customStops.length,
-          fetched: uniqueStops.length - customStops.length,
-          total: uniqueStops.length,
-          maxStops: maxStops,
-          interestLimits: { ...interestLimits },
-          interestResults: Object.fromEntries(
-            Object.entries(interestResults).map(([k, v]) => [k, { custom: v.custom, fetched: v.fetched, total: v.total }])
-          )
-        },
+        stats: (() => {
+          const googleCount = Object.values(interestResults).reduce((sum, r) => sum + (r.fetched || 0), 0);
+          return {
+            custom: customStops.length,
+            fetched: googleCount,
+            total: uniqueStops.length,
+            maxStops: maxStops,
+            interestLimits: { ...interestLimits },
+            interestResults: Object.fromEntries(
+              Object.entries(interestResults).map(([k, v]) => [k, { custom: v.custom, google: v.fetched, total: v.total, limit: interestLimits[k] }])
+            )
+          };
+        })(),
         incomplete: uniqueStops.length < maxStops ? {
           requested: maxStops,
           found: uniqueStops.length,
