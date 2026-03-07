@@ -1746,7 +1746,7 @@
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '15px' }}>💡</span>
                 <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'white' }}>
-                  {t('hint.audioTitle') || (isRTL ? 'הסבר מורחב' : 'More info')}
+                  {t('wizard.audioTitle') || (isRTL ? 'הסבר' : 'Info')}
                 </span>
                 {(() => { const dur = hintAudioDurations[hintId + '_' + lang]; return dur ? (
                   <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)' }}>{dur}s</span>

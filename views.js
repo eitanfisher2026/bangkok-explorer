@@ -1,4 +1,22 @@
 
+
+  // Unified wizard step header
+  const renderStepHeader = (icon, title, subtitle) => (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: '10px',
+      padding: '8px 12px', marginBottom: '10px',
+      background: 'linear-gradient(135deg, #f8faff 0%, #f0f4ff 100%)',
+      borderRadius: '12px', border: '1px solid #e0e7ff',
+      direction: isRTL ? 'rtl' : 'ltr'
+    }}>
+      <span style={{ fontSize: '22px', flexShrink: 0 }}>{icon}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#1e293b', lineHeight: 1.2 }}>{title}</div>
+        {subtitle && <div style={{ fontSize: '11px', color: '#64748b', marginTop: '1px' }}>{subtitle}</div>}
+      </div>
+    </div>
+  );
+
   const renderIcon = (icon, size = '14px') => {
     if (!icon) return null;
     const isUrl = typeof icon === 'string' && (icon.startsWith('data:') || icon.startsWith('http'));
@@ -679,48 +697,45 @@
                   <span style={{ color: '#d1d5db' }}>|</span>
                   <span style={{ fontWeight: 'bold', color: '#374151' }}>{`📍 ${t("wizard.step1Title")}`}</span>
                 </div>
+                {renderStepHeader('📍', t('wizard.step1Title'), t('wizard.step1Subtitle'))}
                 {renderContextHint('hint_area')}
                 
-                {/* Mode selector tabs */}
-                <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
-                  <button
-                    onClick={() => setFormData({...formData, searchMode: formData.searchMode === 'radius' ? 'area' : formData.searchMode})}
-                    style={{
-                      flex: 1, padding: '8px 4px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px',
-                      border: formData.searchMode !== 'radius' ? '2px solid #3b82f6' : '2px solid #e5e7eb',
-                      background: formData.searchMode !== 'radius' ? 'linear-gradient(135deg, #eff6ff, #dbeafe)' : 'white',
-                      color: formData.searchMode !== 'radius' ? '#1e40af' : '#6b7280',
-                      transition: 'all 0.2s'
-                    }}
-                  >🗺️ {t('wizard.chooseArea')}</button>
-                  <button
-                    onClick={() => {
+                {/* Mode selector — radio pill toggle */}
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', padding: '4px', background: '#f1f5f9', borderRadius: '14px' }}>
+                  {[
+                    { mode: 'area', icon: '🗺️', label: t('wizard.chooseArea'), onClick: () => setFormData({...formData, searchMode: formData.searchMode === 'radius' ? 'area' : formData.searchMode}) },
+                    { mode: 'radius', icon: '📍', label: t('general.nearMe'), onClick: () => {
                       if (formData.searchMode !== 'radius') {
-                        // Switch tab immediately
                         setFormData({...formData, searchMode: 'radius', radiusMeters: formData.radiusMeters || 500});
-                        // Then request GPS async
                         if (navigator.geolocation) {
                           window.BKK.getValidatedGps(
-                            (pos) => {
-                              setFormData(prev => ({...prev, currentLat: pos.coords.latitude, currentLng: pos.coords.longitude, radiusPlaceName: t('wizard.myLocation'), radiusSource: 'gps'}));
-                              showToast(t('wizard.locationFound'), 'success');
-                            },
-                            (reason) => {
-                              setFormData(prev => ({...prev, searchMode: 'area'}));
-                              showToast(reason === 'outside_city' ? t('toast.outsideCity') : reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'warning', 'sticky');
-                            }
+                            (pos) => { setFormData(prev => ({...prev, currentLat: pos.coords.latitude, currentLng: pos.coords.longitude, radiusPlaceName: t('wizard.myLocation'), radiusSource: 'gps'})); showToast(t('wizard.locationFound'), 'success'); },
+                            (reason) => { setFormData(prev => ({...prev, searchMode: 'area'})); showToast(reason === 'outside_city' ? t('toast.outsideCity') : reason === 'denied' ? t('toast.locationNoPermission') : t('toast.noGpsSignal'), 'warning', 'sticky'); }
                           );
                         }
                       }
                     }}
-                    style={{
-                      flex: 1, padding: '8px 4px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px',
-                      border: formData.searchMode === 'radius' ? '2px solid #3b82f6' : '2px solid #e5e7eb',
-                      background: formData.searchMode === 'radius' ? 'linear-gradient(135deg, #eff6ff, #dbeafe)' : 'white',
-                      color: formData.searchMode === 'radius' ? '#1e40af' : '#6b7280',
-                      transition: 'all 0.2s'
-                    }}
-                  >📍 {t('general.nearMe')}</button>
+                  ].map(({ mode, icon, label, onClick }) => {
+                    const isActive = mode === 'radius' ? formData.searchMode === 'radius' : formData.searchMode !== 'radius';
+                    return (
+                      <button key={mode} onClick={onClick} style={{
+                        flex: 1, padding: '8px 12px', cursor: 'pointer', fontWeight: '600', fontSize: '13px',
+                        border: 'none', borderRadius: '10px', transition: 'all 0.2s',
+                        background: isActive ? 'white' : 'transparent',
+                        color: isActive ? '#2563eb' : '#94a3b8',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                        boxShadow: isActive ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
+                      }}>
+                        <span style={{
+                          width: '16px', height: '16px', borderRadius: '50%', flexShrink: 0,
+                          border: isActive ? '5px solid #2563eb' : '2px solid #cbd5e1',
+                          background: 'white', display: 'inline-block', transition: 'all 0.2s'
+                        }} />
+                        <span>{icon}</span>
+                        <span>{label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* AREA MODE content */}
@@ -856,13 +871,7 @@
                     </select>
                   </div>
                 )}
-                <h2 style={{ textAlign: 'center', fontSize: '17px', fontWeight: 'bold', marginBottom: '2px' }}>{`⭐ ${t("wizard.step2Title")}`}</h2>
-                <p style={{ textAlign: 'center', fontSize: '11px', color: '#6b7280', marginBottom: '10px' }}>
-                  {t("wizard.step2Subtitle")}
-                  
-                  
-
-                </p>
+                {renderStepHeader('⭐', t('wizard.step2Title'), t('wizard.step2Subtitle'))}
                 {renderContextHint('hint_interests')}
                 
                 {/* Interest Grid — grouped by category */}
@@ -1112,9 +1121,7 @@
         {/* ROUTE CHOICE SCREEN — shown in wizard step 3 after route is loaded, before any action */}
         {wizardStep === 3 && !isGenerating && route && route.stops?.length > 0 && !activeTrail && !route.optimized && routeChoiceMade === null && currentView === 'form' && (
           <div style={{ background: 'white', borderRadius: '16px', padding: '16px', marginBottom: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
-            <div style={{ textAlign: 'center', marginBottom: '14px' }}>
-              <span style={{ fontSize: '15px', fontWeight: 'bold' }}>{`🐾 ${route.stops.length} ${t('wizard.placesFound')}`}</span>
-            </div>
+            {renderStepHeader('🐾', (t('wizard.step3TitleResults') || '{count} מקומות נמצאו').replace('{count}', route.stops.length), t('wizard.step3Title'))}
             {renderContextHint('hint_choice')}
 
             {/* Option 1: Yalla - quick go */}
@@ -1171,10 +1178,7 @@
 
             {/* Manual mode header — shown in wizard manual mode */}
             {routeChoiceMade === 'manual' && route && (
-              <div className="text-center pb-2">
-                <h3 className="text-sm font-bold text-purple-700">🛠️ {t('wizard.manualMode')}</h3>
-                <p className="text-[10px] text-gray-500">{t('wizard.manualDesc')}</p>
-              </div>
+              {renderStepHeader('🛠️', t('wizard.manualMode'), t('wizard.manualDesc'))}
             )}
 
             {route && routeChoiceMade === 'manual' && renderContextHint('hint_manual')}
