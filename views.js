@@ -1,13 +1,8 @@
 
 
   // Unified wizard step header — optionally pass hintId to embed hint button in title row
-  const renderStepHeader = (icon, title, subtitle, hintId) => {
+  const renderStepHeader = (icon, title, subtitle) => {
     const isRTL = window.BKK.i18n.isRTL();
-    const lang = window.BKK.i18n.currentLang || 'he';
-    const hasAudio = hintId && !!hintAudioUrls[hintId + '_' + lang];
-    const s = hintId && getHelpSection(hintId);
-    const hintTxt = (s && s.content && s.content.trim()) || '';
-    const showHintBtn = hintId && (hintTxt || isAdmin);
     return (
       <div style={{
         display: 'flex', alignItems: 'center', gap: '10px',
@@ -21,27 +16,6 @@
           <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#1e293b', lineHeight: 1.2 }}>{title}</div>
           {subtitle && <div style={{ fontSize: '11px', color: '#64748b', marginTop: '1px' }}>{subtitle}</div>}
         </div>
-        {showHintBtn && (
-          <button
-            onClick={() => setOpenHintPopup(openHintPopup === hintId ? null : hintId)}
-            title={isRTL ? 'הסבר מורחב' : 'More info'}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: '3px',
-              padding: '3px 8px', fontSize: '11px', fontWeight: '600',
-              background: openHintPopup === hintId ? '#dbeafe' : '#f0f9ff',
-              color: '#2563eb', border: '1px solid #93c5fd',
-              borderRadius: '20px', cursor: 'pointer', flexShrink: 0,
-              boxShadow: '0 1px 3px rgba(37,99,235,0.08)'
-            }}
-          >
-            <span style={{ fontSize: '12px' }}>ℹ</span>
-            {hasAudio && <span style={{ fontSize: '10px' }}>🔈</span>}
-          </button>
-        )}
-        {isAdmin && hintId && (
-          <button onClick={() => { const s2 = getHelpSection(hintId); setHintEditId(hintId); setHintEditText((s2 && s2.content) || ''); }}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: '#d1d5db', flexShrink: 0, padding: '0 2px' }}>✏️</button>
-        )}
       </div>
     );
   };
