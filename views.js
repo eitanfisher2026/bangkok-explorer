@@ -4409,7 +4409,6 @@
                         <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>📍 {areaLabels}</div>
                         {intLabels && <div style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '2px' }}>{intLabels}</div>}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          {loc.locked && <span style={{ fontSize: '9px', background: '#dcfce7', color: '#166534', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>✅ {t('places.approved') || 'מאושר'}</span>}
                           {addedByName && <span style={{ fontSize: '9px', color: '#9ca3af' }}>👤 {addedByName}</span>}
                           {loc.googleRating && (
                             <span style={{ fontSize: '10px', color: '#b45309' }}>⭐ {loc.googleRating} ({loc.googleRatingCount || 0})</span>

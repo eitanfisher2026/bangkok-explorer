@@ -4960,9 +4960,11 @@
           }
         }
         
-        const neededFromApi = Math.max(0, stopsForThisInterest - customToUse.length);
+        // Always call Google API regardless of custom count — custom stops shouldn't block Google results
+        // neededFromApi only determines how many to PICK, not whether to call
+        const neededFromApi = stopsForThisInterest; // always fetch full quota from Google
         
-        if (neededFromApi > 0) {
+        {
           // Check if this is a private-only interest (no Google API calls)
           const interestObj = allInterestOptions.find(o => o.id === interest);
           const interestPrivateOnly = interestObj?.privateOnly || false;
@@ -4973,7 +4975,7 @@
             console.log(`[ROUTE] Skipping API for private interest: ${interest}`);
           } else {
           try {
-            console.log(`[ROUTE] Fetching for interest: ${interest} (need ${neededFromApi}, have ${customToUse.length} custom)`);
+            console.log(`[ROUTE] Fetching for interest: ${interest} (limit ${stopsForThisInterest}, have ${customToUse.length} custom)`);
             const radiusOverride = isRadiusMode ? { 
               lat: formData.currentLat, 
               lng: formData.currentLng, 
@@ -5023,9 +5025,10 @@
               .sort((a, b) => (b.rating * Math.log10((b.ratingCount || 0) + 1)) - (a.rating * Math.log10((a.ratingCount || 0) + 1)));
           }
           
-          // Take what we need, cache the rest
-          const sortedPlaces = sortedAll.slice(0, neededFromApi);
-          const cachedPlaces = sortedAll.slice(neededFromApi);
+          // Take only what's needed beyond custom stops already added
+          const actualNeeded = Math.max(0, stopsForThisInterest - customToUse.length);
+          const sortedPlaces = sortedAll.slice(0, actualNeeded);
+          const cachedPlaces = sortedAll.slice(actualNeeded);
           
           // Store unused places in cache for "find more"
           googleCacheRef.current[interest] = cachedPlaces;
@@ -5046,17 +5049,6 @@
           
           // Add to allStops
           allStops.push(...sortedPlaces);
-        } else {
-          // Already have enough from custom - no API call needed!
-          console.log(`[ROUTE] Skipping API for ${interest}: ${customToUse.length} custom stops suffice`);
-          googleCacheRef.current[interest] = []; // Empty cache
-          interestResults[interest] = {
-            requested: stopsForThisInterest,
-            custom: customToUse.length,
-            fetched: 0,
-            total: customToUse.length,
-            allPlaces: []
-          };
         }
       }
       

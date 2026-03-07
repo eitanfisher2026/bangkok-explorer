@@ -4466,9 +4466,9 @@ const FouFouApp = () => {
           }
         }
         
-        const neededFromApi = Math.max(0, stopsForThisInterest - customToUse.length);
+        const neededFromApi = stopsForThisInterest; // always fetch full quota from Google
         
-        if (neededFromApi > 0) {
+        {
           const interestObj = allInterestOptions.find(o => o.id === interest);
           const interestPrivateOnly = interestObj?.privateOnly || false;
           
@@ -4520,8 +4520,9 @@ const FouFouApp = () => {
               .sort((a, b) => (b.rating * Math.log10((b.ratingCount || 0) + 1)) - (a.rating * Math.log10((a.ratingCount || 0) + 1)));
           }
           
-          const sortedPlaces = sortedAll.slice(0, neededFromApi);
-          const cachedPlaces = sortedAll.slice(neededFromApi);
+          const actualNeeded = Math.max(0, stopsForThisInterest - customToUse.length);
+          const sortedPlaces = sortedAll.slice(0, actualNeeded);
+          const cachedPlaces = sortedAll.slice(actualNeeded);
           
           googleCacheRef.current[interest] = cachedPlaces;
           sortedPlaces.forEach((p, i) => console.log(`  ✅ ${i+1}. ${p.name} — ⭐${p.rating} (${p.ratingCount})`));
@@ -4537,15 +4538,6 @@ const FouFouApp = () => {
           };
           
           allStops.push(...sortedPlaces);
-        } else {
-          googleCacheRef.current[interest] = []; // Empty cache
-          interestResults[interest] = {
-            requested: stopsForThisInterest,
-            custom: customToUse.length,
-            fetched: 0,
-            total: customToUse.length,
-            allPlaces: []
-          };
         }
       }
       
@@ -10987,7 +10979,6 @@ const FouFouApp = () => {
                         <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>📍 {areaLabels}</div>
                         {intLabels && <div style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '2px' }}>{intLabels}</div>}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          {loc.locked && <span style={{ fontSize: '9px', background: '#dcfce7', color: '#166534', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>✅ {t('places.approved') || 'מאושר'}</span>}
                           {addedByName && <span style={{ fontSize: '9px', color: '#9ca3af' }}>👤 {addedByName}</span>}
                           {loc.googleRating && (
                             <span style={{ fontSize: '10px', color: '#b45309' }}>⭐ {loc.googleRating} ({loc.googleRatingCount || 0})</span>
