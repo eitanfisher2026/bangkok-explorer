@@ -2697,7 +2697,7 @@
             <span style={{ fontSize: '14px', flexShrink: 0 }}>
               {toastMessage.type === 'error' ? '❌' : toastMessage.type === 'warning' ? '⚠️' : toastMessage.type === 'info' ? 'ℹ️' : '✅'}
             </span>
-            <div style={{ fontSize: '13px', fontWeight: '500', color: '#374151' }}>
+            <div style={{ fontSize: '13px', fontWeight: '500', color: '#374151', whiteSpace: 'pre-line', lineHeight: '1.5' }}>
               {toastMessage.message}
             </div>
             {toastMessage.sticky && (

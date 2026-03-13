@@ -4696,7 +4696,32 @@ const FouFouApp = () => {
       }
 
       setRoute(newRoute);
-      
+
+      (() => {
+        const stats = newRoute.stats || {};
+        const interestResults = stats.interestResults || {};
+        const allInterestOpts = window.BKK.interestOptions || [];
+        const getLabel = (id) => {
+          const opt = allInterestOpts.find(o => o.id === id);
+          return opt ? (opt.label || opt.labelEn || id) : id;
+        };
+        const lines = Object.entries(interestResults)
+          .filter(([, v]) => (v.total || 0) > 0)
+          .sort(([, a], [, b]) => (b.total || 0) - (a.total || 0))
+          .map(([id, v]) => `${getLabel(id)}: ${v.total}`)
+          .join(' · ');
+        const custom = stats.custom || 0;
+        const fetched = stats.fetched || 0;
+        let source = '';
+        if (custom > 0 && fetched > 0) source = `${custom} מועדפים + ${fetched} מגוגל`;
+        else if (custom > 0) source = `${custom} ממועדפים`;
+        else if (fetched > 0) source = `${fetched} מגוגל`;
+        const tip = window.BKK.i18n.t('wizard.editTip') || 'ניתן לערוך סדר ולהסיר עצירות · לחץ ℹ לפרטים';
+        const msg = [lines, source, tip].filter(Boolean).join('
+');
+        showToast(msg, 'info', 'sticky');
+      })();
+
       saveDebugSession(newRoute);
       
       const lockedNames = newRoute.stops
@@ -7710,56 +7735,11 @@ const FouFouApp = () => {
         )}
 
         {/* ROUTE CHOICE SCREEN — shown in wizard step 3 after route is loaded, before any action */}
-        {wizardStep === 3 && !isGenerating && route && route.stops?.length > 0 && !activeTrail && !route.optimized && routeChoiceMade === null && currentView === 'form' && (
-          <div style={{ background: 'white', borderRadius: '16px', padding: '16px', marginBottom: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
-            {renderStepHeader('🐾', (t('wizard.step3TitleResults') || '{count} מקומות נמצאו').replace('{count}', route.stops.length), t('wizard.step3Title'), 'hint_choice')}
-            {renderContextHint('hint_choice')}
-
-            {/* Option 1: Yalla - quick go */}
-            <button
-              onClick={() => {
-                const isCircular = formData.searchMode === 'radius';
-                setRouteType(isCircular ? 'circular' : 'linear');
-                
-                const result = runSmartPlan({ openMap: true, startTrail: true, overrideType: isCircular ? 'circular' : 'linear' });
-                if (!result) return;
-                
-                showToast(`🚀 ${result.optimized.length} ${t('route.stops')} (${result.isCircular ? t('route.circular') : t('route.linear')})`, 'success');
-              }}
-              style={{
-                width: '100%', padding: '14px', border: '2px solid #22c55e', borderRadius: '14px',
-                background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', color: '#15803d',
-                fontSize: '15px', fontWeight: 'bold', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'start',
-                direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr', marginBottom: '10px'
-              }}
-            >
-              <span style={{ fontSize: '24px' }}>🚀</span>
-              <div>
-                <div>{t('wizard.yallaGo')}</div>
-                <div style={{ fontSize: '10px', color: '#6b7280', fontWeight: 'normal' }}>{t('wizard.yallaDesc')}</div>
-              </div>
-            </button>
-
-            {/* Option 2: Manual arrangement */}
-            <button
-              onClick={() => { setRouteChoiceMade('manual'); window.scrollTo(0, 0); }}
-              style={{
-                width: '100%', padding: '14px', border: '2px solid #8b5cf6', borderRadius: '14px',
-                background: 'linear-gradient(135deg, #faf5ff, #ede9fe)', color: '#6d28d9',
-                fontSize: '15px', fontWeight: 'bold', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'start',
-                direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr'
-              }}
-            >
-              <span style={{ fontSize: '24px' }}>🛠️</span>
-              <div>
-                <div>{t('wizard.manualMode')}</div>
-                <div style={{ fontSize: '10px', color: '#6b7280', fontWeight: 'normal' }}>{t('wizard.manualDesc')}</div>
-              </div>
-            </button>
-          </div>
-        )}
+        {/* Intermediate screen removed — auto-jump to manual mode on load */}
+        {wizardStep === 3 && !isGenerating && route && route.stops?.length > 0 && !activeTrail && !route.optimized && routeChoiceMade === null && currentView === 'form' && (() => {
+          setTimeout(() => { setRouteChoiceMade('manual'); window.scrollTo(0, 0); }, 0);
+          return null;
+        })()}
 
         {/* Form View */}
 
@@ -7767,8 +7747,34 @@ const FouFouApp = () => {
         {currentView === 'form' && !activeTrail && wizardStep === 3 && (routeChoiceMade === 'manual' || route?.optimized) && (
           <div className="view-fade-in bg-white rounded-xl shadow-lg p-3 space-y-3">
 
-            {/* Manual mode header — shown in wizard manual mode */}
-            {routeChoiceMade === 'manual' && route && renderStepHeader('🛠️', t('wizard.manualMode'), t('wizard.manualDesc'))}
+            {/* Manual mode header — with doc button */}
+            {routeChoiceMade === 'manual' && route && (() => {
+              const isRTL = window.BKK.i18n.isRTL();
+              return (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  padding: '6px 10px', marginBottom: '8px',
+                  background: 'linear-gradient(135deg, #faf5ff 0%, #ede9fe 100%)',
+                  borderRadius: '10px', border: '1px solid #ddd6fe',
+                  direction: isRTL ? 'rtl' : 'ltr'
+                }}>
+                  <span style={{ fontSize: '18px', flexShrink: 0 }}>🛠️</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#1e293b', lineHeight: 1.2 }}>{t('wizard.manualMode')}</div>
+                    <div style={{ fontSize: '10px', color: '#64748b', marginTop: '1px' }}>{t('wizard.manualDesc')}</div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const defaultInterests = (formData.interests || []).slice(0, 1);
+                      setNewLocation({ name: '', description: '', notes: '', area: formData.area, areas: [formData.area], interests: defaultInterests, lat: null, lng: null, mapsUrl: '', address: '', uploadedImage: null, imageUrls: [], nearestStop: null, gpsLoading: false });
+                      setShowQuickCapture(true);
+                    }}
+                    title={t('trail.docBtn') || 'תיעוד מקום'}
+                    style={{ background: '#7c3aed', border: 'none', borderRadius: '10px', width: '36px', height: '36px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', flexShrink: 0 }}
+                  >📷</button>
+                </div>
+              );
+            })()}
 
             {route && routeChoiceMade === 'manual' && renderContextHint('hint_manual')}
 
@@ -8057,7 +8063,7 @@ const FouFouApp = () => {
                 </div>
                 
                 <div className="mt-3 space-y-1" style={{ position: 'relative' }}>
-                  {/* Row 1: Map & Plan + Hamburger */}
+                  {/* Row 1: Map & Plan + Doc + Hamburger */}
                   <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                   <button
                     onClick={() => {
@@ -8095,6 +8101,20 @@ const FouFouApp = () => {
                   >
                     {`${t("route.showStopsOnMap")} (${route.stops.filter(s => !isStopDisabled(s) && s.lat && s.lng).length})`}
                   </button>
+                  <button
+                    onClick={() => {
+                      const defaultInterests = (formData.interests || []).slice(0, 1);
+                      setNewLocation({ name: '', description: '', notes: '', area: formData.area, areas: [formData.area], interests: defaultInterests, lat: null, lng: null, mapsUrl: '', address: '', uploadedImage: null, imageUrls: [], nearestStop: null, gpsLoading: false });
+                      setShowQuickCapture(true);
+                    }}
+                    title={t('trail.docBtn') || 'תיעוד מקום'}
+                    style={{
+                      width: '42px', height: '42px', borderRadius: '12px',
+                      border: '1px solid #ddd6fe', background: 'rgba(124,58,237,0.08)',
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '18px', flexShrink: 0
+                    }}
+                  >📷</button>
                   <button
                     onClick={() => setShowRouteMenu(!showRouteMenu)}
                     style={{
@@ -13883,7 +13903,7 @@ const FouFouApp = () => {
             <span style={{ fontSize: '14px', flexShrink: 0 }}>
               {toastMessage.type === 'error' ? '❌' : toastMessage.type === 'warning' ? '⚠️' : toastMessage.type === 'info' ? 'ℹ️' : '✅'}
             </span>
-            <div style={{ fontSize: '13px', fontWeight: '500', color: '#374151' }}>
+            <div style={{ fontSize: '13px', fontWeight: '500', color: '#374151', whiteSpace: 'pre-line', lineHeight: '1.5' }}>
               {toastMessage.message}
             </div>
             {toastMessage.sticky && (

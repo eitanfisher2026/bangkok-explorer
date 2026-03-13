@@ -5247,7 +5247,35 @@
       });
 
       setRoute(newRoute);
-      
+
+      // ── Friendly stats toast ──
+      (() => {
+        const stats = newRoute.stats || {};
+        const interestResults = stats.interestResults || {};
+        const allInterestOpts = window.BKK.interestOptions || [];
+        const getLabel = (id) => {
+          const opt = allInterestOpts.find(o => o.id === id);
+          return opt ? (opt.label || opt.labelEn || id) : id;
+        };
+        // Lines per interest (only those with results)
+        const lines = Object.entries(interestResults)
+          .filter(([, v]) => (v.total || 0) > 0)
+          .sort(([, a], [, b]) => (b.total || 0) - (a.total || 0))
+          .map(([id, v]) => `${getLabel(id)}: ${v.total}`)
+          .join(' · ');
+        // Custom vs Google breakdown
+        const custom = stats.custom || 0;
+        const fetched = stats.fetched || 0;
+        let source = '';
+        if (custom > 0 && fetched > 0) source = `${custom} מועדפים + ${fetched} מגוגל`;
+        else if (custom > 0) source = `${custom} ממועדפים`;
+        else if (fetched > 0) source = `${fetched} מגוגל`;
+        const tip = window.BKK.i18n.t('wizard.editTip') || 'ניתן לערוך סדר ולהסיר עצירות · לחץ ℹ לפרטים';
+        const msg = [lines, source, tip].filter(Boolean).join('
+');
+        showToast(msg, 'info', 'sticky');
+      })();
+
       // Save debug session for field debugging
       saveDebugSession(newRoute);
       
