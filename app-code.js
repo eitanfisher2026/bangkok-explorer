@@ -4716,7 +4716,7 @@ const FouFouApp = () => {
         if (custom > 0 && fetched > 0) source = `${custom} מועדפים + ${fetched} מגוגל`;
         else if (custom > 0) source = `${custom} ממועדפים`;
         else if (fetched > 0) source = `${fetched} מגוגל`;
-        const tip = window.BKK.i18n.t("wizard.editTip") || "ניתן לערוך סדר ולהסיר עצירות";
+        const tip = window.t("wizard.editTip") || "ניתן לערוך סדר ולהסיר עצירות";
         const msg = [lines, source, tip].filter(Boolean).join("\n");
         showToast(msg, 'info', 'sticky');
       })();
@@ -7747,33 +7747,7 @@ const FouFouApp = () => {
           <div className="view-fade-in bg-white rounded-xl shadow-lg p-3 space-y-3">
 
             {/* Manual mode header — with doc button */}
-            {routeChoiceMade === 'manual' && route && (() => {
-              const isRTL = window.BKK.i18n.isRTL();
-              return (
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: '8px',
-                  padding: '6px 10px', marginBottom: '8px',
-                  background: 'linear-gradient(135deg, #faf5ff 0%, #ede9fe 100%)',
-                  borderRadius: '10px', border: '1px solid #ddd6fe',
-                  direction: isRTL ? 'rtl' : 'ltr'
-                }}>
-                  <span style={{ fontSize: '18px', flexShrink: 0 }}>🛠️</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#1e293b', lineHeight: 1.2 }}>{t('wizard.manualMode')}</div>
-                    <div style={{ fontSize: '10px', color: '#64748b', marginTop: '1px' }}>{t('wizard.manualDesc')}</div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      const defaultInterests = (formData.interests || []).slice(0, 1);
-                      setNewLocation({ name: '', description: '', notes: '', area: formData.area, areas: [formData.area], interests: defaultInterests, lat: null, lng: null, mapsUrl: '', address: '', uploadedImage: null, imageUrls: [], nearestStop: null, gpsLoading: false });
-                      setShowQuickCapture(true);
-                    }}
-                    title={t('trail.docBtn') || 'תיעוד מקום'}
-                    style={{ background: '#7c3aed', border: 'none', borderRadius: '10px', width: '36px', height: '36px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', flexShrink: 0 }}
-                  >📷</button>
-                </div>
-              );
-            })()}
+            {routeChoiceMade === 'manual' && route && renderStepHeader('🛠️', t('wizard.manualMode'), t('wizard.manualDesc'), 'hint_manual')}
 
             {route && routeChoiceMade === 'manual' && renderContextHint('hint_manual')}
 
@@ -8101,19 +8075,14 @@ const FouFouApp = () => {
                     {`${t("route.showStopsOnMap")} (${route.stops.filter(s => !isStopDisabled(s) && s.lat && s.lng).length})`}
                   </button>
                   <button
-                    onClick={() => {
-                      const defaultInterests = (formData.interests || []).slice(0, 1);
-                      setNewLocation({ name: '', description: '', notes: '', area: formData.area, areas: [formData.area], interests: defaultInterests, lat: null, lng: null, mapsUrl: '', address: '', uploadedImage: null, imageUrls: [], nearestStop: null, gpsLoading: false });
-                      setShowQuickCapture(true);
-                    }}
-                    title={t('trail.docBtn') || 'תיעוד מקום'}
+                    onClick={() => setOpenHintPopup(openHintPopup === 'hint_manual' ? null : 'hint_manual')}
                     style={{
                       width: '42px', height: '42px', borderRadius: '12px',
-                      border: '1px solid #ddd6fe', background: 'rgba(124,58,237,0.08)',
+                      border: '1px solid #93c5fd', background: openHintPopup === 'hint_manual' ? '#dbeafe' : '#f0f9ff',
                       cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '18px', flexShrink: 0
+                      fontSize: '16px', color: '#2563eb', flexShrink: 0
                     }}
-                  >📷</button>
+                  >ℹ</button>
                   <button
                     onClick={() => setShowRouteMenu(!showRouteMenu)}
                     style={{
