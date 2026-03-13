@@ -4717,8 +4717,7 @@ const FouFouApp = () => {
         else if (custom > 0) source = `${custom} ממועדפים`;
         else if (fetched > 0) source = `${fetched} מגוגל`;
         const tip = window.BKK.i18n.t("wizard.editTip") || "ניתן לערוך סדר ולהסיר עצירות";
-        const msg = [lines, source, tip].filter(Boolean).join('
-');
+        const msg = [lines, source, tip].filter(Boolean).join("\n");
         showToast(msg, 'info', 'sticky');
       })();
 
