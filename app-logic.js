@@ -361,6 +361,14 @@
       selected = allStops.filter(s => !curDisabled.includes((s.name || '').toLowerCase().trim()));
       disabledList = allStops.filter(s => curDisabled.includes((s.name || '').toLowerCase().trim()));
       newDisabled = curDisabled;
+    }
+    // Always ensure manuallyAdded stops are in selected (never dropped by smart select)
+    if (selected.length > 0) {
+      const manualInDisabled = disabledList.filter(s => s.manuallyAdded);
+      if (manualInDisabled.length > 0) {
+        selected = [...selected, ...manualInDisabled];
+        disabledList = disabledList.filter(s => !s.manuallyAdded);
+      }
     } else {
       const result = smartSelectStops(allStops, formData.interests);
       selected = result.selected;

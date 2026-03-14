@@ -364,6 +364,13 @@ const FouFouApp = () => {
       selected = allStops.filter(s => !curDisabled.includes((s.name || '').toLowerCase().trim()));
       disabledList = allStops.filter(s => curDisabled.includes((s.name || '').toLowerCase().trim()));
       newDisabled = curDisabled;
+    }
+    if (selected.length > 0) {
+      const manualInDisabled = disabledList.filter(s => s.manuallyAdded);
+      if (manualInDisabled.length > 0) {
+        selected = [...selected, ...manualInDisabled];
+        disabledList = disabledList.filter(s => !s.manuallyAdded);
+      }
     } else {
       const result = smartSelectStops(allStops, formData.interests);
       selected = result.selected;
@@ -7211,8 +7218,8 @@ const FouFouApp = () => {
                           textDecorationStyle: isSkipped ? 'solid' : 'dotted',
                           display: 'flex', alignItems: 'center', gap: '3px'
                         }}>
-                        {!isSkipped && isFavorite && <img src="icon-32x32.png" alt="FouFou" style={{ width: '12px', height: '12px', flexShrink: 0 }} />}
                         {stop.name}
+                        {!isSkipped && isFavorite && <img src="icon-32x32.png" alt="FouFou" style={{ width: '12px', height: '12px', flexShrink: 0 }} />}
                       </span>
                       {/* Star + rating */}
                       {!isSkipped && (
@@ -7857,7 +7864,7 @@ const FouFouApp = () => {
                   </div>
                 )}
                 <div className="flex items-center gap-2 mb-2">
-                  <h3 className="font-bold text-blue-900 text-sm">{`${t("route.places")} - ${route.areaName}`} ({route.stops.length}):</h3>
+                  <h3 className="font-bold text-blue-900 text-sm">{`${t("route.places")} - ${route.areaName}`} ({route.stops.filter(s => !isStopDisabled(s)).length}):</h3>
                 </div>
                 {renderContextHint('hint_route')}
                 {/* Normal stop list grouped by interest */}
@@ -8033,7 +8040,7 @@ const FouFouApp = () => {
                                         </span>
                                       )}
                                       {isAddedLater && routeChoiceMade === 'manual' && (
-                                        <span className="text-blue-500 font-bold" title={t("general.addedViaMore")} style={{ fontSize: '9px' }}>{`+${t('general.more')}`}</span>
+                                        <span title={t("general.addedViaMore")} style={{ fontSize: '8px', fontWeight: '600', background: '#dbeafe', color: '#1d4ed8', borderRadius: '3px', padding: '0 3px', flexShrink: 0 }}>+</span>
                                       )}
                                       {/* FouFou info button for custom/favorite places */}
                                       {isCustom && (() => {
