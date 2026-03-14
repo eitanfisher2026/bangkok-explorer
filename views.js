@@ -1165,6 +1165,7 @@
             {routeChoiceMade === 'manual' && route && renderStepHeader('🛠️', t('wizard.manualMode'), t('wizard.manualDesc'), 'hint_manual')}
 
             {route && routeChoiceMade === 'manual' && renderContextHint('hint_manual')}
+            {route && routeChoiceMade === 'manual' && renderContextHint('hint_route_menu')}
 
             {/* Show stops list ONLY after route is calculated */}
             {route && (
@@ -1534,7 +1535,7 @@
                       </div>
                     );
                   })()}
-                  {renderContextHint('hint_route_menu')}
+
                   <button
                     onClick={() => setShowRouteMenu(!showRouteMenu)}
                     style={{
