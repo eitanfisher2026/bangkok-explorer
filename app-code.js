@@ -8125,7 +8125,7 @@ const FouFouApp = () => {
                         {(txt || isAdmin) && (
                           <button
                             onClick={() => setOpenHintPopup(openHintPopup === 'hint_route_menu' ? null : 'hint_route_menu')}
-                            title={window.BKK.i18n.isRTL() ? 'מה יש בתפריט?' : 'What's in the menu?'}
+                            title={window.BKK.i18n.isRTL() ? 'מה יש בתפריט?' : 'What is in the menu'}
                             style={{
                               height: '42px', borderRadius: '12px', padding: '0 10px',
                               border: '1px solid #d1d5db', background: openHintPopup === 'hint_route_menu' ? '#e5e7eb' : '#f9fafb',
