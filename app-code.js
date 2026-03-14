@@ -1213,9 +1213,13 @@ const FouFouApp = () => {
   const routeTypeRef = React.useRef(routeType);
   React.useEffect(() => { routeTypeRef.current = routeType; }, [routeType]);
   const startPointCoordsRef = React.useRef(startPointCoords);
+  const prevStartPointRef = React.useRef(null);
   React.useEffect(() => {
     startPointCoordsRef.current = startPointCoords;
-    if (startPointCoords?.lat && startPointCoords?.lng && route?.stops?.length >= 2) {
+    const prev = prevStartPointRef.current;
+    const changed = startPointCoords?.lat !== prev?.lat || startPointCoords?.lng !== prev?.lng;
+    prevStartPointRef.current = startPointCoords;
+    if (changed && startPointCoords?.lat && startPointCoords?.lng && route?.stops?.length >= 2) {
       scheduleReoptimize();
     }
   }, [startPointCoords]);
@@ -13112,7 +13116,7 @@ const FouFouApp = () => {
                   scheduleReoptimize();
                 }
                 
-                showToast(`➕ ${display} ${t("interests.added")}`, 'success');
+                showToast(`➕ ${display} ${t("interests.added")} — ${t('general.addedManually') || 'נוסף לתחתית הרשימה'}`, 'success');
                 
                 const inp = document.getElementById('manual-stop-input');
                 if (inp) inp.value = '';

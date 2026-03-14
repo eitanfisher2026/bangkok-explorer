@@ -1794,7 +1794,7 @@
                   scheduleReoptimize();
                 }
                 
-                showToast(`➕ ${display} ${t("interests.added")}`, 'success');
+                showToast(`➕ ${display} ${t("interests.added")} — ${t('general.addedManually') || 'נוסף לתחתית הרשימה'}`, 'success');
                 
                 // Clear input for next add
                 const inp = document.getElementById('manual-stop-input');

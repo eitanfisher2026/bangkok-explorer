@@ -1301,10 +1301,15 @@
   const routeTypeRef = React.useRef(routeType);
   React.useEffect(() => { routeTypeRef.current = routeType; }, [routeType]);
   const startPointCoordsRef = React.useRef(startPointCoords);
+  const prevStartPointRef = React.useRef(null);
   React.useEffect(() => {
     startPointCoordsRef.current = startPointCoords;
-    // Auto-reoptimize when start point changes (has valid coords and route exists)
-    if (startPointCoords?.lat && startPointCoords?.lng && route?.stops?.length >= 2) {
+    // Only reoptimize when start point ACTUALLY changes from user action
+    // (not when runSmartPlan internally sets it to the same value)
+    const prev = prevStartPointRef.current;
+    const changed = startPointCoords?.lat !== prev?.lat || startPointCoords?.lng !== prev?.lng;
+    prevStartPointRef.current = startPointCoords;
+    if (changed && startPointCoords?.lat && startPointCoords?.lng && route?.stops?.length >= 2) {
       scheduleReoptimize();
     }
   }, [startPointCoords]);
