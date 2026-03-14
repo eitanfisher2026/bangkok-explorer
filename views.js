@@ -494,8 +494,10 @@
                     }}>
                       <span style={{
                         width: '18px', height: '18px', borderRadius: '50%',
-                        background: isSkipped ? '#fecaca' : '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '9px', fontWeight: 'bold', color: isSkipped ? '#dc2626' : '#6b7280', flexShrink: 0
+                        background: isSkipped ? '#fecaca' : (window.BKK.stopColorPalette[idx % window.BKK.stopColorPalette.length]),
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '9px', fontWeight: 'bold', color: 'white', flexShrink: 0,
+                        opacity: isSkipped ? 0.4 : 1
                       }}>{letter}</span>
                       <span
                         onClick={() => {

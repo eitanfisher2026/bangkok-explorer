@@ -2,83 +2,123 @@
 
 **Tagline:** Local picks + Google spots. Choose your vibe, follow the trail 🍜🏛️🎭
 
-## Version: 3.8.13 (Mar 7, 2026)
+## Version: 3.8.55 (Mar 14, 2026)
 
-## ⚠️ CRITICAL: Known Fragile Areas — READ BEFORE ANY CODE CHANGE
+## Live: https://eitanfisher2026.github.io/FouFou/
+
+---
+
+## ⚡ MOST RECENT SESSION SUMMARY (Mar 7–14, 2026) — v3.8.13 → v3.8.54
+
+### Architecture & Packaging
+- **ZIP name**: `github-upload-vX_Y_ZZ.zip` (single zip, includes both GitHub files and CLAUDE_CONTEXT.md)
+- **Build baseline balance**: `app-code.js: () +0  {} -3  [] -2` — verify after every change
+- **Working dir**: `/tmp/project/` (extract zip here)
+
+### localStorage Cleanup (v3.8.27)
+- All `bangkok_*` keys renamed to `foufou_*`: `foufou_preferences`, `foufou_route_type`, `foufou_right_col_width`, `foufou_debug_*`, `foufou_last_log_time`, `foufou_last_seen_feedback`, `foufou_visitor_id/name`
+- Dead localStorage removed: `bangkok_custom_locations`, `bangkok_custom_interests`, `bangkok_interest_status`, `bangkok_is_admin`, `bangkok_user_id`
+- All localStorage fallback `else { ... }` blocks removed from: locations load, interests load, interest status load, saved routes load, refreshAllData
+- `saveRoutesToStorage` simplified to no-op (Firebase handles everything)
+- `pendingLocations`/`pendingInterests` still in-memory state (offline queue) but no longer persisted to localStorage
+- `bangkok_user_id` replaced everywhere with `authUser?.uid`
+- `bangkok_is_admin` removed — use `isAdmin` state directly
+
+### System Routes (v3.8.28–3.8.29)
+- 4 system routes added to `city-bangkok.js` as `window.BKK.cityData.bangkok.systemRoutes`
+- `seedSystemRoutes(database)` function seeds them to Firebase `cities/bangkok/routes` once (idempotent, checks by `id` field, flag `foufou_sys_routes_seeded_bangkok`)
+- System routes have `system: true, locked: true` — shown with ⭐ amber background, no delete button
+- Called from migration useEffect alongside `migrateLocationsToPerCity`
+
+### Bug Fixes (v3.8.30)
+- `addGooglePlaceToCustom`: `const locationToAdd` → `let locationToAdd` (was causing TypeError on `sanitizeMapsUrl` reassignment)
+- Custom interests with `cityId` now filtered correctly in `cityCustomInterests` (respects cityId regardless of scope field)
+- Custom interests default to OFF for new users (undefined status = disabled for `custom_*` IDs)
+
+### Hint/Documentation System Fixes (v3.8.31–3.8.33)
+- `renderStepHeader` redesigned: compact (13px, padding 6px), buttons removed — hint buttons moved to `renderContextHint`
+- `renderContextHint` must be called separately after `renderStepHeader` for each screen
+- `renderContextHint` calls needed: `hint_area` (step 2), `hint_interests` (step 1), `hint_choice` (step 3), `hint_manual` (manual mode header), `hint_route_menu` (near hamburger)
+- `saveAndTranslateHint` fixed: now uses current language as source (not hardcoded `he`), translates to other language
+- `window.BKK.i18n.t()` does not exist — correct function is `window.t()`
+
+### UX / Wizard Changes (v3.8.34)
+- **Intermediate screen removed**: After "מצא מקומות" → auto-jump directly to manual mode (`routeChoiceMade = 'manual'` via setTimeout 0)
+- **Friendly stats toast** after route generation: shows interest breakdown in same order as results screen, custom/google count from actual `route.stops`, sticky (click anywhere to dismiss)
+- **Doc buttons (📷 camera+gallery)** added in manual mode header and next to hamburger — LATER REPLACED with ℹ hint buttons
+
+### UI Polish (v3.8.38–3.8.52)
+- **ℹ hint buttons**: dark gray (`#374151`, border `#d1d5db`, bg `#f9fafb`) everywhere — not blue
+- **Skip/Unskip buttons**: orange pill (`#ea580c`, bg `#fff7ed`, border `#fed7aa`) → restored on unskip to green. Uses `t('trail.skip')`/`t('trail.unskip')` for i18n
+- **⭐ Add to favorites**: teal/emerald pill (`#059669`, bg `#f0fdf4`, border `#6ee7b7`) — was purple
+- **"הוסף למועדפים"**: compact inline pill, not full-width button
+- **Toast UI**: backdrop overlay closes on click anywhere, ✕ in top-left corner (RTL), each line styled separately (header bold, last line gray)
+- **Hamburger menu**: ✕ close button at top
+- **"עזור לי לתכנן"**: admin-only in hamburger menu (always uses `skipSmartSelect: true`)
+
+### Auto-Reoptimize (v3.8.53)
+- `scheduleReoptimize()`: debounced 600ms, always `skipSmartSelect: true` (never cuts stops)
+- Triggers: startPointCoords change, fetchMoreForInterest, disabledStops change (skip/unskip), manual stop added
+- Spinner overlay on stops list during reoptimize (`isReoptimizing` state)
+- `scheduleReoptimize` defined BEFORE `findSmartStart` (avoids TDZ issues with useEffects that call it)
+
+### hint_route_menu
+- New hint ID `hint_route_menu` for the ℹ button next to hamburger
+- Separate from `hint_manual` (which explains the manual mode screen)
+- `renderContextHint('hint_route_menu')` placed near `renderContextHint('hint_manual')`
+
+### Active Trail Hints (v3.8.54)
+- `hint_trail` hint ID added to active trail header
+- `renderContextHint('hint_trail')` added after trail description text
+
+---
+
+## ⚠️ CRITICAL RULES (accumulated over all sessions)
+
+### Syntax Safety
+- **Single quotes in JSX attributes** cause Babel parse errors — use double quotes or avoid apostrophes
+- **Literal `\n` in template literals** — use `"\\n"` not actual newline character
+- **`const` → `let`** when reassigning (e.g. `locationToAdd = sanitizeMapsUrl(...)`)
+- **`window.BKK.i18n.t()` does NOT exist** — use `window.t()` or the React `t` function from scope
+- Always run build + balance check after changes
 
 ### Google Place ID / mapsUrl (RECURRING BUG — BROKEN 3+ TIMES)
-**Problem:** The field `googlePlaceId` gets contaminated with non-Google IDs (Firebase keys, internal IDs).
-**Root cause:** Multiple code paths write to `googlePlaceId`. The field `placeId` in Firebase data can contain Firebase push keys (like `or_BGf4jARSpbYZd2UIjM`) which are NOT Google Place IDs.
-**Rules:**
-1. NEVER assign anything to `googlePlaceId` without validating it matches `/^(ChIJ|EiI|GhIJ)/`
-2. NEVER use `loc.placeId` directly — it may be a Firebase key, not a Google Place ID
-3. The validation function `isValidGooglePlaceId` exists in `utils.js` (`getGoogleMapsUrl`) — use it
-4. The sanitizer in Firebase load (app-logic.js, ~line 2107) validates before promoting
-5. `getGoogleMapsUrl()` in utils.js is the SINGLE source of truth for building Google URLs — always use it, never build URLs manually
-6. The one-time repair function cleans bad `googlePlaceId` values on load
+1. NEVER assign to `googlePlaceId` without validating `/^(ChIJ|EiI|GhIJ)/`
+2. NEVER use `loc.placeId` directly — may be a Firebase key
+3. `getGoogleMapsUrl()` in utils.js = SINGLE source of truth for Google URLs
+4. `sanitizeMapsUrl()` must run before every Firebase save
 
-### mapsUrl field
-- `mapsUrl` should only contain valid `google.com/maps` URLs
-- It is generated by `window.BKK.getGoogleMapsUrl(place)` — never set it manually
-- The repair function (app-logic.js, ~line 1919) fixes bad values on load
-## Live: https://eitanfisher2026.github.io/bangkok-explorer/
+### Hooks
+- Hooks MUST be at component level — never inside IIFE or nested functions in JSX
+- `scheduleReoptimize` must be defined before any `useEffect` that calls it
+
+---
 
 ## Architecture
 
-Single-page React app (in-browser Babel, no build tools). Files are split for development and combined by `build.py` into 3 output files: tiny `index.html` (splash), `app-data.js` (data/utils), `app-code.js` (JSX app logic).
+Single-page React app (in-browser Babel). Files split for dev, combined by `build.py`.
 
-### File Structure
 ```
-Source files (11):
-  _source-template.html  ← HTML shell: splash screen, CSS, CDN loader, Babel compile+run
-  _app-code-template.js  ← JSX wrapper: Firebase init, React component, nav setup
-  config.js              ← Firebase config, city loading/switching, migration, export functions
-  utils.js               ← Pure functions: distance, sorting, dedup, scoring, image upload to Storage
-  app-logic.js           ← React state, Firebase sync, route generation, all handlers
-  views.js               ← JSX views: form, route results, search, saved routes, myPlaces, myInterests, settings
-  dialogs.js             ← JSX dialogs: location edit, interest edit, route edit, access log, help, confirm, password, image modal, add city
-  i18n.js                ← Translations (Hebrew/English), ~470 keys
-  build.py               ← Produces index.html + app-data.js + app-code.js + version.json
+Source files:
+  config.js              ← Firebase config, city loading, visitor tracking
+  utils.js               ← Pure functions: distance, sorting, dedup, scoring
+  app-logic.js           ← React state, Firebase sync, route generation, handlers
+  views.js               ← JSX views: wizard steps, route results, map
+  dialogs.js             ← JSX dialogs: location edit, route dialog, toast, confirm
+  i18n.js                ← Translations (Hebrew/English)
+  app-data.js            ← Generated: i18n + city data + config + utils (~194KB)
+  app-code.js            ← Generated: JSX app (~800KB)
+  index.html             ← Tiny splash shell (~11KB)
 
-City data files (4):
-  city-bangkok.js        ← Bangkok areas, interests, Google Places mappings
-  city-gushdan.js        ← Gush Dan areas, interests, Google Places mappings
-  city-singapore.js      ← Singapore areas, interests, Google Places mappings
-  city-malaga.js         ← Malaga areas, interests, Google Places mappings
-
-Generated files (4):
-  index.html             ← Tiny splash shell (~11KB) — animated cat, CDN loader, Babel compiler
-  app-data.js            ← i18n + city data + config + utils (~166KB)
-  app-code.js            ← JSX app code: app-logic + views + dialogs (~601KB)
-  version.json           ← Auto-generated by build.py from config.js VERSION
-
-Static/PWA files (8):
-  manifest.json          ← PWA manifest (standalone mode, theme color)
-  favicon.ico            ← Browser tab icon
-  icon-16x16.png         ← Favicon small
-  icon-32x32.png         ← Favicon large
-  icon-180x180.png       ← Apple touch icon
-  icon-192x192.png       ← Android PWA icon
-  icon-512x512.png       ← Android PWA splash
-  .nojekyll              ← GitHub Pages bypass Jekyll
-
-Other:
-  README.md              ← Repo readme
-  CLAUDE_CONTEXT.md      ← This file (DEV ONLY - never deploy to GitHub)
+City data:
+  city-bangkok.js        ← Areas, interests, system routes, seedSystemRoutes()
+  city-gushdan.js
+  city-singapore.js
+  city-malaga.js
 ```
 
-## Packaging & Deployment
-
-When the user asks to prepare a zip file, produce **one zip only**, named with the version number.
-
-### How to get the version
+## Packaging
 ```bash
-python3 -c "import re; s=open('config.js').read(); print(re.search(r\"VERSION\s*=\s*'([^']+)'\", s).group(1))"
-```
-
-### Single zip — includes everything (27 files), named with version
-```bash
-# Example: github-upload-v3_8_02.zip (replace dots with underscores)
 VERSION=$(python3 -c "import re; s=open('config.js').read(); print(re.search(r\"VERSION\s*=\s*'([^']+)'\", s).group(1).replace('.','_'))")
 zip github-upload-v${VERSION}.zip \
   index.html app-data.js app-code.js \
@@ -89,933 +129,105 @@ zip github-upload-v${VERSION}.zip \
   icon-16x16.png icon-32x32.png icon-180x180.png icon-192x192.png icon-512x512.png
 ```
 
-✅ `CLAUDE_CONTEXT.md` **is included** in the zip — it's needed for the next Claude session and is safe to upload to GitHub (it has no secrets).
-
-### Build & Verify Workflow
+## Build & Verify
 ```bash
-# 1. Build (produces index.html + app-data.js + app-code.js + version.json)
 python3 build.py
-
-# 2. Verify syntax balance on app-code.js (the JSX file)
 python3 -c "
 with open('app-code.js') as f: c = f.read()
 p=c.count('(')-c.count(')'); b=c.count('{')-c.count('}'); k=c.count('[')-c.count(']')
-print(f'app-code.js: () {p:+d}  {{}} {b:+d}  [] {k:+d}')
-# All should be 0
+print(f'Balance: () {p:+d}  {{}} {b:+d}  [] {k:+d}')
+# Baseline: () +0  {} -3  [] -2
 "
-
-# 3. Package zip (see command above)
 ```
-
-### Version Bump Workflow
-1. Update `window.BKK.VERSION` in `config.js`
-2. Run `python3 build.py` (auto-generates `version.json` + all 3 output files)
-3. Package zip with new version name
-4. User uploads all files to GitHub → auto-update banner appears for existing users
-
-## Key Design Patterns
-- **Multi-city**: Cities defined in `window.BKK.cities`. `selectCity(id)` populates legacy vars. `switchCity(id)` changes city at runtime. Per-area: `distanceMultiplier`, `size`, `safety`.
-- **Bilingual UI** — Hebrew (RTL) and English (LTR), toggled via Settings
-- **Firebase Realtime Database** for shared data (locations, interests, configs)
-- **localStorage fallback** when Firebase unavailable
-- **Admin system**: Password-based unlock (`isUnlocked` state)
-- **Per-user interest preferences**: Each user stores enabled/disabled at `users/{userId}/interestStatus`, admin defaults at `settings/interestStatus`
-- **Three search modes**: `'area'` (specific area), `'radius'` (GPS/place center), `'all'` (entire city — internally uses `allCityRadius` from city config)
-- **Auto-update system**: `version.json` checked on load, green banner when new version available
-- **PWA**: manifest.json + icons for "Add to Home Screen" on mobile
-- **Performance**: useMemo for grouping/sorting, interestMap/areaMap O(1) lookups, CSS contain, GPU-accelerated scroll
-- **Validation**: `isLocationValid()` (name + interest + address/coords), `isInterestValid()` (textSearch or types)
-- **Wizard UI**: 3-step flow is the only UI (advanced mode removed). `wizardStep` (1-3): step 1 = interests selection, step 2 = area/radius selection, step 3 = route results. Navigation to other views (saved, favorites, interests, settings) via hamburger menu. Settings requires admin password.
-- **Wizard map buttons**: Both step 1 and step 2 have a "🗺️ הצג מפה" button that opens the unified favorites map filtered by selected interests/area. Step 1 shows all areas; step 2 respects area selection. Filter dialog in map allows changing interests, areas, or viewing "areas only" (no place markers).
-- **Map return-to-place**: When opening map from a place dialog, closing the map returns to that place's dialog automatically (`mapReturnPlace` state).
-
-## State Management (app-logic.js)
-
-### Core State
-| State | Purpose |
-|-------|---------|
-| `route` | Current generated route object |
-| `formData` | Form inputs (area, interests, searchMode, radiusMeters, radiusSource, etc.) |
-| `currentView` | Active view: 'form', 'route', 'search', 'saved', 'myPlaces', 'myInterests', 'settings' |
-| `customLocations` | User's saved places (Firebase-synced) |
-| `customInterests` | User-created interests (Firebase-synced) |
-| `interestStatus` | Enable/disable per interest (per-user Firebase, with admin defaults) |
-| `interestConfig` | Search config overrides per interest (Firebase-synced) |
-| `savedRoutes` | Saved route objects (Firebase-synced, shared) |
-| `isUnlocked` | Admin mode active |
-| `disabledStops` | Array of lowercase stop names currently paused |
-| `manualStops` | Manually added stops (session only, survives re-search) |
-| `showManualAddDialog` | Manual add stop dialog visibility |
-| `isDataLoaded` | All Firebase/localStorage data loaded |
-| `updateAvailable` | New version detected from version.json |
-| `rightColWidth` | Adjustable column width (100-250px, localStorage) |
-| `wizardStep` | Current wizard step: 1 (area), 2 (interests), 3 (results) |
-| `locationSearchResults` | Google Places search results for add-location dialog |
-| `mapFavFilter` | Set of interest IDs to show on favorites map (empty = all) |
-| `mapFavArea` | Area filter for favorites map (null = all) |
-| `mapFocusPlace` | Place to highlight/zoom on favorites map |
-| `mapReturnPlace` | Place to reopen dialog for after closing map |
-| `mapBottomSheet` | Location data for map bottom sheet |
-| `showFavMapFilter` | Filter dialog visibility on favorites map |
-
-### Memoized Values (useMemo)
-| Value | Purpose |
-|-------|---------|
-| `interestMap` | O(1) lookup: interestId → interest object |
-| `areaMap` | O(1) lookup: areaId → area object |
-| `groupedPlaces` | Pre-grouped/sorted locations for myPlaces view |
-| `cityCustomInterests` | Custom interests filtered by current city |
-
-### Key Functions
-| Function | Purpose |
-|----------|---------|
-| `generateRoute()` | Main route generation from form inputs |
-| `fetchGooglePlaces()` | Google Places API calls per interest |
-| `getStopsForInterests()` | Custom locations matching form (filters invalid) |
-| `toggleInterestStatus()` | Toggle interest per-user Firebase |
-| `resetInterestStatusToDefault()` | Reset user interests to admin defaults |
-| `isInterestValid(id)` | Has search config? |
-| `isLocationValid(loc)` | Has name + interest + address/coords? |
-| `checkForUpdates(silent)` | Check version.json |
-| `applyUpdate()` | Clear caches + hard reload |
 
 ## Firebase Structure
 ```
-/customLocations/{id}              ← location objects
-/customInterests/{id}              ← custom interest objects
-/savedRoutes/{id}                  ← saved route objects (shared)
-/settings/interestConfig/{id}      ← search config per interest
-/settings/interestStatus/{id}      ← ADMIN DEFAULT enabled/disabled
-/settings/adminPasswords           ← admin password list
-/users/{userId}/interestStatus/{id} ← PER-USER enabled/disabled overrides
-/accessLog/{id}                    ← visitor access logs
-/feedback/{id}                     ← user feedback
+cities/{cityId}/locations/{id}    ← shared locations
+cities/{cityId}/routes/{id}       ← saved routes (+ system routes: system:true, locked:true)
+cities/{cityId}/interestCounters/ ← auto-naming
+customInterests/{id}              ← custom interest objects
+settings/interestConfig/{id}      ← search config + overrides per interest
+settings/interestStatus/{id}      ← admin default enabled/disabled
+settings/adminUsers/              ← legacy admin list
+users/{uid}/interestStatus/{id}   ← per-user overrides
+users/{uid}/role                  ← 0=regular, 1=editor, 2=admin
+helpContent/{sectionId}/{lang}    ← hint/documentation text (he/en)
+accessLog/{id}                    ← visitor logs
+feedback/{id}                     ← user feedback
 ```
 
-## Data Objects
+## Key State (app-logic.js)
+| State | Purpose |
+|-------|---------|
+| `route` | Current generated route (stops, optimized, startPointCoords) |
+| `formData` | area, interests, searchMode, maxStops, startPoint... |
+| `routeType` | 'circular' \| 'linear' → saved to `foufou_route_type` |
+| `routeChoiceMade` | null \| 'manual' — null triggers auto-jump to manual |
+| `disabledStops` | lowercase stop names that are skipped |
+| `isReoptimizing` | true during debounced auto-reoptimize |
+| `startPointCoords` | { lat, lng, address } — change triggers auto-reoptimize |
+| `authUser` | Firebase auth user |
+| `isAdmin` / `isEditor` | role >= 2 / >= 1 |
+| `openHintPopup` | currently open hint popup ID |
+| `hintEditId` | hint being edited (admin) |
+| `helpOverrides` | Firebase helpContent keyed by sectionId → { he, en } |
 
-### Location Object
-```js
-{
-  id, firebaseId, name, description, notes,
-  address, area, interests: [],
-  lat, lng, rating, ratingCount,
-  uploadedImage, // base64
-  status: 'active' | 'blacklist',
-  inProgress: bool, locked: bool, custom: true
-}
+## Hint/Documentation System
+- `renderStepHeader(icon, title, subtitle, hintId)` — compact header, ✏️ + ℹ + 🔈 buttons inline
+- `renderContextHint(hintId)` — renders popup + edit textarea (must be called separately!)
+- Hint IDs used: `hint_interests`, `hint_area`, `hint_choice`, `hint_manual`, `hint_route_menu`, `hint_trail`
+- `getHelpSection(sectionId)` — reads from `helpOverrides[id][currentLang]` or base i18n
+- `saveAndTranslateHint(id, text)` — saves to current lang, translates to other lang
+
+## Auto-Reoptimize Flow
+```
+scheduleReoptimize()  ←  triggers: startPointCoords change, fetchMore, skip/unskip, manual add
+    ↓ debounce 600ms
+runSmartPlan({ skipSmartSelect: true })
+    ↓ never cuts stops, just reorders
+optimizeStopOrder(selected, autoStart, isCircular)
+    ↓ nearest neighbor + 2-opt + content-aware
+setRoute(newRoute with optimized: true)
 ```
 
-### formData Object
-```js
-{
-  area, interests: [], maxStops: 15,
-  searchMode: 'area' | 'radius' | 'all',
-  radiusMeters: 500, radiusSource: 'gps' | 'myplace',
-  radiusPlaceId, radiusPlaceName, gpsLat, gpsLng,
-  currentLat, currentLng, startPoint: ''
-}
-```
+## UI Color System
+| Element | Color |
+|---------|-------|
+| ℹ hint button | `#374151` gray, border `#d1d5db` |
+| ⏸ skip | `#ea580c` orange, bg `#fff7ed` |
+| ▶ unskip | `#059669` green, bg `#f0fdf4` |
+| ⭐ add to favorites | `#059669` teal, bg `#f0fdf4` |
+| 🗺️ map button | `#6d28d9` purple, bg `faf5ff→ede9fe` |
+| 🚀 yalla button | `#15803d` green, bg `f0fdf4→dcfce7` |
+| system routes | amber bg `#fef3c7`, border `#fde68a` |
+
+## localStorage Keys (current — all foufou_*)
+| Key | Purpose |
+|-----|---------|
+| `foufou_preferences` | form defaults (hours, area, interests) |
+| `foufou_route_type` | 'circular' \| 'linear' |
+| `foufou_right_col_width` | desktop split view width |
+| `foufou_debug_mode/categories/sessions/flagged` | admin debug |
+| `foufou_last_log_time/last_seen_feedback` | rate limiting |
+| `foufou_active_trail` | active trail session |
+| `foufou_fab_pos` | FAB position |
+| `foufou_hint_*` | hint visit counts |
+| `foufou_tts_voice` | TTS voice selection |
+| `foufou_visitor_id/name` | analytics |
+| `foufou_sys_routes_seeded_{cityId}` | one-time seed flag |
+| `city_explorer_lang` | UI language |
+| `city_explorer_city` | last selected city |
+| `city_active_states` | city enabled/disabled |
+| `custom_cities` | user-added cities |
+| `locations_migrated_v2` | one-time migration flag |
+| `cleanup_inprogress_done` | one-time cleanup flag |
+
+## System Routes (Bangkok)
+Defined in `city-bangkok.js` as `window.BKK.cityData.bangkok.systemRoutes[]`:
+1. `sys_bkk_chinatown_loop` — Chinatown loop (circular, 4h)
+2. `sys_bkk_four_communities` — 4 communities by river (linear, 5h)
+3. `sys_bkk_nang_loeng` — Nang Loeng old Bangkok (circular, 2h)
+4. `sys_bkk_bang_krachao` — Bang Krachao green lung (circular, 4h)
+
+Seeded by `window.BKK.seedSystemRoutes(database)` — idempotent, checks existing by `id` field.
 
-## Changelog
-
-### v3.8.06 (Mar 6, 2026) — mapsUrl validation at save time
-
-**Two targeted fixes — based on 3.8.04, not 3.8.05:**
-
-**Fix 1 — fetchGooglePlaceInfo (מידע מגוגל):**
-- Clear `mapsUrl: ''` before rebuilding after API call
-- Since we just got fresh data from Google, always rebuild — no reason to keep old URL
-
-**Fix 2 — sanitizeMapsUrl() — new function, runs before every Firebase save:**
-- If `mapsUrl` contains `query_place_id` with invalid value (e.g. Firebase push key) → rebuild from canonical fields
-- Applied in: `addFromGoogle`, `addCustomLocation`, `updateCustomLocation`
-- Never saves a corrupt mapsUrl to Firebase
-
-**getGoogleMapsUrl (utils.js) — restored to 3.8.04 logic:**
-- Still uses stored `mapsUrl` as top priority (reverted from 3.8.05)
-- But now validates `query_place_id` inside it before trusting it
-
-### v3.8.05 (Mar 6, 2026) — Stop trusting mapsUrl from Firebase
-
-**Root cause (different approach):** All previous fixes tried to detect and filter *specific patterns* of bad mapsUrls. The real fix is simpler: `getGoogleMapsUrl` now **ignores `mapsUrl` entirely**. Firebase-stored `mapsUrl` values are frequently stale or corrupt (containing Firebase keys, old center/zoom params, etc.). Instead, the URL is always built fresh from canonical fields:
-1. `googlePlaceId` (validated) → `?api=1&query=NAME&query_place_id=ID`
-2. `fromGoogle` + name + coords → `?api=1&query=NAME&ll=lat,lng`
-3. `address` → `?api=1&query=ADDRESS`
-4. name + coords → `?api=1&query=NAME&ll=lat,lng`
-5. coords only → `?api=1&query=lat,lng`
-
-Also removed `place.placeId` fallback from Place ID lookup — only `googlePlaceId` (validated) is trusted.
-
-### v3.8.04 (Mar 6, 2026) — Fix Firebase Key in mapsUrl (Mobile Maps Bug Part 2)
-
-**Root cause:** `mapsUrl` stored in Firebase already contained bad `query_place_id=or_BGf4jARSpbYZd2UIjM` (Firebase push key). Both `getGoogleMapsUrl` and the repair function treated it as a valid Google Maps URL and skipped it.
-
-**Two fixes:**
-1. `getGoogleMapsUrl` (utils.js): now rejects `mapsUrl` if `query_place_id` fails `isValidGooglePlaceId` — falls through to better logic
-2. Repair function (app-logic.js): `needsFix` now also triggers when `query_place_id` in existing `mapsUrl` is a Firebase key — repairs it on next load
-
-### v3.8.03 (Mar 6, 2026) — Mobile Google Maps URL Fix + Packaging Fix
-
-**Mobile Maps Bug Fixed (utils.js):**
-- URLs using `center=lat,lng&zoom=17` params are invalid for `maps/search/?api=1` — desktop ignored them but mobile Google Maps app fell through to generic Google Search ("Add a missing place to Google Maps")
-- Fixed: coords now embedded directly in `query` param (`query=NAME+lat,lng`) — works correctly on both desktop and mobile
-
-**CLAUDE_CONTEXT.md Packaging Instructions Fixed:**
-- Was: two zips (`github-upload.zip` + `claude-dev.zip`)
-- Now: one zip named with version number (`github-upload-vX_Y_ZZ.zip`) including `CLAUDE_CONTEXT.md`
-- Added: version auto-bump reminder — any session that changes code must bump `config.js` VERSION
-
-### v3.0.0 — Multi-City Release
-- **Multi-city architecture**: App now supports multiple cities (Bangkok, Gush Dan, Singapore)
-  - City data structure: `window.BKK.cities[cityId]` with areas, interests, coordinates per city
-  - Compatibility layer: `selectCity()` populates legacy `window.BKK.*` vars so existing code works unchanged
-  - `switchCity()` function resets form, route, wizard step on city change
-  - City saved in `localStorage('city_explorer_city')`
-- **City selector**: Pill buttons in wizard step 1, city switcher in advanced mode settings
-- **Per-area fields**: `size` (small/medium/large), `safety` (safe/caution/danger), `distanceMultiplier` (optional, falls back to city then 1.2)
-- **Safety indicators**: ⚠️ orange for caution areas, 🔴 red for danger areas in area grid
-- **Dynamic city names**: All hardcoded "Bangkok" references replaced with `cityNameForSearch`, `selectedCity.name`, `selectedCity.country`
-- **Distance filtering tightened**: Text Search uses `locationRestriction` instead of `locationBias`; radius multiplier cascade: area → city → 1.2 default
-- **Renamed**: "Bangkok Explorer" → "City Explorer" → "FouFou" (v3.1.0)
-- **Gush Dan**: 9 areas (North/Central/South TLV, Holon, Bat Yam, Petah Tikva, Herzliya, Ramat Gan, Bnei Brak) with 12 interests
-- **Singapore**: 10 areas (Marina Bay, Chinatown, Little India, Kampong Glam, Orchard, Sentosa, Tiong Bahru, Holland Village, Clarke Quay, Bugis) with 12 interests
-- **Manual add in wizard mode**: "➕ הוסף ידנית נקודה למסלול" now visible in quick mode step 3
-- **Loading spinner in wizard step 3**: Shows spinner with message while generating results
-- **Help updated**: Mentions manual add and "+more" options for adding places
-- **City Architecture** — Separated city data from config:
-  - **config.js**: Lightweight registry (`cityRegistry`) with metadata (name, icon, file path)
-  - **city-*.js files**: Full city data (areas, interests, coordinates, Google Places mapping)
-  - **`window.BKK.cityData`**: Populated by city files, merged into `window.BKK.cities` on init
-  - **`window.BKK.loadCity(cityId)`**: Dynamically loads a city file via `<script>` tag (returns Promise)
-  - **`window.BKK.unloadCity(cityId)`**: Frees city data from memory
-  - **`window.BKK.selectCity(cityId)`**: Sets active city and populates legacy BKK.* variables
-  - **`window.BKK.getTileUrl()`**: Returns OSM tile URL (English labels for all cities)
-  - **build.py**: Auto-discovers `city-*.js` files and embeds them in `index.html`
-  - **Adding a new city** (two methods):
-    1. **Via UI**: Settings → Cities & Areas → "Add city" → enter name → auto-generates areas/interests → downloads `city-CITYID.js` → upload to GitHub
-    2. **Manual**: Create `city-CITYID.js` file, add entry to `cityRegistry` in config.js
-  - **`window.BKK.exportCityFile(city)`**: Downloads city data as `city-CITYID.js` file ready for GitHub
-  - **`window.BKK.getCityRegistryEntry(city)`**: Returns config.js registry line for the city
-  - **Custom cities**: Stored in `localStorage.custom_cities`, auto-loaded on startup
-  - **Removing a city**: Removes from memory, localStorage, and registry. For built-in cities, also delete `city-CITYID.js` from GitHub
-- **Full i18n (Internationalization) System** — Complete bilingual Hebrew/English support:
-  - **i18n.js**: Translation engine with ~400 keys in Hebrew and English dictionaries
-  - **t() function**: `t('section.key')` — returns translated string based on current language
-  - **tLabel() function**: `tLabel(obj)` — returns `obj.labelEn` (EN) or `obj.label` (HE) based on language
-  - **tDesc() function**: `tDesc(obj)` — returns `obj.descEn` (EN) or `obj.desc` (HE)
-  - **Language toggle**: In Settings page, switches between Hebrew (RTL) and English (LTR)
-  - **Config data**: All cities have `nameEn`, all areas have `labelEn`+`descEn`, all interests have `labelEn`
-  - **areaOptions mapping** (config.js L277): Must include `descEn` when adding new area fields
-  - **UI coverage**: All buttons, labels, headers, toasts, dialogs, section headers use t()/tLabel()/tDesc()
-  - **User data**: Place names, descriptions, notes entered by users remain in original language (not translated)
-  - **Help content**: Full help system in both languages (i18n.js help sections)
-  - **interestTooltips** (config.js): Currently Hebrew only — future: add English tooltips
-  - **Key pattern**: Hebrew keys in `he: { general: {...}, nav: {...}, ... }`, English in `en: { general: {...}, ... }`
-  - **Fallback**: If key missing in current language, falls back to Hebrew, then returns key string
-
-## TODO (Next Tasks)
-- **BUGS:**
-  - ~~Custom interests (e.g. "קפה ישראלי") appear in ALL cities — need `cityId` filtering like locations~~ ✅ FIXED
-  - ~~Disabled/inactive interests still appear in the form interest grid — need to filter out interests with status 'disabled' or 'inactive'~~ ✅ FIXED
-  - ~~Private interests should also be per-city~~ ✅ FIXED (cityId added on creation + filtered everywhere)
-- ✅ **Custom locations per city**: `cityId` field added. Filtered by `selectedCityId` in groupedPlaces, getStopsForInterests, filterBlacklist, filterDuplicatesOfCustom. Existing locations without `cityId` default to `'bangkok'`.
-- ✅ **Saved routes per city**: `cityId` added to quickSaveRoute. Filtered by city in saved routes view.
-- ✅ **Custom interests per city**: `cityId` added on creation. `cityCustomInterests` memoized filter. Used in allInterestOptions, form grids (wizard+advanced), myInterests view, tab counts. Existing interests without `cityId` default to `'bangkok'`. Custom interests now also respect `interestStatus` (disabled ones hidden from form).
-- **i18n**: ✅ Implemented — Full Hebrew/English with t()/tLabel()/tDesc() system.
-- **Area editing persistence**: Currently area edits in settings are in-memory only (lost on reload). Consider saving to Firebase or localStorage.
-
-### v2.14.0
-- **Wizard Mode (מצב מהיר)**: Simplified UX — now the ONLY mode (advanced mode removed in v3.5.2)
-  - Step 1: "איפה מטיילים?" — area grid, GPS "קרוב אליי", "כל בנגקוק", map button
-  - Step 2: "מה מעניין אותך?" — interest grid, "מצא נקודות עניין" button
-  - Step 3: Results — grouped stops, "צא לדרך עם גוגל" button
-  - Navigation: hamburger menu (☰) for Saved, Favorites, Interests, Settings
-- **searchMode 'all'**: New mode replacing magic number 15000. Uses radius 15km internally, shows "כל בנגקוק" to user. Future-proof for other cities.
-- **3-way radio in advanced mode**: הכל / איזור / רדיוס (replaces 2-way area/radius toggle)
-- **Help system modernized**: All ❓ replaced with blue "עזרה" text links. Dialog icon changed to ℹ️. Markdown bold rendering fixed (works anywhere in line, not just line start).
-- **Help content rewritten**: Accurate step flow (4 steps), start point explanation (3 methods + how to clear), route type explanation (linear/circular).
-- **Start point cleared** on each generateRoute() to prevent stale data
-- **Scroll behaviors**: scrollTo(0,0) on app load and wizard step transitions; scroll to Google Maps button after computeRoute
-- **Compact footer**: Single line: שתף · version · © · רענן
-- **Map button prominent**: Green "🗺️ הצג מפה" above area selector in advanced mode
-- **Preferences persistence**: searchMode, area, radius all saved in localStorage (formData). Legacy radius+15000 auto-migrated to 'all'.
-- **Place search in add-location dialog**: 🔍 returns up to 5 Google results
-- **Area grid compact**: Reduced padding/gap for mobile fit
-
-### v2.13.0
-- maxStops default upgrade (10→15), counter fixes, all alerts→toasts
-
-### v2.12.0
-- **Shared saved routes**: Moved savedRoutes from localStorage to Firebase (`/savedRoutes/{id}`)
-- All users see the same saved routes (like customLocations and customInterests)
-- One-time auto-migration: existing localStorage routes pushed to Firebase on first load
-- Firebase CRUD: quickSave, delete, update all use Firebase with localStorage fallback
-- Import function updated to push routes to Firebase
-- Data load tracker includes routes
-- **Manual stop addition**: "➕ הוסף ידנית נקודה למסלול" button with address search dialog
-  - Manual stops grouped under "📍 נוספו ידנית" section
-  - Survive "מצא מקומות" re-searches (session state)
-  - Support remove (🗑️), pause (⏸️), set as start (📌), add to myPlaces (+)
-- **Distance filtering**: Post-API distance filter removes results beyond 2x area radius
-- **Disabled stops by name**: `disabledStops` now stores stop names (not indices) for stability across reorders
-  - Paused stops survive "חשב מסלול" and "מצא מקומות" (cleaned if stop no longer in results)
-- **Start point read-only**: Input field is read-only, set only via 🔍 dialog, 📍 GPS, or 📌 from list
-  - Clicking the field opens address search dialog
-  - Green background when coords confirmed
-- **Pause/Resume icons**: ⏸️ to pause, ▶️ to resume (replaced confusing ✕)
-  - Paused stops show grayed name with strikethrough (no full row dimming)
-  - Start point cannot be paused (button hidden)
-- **URL length warnings**: Runtime check on map/route buttons, toast warning if URL > 2000 chars
-- **Map button prominent**: Green gradient with shadow near area/radius selector
-- **Map tiles**: Both area and radius maps use Carto voyager_labels_under (English)
-- **Radius place clear**: ✕ button inside "חפש מקום שלי" field to reset selection
-- **Locked checkbox fix**: `!!` boolean coercion for locked/inProgress from Firebase
-- **Alerts → Toasts**: Replaced remaining alert() calls with showToast()
-- **Default maxStops**: Changed from 10 to 15
-- **Help text rewrite**: All help sections rewritten for simplicity (non-technical, user-friendly)
-- **Removed**: Green border on start point row, redundant address confirmation line, "מגבלת טלפון" texts
-- **UI fixes**: Stop card layout, address search dialog, save route button styling
-
-### v2.11.0
-- **12 areas** (added: Siam, Chatuchak, Silom, Ratchada, On Nut, Bang Rak)
-- **Leaflet map modal**: unified map with 4 modes: `areas` (settings), `radius` (settings), `stops` (route), `favorites` (primary — wizard + favorites page)
-- Favorites mode: colored place markers by interest, area circles as background, filter dialog (interests, areas, "areas only", status)
-- When no places visible (areas-only filter), area circles become prominent with colors and labels
-- Wizard step 1 & 2 both have "🗺️ הצג מפה" opening favorites map filtered by current selections
-- Old separate area/radius map buttons removed from wizard (still available in settings)
-- Leaflet CSS+JS loaded from CDN (unpkg.com), OpenStreetMap tiles via CartoDB Voyager
-- GPS button centers map on user location (zoom 15), second tap re-centers
-- Help button moved from floating circle on map to hyperlink in modal header
-
-### v2.10.0
-- Per-user interest preferences (Firebase `users/{userId}/interestStatus`)
-- Toggle buttons (⏸️/▶️) + reset to default in myInterests view
-- Invalid interests forced inactive
-- Location validation with red border + ❌ indicator
-- Invalid locations filtered from route generation
-- Interest text word-wrap in form buttons
-- Auto-update system (version.json + green banner + settings buttons)
-- PWA: manifest.json, 5 icon sizes, favicon
-- Redesigned header (dark slate gradient, compact, centered)
-- Pull-to-refresh disabled, start point ✕ repositioned
-- Performance: useMemo, O(1) lookups, CSS contain, GPU scroll
-- Adjustable column divider, radius data persistence
-
-### v2.9.0
-- Radius search mode with GPS/MyPlace toggle
-- Distance-based sorting, area detection, hard distance filtering
-
-### v2.8.x
-- Feedback system, loading spinner, admin panel
-- Password hashing, import/export, tab colors, transitions, share buttons
-
-## Session Feb 18, 2026 - Part 2: Major Reliability & UX Improvements
-
-### Custom Interest Scope (global/local)
-- New `scope` field on custom interests: 'global' (default, all cities) or 'local' (specific city)
-- `cityCustomInterests` filter: `scope === 'local'` → filter by cityId; else show everywhere
-- Interests without scope (legacy) = global by default
-- UI: dropdown in add/edit interest dialog to select scope + city
-- `isInterestValid()`: custom interests (custom_*) always valid regardless of search config
-
-### Interest Dialog Defaults
-- `privateOnly: true` by default for new interests
-- Search config fields (types/text/blacklist) disabled when privateOnly is on (opacity + pointerEvents)
-
-### Emoji Suggestion Engine (utils.js)
-- `window.BKK.suggestEmojis(description)` → Promise<string[]>
-- Online: Gemini 2.0 Flash API (uses same Google API key), returns 6 emojis
-- Offline fallback: local keyword→emoji mapping table (~60 categories, Hebrew+English)
-- Generic `iconPickerConfig` state with callback pattern for any icon field
-- Dialog: describe → search → select (stays open) → "more options" → "done"
-- ✨ buttons on: interest icon, city icon, theme left/right icons
-
-### Firebase Save Verification (Server Timestamp Proof)
-- All location saves (add/update/addFromGoogle) verified with `ServerValue.TIMESTAMP`
-- Write to `_verify/{key}` then remove — CANNOT be faked by offline cache
-- ✅ = server confirmed, ⚠️ = local only, ❌ = error (all sticky toasts)
-
-### Pending Items Queue (Offline Resilience)
-- `pendingLocations` + `pendingInterests` in localStorage
-- When Firebase save fails verification → item saved to pending queue
-- Toast: `💾 name — saved locally, will sync when connection returns` (sticky)
-- Auto-sync: when `.info/connected` returns true, 3s delay, then sync all pending
-- Manual sync: "🔄 Sync now" button in My Places (disabled when offline)
-- Header indicator: `☁️3` (pending count, pulsing orange)
-- Pending banner in My Places: orange dashed border, lists names, sync button
-- `syncPendingItems()`: loops through both lists, verifies each with server timestamp
-- Interest pending includes searchConfig for full restoration
-
-### Firebase Connection Monitoring
-- `.info/connected` listener in template → `window.BKK.firebaseConnected`
-- React state `firebaseConnected` via CustomEvent bridge
-- Header: ⚡ yellow pulsing when offline
-
-### Toast Notifications Improvements
-- RTL/LTR direction support (dynamic based on language)
-- Increased duration: min 2.5s, max 6s, 70ms/char
-- Better icons: ❌⚠️ℹ️✅ (emoji instead of text symbols)
-- Larger font (13px), wider (400px max)
-
-### Loading States
-- `locationsLoading` state: true until Firebase responds
-- My Places nav: shows `...` while loading
-- My Places page: spinner instead of "no places" during load
-- Content view: spinner before showing empty state
-
-### Navigation Protection
-- `beforeunload` event: browser confirmation on close/refresh
-- `popstate` handler: prevents back button navigation
-- `overscroll-behavior: none`: prevents swipe-back on mobile
-- Footer refresh button: requires `confirm()` before reload
-- All `<a>` tags: `target="_blank"` (fixed 2 missing ones on map links)
-
-### isLocationValid Simplified
-- Only requires name (was: name + interests + coords)
-- Locations without interests/coords still visible in My Places
-
-### v3.1.0 (Current) — FouFou Rebrand
-- **Renamed**: "City Explorer" → "FouFou — City Trail Generator"
-- **Tagline**: "Local picks + Google spots. Choose your vibe, follow the trail 🍜🏛️🎭"
-- **manifest.json**: name "FouFou — City Trail Generator", short_name "FouFou"
-- **HTML title**: "FouFou"
-- **React component**: `CityExplorer` → `FouFouApp`
-- **config.js**: `APP_NAME = 'FouFou'`
-- **i18n.js**: `appName` (HE+EN), `appDescription` updated with tagline, help content updated
-- **views.js**: footer now shows "FouFou — City Trail Generator 🍜🏛️🎭" + tagline, share title, fallback texts
-- **build.py**: updated print messages
-- **README.md**: full rewrite with new branding
-- **Preserved**: localStorage keys (`city_explorer_city`, `city_explorer_lang`) and window targets (`city_explorer_map`) unchanged to avoid breaking existing users
-- **Preserved**: `window.BKK` namespace unchanged (used everywhere, too risky)
-- **Future Play Store listing**:
-  - **Name**: FouFou — City Trail Generator
-  - **Short description**: Local picks + Google spots. Choose your vibe, follow the trail 🍜🏛️🎭
-  - **Target cities for launch (10)**: Bangkok, Tel Aviv, Singapore, Paris, Barcelona, Lisbon, Tokyo, Rome, London, New York
-
-## Interest Data Model (v3.4.0)
-
-### Interest Fields
-
-Each interest (built-in or custom) has these fields:
-
-| Field | Type | Default | Where stored | Description |
-|-------|------|---------|-------------|-------------|
-| `id` | string | — | key | Unique ID. Built-in: `temples`, `food`, etc. Custom: `custom_1234567890` |
-| `label` | string | — | interest/config | Display name (Hebrew). Built-in can be overridden via `interestConfig.labelOverride` |
-| `labelEn` | string | — | interest/config | Display name (English) |
-| `icon` | string | '📍' | interest/config | Emoji or `data:image/...` base64. Built-in override: `interestConfig.iconOverride` |
-| `category` | string | 'attraction' | interest/config | Route planning role. One of: `attraction`, `break`, `meal`, `experience`, `shopping`, `nature` |
-| `weight` | number | 3 | interest/config | Relative weight for proportional stop allocation (1-5) |
-| `minStops` | number | 1 | interest/config | Minimum guaranteed stops in route (0-10) |
-| `maxStops` | number | 10 | interest/config | Maximum stops cap — allocation never exceeds this (1-15) |
-| `scope` | string | 'global' | interest/config | `'global'` = all cities, `'local'` = specific city only |
-| `cityId` | string | '' | interest/config | Relevant when scope='local' |
-| `privateOnly` | boolean | true | interest | If true, no Google Places API calls — only custom locations |
-| `locked` | boolean | false | interest/config | 🔒 Non-admin users can view but not edit |
-| `custom` | boolean | false | interest | True for user-created interests |
-
-### Category Defaults
-
-When changing category in the dialog, these defaults are applied:
-
-| Category | weight | minStops | maxStops | Purpose |
-|----------|--------|----------|----------|---------|
-| `attraction` | 3 | 1 | 10 | Main purpose of the trip (temples, galleries, graffiti, architecture) |
-| `break` | 1 | 1 | 2 | Short break (coffee, bar). Capped low — it's a pause, not a destination |
-| `meal` | 1 | 1 | 2 | Food stop. Similar to break — 1-2 per trip |
-| `experience` | 1 | 1 | 3 | End-of-day treat (massage, nightlife) |
-| `shopping` | 2 | 1 | 5 | Markets, shops. Medium weight |
-| `nature` | 2 | 1 | 5 | Parks, gardens. Medium weight |
-
-### Stop Allocation Algorithm
-
-Used by `smartSelectStops()` (Yalla + "Help me plan") and `generateRoute()` (Google Places fetching).
-
-**Input:** Selected interests with their weight/min/max, total route maxStops (default 10).
-
-**Step 1 — Guarantee minimums:** Each interest gets its `minStops`, capped by its `maxStops` and by remaining total capacity.
-
-**Step 2 — Distribute remainder by weight:** Remaining slots allocated proportionally by `weight`. If an interest hits its `maxStops` cap, its overflow redistributes to others. Multiple passes ensure fair distribution.
-
-**Step 3 — Leftover rounding:** Any remaining slots from rounding go to highest-weight interests (that haven't hit cap).
-
-**Example — Galleries (w=3, min=1, max=10) + Coffee (w=1, min=1, max=2), route max=10:**
-1. Minimums: galleries=1, coffee=1 → 2 allocated
-2. Remaining 8: galleries gets 8×3/4=6, coffee gets 8×1/4=2 → but coffee max=2, so capped
-3. Coffee overflow (0 in this case) → back to galleries
-4. Result: **8 galleries, 2 coffee**
-
-**Example — Galleries (w=3) + Temples (w=3) + Coffee (w=1, max=2) + Food (w=1, max=2), route max=10:**
-1. Minimums: 4 allocated (1 each)
-2. Remaining 6: galleries 6×3/8=2, temples 2, coffee 0.75→0, food 0.75→0
-3. Leftover 2 → 1 to galleries, 1 to temples (highest weight)
-4. Result: **4 galleries, 4 temples, 1 coffee, 1 food**
-
-### Smart Ordering (smartSelectStops)
-
-After selecting stops, `smartSelectStops` orders them by day-flow logic:
-1. **Attractions** (attraction, nature, shopping) — first
-2. **Break** — inserted ~1/3 into attractions
-3. **Meal** — inserted ~2/3 into attractions
-4. **Experience** — last (massage, nightlife)
-
-Geographic optimization (`optimizeStopOrder`) runs after smart ordering.
-
-### Route Planning Flow
-
-1. **"צא לדרך עם גוגל":** `smartSelectStops` runs → disabled stops hidden → route calculated → Google Maps opens + active trail starts
-2. **Manual mode:** User clicks "מצב ידני" → sees all stops → can swap/reorder → clicks "🗺️ מפה ותכנון" → Google Maps opens
-3. **Map planning:** Leaflet map with OSRM walking route, enable/disable stops, set start point → "חזרה למפות" opens Google Maps with updated stops
-
-### Storage
-
-- **Built-in interests:** Defined in city-*.js files. Overrides stored in Firebase `settings/interestConfig/{interestId}`
-- **Custom interests:** Firebase `customInterests/{interestId}` (all fields including category/weight/min/max)
-- **Interest status (enabled/disabled):** Firebase `settings/interestStatus/{interestId}` + `users/{userId}/interestStatus/{interestId}`
-- **Auto-naming counter:** Firebase `cities/{cityId}/interestCounters/{interestId}` (admin only)
-
-### Google Maps URL Strategy (v3.4.0)
-
-All Google Maps direction URLs omit the `origin` parameter. This causes Google to use "My Location" as start, which shows the **"Start"** button instead of "Preview". The route's start point is included as the first waypoint instead. `dir_action=navigate` is always appended.
-
-### v3.4.1 — Add Location Dialog Cleanup
-
-**Removed from dialog:**
-- Google Maps URL field
-- Links (imageUrls) field
-- "Name" (🔤) coordinate button (duplicate of 🔍 search)
-- "Link" (🔗) coordinate button (no more Maps URL field)
-- "In Progress" (⏳) toggle from UI (field stays in data model, defaults true for new locations)
-
-**Kept:**
-- 🔍 Name search (top)
-- 🏠 Address geocode button (now also falls back to name if no address)
-- 📍 GPS location button
-- "Google Info" + "Open in Google"
-- Coordinates, Description, Notes
-- 🔒 Locked toggle (admin only)
-
-**New field order:**
-1. Name + 🔍 search
-2. Areas (with auto-detect)
-3. Interests
-4. Image (camera / gallery)
-5. Description + Notes
-6. Address + Coordinates + GPS buttons
-7. Google Info + Open in Google
-8. Locked (admin only)
-
-**Logic:** Not locked = in progress, Locked = ready. Simplified from two separate toggles.
-
-### v3.5.0 — My Places Tabs + Auto-detect Areas + Quick Capture Description
-
-**1. Auto-detect areas when coordinates found:**
-- `getCurrentLocation` (GPS) → auto-detects areas
-- `geocodeAddress` → auto-detects areas
-- `geocodeByName` → auto-detects areas
-- Search result click (🔍) → auto-detects areas
-- Toast messages include area count when detected
-
-**2. Auto-generate name button (🏷️):**
-- New button next to name field in Add/Edit Location dialog
-- Uses `generateLocationName()` — same logic as quick capture
-- Requires at least one interest selected; uses first interest + current coords
-- Amber/gold button style
-
-**3. Quick capture description field:**
-- Optional text input in quick capture dialog
-- Between interest selection and auto-generated name display
-- Placeholder: "📝 Description (optional)"
-
-**4. My Places — 3 tabs:**
-- **🛠️ Drafts** (not locked, not blacklisted) — everyone can edit
-- **🔒 Ready** (locked, not blacklisted) — only admin can edit
-- **🚫 Skipped** (blacklisted) — only admin can change
-- State: `placesTab` ('drafts' | 'ready' | 'skipped')
-- `groupedPlaces` memo now splits by locked status and respects `placesTab`
-- Tabs show counts; group-by (interest/area) toggle works across all tabs
-- Non-admin sees 👁️ (view-only) on Ready and Skipped tabs
-
-**i18n keys added:**
-- `places.drafts` (HE: טיוטות, EN: Drafts)
-- `places.ready` (HE: מוכנים, EN: Ready)
-- `places.skipped` (HE: דלג, EN: Skipped)
-- `places.autoName` (HE: שם אוטומטי, EN: Auto name)
-- `general.optional` (HE: רשות, EN: optional)
-
-### v3.5.1 — Performance + Dead Code Cleanup
-
-**Loading Performance:**
-- **Removed no-cache headers** — allows browser caching
-- **Deferred Leaflet** — CSS+JS (~190KB) loaded lazily on first map use. `window.BKK.loadLeaflet()` returns a Promise. Background preload starts 2s after data loads.
-- **Preconnect hints** — 5 CDN domains for faster connections
-- **Search button disabled until ready** — both wizard and advanced buttons show "⏳ Loading..." until `isDataLoaded`
-
-**Dead Code Removed (~108 lines):**
-- `parseMapsUrl()`, `geocodeByName()`, `window.BKK.geocodeByName()`, `showBlacklistLocations` state
-
-**`inProgress` field removed from UI:**
-- Removed toggle buttons from interest dialog, route dialog, and location status cycling
-- Removed 🛠️ badges from interest list, saved routes list
-- Removed from all save/update operations (Firebase + localStorage)
-- i18n keys kept for backward compatibility
-
-### v3.5.2 — Split-File Architecture + UI Improvements
-
-**Split-file loading (major performance):**
-- **Before:** Single `index.html` (688KB) — PWA splash stuck for 5-6 seconds while downloading
-- **After:** `index.html` (11KB) + `app-data.js` (146KB) + `app-code.js` (531KB)
-- index.html contains animated splash only — renders in <100ms
-- `<link rel="preload">` in head starts downloading app-data.js + app-code.js immediately
-- CDN scripts (React, Tailwind, Babel) load after splash is visible
-- app-code.js fetched + compiled by Babel at runtime
-- `_app-code-template.js` — new template for JSX wrapper (Firebase init, React component, nav)
-- `build.py` rewritten to produce 3 output files
-
-**Animated splash screen:**
-- Cat bounces up/down (catBounce)
-- Sunglasses peek up periodically (glassesUp)  
-- Right lens winks (winkRight)
-- Tail wags (tailWag)
-- Animated loading dots (dotPulse)
-
-**Add Location dialog improvements:**
-- "Name" label changed to i18n (`t("places.placeName")`) — shows "שם המקום" / "Place name"
-- Address button (🏠) shrunk to compact icon, inline left of address input field
-- GPS button (📍) shrunk to compact icon, inline left of coordinate inputs
-- Auto-detect areas button removed (detection is automatic on GPS/search/geocode)
-
-**Icon upload compression:**
-- New `window.BKK.compressIcon(file, 64)` — compresses uploaded icons to 64×64 max, WebP format with PNG fallback
-- Fixes broken display of large/unsupported format icons in interest list
-
-**Other fixes:**
-- CSS typo fix: `max-max-h-32` → `max-h-32` in location image preview
-
-### v3.5.2 Session 7-8 (Feb 23, 2026) — Auto-Compute Routes + GPS City Validation
-
-**Auto-compute route system:**
-- Route calculates automatically whenever stops exist — NO manual "compute route" button
-- `recomputeForMap(overrideStart, overrideType)` — central function for all route computation
-- `autoComputeRef` useEffect watches `route.optimized` — when false + 2+ stops → auto-compute in 300ms
-- Triggers: route creation, stop enable/disable, manual stop add, "more" stops, start point change, linear↔circular toggle
-
-**Auto-compute triggers (set `optimized: false`):**
-- `toggleStopActive()` — disable/enable stop
-- Manual stop addition (dialogs.js)
-- `fetchMoreForInterest` / `fetchMoreForAll` — adding stops
-- Setting start point from list view
-
-**Mutable refs for map closures (avoid stale state):**
-- `routeTypeRef` — current route type (linear/circular)
-- `startPointCoordsRef` — current start point coordinates
-- `stopsOrderRef` (inside map useEffect) — current stop order for line drawing
-- All refs update immediately with `.current =` before React re-renders
-
-**Start point logic:**
-- Radius mode + GPS in city → "המיקום שלי" (my location)
-- Area mode or GPS unavailable/outside city → Stop A (first stop)
-- User can change start point via map popup "▶ קבע כהתחלה"
-
-**GPS city boundary validation (system-wide):**
-- `window.BKK.isGpsWithinCity(lat, lng)` — checks distance from `city.center` within `allCityRadius × 1.5`
-- `window.BKK.getValidatedGps(onSuccess, onError)` — wrapper for all GPS calls
-- onError receives reason: 'outside_city', 'denied', 'timeout', 'unavailable'
-- Toast: "המיקום שלך מחוץ לגבולות העיר" when outside city
-- `window.BKK.activeCityData` set in `selectCity()` for city center/radius access
-- **ALL raw `getCurrentPosition` calls replaced** — 0 remaining, 9 uses of `getValidatedGps`
-
-**Circular route line:**
-- `redrawRouteLine()` closes loop back to start point when `routeTypeRef.current === 'circular'`
-
-**Map footer simplified:**
-- Toggle: ↔ ליניארי | ⭕ מעגלי (auto-recomputes + redraws line)
-- Hint: "לחץ על נקודה כדי לקבוע כהתחלה"
-- Close button
-- No compute button (everything is automatic)
-
-**List view simplified:**
-- Removed: "עזור לי לתכנן", "חשב מסלול", route type radio, start point input
-- Kept: ➕ הוסף ידנית → 🗺️ מפה ותכנון → ☰ סדר עצירות → פתח בגוגל + 💾 + 📤
-- Bottom message: "💡 המסלול מחושב אוטומטית. שנה ב🗺️ מפה ותכנון"
-
-**Map button renamed:** "הצג נקודות על המפה" → "🗺️ מפה ותכנון" / "🗺️ Map & Plan"
-
-### v3.5.2 Session (Feb 25, 2026) — Advanced Mode Removal + Trail UX + OSRM Maps
-
-**Advanced Mode Removed (~536 lines deleted):**
-- Removed `wizardMode` state variable and `setWizardMode` — wizard is now the only UI
-- Removed navigation tabs bar (replaced by hamburger menu)
-- Removed entire advanced mode form (city selector, search mode, area grid, interest grid, generate button — ~439 lines)
-- Removed `localStorage('bangkok_wizard_mode')` tracking
-- Simplified all `wizardMode &&` / `!wizardMode` conditions in views.js and app-logic.js
-- Removed i18n keys: `quickMode`, `advancedMode`, `switchToQuick`
-- Simplified back button handler (no more mode toggling)
-- Scroll after route always goes to top (no advanced mode scroll-to-results)
-- Nav state no longer tracks `wizardMode`
-- Total savings: 508 lines views.js, 18 lines app-logic.js, 10 lines i18n.js, ~29KB
-
-**Active Trail Stops Enhanced:**
-- **Photo icon (🖼️):** Shown for favorites with `uploadedImage`. Click opens image modal.
-- **Rating display:** Favorites show `⭐ 4.2 (3)` or just `⭐` if unrated. Click opens review dialog.
-- **Add to favorites (☆):** Google places show empty star with dashed yellow background. Click opens styled confirm dialog with Google rating info. On confirm: adds to favorites + opens edit dialog. Duplicate detection by name + coordinates (50m radius).
-- **"צא לדרך עם גוגל":** Renamed from "יאללה לדרך!" to clarify it opens Google Maps.
-
-**Browser confirm() Replaced with showConfirm():**
-- All `window.confirm()` / `confirm()` calls replaced with styled `showConfirm()` dialog
-- Affected: add-to-favorites, refresh, delete city, delete area, dedup delete
-- Confirm dialog now supports multiline text (`white-space: pre-line`)
-- Only exceptions: admin-only settings cleanup buttons (intentionally ugly to discourage casual use)
-
-**OSRM Walking Route on Leaflet Map:**
-- **Layer 1 (immediate):** Straight dashed line between stops (faded to opacity 0.15 when OSRM loads)
-- **Layer 2 (async ~1s):** OSRM walking route on real streets/sidewalks via `router.project-osrm.org`
-- **Route info badge (bottom-left):** Shows `🚶 3.2 km | ⏱️ 42m` with actual walking distance and time
-- Works in both planning map and "Where am I" trail map
-- Graceful fallback: if OSRM fails, straight line stays visible
-
-**Google Maps URL Centralized:**
-- All code now uses `window.BKK.getGoogleMapsUrl(place)` — single function for all Google Maps links
-- Priority order: mapsUrl → googlePlaceId → fromGoogle+name+coords → address → name+coords → raw coords
-- New case added: custom place with name + coords → `query=name&center=lat,lng&zoom=17`
-- Fixed map popup URLs (were coords-only, now use full priority chain)
-- Fixed trail stop click URLs (were coords-only, now use full priority chain)
-
-**mapsUrl Auto-Repair Migration:**
-- One-time repair runs when locations load for each city
-- Detects: empty, `#`, coords-only patterns, non-Google URLs
-- Rebuilds using `getGoogleMapsUrl()` priority chain
-- Firebase batch update (single write) or localStorage fallback
-- Ref prevents re-running (`mapsUrlRepairDone` per city)
-- Console log: `[REPAIR] Fixing mapsUrl for X locations in cityId`
-
-**getGoogleMapsUrl Priority Chain (utils.js):**
-1. `mapsUrl` — existing Google URL (not coords-only)
-2. `googlePlaceId` — `query=name&query_place_id=ID`
-3. `fromGoogle` + name + coords — `query=name&center=lat,lng&zoom=17`
-4. `address` — `query=address`
-5. name + coords — `query=name&center=lat,lng&zoom=17` (**new**)
-6. raw coords — `query=lat,lng` (last resort)
-
-### v3.6.0 (Feb 27, 2026) — Interactive Favorites Map
-
-**Favorites Map (full-screen, Leaflet-based):**
-- **Full-screen modal** with ✕ close — no footer, maximum map real estate
-- Color-coded circle markers by interest (golden-angle HSL spacing for max contrast)
-- Solid markers = locked/ready, faint markers = drafts, blue dot = user GPS
-- Gray area boundary circles with Hebrew labels for context
-- Tap marker → **bottom sheet** with name, area, interests, thumbnail, navigate/edit buttons
-- **Focus mode**: from location edit dialog, zooms to specific place with highlighted marker
-
-**Filter Dialog (bottom sheet overlay on map):**
-- Floating 🔍 button (purple when filters active)
-- **By area** — toggle buttons with location counts per area
-- **By interest** — colored buttons with icons + labels
-- **By status** — show/hide drafts checkbox
-- **Place search** — type-ahead to find & zoom to specific place
-- **Color legend** — visual key of interest→color mapping
-- **Planning tip** — "dense clusters = content-rich area" insight
-- Map auto-refreshes on filter dialog close
-
-**Help Documentation (❓ button):**
-- Full Hebrew + English guide: what colors mean, how to read density
-- Planning insights: dense clusters, dominant colors, area characterization
-- Accessible from ❓ floating button on map
-
-**Entry Points:**
-- 🗺️ button on favorites page (opens city-wide view)
-- 🗺️ button in location edit dialog (opens focused on that place + area, closes dialog, returns on map close)
-- 🗺️ button in interest dialog (opens filtered to that interest)
-- 🗺️ button in wizard step 1 (interests) and step 2 (area)
-
-**Interest Color System (utils.js):**
-- `generateInterestColor(index, total)` — golden-angle hue spacing (137.508°)
-- `getInterestColor(id, allInterests)` — uses override color if set, else auto-generates
-- `hslToHex(h, s, l)` — HSL→hex conversion utility
-- `getLocationAreas(loc)` — normalize location areas (handles .areas array and .area string)
-- `normalizeLocationAreas(loc)` — alias for getLocationAreas
-- Supports admin color override via `interest.color` field
-- Interest dialog shows "צבע במפה:" label (not just palette icon) next to color picker
-
-**State Variables Added (app-logic.js):**
-- `mapFavFilter` (Set) — interest IDs to show (empty = all, `__areas_only__` = no markers)
-- `mapFavArea` (string|null) — area filter
-- `mapFocusPlace` (object|null) — place to highlight/zoom
-- `mapBottomSheet` (object|null) — location for bottom sheet
-- `showFavMapFilter` (boolean) — filter dialog visibility
-- `mapReturnPlace` (object|null) — place to reopen dialog for after map close
-
-**Dead Code Removed (189 lines):**
-- `getMyLocation()` — replaced by inline GPS calls
-- `detectArea()` — replaced by `detectAreaFromCoords()`
-- `skipPlacePermanently()` — no UI calls it
-- `toggleStopActive()` — no UI calls it
-
-**Import/Export Updated:**
-- Interest `color` field preserved in import/export
-- `showDraftsOnMap` included via systemParams
-
-**i18n Keys Added:**
-- Hebrew + English: filter, clearAll, legend, tip, transparent, interests, status
-- places: showDrafts, searchPlace, searchPlaceholder, draft
-- route: navigate
-- map: favTip
-- help: favoritesMap (full guide)
-
-### v3.6.0 (Feb 27, 2026) — Firebase Authentication + Role System
-
-**Firebase Auth Integration:**
-- Added `firebase-auth-compat.js` to CDN loading (_source-template.html)
-- Auth initialization in `_app-code-template.js` (`auth = firebase.auth()`)
-- `onAuthStateChanged` listener loads/creates user profile from `users/{uid}`
-- First user ever to sign in automatically gets admin role (bootstrap)
-
-**Auth Methods:**
-- Google Sign-In (popup with redirect fallback)
-- Email + Password (login/register toggle)
-- Anonymous (instant, linkable to Google later)
-
-**Role System (replaces password-based admin):**
-- 3 roles: Regular (0), Editor (1), Admin (2)
-- `isEditor = userRole >= 1` — can edit shared content, access settings
-- `isAdmin = userRole >= 2` — full access (sysparams, user management, debug)
-- `isUnlocked = isEditor` — backward compat alias for existing checks
-- Old password dialogs kept but inactive (noop setters)
-
-**New State Variables:**
-- `authUser` — Firebase auth user object
-- `authLoading` — true until auth state resolves
-- `userRole` — 0/1/2
-- `userProfile` — { name, email, photo, role, cities }
-- `showLoginDialog`, `showUserManagement`
-- Login form state: `loginEmail`, `loginPassword`, `loginMode`, `loginError`
-
-**New Auth Functions (app-logic.js):**
-- `authSignInGoogle()`, `authSignInEmail()`, `authSignInAnonymous()`
-- `authSignOut()`, `authLinkAnonymousToGoogle()`
-- `authUpdateUserRole(uid, newRole)` — admin only
-- `authLoadAllUsers()` — admin only
-
-**UI Changes:**
-- Hamburger menu: login/logout button + role badge + user management (admin)
-- Login dialog (dialogs.js): Google/Email/Anonymous options, profile view when signed in
-- User Management dialog (dialogs.js): admin-only, lists all users with role dropdown
-- Settings: sysparams tab gated to admin-only (was editor)
-- Version long-press: opens login dialog instead of password dialog
-
-**Firebase Structure:**
-```
-users/
-  {uid}/
-    name: string
-    email: string
-    photo: string
-    role: 0|1|2
-    cities: string[]
-    createdAt: ISO string
-    lastLogin: ISO string
-```
-
-**Firebase Console Required Setup:**
-1. Enable Authentication → Sign-in method → Google (enable)
-2. Enable Authentication → Sign-in method → Email/Password (enable)
-3. Enable Authentication → Sign-in method → Anonymous (enable)
-4. Database Rules: add `"users": { "$uid": { ".read": true, ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() >= 2)" } }`
-
-**i18n Keys Added:** auth section (25 keys, Hebrew + English)
-
-### v3.7.0 (Mar 1, 2026) — Wizard Flow Swap + Unified Map
-
-**Wizard Flow Reversed:**
-- Step 1: "⭐ מה מעניין אותך?" (interests) — was step 2
-- Step 2: "📍 איפה מטיילים?" (area/radius) — was step 1
-- Step 3: Route results — unchanged
-- Rationale: new tourists don't know which area to pick without knowing what interests them first
-- Breadcrumbs updated: step 2 shows interests icons, step 3 shows interests + area
-- City selector moved to step 2 (where area selection is)
-
-**Unified Map Button in Wizard:**
-- Both step 1 and step 2 have "🗺️ הצג מפה" button (green, prominent, full-width above action button)
-- Step 1: opens favorites map filtered by selected interests (all areas)
-- Step 2: opens favorites map filtered by interests + selected area
-- No interests selected → shows all places
-- No area selected → shows all areas
-- Old separate "הצג מפה" buttons (areas mode, radius mode) removed from wizard
-
-**"Areas Only" Filter in Map:**
-- New "📍 אזורים בלבד" button in filter dialog interest section
-- Sets `mapFavFilter` to `Set(['__areas_only__'])` — special sentinel value
-- When active: no place markers shown, area circles become prominent (colored, labeled, bordered)
-- Replaces need for separate areas-only map mode in wizard
-
-**Favorites Map Enhancements:**
-- Area circles adapt: prominent when no places visible, subtle when places shown
-- Area colors from `areaColors` when in areas-only mode (matches old areas map look)
-- GPS button now centers map (zoom 15) instead of toggling marker off
-- Help ❓ moved from floating circle (overlapped zoom) to hyperlink in modal header
-- Map return-to-place: closing map after opening from place dialog reopens that dialog
-
-**Interest Dialog Improvements:**
-- "צבע במפה:" text label instead of 🎨 emoji for color picker (clarity)
-- New "🗺️ מפה" button opens favorites map filtered to that interest
-- `isInterestValid` filter removed from wizard grid — all active interests now shown
-
-**Bug Fixes:**
-- Fixed Leaflet container height (absolute positioning instead of height:100%)
-- Fixed orphaned function body in utils.js (`normalizeLocationAreas` missing opener, `getLocationAreas` missing header)
-- Added `getLocationAreas()` and `normalizeLocationAreas()` functions to utils.js
-
-**i18n Keys Added:**
-- `interests.mapColor` — "צבע במפה:" / "Map color:"
-- `wizard.areasOnly` — "אזורים בלבד" / "Areas only"
-
-### v3.7.27-v3.7.29 (Mar 3, 2026) — Favorites Map Fixes + Smart Area Assignment
-
-**Favorites Map Fixes (v3.7.27):**
-- Area circles set to `interactive: false` when place markers present (prevents click-blocking)
-- Filter uses `allInterestOptions` (includes custom interests) instead of `window.BKK.interestOptions`
-- Marker click handlers with `L.DomEvent.stopPropagation(e)`
-
-**Smart Area Assignment (v3.7.28):**
-- New `getClosestArea(lat, lng)` helper in utils.js — haversine distance to all area centers
-- Places outside all areas → assigned to closest area + `outsideArea: true` flag (🔺 marker)
-- Import + Google search use closest area instead of wizard selection fallback
-- Migration v2 fixes all existing places with wrong area assignments
-
-**Map Refresh After Area Edits (v3.7.29):**
-- `mapVersion` counter state triggers map re-render on area save/add/delete
-- Settings all-areas map auto-refreshes via programmatic button click
-- Bangkok city data coordinates/radii updated
-
-### v3.7.30-v3.7.33 (Mar 3, 2026) — Area Editor UX + Import from Favorites + Stability
-
-**Area Radius Input (v3.7.31):**
-- Replaced slider with numeric input + ±100m buttons (precise, mobile-friendly)
-- All-areas map: click marker → radius control panel appears below map
-- Cancel restores original radius + position
-
-**All-Areas Map Radius Editing (v3.7.31):**
-- In edit mode, clicking an area marker shows blue radius control panel
-- Real-time circle radius updates on map
-- Radius stored per-marker, cancel reverts all changes
-
-**Description Field (v3.7.31):**
-- Place edit dialog: description changed from `<input>` to `<textarea>` (2 rows, resizable)
-- Better for multi-line descriptions, mobile-friendly with larger touch target
-
-**Speech Duration Setting (v3.7.32):**
-- New `speechMaxSeconds` system parameter (default 15s, range 5-60s)
-- Replaces hardcoded 10s in both description and notes speech recording
-
-**Import from Favorites Screen (v3.7.32):**
-- Green 📥 import button in favorites header (editor+ only)
-- Shared `parseImportFile()` function — extracted from settings, used by both screens
-- After import: stays on favorites with batch highlighting (same as settings import)
-
-**Stability Fixes (v3.7.33):**
-- **Map markers clickable**: Area label divIcons set to `interactive: false` + `pointer-events: none` when place markers exist (DOM elements were overlaying SVG circleMarkers)
-- **Custom interest config preservation**: Edit custom interest now merges with existing config instead of `.set()` which was wiping `adminStatus`, `defaultEnabled`, `group` etc.
-- **Reverted wizard isInterestValid check** — was incorrectly filtering valid interests
-- Removed dead `labelVisible` variable from favorites map
-- Strip `_selectedMapArea` temp field from localStorage save
