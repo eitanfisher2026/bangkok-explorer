@@ -1496,15 +1496,34 @@
                   >
                     {`${t("route.showStopsOnMap")} (${route.stops.filter(s => !isStopDisabled(s) && s.lat && s.lng).length})`}
                   </button>
-                  <button
-                    onClick={() => setOpenHintPopup(openHintPopup === 'hint_manual' ? null : 'hint_manual')}
-                    style={{
-                      width: '42px', height: '42px', borderRadius: '12px',
-                      border: '1px solid #93c5fd', background: openHintPopup === 'hint_manual' ? '#dbeafe' : '#f0f9ff',
-                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '16px', color: '#2563eb', flexShrink: 0
-                    }}
-                  >ℹ</button>
+                  {(() => {
+                    const lang = window.BKK.i18n.currentLang || 'he';
+                    const hasAudio = !!hintAudioUrls['hint_manual_' + lang];
+                    const s = getHelpSection('hint_manual');
+                    const txt = (s && s.content && s.content.trim()) || '';
+                    return (
+                      <div style={{ display: 'flex', gap: '3px', alignItems: 'center', flexShrink: 0 }}>
+                        {isAdmin && (
+                          <button
+                            onClick={() => { setHintEditId('hint_manual'); setHintEditText(txt); }}
+                            style={{ width: '32px', height: '42px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', color: '#d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                          >✏️</button>
+                        )}
+                        <button
+                          onClick={() => setOpenHintPopup(openHintPopup === 'hint_manual' ? null : 'hint_manual')}
+                          style={{
+                            height: '42px', borderRadius: '12px', padding: '0 10px',
+                            border: '1px solid #93c5fd', background: openHintPopup === 'hint_manual' ? '#dbeafe' : '#f0f9ff',
+                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
+                            fontSize: '15px', color: '#2563eb', flexShrink: 0
+                          }}
+                        >
+                          <span>ℹ</span>
+                          {hasAudio && <span style={{ fontSize: '12px' }}>🔈</span>}
+                        </button>
+                      </div>
+                    );
+                  })()}
                   <button
                     onClick={() => setShowRouteMenu(!showRouteMenu)}
                     style={{

@@ -4705,19 +4705,28 @@ const FouFouApp = () => {
           const opt = allInterestOpts.find(o => o.id === id);
           return opt ? (opt.label || opt.labelEn || id) : id;
         };
-        const lines = Object.entries(interestResults)
+        const interestLines = Object.entries(interestResults)
           .filter(([, v]) => (v.total || 0) > 0)
           .sort(([, a], [, b]) => (b.total || 0) - (a.total || 0))
-          .map(([id, v]) => `${getLabel(id)}: ${v.total}`)
-          .join(' · ');
+          .map(([id, v]) => {
+            const n = v.total;
+            const label = getLabel(id);
+            return `  • ${n} ${label}`;
+          })
+          .join("\n");
         const custom = stats.custom || 0;
         const fetched = stats.fetched || 0;
-        let source = '';
-        if (custom > 0 && fetched > 0) source = `${custom} מועדפים + ${fetched} מגוגל`;
-        else if (custom > 0) source = `${custom} ממועדפים`;
-        else if (fetched > 0) source = `${fetched} מגוגל`;
-        const tip = window.t("wizard.editTip") || "ניתן לערוך סדר ולהסיר עצירות";
-        const msg = [lines, source, tip].filter(Boolean).join("\n");
+        let sourceLine = '';
+        if (custom > 0 && fetched > 0)
+          sourceLine = `מתוכם ${custom} מהמועדפים שלך ו-${fetched} הובאו מגוגל`;
+        else if (custom > 0)
+          sourceLine = `כל המקומות הם מהמועדפים שלך`;
+        else if (fetched > 0)
+          sourceLine = `כל המקומות הובאו מגוגל`;
+        const total = stats.total || newRoute.stops.length;
+        const header = `נמצאו ${total} מקומות:`;
+        const tip = "💡 ניתן לערוך סדר, להסיר עצירות ולקרוא את ההסבר למטה";
+        const msg = [header, interestLines, sourceLine, tip].filter(Boolean).join("\n");
         showToast(msg, 'info', 'sticky');
       })();
 
@@ -8074,15 +8083,34 @@ const FouFouApp = () => {
                   >
                     {`${t("route.showStopsOnMap")} (${route.stops.filter(s => !isStopDisabled(s) && s.lat && s.lng).length})`}
                   </button>
-                  <button
-                    onClick={() => setOpenHintPopup(openHintPopup === 'hint_manual' ? null : 'hint_manual')}
-                    style={{
-                      width: '42px', height: '42px', borderRadius: '12px',
-                      border: '1px solid #93c5fd', background: openHintPopup === 'hint_manual' ? '#dbeafe' : '#f0f9ff',
-                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '16px', color: '#2563eb', flexShrink: 0
-                    }}
-                  >ℹ</button>
+                  {(() => {
+                    const lang = window.BKK.i18n.currentLang || 'he';
+                    const hasAudio = !!hintAudioUrls['hint_manual_' + lang];
+                    const s = getHelpSection('hint_manual');
+                    const txt = (s && s.content && s.content.trim()) || '';
+                    return (
+                      <div style={{ display: 'flex', gap: '3px', alignItems: 'center', flexShrink: 0 }}>
+                        {isAdmin && (
+                          <button
+                            onClick={() => { setHintEditId('hint_manual'); setHintEditText(txt); }}
+                            style={{ width: '32px', height: '42px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', color: '#d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                          >✏️</button>
+                        )}
+                        <button
+                          onClick={() => setOpenHintPopup(openHintPopup === 'hint_manual' ? null : 'hint_manual')}
+                          style={{
+                            height: '42px', borderRadius: '12px', padding: '0 10px',
+                            border: '1px solid #93c5fd', background: openHintPopup === 'hint_manual' ? '#dbeafe' : '#f0f9ff',
+                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
+                            fontSize: '15px', color: '#2563eb', flexShrink: 0
+                          }}
+                        >
+                          <span>ℹ</span>
+                          {hasAudio && <span style={{ fontSize: '12px' }}>🔈</span>}
+                        </button>
+                      </div>
+                    );
+                  })()}
                   <button
                     onClick={() => setShowRouteMenu(!showRouteMenu)}
                     style={{

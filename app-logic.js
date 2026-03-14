@@ -5257,21 +5257,30 @@
           const opt = allInterestOpts.find(o => o.id === id);
           return opt ? (opt.label || opt.labelEn || id) : id;
         };
-        // Lines per interest (only those with results)
-        const lines = Object.entries(interestResults)
+        // Per-interest summary lines
+        const interestLines = Object.entries(interestResults)
           .filter(([, v]) => (v.total || 0) > 0)
           .sort(([, a], [, b]) => (b.total || 0) - (a.total || 0))
-          .map(([id, v]) => `${getLabel(id)}: ${v.total}`)
-          .join(' · ');
-        // Custom vs Google breakdown
+          .map(([id, v]) => {
+            const n = v.total;
+            const label = getLabel(id);
+            return `  • ${n} ${label}`;
+          })
+          .join("\n");
+        // Source breakdown
         const custom = stats.custom || 0;
         const fetched = stats.fetched || 0;
-        let source = '';
-        if (custom > 0 && fetched > 0) source = `${custom} מועדפים + ${fetched} מגוגל`;
-        else if (custom > 0) source = `${custom} ממועדפים`;
-        else if (fetched > 0) source = `${fetched} מגוגל`;
-        const tip = window.t("wizard.editTip") || "ניתן לערוך סדר ולהסיר עצירות";
-        const msg = [lines, source, tip].filter(Boolean).join("\n");
+        let sourceLine = '';
+        if (custom > 0 && fetched > 0)
+          sourceLine = `מתוכם ${custom} מהמועדפים שלך ו-${fetched} הובאו מגוגל`;
+        else if (custom > 0)
+          sourceLine = `כל המקומות הם מהמועדפים שלך`;
+        else if (fetched > 0)
+          sourceLine = `כל המקומות הובאו מגוגל`;
+        const total = stats.total || newRoute.stops.length;
+        const header = `נמצאו ${total} מקומות:`;
+        const tip = "💡 ניתן לערוך סדר, להסיר עצירות ולקרוא את ההסבר למטה";
+        const msg = [header, interestLines, sourceLine, tip].filter(Boolean).join("\n");
         showToast(msg, 'info', 'sticky');
       })();
 
