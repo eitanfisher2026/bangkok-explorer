@@ -8111,32 +8111,36 @@ const FouFouApp = () => {
                   </button>
                   {(() => {
                     const lang = window.BKK.i18n.currentLang || 'he';
-                    const hasAudio = !!hintAudioUrls['hint_manual_' + lang];
-                    const s = getHelpSection('hint_manual');
+                    const hasAudio = !!hintAudioUrls['hint_route_menu_' + lang];
+                    const s = getHelpSection('hint_route_menu');
                     const txt = (s && s.content && s.content.trim()) || '';
                     return (
                       <div style={{ display: 'flex', gap: '3px', alignItems: 'center', flexShrink: 0 }}>
                         {isAdmin && (
                           <button
-                            onClick={() => { setHintEditId('hint_manual'); setHintEditText(txt); }}
+                            onClick={() => { setHintEditId('hint_route_menu'); setHintEditText(txt); }}
                             style={{ width: '32px', height: '42px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', color: '#d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
                           >✏️</button>
                         )}
-                        <button
-                          onClick={() => setOpenHintPopup(openHintPopup === 'hint_manual' ? null : 'hint_manual')}
-                          style={{
-                            height: '42px', borderRadius: '12px', padding: '0 10px',
-                            border: '1px solid #d1d5db', background: openHintPopup === 'hint_manual' ? '#e5e7eb' : '#f9fafb',
-                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
-                            fontSize: '15px', color: '#374151', flexShrink: 0
-                          }}
-                        >
-                          <span>ℹ</span>
-                          {hasAudio && <span style={{ fontSize: '12px' }}>🔈</span>}
-                        </button>
+                        {(txt || isAdmin) && (
+                          <button
+                            onClick={() => setOpenHintPopup(openHintPopup === 'hint_route_menu' ? null : 'hint_route_menu')}
+                            title={window.BKK.i18n.isRTL() ? 'מה יש בתפריט?' : 'What's in the menu?'}
+                            style={{
+                              height: '42px', borderRadius: '12px', padding: '0 10px',
+                              border: '1px solid #d1d5db', background: openHintPopup === 'hint_route_menu' ? '#e5e7eb' : '#f9fafb',
+                              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
+                              fontSize: '15px', color: '#374151', flexShrink: 0
+                            }}
+                          >
+                            <span>ℹ</span>
+                            {hasAudio && <span style={{ fontSize: '12px' }}>🔈</span>}
+                          </button>
+                        )}
                       </div>
                     );
                   })()}
+                  {renderContextHint('hint_route_menu')}
                   <button
                     onClick={() => setShowRouteMenu(!showRouteMenu)}
                     style={{
