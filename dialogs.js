@@ -2003,9 +2003,7 @@
                     </div>
                   );
                 })()}
-                {modalImageCtx?.location?.locked && (
-                  <span style={{ fontSize: '11px', color: '#9ca3af' }}>🔒 {t('general.readOnly')}</span>
-                )}
+{/* readOnly label removed */}
               </div>
             )}
             {modalImageCtx && (
@@ -3384,7 +3382,7 @@
               <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
                 {allUsers.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '20px', color: '#9ca3af' }}>Loading...</div>
-                ) : allUsers.map(user => (
+                ) : allUsers.filter(user => user.email || (user.name && !user.name.startsWith('user_'))).map(user => (
                   <div key={user.uid} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderBottom: '1px solid #f3f4f6' }}>
                     {user.photo && <img src={user.photo} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%' }} />}
                     {!user.photo && <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>👤</div>}
@@ -3404,7 +3402,7 @@
                 ))}
               </div>
               <div style={{ padding: '12px 16px', borderTop: '1px solid #e5e7eb', fontSize: '10px', color: '#9ca3af', textAlign: 'center' }}>
-                {allUsers.length} users · You cannot change your own role
+                {allUsers.filter(u => u.email || (u.name && !u.name.startsWith('user_'))).length} users · You cannot change your own role
               </div>
             </div>
           </div>

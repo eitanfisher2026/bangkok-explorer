@@ -7208,22 +7208,12 @@ const FouFouApp = () => {
                           color: isSkipped ? '#9ca3af' : '#2563eb',
                           cursor: isSkipped ? 'default' : 'pointer',
                           textDecoration: isSkipped ? 'line-through' : 'underline',
-                          textDecorationStyle: isSkipped ? 'solid' : 'dotted'
+                          textDecorationStyle: isSkipped ? 'solid' : 'dotted',
+                          display: 'flex', alignItems: 'center', gap: '3px'
                         }}>
+                        {!isSkipped && isFavorite && <img src="icon-32x32.png" alt="FouFou" style={{ width: '12px', height: '12px', flexShrink: 0 }} />}
                         {stop.name}
                       </span>
-                      {/* FouFou info for favorites */}
-                      {!isSkipped && isFavorite && (
-                        <button
-                          onClick={() => {
-                            setModalImage(isFavorite.uploadedImage || '__placeholder__');
-                            setModalImageCtx({ description: isFavorite.description, location: isFavorite });
-                            setShowImageModal(true);
-                          }}
-                          style={{ background: isFavorite.uploadedImage ? '#fef3c7' : '#f3f4f6', border: 'none', borderRadius: '4px', cursor: 'pointer', padding: '1px 3px', flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}
-                          title={t('general.placeInfo') || 'מידע על המקום'}
-                        ><img src="icon-32x32.png" alt="FouFou" style={{ width: '13px', height: '13px' }} /></button>
-                      )}
                       {/* Star + rating */}
                       {!isSkipped && (
                         <button
@@ -7937,7 +7927,7 @@ const FouFouApp = () => {
                               className="text-[10px] px-2 py-0.5 rounded bg-blue-500 text-white hover:bg-blue-600"
                               title={`${t("route.moreFromCategory")} ${tLabel(interestObj)}`}
                             >
-                              {t("general.more")}
+                              {t("general.more")} {formData.fetchMoreCount || 3}
                             </button>
                             )}
                           </div>
@@ -13323,9 +13313,7 @@ const FouFouApp = () => {
                     </div>
                   );
                 })()}
-                {modalImageCtx?.location?.locked && (
-                  <span style={{ fontSize: '11px', color: '#9ca3af' }}>🔒 {t('general.readOnly')}</span>
-                )}
+{/* readOnly label removed */}
               </div>
             )}
             {modalImageCtx && (
@@ -14696,7 +14684,7 @@ const FouFouApp = () => {
               <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
                 {allUsers.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '20px', color: '#9ca3af' }}>Loading...</div>
-                ) : allUsers.map(user => (
+                ) : allUsers.filter(user => user.email || (user.name && !user.name.startsWith('user_'))).map(user => (
                   <div key={user.uid} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderBottom: '1px solid #f3f4f6' }}>
                     {user.photo && <img src={user.photo} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%' }} />}
                     {!user.photo && <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>👤</div>}
@@ -14716,7 +14704,7 @@ const FouFouApp = () => {
                 ))}
               </div>
               <div style={{ padding: '12px 16px', borderTop: '1px solid #e5e7eb', fontSize: '10px', color: '#9ca3af', textAlign: 'center' }}>
-                {allUsers.length} users · You cannot change your own role
+                {allUsers.filter(u => u.email || (u.name && !u.name.startsWith('user_'))).length} users · You cannot change your own role
               </div>
             </div>
           </div>

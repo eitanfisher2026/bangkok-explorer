@@ -519,22 +519,12 @@
                           color: isSkipped ? '#9ca3af' : '#2563eb',
                           cursor: isSkipped ? 'default' : 'pointer',
                           textDecoration: isSkipped ? 'line-through' : 'underline',
-                          textDecorationStyle: isSkipped ? 'solid' : 'dotted'
+                          textDecorationStyle: isSkipped ? 'solid' : 'dotted',
+                          display: 'flex', alignItems: 'center', gap: '3px'
                         }}>
+                        {!isSkipped && isFavorite && <img src="icon-32x32.png" alt="FouFou" style={{ width: '12px', height: '12px', flexShrink: 0 }} />}
                         {stop.name}
                       </span>
-                      {/* FouFou info for favorites */}
-                      {!isSkipped && isFavorite && (
-                        <button
-                          onClick={() => {
-                            setModalImage(isFavorite.uploadedImage || '__placeholder__');
-                            setModalImageCtx({ description: isFavorite.description, location: isFavorite });
-                            setShowImageModal(true);
-                          }}
-                          style={{ background: isFavorite.uploadedImage ? '#fef3c7' : '#f3f4f6', border: 'none', borderRadius: '4px', cursor: 'pointer', padding: '1px 3px', flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}
-                          title={t('general.placeInfo') || 'מידע על המקום'}
-                        ><img src="icon-32x32.png" alt="FouFou" style={{ width: '13px', height: '13px' }} /></button>
-                      )}
                       {/* Star + rating */}
                       {!isSkipped && (
                         <button
@@ -1260,7 +1250,7 @@
                               className="text-[10px] px-2 py-0.5 rounded bg-blue-500 text-white hover:bg-blue-600"
                               title={`${t("route.moreFromCategory")} ${tLabel(interestObj)}`}
                             >
-                              {t("general.more")}
+                              {t("general.more")} {formData.fetchMoreCount || 3}
                             </button>
                             )}
                           </div>
