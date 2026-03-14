@@ -734,12 +734,27 @@ const FouFouApp = () => {
             if (action === 'continuefrom') {
               const trailStops = (activeTrail && activeTrail.stops) || stopsOrderRef.current || stops;
               const clickedIdx = trailStops.findIndex(s => (s.name || '').toLowerCase().trim() === data.toLowerCase().trim());
+              if (clickedIdx < 0) { map.closePopup(); return; }
+
+              const newSkipped = new Set();
+              for (let si = 0; si < clickedIdx; si++) newSkipped.add(si);
+              setSkippedTrailStops(newSkipped);
+              setMapSkippedStops(new Set(newSkipped));
+
               const origin = parseFloat(lat) + ',' + parseFloat(lng);
               const remaining = trailStops.slice(clickedIdx + 1).filter(s => s.lat && s.lng);
+
+              const isCircular = activeTrail && activeTrail.circular;
+              const firstStop = trailStops[0];
+              if (isCircular && firstStop && firstStop.lat && clickedIdx > 0) {
+                remaining.push(firstStop);
+              }
+
               const urls = window.BKK.buildGoogleMapsUrls(remaining, origin, false, window.BKK.googleMaxWaypoints || 12);
               map.closePopup();
-              if (urls.length > 0) window.open(urls[0].url, 'city_explorer_map');
-              else if (remaining.length === 0) {
+              if (urls.length > 0) {
+                window.open(urls[0].url, 'city_explorer_map');
+              } else {
                 window.open(googleUrl || ('https://www.google.com/maps/search/?api=1&query=' + origin), 'city_explorer_map');
               }
               return;
@@ -6073,6 +6088,7 @@ const FouFouApp = () => {
       interests: interests || formData.interests || [],
       area: area || formData.area || '',
       cityId: selectedCityId,
+      circular: routeType === 'circular',
       startedAt: Date.now()
     };
     setActiveTrail(trail);
@@ -7240,20 +7256,7 @@ const FouFouApp = () => {
                           title={isFavorite ? t('trail.ratePlace') : t('trail.addToFavorites')}
                         >{isFavorite ? (ra ? `⭐ ${ra.avg.toFixed(1)} (${ra.count})` : '⭐') : '☆'}</button>
                       )}
-                      <button
-                        onClick={() => {
-                          setSkippedTrailStops(prev => {
-                            const next = new Set(prev);
-                            if (next.has(idx)) next.delete(idx); else next.add(idx);
-                            return next;
-                          });
-                        }}
-                        style={{
-                          background: isSkipped ? '#f0fdf4' : '#fff7ed', border: isSkipped ? '1px solid #6ee7b7' : '1px solid #fed7aa', borderRadius: '20px',
-                          fontSize: '10px', flexShrink: 0, color: isSkipped ? '#059669' : '#ea580c',
-                        }}
-                        title={isSkipped ? t('trail.unskip') : t('trail.skip')}
-                      >{isSkipped ? ('▶ ' + (t('trail.unskip') || 'חזור')) : ('⏸ ' + (t('trail.skip') || 'דלג'))}</button>
+{/* Skip button removed — skipping is handled internally by continuefrom */}
                     </div>
                     );
                     });

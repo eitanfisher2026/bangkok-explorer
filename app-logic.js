@@ -771,17 +771,33 @@
           
           window._mapStopAction = (action, data, lat, lng) => {
             if (action === 'continuefrom') {
-              // Build Google Maps URL starting from clicked stop through all remaining trail stops
               const trailStops = (activeTrail && activeTrail.stops) || stopsOrderRef.current || stops;
               const clickedIdx = trailStops.findIndex(s => (s.name || '').toLowerCase().trim() === data.toLowerCase().trim());
+              if (clickedIdx < 0) { map.closePopup(); return; }
+
+              // Skip all stops before clicked one in the trail
+              const newSkipped = new Set();
+              for (let si = 0; si < clickedIdx; si++) newSkipped.add(si);
+              setSkippedTrailStops(newSkipped);
+              setMapSkippedStops(new Set(newSkipped));
+
+              // Build Google Maps URL: origin = clicked stop, waypoints = remaining stops
               const origin = parseFloat(lat) + ',' + parseFloat(lng);
-              // Include clicked stop as first waypoint too, then remaining
               const remaining = trailStops.slice(clickedIdx + 1).filter(s => s.lat && s.lng);
+
+              // For circular: add original first stop (A) as final destination
+              const isCircular = activeTrail && activeTrail.circular;
+              const firstStop = trailStops[0];
+              if (isCircular && firstStop && firstStop.lat && clickedIdx > 0) {
+                remaining.push(firstStop);
+              }
+
               const urls = window.BKK.buildGoogleMapsUrls(remaining, origin, false, window.BKK.googleMaxWaypoints || 12);
               map.closePopup();
-              if (urls.length > 0) window.open(urls[0].url, 'city_explorer_map');
-              else if (remaining.length === 0) {
-                // Last stop — just open it directly
+              if (urls.length > 0) {
+                window.open(urls[0].url, 'city_explorer_map');
+              } else {
+                // Last stop or no remaining — just open this stop in Google Maps
                 window.open(googleUrl || ('https://www.google.com/maps/search/?api=1&query=' + origin), 'city_explorer_map');
               }
               return;
@@ -6782,6 +6798,7 @@
       interests: interests || formData.interests || [],
       area: area || formData.area || '',
       cityId: selectedCityId,
+      circular: routeType === 'circular',
       startedAt: Date.now()
     };
     setActiveTrail(trail);

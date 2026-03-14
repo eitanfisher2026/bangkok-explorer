@@ -567,20 +567,7 @@
                           title={isFavorite ? t('trail.ratePlace') : t('trail.addToFavorites')}
                         >{isFavorite ? (ra ? `⭐ ${ra.avg.toFixed(1)} (${ra.count})` : '⭐') : '☆'}</button>
                       )}
-                      <button
-                        onClick={() => {
-                          setSkippedTrailStops(prev => {
-                            const next = new Set(prev);
-                            if (next.has(idx)) next.delete(idx); else next.add(idx);
-                            return next;
-                          });
-                        }}
-                        style={{
-                          background: isSkipped ? '#f0fdf4' : '#fff7ed', border: isSkipped ? '1px solid #6ee7b7' : '1px solid #fed7aa', borderRadius: '20px',
-                          fontSize: '10px', flexShrink: 0, color: isSkipped ? '#059669' : '#ea580c',
-                        }}
-                        title={isSkipped ? t('trail.unskip') : t('trail.skip')}
-                      >{isSkipped ? ('▶ ' + (t('trail.unskip') || 'חזור')) : ('⏸ ' + (t('trail.skip') || 'דלג'))}</button>
+{/* Skip button removed — skipping is handled internally by continuefrom */}
                     </div>
                     );
                     });
