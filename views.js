@@ -377,15 +377,34 @@
               <button onClick={() => switchLanguage(currentLang === 'he' ? 'en' : 'he')} style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '2px 8px', color: '#6b7280', fontSize: '10px', cursor: 'pointer' }}>
                 {currentLang === 'he' ? '🇬🇧 EN' : '🇮🇱 עב'}
               </button>
-              <div style={{ textAlign: 'center' }}>
+              <div style={{ textAlign: 'center', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ fontSize: '14px', fontWeight: 'bold' }}>🐾 {t('trail.activeTitle')}</span>
-                
+                {(() => {
+                  const lang = window.BKK.i18n.currentLang || 'he';
+                  const hasAudio = !!hintAudioUrls['hint_trail_' + lang];
+                  const s = getHelpSection('hint_trail');
+                  const txt = (s && s.content && s.content.trim()) || '';
+                  if (!txt && !isAdmin) return null;
+                  return (
+                    <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+                      {isAdmin && (
+                        <button onClick={() => { setHintEditId('hint_trail'); setHintEditText(txt); }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: '#d1d5db', padding: '0' }}>✏️</button>
+                      )}
+                      <button onClick={() => setOpenHintPopup(openHintPopup === 'hint_trail' ? null : 'hint_trail')}
+                        style={{ height: '28px', borderRadius: '10px', padding: '0 7px', border: '1px solid #d1d5db', background: openHintPopup === 'hint_trail' ? '#e5e7eb' : '#f9fafb', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '13px', color: '#374151' }}>
+                        <span>ℹ</span>{hasAudio && <span style={{ fontSize: '10px' }}>🔈</span>}
+                      </button>
+                    </div>
+                  );
+                })()}
               </div>
               <span style={{ fontSize: '10px', color: '#9ca3af' }}>
                 ⏱️ {(() => { const mins = Math.round((Date.now() - activeTrail.startedAt) / 60000); return mins < 60 ? `${mins} ${t('general.min')}` : `${Math.floor(mins/60)}h ${mins%60}m`; })()}
               </span>
             </div>
             <p style={{ fontSize: '11px', color: '#6b7280', margin: '0 0 8px 0', textAlign: 'center' }}>{t('trail.activeDesc')}</p>
+            {renderContextHint('hint_trail')}
 
             {/* Camera Button — compact */}
             <button
@@ -1394,13 +1413,13 @@
                                           setDisabledStops(prev => prev.includes(nk) ? prev.filter(n => n !== nk) : [...prev, nk]);
                                         }}
                                         style={{
-                                          cursor: 'pointer', fontSize: '11px', flexShrink: 0,
-                                          display: 'inline-flex', alignItems: 'center', gap: '2px',
-                                          padding: '1px 6px', borderRadius: '20px',
+                                          cursor: 'pointer', fontSize: '10px', flexShrink: 0,
+                                          display: 'inline-flex', alignItems: 'center', gap: '1px',
+                                          padding: '1px 5px', borderRadius: '20px',
                                           background: isDisabled ? '#f0fdf4' : '#fff7ed',
                                           border: isDisabled ? '1px solid #6ee7b7' : '1px solid #fed7aa',
                                           color: isDisabled ? '#059669' : '#ea580c',
-                                          marginInlineStart: 'auto', fontWeight: '600'
+                                          marginInlineStart: 'auto', fontWeight: '500'
                                         }}
                                         title={isDisabled ? t('trail.unskip') : t('trail.skip')}
                                       >{isDisabled ? ('▶ ' + (t('trail.unskip') || 'חזור')) : ('⏸ ' + (t('trail.skip') || 'דלג'))}</span>

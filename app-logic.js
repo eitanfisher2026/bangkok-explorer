@@ -1462,21 +1462,23 @@
     showToast('💾 ' + (t('general.saved') || 'נשמר'), 'success');
   };
 
-  const saveAndTranslateHint = async (sectionId, hebrewText) => {
+  const saveAndTranslateHint = async (sectionId, text) => {
     if (!isFirebaseAvailable || !database) return;
-    // Always save Hebrew text to 'he' slot first
-    database.ref(`helpContent/${sectionId}/he`).set(hebrewText);
-    setHelpOverrides(prev => ({ ...prev, [sectionId]: { ...(prev[sectionId] || {}), he: hebrewText } }));
+    const srcLang = window.BKK.i18n.currentLang || 'he';
+    const tgtLang = srcLang === 'he' ? 'en' : 'he';
+    // Save original to source lang slot
+    database.ref(`helpContent/${sectionId}/${srcLang}`).set(text);
+    setHelpOverrides(prev => ({ ...prev, [sectionId]: { ...(prev[sectionId] || {}), [srcLang]: text } }));
     showToast('💾 נשמר, מתרגם...', 'info');
     setHintEditId(null);
-    // Then translate and save to 'en' slot
+    // Translate and save to target lang slot
     try {
-      const resp = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=he&tl=en&dt=t&q=' + encodeURIComponent(hebrewText));
+      const resp = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=' + srcLang + '&tl=' + tgtLang + '&dt=t&q=' + encodeURIComponent(text));
       const data = await resp.json();
       const translated = data[0].map(function(s) { return s[0]; }).join('');
-      database.ref(`helpContent/${sectionId}/en`).set(translated);
-      setHelpOverrides(prev => ({ ...prev, [sectionId]: { ...(prev[sectionId] || {}), en: translated } }));
-      showToast('🌐 תורגם לאנגלית!', 'success');
+      database.ref(`helpContent/${sectionId}/${tgtLang}`).set(translated);
+      setHelpOverrides(prev => ({ ...prev, [sectionId]: { ...(prev[sectionId] || {}), [tgtLang]: translated } }));
+      showToast('🌐 ' + (tgtLang === 'en' ? 'תורגם לאנגלית' : 'Translated to Hebrew') + '!', 'success');
     } catch (err) { showToast('Translation: ' + err.message, 'error'); }
   };
 
@@ -5439,7 +5441,7 @@
           placesToAdd.push(...fromCache);
           // Update cache: remove used ones
           googleCacheRef.current[interest] = unusedCached.slice(needed);
-          source = source ? `${source} + ${t("places.fromGoogleCache")}` : t('places.fromGoogle');
+          source = source ? `${source} + ${t('general.fromGoogleCache') || t('general.fromGoogle')}` : t('general.fromGoogle');
           console.log(`[FETCH_MORE] Added ${fromCache.length} from Google cache (${googleCacheRef.current[interest].length} remaining)`);
         }
       }
@@ -5485,7 +5487,7 @@
         // Cache remaining for future use
         googleCacheRef.current[interest] = newPlaces.slice(needed);
         placesToAdd.push(...fromApi);
-        source = source ? `${source} + ${t("places.fromGoogle")}` : t('places.fromGoogle');
+        source = source ? `${source} + ${t("general.fromGoogle")}` : t('general.fromGoogle');
         console.log(`[FETCH_MORE] Got ${fromApi.length} from API, cached ${googleCacheRef.current[interest].length}`);
         } // end if !isPrivate
       }
@@ -5633,8 +5635,8 @@
       // Build source message
       const sources = [];
       if (fromCustom > 0) sources.push(`${fromCustom} ${t("general.fromMyPlaces")}`);
-      if (fromCache > 0) sources.push(`${fromCache} ${t("places.fromGoogleCache")}`);
-      if (fromApi > 0) sources.push(`${fromApi} ${t("places.fromGoogle")}`);
+      if (fromCache > 0) sources.push(`${fromCache} ${t('general.fromGoogleCache') || t('general.fromGoogle')}`);
+      if (fromApi > 0) sources.push(`${fromApi} ${t("general.fromGoogle")}`);
       showToast(`${allNewPlaces.length} ${t("route.places")} (${sources.join(', ')})`, 'success');
       
       setTimeout(() => {
