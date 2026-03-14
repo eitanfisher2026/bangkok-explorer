@@ -2670,42 +2670,56 @@
               </div>
             )}
 
-            {toastMessage && (
+            {toastMessage && (<>
+        {/* Backdrop — click anywhere outside closes toast */}
+        <div onClick={() => setToastMessage(null)} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />
         <div
-          onClick={() => setToastMessage(null)}
           dir={window.BKK.i18n.isRTL() ? 'rtl' : 'ltr'}
           style={{
             position: 'fixed',
             top: '10px',
             right: '10px',
             left: '10px',
-            maxWidth: '400px',
+            maxWidth: '420px',
             margin: '0 auto',
-            padding: '8px 14px',
-            borderRadius: '8px',
-            backgroundColor: toastMessage.type === 'error' ? '#fecaca' : toastMessage.type === 'warning' ? '#fde68a' : toastMessage.type === 'info' ? '#dbeafe' : '#bbf7d0',
-            border: `1px solid ${toastMessage.type === 'error' ? '#ef4444' : toastMessage.type === 'warning' ? '#f59e0b' : toastMessage.type === 'info' ? '#3b82f6' : '#22c55e'}`,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            padding: '12px 14px 10px',
+            borderRadius: '12px',
+            backgroundColor: toastMessage.type === 'error' ? '#fef2f2' : toastMessage.type === 'warning' ? '#fffbeb' : toastMessage.type === 'info' ? '#eff6ff' : '#f0fdf4',
+            border: `1px solid ${toastMessage.type === 'error' ? '#fca5a5' : toastMessage.type === 'warning' ? '#fcd34d' : toastMessage.type === 'info' ? '#93c5fd' : '#86efac'}`,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.18)',
             zIndex: 9999,
             animation: 'slideDown 0.15s ease-out',
-            cursor: toastMessage.sticky ? 'pointer' : 'default',
             direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr',
-            textAlign: window.BKK.i18n.isRTL() ? 'right' : 'left'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
-            <span style={{ fontSize: '14px', flexShrink: 0 }}>
-              {toastMessage.type === 'error' ? '❌' : toastMessage.type === 'warning' ? '⚠️' : toastMessage.type === 'info' ? 'ℹ️' : '✅'}
-            </span>
-            <div style={{ fontSize: '13px', fontWeight: '500', color: '#374151', whiteSpace: 'pre-line', lineHeight: '1.5' }}>
-              {toastMessage.message}
-            </div>
-            {toastMessage.sticky && (
-              <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#6b7280', cursor: 'pointer', flexShrink: 0 }}>✕</span>
-            )}
+          {/* Close button — top corner */}
+          <button
+            onClick={() => setToastMessage(null)}
+            style={{
+              position: 'absolute',
+              top: '8px',
+              [window.BKK.i18n.isRTL() ? 'left' : 'right']: '10px',
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: '16px', color: '#9ca3af', lineHeight: 1, padding: '2px 4px',
+              borderRadius: '4px'
+            }}
+          >✕</button>
+          {/* Content */}
+          <div style={{ fontSize: '13px', color: '#1e293b', lineHeight: '1.7',
+            paddingInlineEnd: '20px',
+            textAlign: window.BKK.i18n.isRTL() ? 'right' : 'left'
+          }}>
+            {toastMessage.message.split('\n').map((line, i) => (
+              <div key={i} style={{
+                fontWeight: i === 0 ? '700' : '400',
+                marginBottom: i === 0 ? '6px' : '2px',
+                color: i === 0 ? '#1e3a5f' : i === toastMessage.message.split('\n').length - 1 ? '#6b7280' : '#374151',
+                fontSize: i === 0 ? '14px' : '13px'
+              }}>{line}</div>
+            ))}
           </div>
         </div>
-      )}
+      </>)}
 
 
       {/* === PLACE REVIEW DIALOG === */}

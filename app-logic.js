@@ -5260,16 +5260,18 @@
             countByInterest[id]++;
           });
         });
-        // Build the interest lines with icon
+        // Build the interest lines with icon — one per line
         const interestLine = seenOrder
           .filter(id => id !== '_manual' && countByInterest[id] > 0)
           .map(id => {
             const opt = allInterestOpts.find(o => o.id === id);
-            const icon = opt?.icon && !opt.icon.startsWith('data:') ? opt.icon : '';
-            const label = opt ? (opt.label || opt.labelEn || id) : id;
-            return `${icon}${label} (${countByInterest[id]})`;
+            const icon = opt?.icon && !opt.icon.startsWith('data:') ? opt.icon + ' ' : '';
+            // Replace raw custom IDs with human label
+            const label = opt ? (opt.label || opt.labelEn || id) : id.replace(/^custom_\d+$/, t('interests.customPlace') || 'מקום מותאם');
+            const n = countByInterest[id];
+            return `${icon}${label} (${n})`;
           })
-          .join('  ');
+          .join('\n');
         // Source line
         const stats = newRoute.stats || {};
         const custom = stats.custom || 0;
