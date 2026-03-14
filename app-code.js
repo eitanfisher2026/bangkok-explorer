@@ -4698,25 +4698,33 @@ const FouFouApp = () => {
       setRoute(newRoute);
 
       (() => {
-        const allInterestOpts = [...(window.BKK.interestOptions || []), ...(window.BKK.uncoveredInterests || [])];
-        const seenOrder = [];
-        const countByInterest = {};
+        const groupedStops = {};
         newRoute.stops.forEach(stop => {
           (stop.interests || []).forEach(id => {
-            if (!countByInterest[id]) { countByInterest[id] = 0; seenOrder.push(id); }
-            countByInterest[id]++;
+            if (!groupedStops[id]) groupedStops[id] = [];
+            groupedStops[id].push(stop);
           });
+          if (!stop.interests || stop.interests.length === 0) {
+            if (!groupedStops['_manual']) groupedStops['_manual'] = [];
+            groupedStops['_manual'].push(stop);
+          }
         });
-        const interestLine = seenOrder
-          .filter(id => id !== '_manual' && countByInterest[id] > 0)
+
+        const selectedIds = newRoute.preferences?.interests || formData.interests || [];
+        const interestLines = Object.keys(groupedStops)
+          .filter(id => id !== '_manual' && selectedIds.includes(id))
           .map(id => {
-            const opt = allInterestOpts.find(o => o.id === id);
-            const icon = opt?.icon && !opt.icon.startsWith('data:') ? opt.icon + ' ' : '';
-            const label = opt ? (opt.label || opt.labelEn || id) : id.replace(/^custom_\d+$/, t('interests.customPlace') || 'מקום מותאם');
-            const n = countByInterest[id];
+            const opt = allInterestOptions.find(o => o.id === id);
+            if (!opt) return null;
+            const iconRaw = opt.icon || '';
+            const icon = (iconRaw && !iconRaw.startsWith('data:')) ? iconRaw + ' ' : '';
+            const label = tLabel(opt) || opt.labelEn || id;
+            const n = groupedStops[id].length;
             return `${icon}${label} (${n})`;
           })
+          .filter(Boolean)
           .join('\n');
+
         const stats = newRoute.stats || {};
         const custom = stats.custom || 0;
         const fetched = stats.fetched || 0;
@@ -4727,11 +4735,14 @@ const FouFouApp = () => {
           sourceLine = `כל המקומות נבחרו מתוך רשימת המקומות המועדפים של פופו`;
         else if (fetched > 0)
           sourceLine = `כל המקומות הובאו מגוגל`;
-        const line1 = `המסלול המומלץ מורכב מהתחומים הבאים:`;
-        const line3 = sourceLine;
-        const line4 = `ניתן לראות את מיקום המקומות במפה ותכנון, לשנות סדר, להוסיף נקודות משלך ולשנות נקודת התחלה.`;
-        const line5 = `מידע נוסף דרך כפתור ℹ`;
-        const msg = [line1, interestLine, line3, line4, line5].filter(Boolean).join("\n");
+
+        const msg = [
+          `המסלול המומלץ מורכב מהתחומים הבאים:`,
+          interestLines,
+          sourceLine,
+          `ניתן לראות את מיקום המקומות במפה ותכנון, לשנות סדר, להוסיף נקודות משלך ולשנות נקודת התחלה.`,
+          `מידע נוסף דרך כפתור התיעוד`
+        ].filter(Boolean).join("\n");
         showToast(msg, 'info', 'sticky');
       })();
 
