@@ -5284,16 +5284,15 @@
           .filter(Boolean)
           .join('\n');
 
-        // Source line
-        const stats = newRoute.stats || {};
-        const custom = stats.custom || 0;
-        const fetched = stats.fetched || 0;
+        // Source line — count from actual stops in the route (not raw fetch stats)
+        const customInRoute = newRoute.stops.filter(s => s.custom).length;
+        const googleInRoute = newRoute.stops.filter(s => !s.custom).length;
         let sourceLine = '';
-        if (custom > 0 && fetched > 0)
-          sourceLine = `${custom} מקומות נבחרו מרשימת המועדפים של פופו ו-${fetched} נוספו מגוגל`;
-        else if (custom > 0)
+        if (customInRoute > 0 && googleInRoute > 0)
+          sourceLine = `${customInRoute} מקומות נבחרו מרשימת המועדפים של פופו ו-${googleInRoute} נוספו מגוגל`;
+        else if (customInRoute > 0)
           sourceLine = `כל המקומות נבחרו מתוך רשימת המקומות המועדפים של פופו`;
-        else if (fetched > 0)
+        else if (googleInRoute > 0)
           sourceLine = `כל המקומות הובאו מגוגל`;
 
         const msg = [
