@@ -280,6 +280,17 @@
   const [disabledStops, setDisabledStops] = useState([]); // Track disabled stop IDs
   const disabledStopsRef = React.useRef(disabledStops);
   React.useEffect(() => { disabledStopsRef.current = disabledStops; }, [disabledStops]);
+  const reoptimizeTimerRef = React.useRef(null);
+  const [isReoptimizing, setIsReoptimizing] = useState(false);
+
+  // Trigger 3: auto-reoptimize when disabled stops change (skip/unskip)
+  const prevDisabledRef = React.useRef(disabledStops);
+  React.useEffect(() => {
+    if (!route?.stops?.length) { prevDisabledRef.current = disabledStops; return; }
+    if (prevDisabledRef.current === disabledStops) return;
+    prevDisabledRef.current = disabledStops;
+    scheduleReoptimize();
+  }, [disabledStops]);
   
   // === SHARED HELPERS (avoid code duplication) ===
   
@@ -288,6 +299,17 @@
   const isStopDisabledRef = (stop) => (disabledStopsRef.current || []).includes((stop.name || '').toLowerCase().trim());
   
   // Find smart start point: GPS nearest → circular first → null (let optimizer pick)
+  // Debounced auto-reoptimize — called when stops/start change, never cuts stops
+  // Uses ref to avoid stale closure on runSmartPlan
+  const scheduleReoptimize = () => {
+    if (reoptimizeTimerRef.current) clearTimeout(reoptimizeTimerRef.current);
+    reoptimizeTimerRef.current = setTimeout(() => {
+      setIsReoptimizing(true);
+      runSmartPlan({ skipSmartSelect: true });
+      setIsReoptimizing(false);
+    }, 600);
+  };
+
   const findSmartStart = (stops, gps, isCircular) => {
     if (gps?.lat && gps?.lng) {
       const check = window.BKK.isGpsWithinCity(gps.lat, gps.lng);
@@ -1224,7 +1246,13 @@
   const routeTypeRef = React.useRef(routeType);
   React.useEffect(() => { routeTypeRef.current = routeType; }, [routeType]);
   const startPointCoordsRef = React.useRef(startPointCoords);
-  React.useEffect(() => { startPointCoordsRef.current = startPointCoords; }, [startPointCoords]);
+  React.useEffect(() => {
+    startPointCoordsRef.current = startPointCoords;
+    // Auto-reoptimize when start point changes (has valid coords and route exists)
+    if (startPointCoords?.lat && startPointCoords?.lng && route?.stops?.length >= 2) {
+      scheduleReoptimize();
+    }
+  }, [startPointCoords]);
   const [showVersionPasswordDialog, setShowVersionPasswordDialog] = useState(false); // legacy
   const [showAddCityDialog, setShowAddCityDialog] = useState(false);
   const [addCityInput, setAddCityInput] = useState('');
@@ -5473,6 +5501,7 @@
       };
       
       setRoute(updatedRoute);
+      scheduleReoptimize();
       showToast(`${placesToAdd.length} ${t("toast.addedMorePlaces")} ${interestLabel} (${source})`, 'success');
       
     } catch (error) {

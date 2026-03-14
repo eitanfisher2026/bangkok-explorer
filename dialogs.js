@@ -1791,6 +1791,7 @@
                     stops: [...prev.stops, newStop],
                     optimized: false
                   } : prev);
+                  scheduleReoptimize();
                 }
                 
                 showToast(`➕ ${display} ${t("interests.added")}`, 'success');

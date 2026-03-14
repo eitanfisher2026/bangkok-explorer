@@ -1169,7 +1169,13 @@
 
             {/* Show stops list ONLY after route is calculated */}
             {route && (
-              <div id="route-results" className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3 mt-4" dir={window.BKK.i18n.isRTL() ? "rtl" : "ltr"}>
+              <div id="route-results" className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3 mt-4" dir={window.BKK.i18n.isRTL() ? "rtl" : "ltr"} style={{ position: 'relative' }}>
+                {isReoptimizing && (
+                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(239,246,255,0.85)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '8px', gap: '8px' }}>
+                    <div style={{ width: '28px', height: '28px', border: '3px solid #e5e7eb', borderTopColor: '#6d28d9', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                    <span style={{ fontSize: '11px', color: '#6d28d9', fontWeight: '600' }}>{t('route.reoptimizing') || 'מסדר מסלול...'}</span>
+                  </div>
+                )}
                 <div className="flex items-center gap-2 mb-2">
                   <h3 className="font-bold text-blue-900 text-sm">{`${t("route.places")} - ${route.areaName}`} ({route.stops.length}):</h3>
                 </div>
@@ -1565,11 +1571,11 @@
                       {[
                         { icon: '+', label: t('route.addManualStop').replace('➕ ', ''), action: () => { setShowRouteMenu(false); setShowManualAddDialog(true); } },
                         { icon: '≡', label: t('route.reorderStops'), action: () => { setShowRouteMenu(false); reorderOriginalStopsRef.current = route?.stops ? [...route.stops] : null; setShowRoutePreview(true); }, disabled: !route?.optimized },
-                        { icon: '✦', label: t('route.helpMePlan'), action: () => {
+                        ...(isAdmin ? [{ icon: '✦', label: t('route.helpMePlan'), action: () => {
                           setShowRouteMenu(false);
-                          const result = runSmartPlan({});
+                          const result = runSmartPlan({ skipSmartSelect: true });
                           if (result) showToast(`✦ ${result.optimized.length} ${t('route.stops')}`, 'success');
-                        }},
+                        }}] : []),
                         { icon: '↗', label: t('general.shareRoute'), action: () => {
                           if (!authUser || authUser.isAnonymous) { setShowLoginDialog(true); return; }
                           setShowRouteMenu(false);
