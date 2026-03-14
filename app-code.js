@@ -8045,10 +8045,10 @@ const FouFouApp = () => {
                                         style={{
                                           display: 'inline-flex', alignItems: 'center', gap: '3px',
                                           padding: '1px 7px', marginTop: '3px',
-                                          background: isAdding ? '#e5e7eb' : '#faf5ff',
-                                          border: '1px dashed #c4b5fd',
+                                          background: isAdding ? '#e5e7eb' : '#f0fdf4',
+                                          border: '1px dashed #6ee7b7',
                                           borderRadius: '20px', fontSize: '10px', fontWeight: '600',
-                                          color: isAdding ? '#9ca3af' : '#7c3aed',
+                                          color: isAdding ? '#9ca3af' : '#059669',
                                           cursor: isAdding ? 'wait' : 'pointer',
                                         }}
                                       >
