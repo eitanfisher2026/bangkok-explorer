@@ -300,13 +300,16 @@
   
   // Find smart start point: GPS nearest → circular first → null (let optimizer pick)
   // Debounced auto-reoptimize — called when stops/start change, never cuts stops
-  // Uses ref to avoid stale closure on runSmartPlan
+  // Uses runSmartPlanRef so setTimeout always calls the LATEST version (avoids stale closure)
+  const runSmartPlanRef = React.useRef(null);
   const scheduleReoptimize = () => {
     if (reoptimizeTimerRef.current) clearTimeout(reoptimizeTimerRef.current);
     reoptimizeTimerRef.current = setTimeout(() => {
-      setIsReoptimizing(true);
-      runSmartPlan({ skipSmartSelect: true });
-      setIsReoptimizing(false);
+      if (runSmartPlanRef.current) {
+        setIsReoptimizing(true);
+        runSmartPlanRef.current({ skipSmartSelect: true });
+        setIsReoptimizing(false);
+      }
     }, 600);
   };
 
@@ -5435,6 +5438,9 @@
   // When skipSmartSelect=true, respects current disabledStops (for user manual changes)
   // Thin wrapper for backward compatibility — delegates to runSmartPlan
   // Uses routeTypeRef to avoid stale closures in useEffect/setTimeout
+  // Keep runSmartPlanRef updated so scheduleReoptimize always uses latest version
+  runSmartPlanRef.current = runSmartPlan;
+
   const recomputeForMap = (overrideStart, overrideType, skipSmartSelect) => {
     const type = overrideType !== undefined ? overrideType : routeTypeRef.current;
     return runSmartPlan({ overrideStart, overrideType: type, skipSmartSelect });

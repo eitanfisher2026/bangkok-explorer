@@ -310,12 +310,15 @@ const FouFouApp = () => {
   const isStopDisabled = (stop) => disabledStops.includes((stop.name || '').toLowerCase().trim());
   const isStopDisabledRef = (stop) => (disabledStopsRef.current || []).includes((stop.name || '').toLowerCase().trim());
   
+  const runSmartPlanRef = React.useRef(null);
   const scheduleReoptimize = () => {
     if (reoptimizeTimerRef.current) clearTimeout(reoptimizeTimerRef.current);
     reoptimizeTimerRef.current = setTimeout(() => {
-      setIsReoptimizing(true);
-      runSmartPlan({ skipSmartSelect: true });
-      setIsReoptimizing(false);
+      if (runSmartPlanRef.current) {
+        setIsReoptimizing(true);
+        runSmartPlanRef.current({ skipSmartSelect: true });
+        setIsReoptimizing(false);
+      }
     }, 600);
   };
 
@@ -4853,6 +4856,8 @@ const FouFouApp = () => {
       setIsGenerating(false);
     }
   };
+
+  runSmartPlanRef.current = runSmartPlan;
 
   const recomputeForMap = (overrideStart, overrideType, skipSmartSelect) => {
     const type = overrideType !== undefined ? overrideType : routeTypeRef.current;
