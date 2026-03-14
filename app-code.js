@@ -6654,10 +6654,10 @@ const FouFouApp = () => {
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: '2px',
                 padding: '2px 7px', fontSize: '11px', fontWeight: '600',
-                background: openHintPopup === hintId ? '#dbeafe' : '#f0f9ff',
-                color: '#2563eb', border: '1px solid #93c5fd',
+                background: openHintPopup === hintId ? '#e5e7eb' : '#f9fafb',
+                color: '#374151', border: '1px solid #d1d5db',
                 borderRadius: '20px', cursor: 'pointer',
-                boxShadow: '0 1px 3px rgba(37,99,235,0.08)'
+                boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
               }}
             >
               <span style={{ fontSize: '11px' }}>ℹ</span>
@@ -7179,7 +7179,7 @@ const FouFouApp = () => {
                           fontSize: '10px', flexShrink: 0, color: isSkipped ? '#059669' : '#ea580c',
                         }}
                         title={isSkipped ? t('trail.unskip') : t('trail.skip')}
-                      >{isSkipped ? '▶ חזור' : '⏸ דלג'}</button>
+                      >{isSkipped ? ('▶ ' + (t('trail.unskip') || 'חזור')) : ('⏸ ' + (t('trail.skip') || 'דלג'))}</button>
                     </div>
                     );
                     });
@@ -8003,7 +8003,7 @@ const FouFouApp = () => {
                                           marginInlineStart: 'auto', fontWeight: '600'
                                         }}
                                         title={isDisabled ? t('trail.unskip') : t('trail.skip')}
-                                      >{isDisabled ? '▶ חזור' : '⏸ דלג'}</span>
+                                      >{isDisabled ? ('▶ ' + (t('trail.unskip') || 'חזור')) : ('⏸ ' + (t('trail.skip') || 'דלג'))}</span>
                                     </div>
                                     <div className="text-[10px]" style={{
                                       color: hasValidCoords ? '#6b7280' : '#991b1b'
@@ -8126,9 +8126,9 @@ const FouFouApp = () => {
                           onClick={() => setOpenHintPopup(openHintPopup === 'hint_manual' ? null : 'hint_manual')}
                           style={{
                             height: '42px', borderRadius: '12px', padding: '0 10px',
-                            border: '1px solid #93c5fd', background: openHintPopup === 'hint_manual' ? '#dbeafe' : '#f0f9ff',
+                            border: '1px solid #d1d5db', background: openHintPopup === 'hint_manual' ? '#e5e7eb' : '#f9fafb',
                             cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
-                            fontSize: '15px', color: '#2563eb', flexShrink: 0
+                            fontSize: '15px', color: '#374151', flexShrink: 0
                           }}
                         >
                           <span>ℹ</span>
