@@ -1424,25 +1424,28 @@
                                       );
                                     })()}
                                   </a>
-                                  {/* Add to favorites row — Google places only */}
+                                  {/* Add to favorites — compact inline star, Google places only */}
                                   {!isCustom && !isDisabled && (() => {
                                     const existingLoc = customLocations.find(loc => loc.name.toLowerCase().trim() === stop.name.toLowerCase().trim());
-                                    if (existingLoc) return <div style={{ fontSize: '9px', color: '#22c55e', padding: '2px 8px' }}>✅ {t('nav.favorites')}</div>;
+                                    if (existingLoc) return null; // already in favorites, stop has ✅ elsewhere
                                     const placeId = stop.id || stop.name;
                                     const isAdding = addingPlaceIds.includes(placeId);
                                     return (
                                       <button
                                         onClick={(e) => { e.preventDefault(); addGooglePlaceToCustom(stop); }}
                                         disabled={isAdding}
+                                        title={t('route.addToMyList')}
                                         style={{
-                                          width: '100%', padding: '3px 8px', marginTop: '2px',
-                                          background: isAdding ? '#e5e7eb' : '#f3e8ff', border: '1px dashed #a855f7',
-                                          borderRadius: '6px', fontSize: '10px', fontWeight: '600',
-                                          color: isAdding ? '#9ca3af' : '#7c3aed', cursor: isAdding ? 'wait' : 'pointer',
-                                          textAlign: 'center'
+                                          display: 'inline-flex', alignItems: 'center', gap: '3px',
+                                          padding: '1px 7px', marginTop: '3px',
+                                          background: isAdding ? '#e5e7eb' : '#faf5ff',
+                                          border: '1px dashed #c4b5fd',
+                                          borderRadius: '20px', fontSize: '10px', fontWeight: '600',
+                                          color: isAdding ? '#9ca3af' : '#7c3aed',
+                                          cursor: isAdding ? 'wait' : 'pointer',
                                         }}
                                       >
-                                        {isAdding ? '...' : `⭐ ${t('route.addToMyList')}`}
+                                        {isAdding ? '...' : <>⭐ <span>{t('route.addToMyList')}</span></>}
                                       </button>
                                     );
                                   })()}
