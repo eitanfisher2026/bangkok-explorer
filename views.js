@@ -555,11 +555,11 @@
                           });
                         }}
                         style={{
-                          background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px',
-                          fontSize: '12px', flexShrink: 0, color: isSkipped ? '#22c55e' : '#dc2626'
+                          background: isSkipped ? '#f0fdf4' : '#fff7ed', border: isSkipped ? '1px solid #6ee7b7' : '1px solid #fed7aa', borderRadius: '20px',
+                          fontSize: '10px', flexShrink: 0, color: isSkipped ? '#059669' : '#ea580c',
                         }}
                         title={isSkipped ? t('trail.unskip') : t('trail.skip')}
-                      >{isSkipped ? '▶️' : '⏸️'}</button>
+                      >{isSkipped ? '▶ חזור' : '⏸ דלג'}</button>
                     </div>
                     );
                     });
@@ -1387,12 +1387,16 @@
                                           setDisabledStops(prev => prev.includes(nk) ? prev.filter(n => n !== nk) : [...prev, nk]);
                                         }}
                                         style={{
-                                          cursor: 'pointer', fontSize: '12px', flexShrink: 0,
-                                          color: isDisabled ? '#22c55e' : '#dc2626',
-                                          marginInlineStart: 'auto'
+                                          cursor: 'pointer', fontSize: '11px', flexShrink: 0,
+                                          display: 'inline-flex', alignItems: 'center', gap: '2px',
+                                          padding: '1px 6px', borderRadius: '20px',
+                                          background: isDisabled ? '#f0fdf4' : '#fff7ed',
+                                          border: isDisabled ? '1px solid #6ee7b7' : '1px solid #fed7aa',
+                                          color: isDisabled ? '#059669' : '#ea580c',
+                                          marginInlineStart: 'auto', fontWeight: '600'
                                         }}
                                         title={isDisabled ? t('trail.unskip') : t('trail.skip')}
-                                      >{isDisabled ? '▶️' : '⏸️'}</span>
+                                      >{isDisabled ? '▶ חזור' : '⏸ דלג'}</span>
                                     </div>
                                     <div className="text-[10px]" style={{
                                       color: hasValidCoords ? '#6b7280' : '#991b1b'

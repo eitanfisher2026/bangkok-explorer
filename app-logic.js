@@ -866,7 +866,7 @@
               const curIsDisabled = curDisabled.includes(nameKey);
               const toggleAction = curIsDisabled ? 'enable' : 'disable';
               const toggleLabel = curIsDisabled ? '▶️ ' + t('route.returnPlace') : '⏸️ ' + t('route.skipPlace');
-              const toggleColor = curIsDisabled ? '#22c55e' : '#dc2626';
+              const toggleColor = curIsDisabled ? '#059669' : '#ea580c';
               return '<div style="text-align:center;direction:' + (isRTL ? 'rtl' : 'ltr') + ';font-size:13px;min-width:160px;padding:4px 0;">' +
                 '<div style="font-weight:bold;font-size:14px;margin-bottom:6px;">' + (stopLetter ? stopLetter + '. ' : '') + (stop.name || '') + '</div>' +
                 (stop.rating ? '<div style="color:#f59e0b;margin-bottom:6px;">⭐ ' + stop.rating + (stop.ratingCount ? ' (' + stop.ratingCount + ')' : '') + '</div>' : '') +
