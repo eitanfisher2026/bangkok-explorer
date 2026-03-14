@@ -5270,8 +5270,13 @@
           .map(id => {
             const opt = allInterestOptions.find(o => o.id === id);
             if (!opt) return null;
+            // For data:/http icons (user-uploaded), fall back to base emoji from interestOptions
             const iconRaw = opt.icon || '';
-            const icon = (iconRaw && !iconRaw.startsWith('data:')) ? iconRaw + ' ' : '';
+            const isImageIcon = iconRaw.startsWith('data:') || iconRaw.startsWith('http');
+            const baseOpt = isImageIcon ? window.BKK.interestOptions?.find(o => o.id === id) : null;
+            const icon = isImageIcon
+              ? ((baseOpt?.icon && !baseOpt.icon.startsWith('data:')) ? baseOpt.icon + ' ' : '🏷️ ')
+              : (iconRaw ? iconRaw + ' ' : '');
             const label = tLabel(opt) || opt.labelEn || id;
             const n = groupedStops[id].length;
             return `${icon}${label} (${n})`;
