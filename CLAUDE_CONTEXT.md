@@ -2,7 +2,7 @@
 
 **Tagline:** Local picks + Google spots. Choose your vibe, follow the trail 🍜🏛️🎭
 
-## Version: 3.8.62 (Mar 14, 2026)
+## Version: 3.8.63 (Mar 14, 2026)
 
 ## Live: https://eitanfisher2026.github.io/FouFou/
 

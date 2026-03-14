@@ -1273,26 +1273,7 @@
                                   opacity: isDisabled ? 0.45 : 1,
                                   transition: 'opacity 0.2s'
                                 }}>
-                                  {/* Action buttons - positioned based on language direction */}
-                                  <div style={{ position: 'absolute', top: '2px', display: 'flex', gap: '2px', ...(window.BKK.i18n.isRTL() ? { left: '2px' } : { right: '2px' }) }}>
-                                    {/* Remove button for manually added stops */}
-                                    {stop.manuallyAdded && (
-                                      <button
-                                        onClick={() => {
-                                          setManualStops(prev => prev.filter(ms => ms.name !== stop.name));
-                                          setRoute(prev => prev ? {
-                                            ...prev,
-                                            stops: prev.stops.filter((_, idx) => idx !== stop.originalIndex)
-                                          } : prev);
-                                          showToast(`🗑️ ${stop.name} ${t("toast.removedFromRoute")}`, 'info');
-                                        }}
-                                        className="text-[9px] px-1 py-0.5 rounded bg-red-500 text-white hover:bg-red-600"
-                                        title={t("route.removeFromRoute")}
-                                      >
-                                        🗑️
-                                      </button>
-                                    )}
-                                  </div>
+{/* Action buttons removed from absolute position - trash moved inline */}
                                   
                                   <a
                                     href={window.BKK.getGoogleMapsUrl(stop)}
@@ -1402,6 +1383,22 @@
                                         }}
                                         title={isDisabled ? t('trail.unskip') : t('trail.skip')}
                                       >{isDisabled ? ('▶ ' + (t('trail.unskip') || 'חזור')) : ('⏸ ' + (t('trail.skip') || 'דלג'))}</span>
+                                      {/* Trash for manually added stops — inline at end of row */}
+                                      {stop.manuallyAdded && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.preventDefault(); e.stopPropagation();
+                                            setManualStops(prev => prev.filter(ms => ms.name !== stop.name));
+                                            setRoute(prev => prev ? {
+                                              ...prev,
+                                              stops: prev.stops.filter((_, idx) => idx !== stop.originalIndex)
+                                            } : prev);
+                                            showToast(`🗑️ ${stop.name} ${t('toast.removedFromRoute')}`, 'info');
+                                          }}
+                                          title={t('route.removeFromRoute')}
+                                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', flexShrink: 0, padding: '0 2px', color: '#ef4444' }}
+                                        >🗑️</button>
+                                      )}
                                     </div>
                                     <div className="text-[10px]" style={{
                                       color: hasValidCoords ? '#6b7280' : '#991b1b'
