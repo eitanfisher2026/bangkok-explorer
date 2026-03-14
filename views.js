@@ -1559,6 +1559,9 @@
                       border: '1px solid #e5e7eb', overflow: 'hidden',
                       direction: window.BKK.i18n.isRTL() ? 'rtl' : 'ltr'
                     }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '6px 10px 0', borderBottom: '1px solid #f3f4f6' }}>
+                        <button onClick={() => setShowRouteMenu(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', color: '#9ca3af', padding: '0 2px', lineHeight: 1 }}>✕</button>
+                      </div>
                       {[
                         { icon: '+', label: t('route.addManualStop').replace('➕ ', ''), action: () => { setShowRouteMenu(false); setShowManualAddDialog(true); } },
                         { icon: '≡', label: t('route.reorderStops'), action: () => { setShowRouteMenu(false); reorderOriginalStopsRef.current = route?.stops ? [...route.stops] : null; setShowRoutePreview(true); }, disabled: !route?.optimized },
