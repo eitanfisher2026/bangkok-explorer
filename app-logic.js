@@ -5250,37 +5250,42 @@
 
       // ── Friendly stats toast ──
       (() => {
-        const stats = newRoute.stats || {};
-        const interestResults = stats.interestResults || {};
-        const allInterestOpts = window.BKK.interestOptions || [];
-        const getLabel = (id) => {
-          const opt = allInterestOpts.find(o => o.id === id);
-          return opt ? (opt.label || opt.labelEn || id) : id;
-        };
-        // Per-interest summary lines
-        const interestLines = Object.entries(interestResults)
-          .filter(([, v]) => (v.total || 0) > 0)
-          .sort(([, a], [, b]) => (b.total || 0) - (a.total || 0))
-          .map(([id, v]) => {
-            const n = v.total;
-            const label = getLabel(id);
-            return `  • ${n} ${label}`;
+        const allInterestOpts = [...(window.BKK.interestOptions || []), ...(window.BKK.uncoveredInterests || [])];
+        // Build interest order from stop list (same order as results screen)
+        const seenOrder = [];
+        const countByInterest = {};
+        newRoute.stops.forEach(stop => {
+          (stop.interests || []).forEach(id => {
+            if (!countByInterest[id]) { countByInterest[id] = 0; seenOrder.push(id); }
+            countByInterest[id]++;
+          });
+        });
+        // Build the interest lines with icon
+        const interestLine = seenOrder
+          .filter(id => id !== '_manual' && countByInterest[id] > 0)
+          .map(id => {
+            const opt = allInterestOpts.find(o => o.id === id);
+            const icon = opt?.icon && !opt.icon.startsWith('data:') ? opt.icon : '';
+            const label = opt ? (opt.label || opt.labelEn || id) : id;
+            return `${icon}${label} (${countByInterest[id]})`;
           })
-          .join("\n");
-        // Source breakdown
+          .join('  ');
+        // Source line
+        const stats = newRoute.stats || {};
         const custom = stats.custom || 0;
         const fetched = stats.fetched || 0;
         let sourceLine = '';
         if (custom > 0 && fetched > 0)
-          sourceLine = `מתוכם ${custom} מהמועדפים שלך ו-${fetched} הובאו מגוגל`;
+          sourceLine = `${custom} מקומות נבחרו מרשימת המועדפים של פופו ו-${fetched} נוספו מגוגל`;
         else if (custom > 0)
-          sourceLine = `כל המקומות הם מהמועדפים שלך`;
+          sourceLine = `כל המקומות נבחרו מתוך רשימת המקומות המועדפים של פופו`;
         else if (fetched > 0)
           sourceLine = `כל המקומות הובאו מגוגל`;
-        const total = stats.total || newRoute.stops.length;
-        const header = `נמצאו ${total} מקומות:`;
-        const tip = "💡 ניתן לערוך סדר, להסיר עצירות ולקרוא את ההסבר למטה";
-        const msg = [header, interestLines, sourceLine, tip].filter(Boolean).join("\n");
+        const line1 = `המסלול המומלץ מורכב מהתחומים הבאים:`;
+        const line3 = sourceLine;
+        const line4 = `ניתן לראות את מיקום המקומות במפה ותכנון, לשנות סדר, להוסיף נקודות משלך ולשנות נקודת התחלה.`;
+        const line5 = `מידע נוסף דרך כפתור ℹ`;
+        const msg = [line1, interestLine, line3, line4, line5].filter(Boolean).join("\n");
         showToast(msg, 'info', 'sticky');
       })();
 
