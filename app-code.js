@@ -732,17 +732,16 @@ const FouFouApp = () => {
           
           window._mapStopAction = (action, data, lat, lng) => {
             if (action === 'continuefrom') {
-              const allStops = stopsOrderRef.current || stops;
-              const clickedIdx = allStops.findIndex(s => (s.name || '').toLowerCase().trim() === data.toLowerCase().trim());
-              if (clickedIdx < 0) return;
-              const origin = lat + ',' + lng;
-              const remaining = allStops.slice(clickedIdx + 1).filter(s => {
-                const nk = (s.name || '').toLowerCase().trim();
-                return s.lat && s.lng && !disabledStopsRef.current.includes(nk);
-              });
+              const trailStops = (activeTrail && activeTrail.stops) || stopsOrderRef.current || stops;
+              const clickedIdx = trailStops.findIndex(s => (s.name || '').toLowerCase().trim() === data.toLowerCase().trim());
+              const origin = parseFloat(lat) + ',' + parseFloat(lng);
+              const remaining = trailStops.slice(clickedIdx + 1).filter(s => s.lat && s.lng);
               const urls = window.BKK.buildGoogleMapsUrls(remaining, origin, false, window.BKK.googleMaxWaypoints || 12);
-              if (urls.length > 0) window.open(urls[0].url, 'city_explorer_map');
               map.closePopup();
+              if (urls.length > 0) window.open(urls[0].url, 'city_explorer_map');
+              else if (remaining.length === 0) {
+                window.open(googleUrl || ('https://www.google.com/maps/search/?api=1&query=' + origin), 'city_explorer_map');
+              }
               return;
             }
             if (action === 'setstart') {
@@ -851,15 +850,33 @@ const FouFouApp = () => {
             const googleUrl = window.BKK.getGoogleMapsUrl(stop) || ('https://www.google.com/maps/search/?api=1&query=' + stop.lat + ',' + stop.lng);
             
             const makePopup = () => {
-              const continueLabel = isRTL ? 'המשך מנקודה זו ▶' : 'Continue from here ▶';
-              return '<div style="text-align:center;direction:' + (isRTL ? 'rtl' : 'ltr') + ';font-size:13px;min-width:160px;padding:4px 0;">' +
-                '<div style="font-weight:bold;font-size:14px;margin-bottom:6px;">' + (stopLetter ? stopLetter + '. ' : '') + (stop.name || '') + '</div>' +
-                (stop.rating ? '<div style="color:#f59e0b;margin-bottom:6px;">⭐ ' + stop.rating + (stop.ratingCount ? ' (' + stop.ratingCount + ')' : '') + '</div>' : '') +
-                '<div style="display:flex;gap:6px;justify-content:center;margin-bottom:6px;">' +
-                  '<a href="' + googleUrl + '" target="_blank" style="flex:1;display:inline-block;padding:6px 10px;border-radius:8px;background:#3b82f6;color:white;text-decoration:none;font-size:12px;font-weight:bold;">Google Maps ↗</a>' +
-                '</div>' +
-                '<button onclick="window._mapStopAction(\'continuefrom\',\'' + escapedName + '\',' + stop.lat + ',' + stop.lng + ')" style="width:100%;padding:7px 8px;border-radius:8px;background:#16a34a;color:white;border:none;font-size:12px;font-weight:bold;cursor:pointer;">' + continueLabel + '</button>' +
-              '</div>';
+              const isTrailActive = !!activeTrail;
+              const curDisabled = disabledStopsRef.current || [];
+              const curIsDisabled = curDisabled.includes(nameKey);
+              const header = '<div style="font-weight:bold;font-size:14px;margin-bottom:6px;">' + (stopLetter ? stopLetter + '. ' : '') + (stop.name || '') + '</div>' +
+                (stop.rating ? '<div style="color:#f59e0b;margin-bottom:6px;">⭐ ' + stop.rating + (stop.ratingCount ? ' (' + stop.ratingCount + ')' : '') + '</div>' : '');
+              const googleBtn = '<a href="' + googleUrl + '" target="_blank" style="flex:1;display:inline-block;padding:6px 10px;border-radius:8px;background:#3b82f6;color:white;text-decoration:none;font-size:12px;font-weight:bold;">Google Maps ↗</a>';
+
+              if (isTrailActive) {
+                const continueLabel = isRTL ? 'המשך מנקודה זו ▶' : 'Continue from here ▶';
+                return '<div style="text-align:center;direction:' + (isRTL ? 'rtl' : 'ltr') + ';font-size:13px;min-width:160px;padding:4px 0;">' +
+                  header +
+                  '<div style="display:flex;gap:6px;justify-content:center;margin-bottom:6px;">' + googleBtn + '</div>' +
+                  '<button onclick="window._mapStopAction(\'continuefrom\',\'' + escapedName + '\',' + stop.lat + ',' + stop.lng + ')" style="width:100%;padding:7px 8px;border-radius:8px;background:#16a34a;color:white;border:none;font-size:12px;font-weight:bold;cursor:pointer;">' + continueLabel + '</button>' +
+                '</div>';
+              } else {
+                const toggleAction = curIsDisabled ? 'enable' : 'disable';
+                const toggleLabel = curIsDisabled ? '▶️ ' + t('route.returnPlace') : '⏸️ ' + t('route.skipPlace');
+                const toggleColor = curIsDisabled ? '#059669' : '#ea580c';
+                return '<div style="text-align:center;direction:' + (isRTL ? 'rtl' : 'ltr') + ';font-size:13px;min-width:160px;padding:4px 0;">' +
+                  header +
+                  '<div style="display:flex;gap:6px;justify-content:center;margin-bottom:6px;">' +
+                    googleBtn +
+                    '<button onclick="window._mapStopAction(\'' + toggleAction + '\',\'' + escapedName + '\')" style="flex:1;padding:6px 10px;border-radius:8px;background:' + toggleColor + ';color:white;border:none;font-size:12px;font-weight:bold;cursor:pointer;">' + toggleLabel + '</button>' +
+                  '</div>' +
+                  '<button onclick="window._mapStopAction(\'setstart\',\'' + escapedName + '\',' + stop.lat + ',' + stop.lng + ')" style="width:100%;padding:5px 8px;border-radius:8px;background:' + window.BKK.mapConfig.marker.startRingColor + ';color:white;border:none;font-size:11px;font-weight:bold;cursor:pointer;">▶ ' + t('form.setStartPoint') + '</button>' +
+                '</div>';
+              }
             };
             
             circle.bindPopup(makePopup, { maxWidth: 250 });
