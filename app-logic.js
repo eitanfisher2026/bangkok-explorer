@@ -7052,7 +7052,7 @@
     if (finalAreas.length === 0) finalAreas = [formData.area || areaOptions[0]?.id || 'center'];
     
     const newId = Date.now();
-    const locationToAdd = {
+    let locationToAdd = {
       id: newId,
       name: locData.name.trim(),
       description: (locData.description || '').trim() || (locData.notes || '').trim() || t('general.addedByUser'),
